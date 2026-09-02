@@ -878,18 +878,16 @@ fun StationScreen(
                 Text(status, color = acc, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             val inf = rememberInfiniteTransition(label = "viz")
-            val pulse = inf.animateFloat(
-                initialValue = 0.35f,
-                targetValue = 1f,
-                animationSpec = infiniteRepeatable(tween(1100, easing = androidx.compose.animation.core.FastOutSlowInEasing), RepeatMode.Reverse),
-                label = "p"
-            ).value
-            Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.height(28.dp).padding(start = 6.dp)) {
-                listOf(0.4f, 0.85f, 0.55f, 1f, 0.5f, 0.75f, 0.45f).forEach { base ->
+            val pulseA = inf.animateFloat(0.25f, 1f, infiniteRepeatable(tween(420), RepeatMode.Reverse), "a").value
+            val pulseB = inf.animateFloat(0.35f, 1f, infiniteRepeatable(tween(680), RepeatMode.Reverse), "b").value
+            val pulseC = inf.animateFloat(0.2f, 1f, infiniteRepeatable(tween(520), RepeatMode.Reverse), "c").value
+            Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.height(44.dp).padding(start = 6.dp)) {
+                listOf(0.35f, 0.7f, 0.5f, 1f, 0.45f, 0.85f, 0.4f, 0.65f, 0.55f).forEachIndexed { i, base ->
+                    val p = when (i % 3) { 0 -> pulseA; 1 -> pulseB; else -> pulseC }
                     Box(
-                        modifier = Modifier.padding(horizontal = 1.dp).width(3.dp)
-                            .height((if (playing) 6f + 20f * base * pulse else 6f).dp)
-                            .background(acc, RoundedCornerShape(2.dp))
+                        modifier = Modifier.padding(horizontal = 1.2.dp).width(3.5.dp)
+                            .height((if (playing) 8f + 34f * base * p else 7f).dp)
+                            .background(acc.copy(alpha = if (playing) 0.55f + 0.45f * p else 0.35f), RoundedCornerShape(50))
                     )
                 }
             }
@@ -917,7 +915,7 @@ fun StationScreen(
                         }
                     )
                     if (suggestFor == key) {
-                        Column(modifier = Modifier.fillMaxWidth().background(card, RoundedCornerShape(8.dp)).padding(6.dp)) {
+                        Column(modifier = Modifier.fillMaxWidth().background(card, RoundedCornerShape(14.dp)).padding(6.dp)) {
                             hints.distinct().take(12).forEach { h ->
                                 Text(h, color = text, modifier = Modifier.fillMaxWidth().clickable { set(h); onSuggestFor("") }.padding(6.dp))
                             }
@@ -977,9 +975,9 @@ fun StationScreen(
                             .padding(10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Box(modifier = Modifier.size(32.dp), contentAlignment = Alignment.Center) {
+                        Box(modifier = Modifier.size(42.dp), contentAlignment = Alignment.Center) {
                             if (s.favicon.startsWith("http") && !s.favicon.contains("example.com")) {
-                                AsyncImage(model = s.favicon, contentDescription = null, modifier = Modifier.size(32.dp), contentScale = ContentScale.Fit)
+                                AsyncImage(model = s.favicon, contentDescription = null, modifier = Modifier.size(42.dp), contentScale = ContentScale.Crop)
                             } else Text("🎵")
                         }
                         Column(modifier = Modifier.padding(start = 8.dp).weight(1f)) {
@@ -1007,7 +1005,7 @@ fun StationScreen(
         if (tabs.isNotEmpty()) {
             Row(
                 modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 4.dp, bottom = 2.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(11.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 tabs.forEachIndexed { i, tab ->
@@ -1028,7 +1026,7 @@ fun StationScreen(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier
-                            .background(if (i == tabIndex) acc else card, RoundedCornerShape(8.dp))
+                            .background(if (i == tabIndex) acc else card, RoundedCornerShape(14.dp))
                             .border(1.dp, if (i == tabIndex) acc else Color(0xFF3A3A42), RoundedCornerShape(8.dp))
                             .combinedClickable(onClick = { onTab(i) }, onLongClick = { onLongTab(tab) })
                             .padding(horizontal = 8.dp, vertical = 5.dp)
@@ -1145,7 +1143,7 @@ fun StationScreen(
         ModalBottomSheet(onDismissRequest = onNowClose, containerColor = Color(0xFF121214), sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
             Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 if (artUrl(favicon).startsWith("http") || artUrl(favicon).startsWith("content:")) {
-                    AsyncImage(model = artUrl(favicon), contentDescription = null, modifier = Modifier.size(160.dp), contentScale = ContentScale.Fit)
+                    AsyncImage(model = artUrl(favicon), contentDescription = null, modifier = Modifier.size(200.dp), contentScale = ContentScale.Crop)
                 } else Text("🎵", style = MaterialTheme.typography.displayMedium)
                 Text(name, color = Color.White, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Text("жанр: $genre", color = muted)
@@ -1185,9 +1183,9 @@ fun StationScreen(
                     }.padding(8.dp))
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(top = 16.dp)) {
-                    Box(modifier = Modifier.size(56.dp).background(Color(0xFF1A1A1E), RoundedCornerShape(14.dp)).clickable { onPrev() }, contentAlignment = Alignment.Center) { Text("⏮") }
-                    Box(modifier = Modifier.size(72.dp).background(acc, RoundedCornerShape(16.dp)).clickable { onPlayPause() }, contentAlignment = Alignment.Center) { Text(if (playing) "⏸" else "▶", color = Color(0xFF0A0A0C)) }
-                    Box(modifier = Modifier.size(56.dp).background(Color(0xFF1A1A1E), RoundedCornerShape(14.dp)).clickable { onNext() }, contentAlignment = Alignment.Center) { Text("⏭") }
+                    Box(modifier = Modifier.size(68.dp).background(Color(0xFF1A1A1E), RoundedCornerShape(16.dp)).clickable { onPrev() }, contentAlignment = Alignment.Center) { Text("⏮") }
+                    Box(modifier = Modifier.size(88.dp).background(acc, RoundedCornerShape(18.dp)).clickable { onPlayPause() }, contentAlignment = Alignment.Center) { Text(if (playing) "⏸" else "▶", color = Color(0xFF0A0A0C)) }
+                    Box(modifier = Modifier.size(68.dp).background(Color(0xFF1A1A1E), RoundedCornerShape(16.dp)).clickable { onNext() }, contentAlignment = Alignment.Center) { Text("⏭") }
                 }
             }
         }

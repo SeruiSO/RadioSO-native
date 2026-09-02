@@ -1011,7 +1011,7 @@ fun StationScreen(
                                     onDragCancel = { acc = 0f; dropAt = -1; dragging = false }
                                 ) { _, drag ->
                                     acc += drag.y
-                                    dropAt = (index + (acc / 108f).toInt()).coerceIn(0, localRows.lastIndex)
+                                    dropAt = (index + (acc / 168f).toInt()).coerceIn(0, localRows.lastIndex)
                                 }
                             }
                             .clickable { onPickLocal(localRows, index) }
@@ -1053,7 +1053,7 @@ fun StationScreen(
                                     onDragCancel = { acc = 0f; dropAt = -1; dragging = false }
                                 ) { _, drag ->
                                     acc += drag.y
-                                    dropAt = (index + (acc / 108f).toInt()).coerceIn(0, radioRows.lastIndex)
+                                    dropAt = (index + (acc / 168f).toInt()).coerceIn(0, radioRows.lastIndex)
                                 }
                             }
                             .clickable { onPickRadio(radioRows, index) }

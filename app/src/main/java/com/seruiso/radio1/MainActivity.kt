@@ -12,6 +12,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -20,11 +22,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -49,9 +53,18 @@ class MainActivity : ComponentActivity() {
     private var localTracks by mutableStateOf(listOf<LocalTrack>())
     private var favUrls by mutableStateOf(setOf<String>())
     private var bestUris by mutableStateOf(setOf<String>())
+    private var customTabs by mutableStateOf(listOf<String>())
+    private var addedRev by mutableIntStateOf(0)
+    private var qName by mutableStateOf("")
+    private var qCountry by mutableStateOf("")
+    private var qGenre by mutableStateOf("")
+    private var searchRows by mutableStateOf(listOf<Station>())
+    private var pickStation by mutableStateOf<Station?>(null)
+    private var newTabOpen by mutableStateOf(false)
+    private var newTabName by mutableStateOf("")
 
-    private val extraTabs = listOf("fav", "best", "local")
-    private val uiTabs: List<String> get() = extraTabs + sourceTabs
+    private val extraTabs = listOf("fav", "best", "local", "search")
+    private val uiTabs: List<String> get() = extraTabs + sourceTabs + customTabs.filter { it !in sourceTabs }
 
     private val uiReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -86,6 +99,7 @@ class MainActivity : ComponentActivity() {
         stations = loaded.second
         favUrls = FavStore.urls(this, BluetoothAutoPlayPlugin.KEY_FAVORITES)
         bestUris = FavStore.urls(this, BluetoothAutoPlayPlugin.KEY_LOCAL_BEST)
+        customTabs = TabStore.customTabs(this)
         reloadLocal()
         readPrefs()
         setContent {
@@ -96,6 +110,36 @@ class MainActivity : ComponentActivity() {
                         tabs = uiTabs,
                         tabIndex = tabIndex,
                         onTab = { tabIndex = it },
+                        qName = qName, onName = { qName = it },
+                        qCountry = qCountry, onCountry = { qCountry = it },
+                        qGenre = qGenre, onGenre = { qGenre = it },
+                        onSearch = { runSearch() },
+                        onAddTab = { newTabOpen = true },
+                        pickStation = pickStation,
+                        targetTabs = targetTabs(),
+                        onPickTabForStation = { tab ->
+                            val s = pickStation
+                            if (s != null) {
+                                val err = TabStore.addStation(this, tab, s)
+                                statusText = err ?: "додано в $tab"
+                                if (err == null) addedRev++
+                            }
+                            pickStation = null
+                        },
+                        onCancelPick = { pickStation = null },
+                        newTabOpen = newTabOpen,
+                        newTabName = newTabName,
+                        onNewTabName = { newTabName = it },
+                        onCreateTab = {
+                            val err = TabStore.addTab(this, newTabName)
+                            if (err == null) {
+                                customTabs = TabStore.customTabs(this)
+                                statusText = "вкладка ${newTabName.lowercase()} створена"
+                                newTabName = ""
+                                newTabOpen = false
+                            } else statusText = err
+                        },
+                        onCancelNewTab = { newTabOpen = false },
                         radioRows = visibleRadio(),
                         localRows = visibleLocal(),
                         showLocal = tab == "local" || tab == "best",
@@ -113,7 +157,10 @@ class MainActivity : ComponentActivity() {
                         onPrev = { sendAction(RadioWatchService.ACTION_NOTIF_PREV) },
                         onPickRadio = { list, index -> playRadio(list, index) },
                         onPickLocal = { list, index -> playLocal(list, index) },
-                        onToggleFav = { toggleFav(it.url) },
+                        onToggleFav = { s ->
+                            if (currentTab() == "search") pickStation = s
+                            else toggleFav(s.url)
+                        },
                         onToggleBest = { toggleBest(it.uri) },
                         onScan = { reloadLocal() },
                     )
@@ -122,14 +169,37 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun targetTabs(): List<String> {
+        val built = sourceTabs.filter { it !in TabStore.reserved && it != "search" }
+        return (built + customTabs).distinct()
+    }
+
+    private fun runSearch() {
+        val n = qName; val c = qCountry; val g = qGenre
+        statusText = "пошук..."
+        Thread {
+            val result = try { RadioBrowser.search(n, c, g) } catch (_: Exception) { emptyList() }
+            runOnUiThread {
+                searchRows = result
+                statusText = if (result.isEmpty()) "нічого не знайдено" else "знайдено: ${result.size}"
+            }
+        }.start()
+    }
+
     private fun currentTab(): String = uiTabs.getOrNull(tabIndex) ?: ""
 
     private fun visibleRadio(): List<Station> {
+        addedRev // observe
         val tab = currentTab()
         return when (tab) {
             "fav" -> stations.filter { favUrls.contains(it.url) }.distinctBy { it.url }
             "best", "local" -> emptyList()
-            else -> stations.filter { it.tab == tab }
+            "search" -> searchRows
+            else -> {
+                val base = stations.filter { it.tab == tab }
+                val extra = TabStore.extraStations(this, tab)
+                (base + extra).distinctBy { it.url }
+            }
         }
     }
 
@@ -233,6 +303,7 @@ class MainActivity : ComponentActivity() {
     private fun toggleBest(uri: String) {
         FavStore.toggle(this, BluetoothAutoPlayPlugin.KEY_LOCAL_BEST, uri)
         bestUris = FavStore.urls(this, BluetoothAutoPlayPlugin.KEY_LOCAL_BEST)
+        customTabs = TabStore.customTabs(this)
     }
 
     private fun playCurrentOrFirst() {
@@ -328,6 +399,20 @@ fun StationScreen(
     tabs: List<String>,
     tabIndex: Int,
     onTab: (Int) -> Unit,
+    qName: String, onName: (String) -> Unit,
+    qCountry: String, onCountry: (String) -> Unit,
+    qGenre: String, onGenre: (String) -> Unit,
+    onSearch: () -> Unit,
+    onAddTab: () -> Unit,
+    pickStation: Station?,
+    targetTabs: List<String>,
+    onPickTabForStation: (String) -> Unit,
+    onCancelPick: () -> Unit,
+    newTabOpen: Boolean,
+    newTabName: String,
+    onNewTabName: (String) -> Unit,
+    onCreateTab: () -> Unit,
+    onCancelNewTab: () -> Unit,
     radioRows: List<Station>,
     localRows: List<LocalTrack>,
     showLocal: Boolean,
@@ -356,12 +441,50 @@ fun StationScreen(
             Button(onClick = onNext) { Text("Next") }
             if (showLocal) Button(onClick = onScan) { Text("Scan") }
         }
+        if (tabs.getOrNull(tabIndex) == "search") {
+            Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                OutlinedTextField(value = qName, onValueChange = onName, singleLine = true, label = { Text("Назва") }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = qCountry, onValueChange = onCountry, singleLine = true, label = { Text("Країна") }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = qGenre, onValueChange = onGenre, singleLine = true, label = { Text("Жанр") }, modifier = Modifier.fillMaxWidth())
+                Button(onClick = onSearch, modifier = Modifier.padding(top = 8.dp)) { Text("Знайти") }
+            }
+        }
         if (tabs.isNotEmpty()) {
             ScrollableTabRow(selectedTabIndex = tabIndex.coerceAtMost(tabs.lastIndex)) {
                 tabs.forEachIndexed { i, t ->
                     Tab(selected = i == tabIndex, onClick = { onTab(i) }, text = { Text(t) })
                 }
+                Tab(selected = false, onClick = onAddTab, text = { Text("+") })
             }
+        }
+        if (pickStation != null) {
+            AlertDialog(
+                onDismissRequest = onCancelPick,
+                title = { Text("Виберіть вкладку") },
+                text = {
+                    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                        targetTabs.forEach { tab ->
+                            Text(
+                                tab.uppercase(),
+                                modifier = Modifier.fillMaxWidth().clickable { onPickTabForStation(tab) }.padding(12.dp)
+                            )
+                        }
+                    }
+                },
+                confirmButton = {},
+                dismissButton = { Button(onClick = onCancelPick) { Text("Скасувати") } }
+            )
+        }
+        if (newTabOpen) {
+            AlertDialog(
+                onDismissRequest = onCancelNewTab,
+                title = { Text("Нова вкладка") },
+                text = {
+                    OutlinedTextField(value = newTabName, onValueChange = onNewTabName, singleLine = true, label = { Text("назва") })
+                },
+                confirmButton = { Button(onClick = onCreateTab) { Text("Створити") } },
+                dismissButton = { Button(onClick = onCancelNewTab) { Text("Скасувати") } }
+            )
         }
         if (showLocal) {
             if (localRows.isEmpty()) {
@@ -388,7 +511,7 @@ fun StationScreen(
             }
         } else {
             if (radioRows.isEmpty()) {
-                Text("Порожньо. Додай ★ до станції.", modifier = Modifier.padding(16.dp))
+                Text(if (tabs.getOrNull(tabIndex) == "search") "Знайди станцію. ★ — вибрати вкладку." else "Порожньо.", modifier = Modifier.padding(16.dp))
             }
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 itemsIndexed(radioRows, key = { i, s -> s.tab + s.url + i }) { index, s ->

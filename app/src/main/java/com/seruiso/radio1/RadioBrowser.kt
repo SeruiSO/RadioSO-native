@@ -13,27 +13,24 @@ object RadioBrowser {
         "fr1.api.radio-browser.info",
     )
 
-    fun search(query: String, country: String = "", genre: String = ""): List<Station> {
-        val q = query.trim()
-        val params = StringBuilder("hidebroken=true&limit=80&order=clickcount&reverse=true")
-        if (q.isNotEmpty()) params.append("&name=").append(URLEncoder.encode(q, "UTF-8"))
-        if (country.isNotBlank()) params.append("&country=").append(URLEncoder.encode(country, "UTF-8"))
-        if (genre.isNotBlank()) params.append("&tag=").append(URLEncoder.encode(genre, "UTF-8"))
-        if (q.isEmpty() && country.isBlank() && genre.isBlank()) return emptyList()
-        val path = "/json/stations/search?$params"
-        var last: Exception? = null
+    fun search(name: String, country: String, genre: String): List<Station> {
+        val n = name.trim()
+        val c = country.trim()
+        val g = genre.trim()
+        if (n.isEmpty() && c.isEmpty() && g.isEmpty()) return emptyList()
+        val p = StringBuilder("hidebroken=true&limit=80&order=clickcount&reverse=true")
+        if (n.isNotEmpty()) p.append("&name=").append(URLEncoder.encode(n, "UTF-8"))
+        if (c.isNotEmpty()) p.append("&country=").append(URLEncoder.encode(c, "UTF-8"))
+        if (g.isNotEmpty()) p.append("&tag=").append(URLEncoder.encode(g, "UTF-8"))
+        val path = "/json/stations/search?$p"
         for (host in hosts) {
             try {
                 val conn = URL("https://$host$path").openConnection() as HttpURLConnection
                 conn.connectTimeout = 10000
                 conn.readTimeout = 10000
-                conn.setRequestProperty("User-Agent", "RadioSO-native/0.5")
+                conn.setRequestProperty("User-Agent", "RadioSO-native/0.6")
                 conn.setRequestProperty("Accept", "application/json")
-                conn.connect()
-                if (conn.responseCode != 200) {
-                    conn.disconnect()
-                    continue
-                }
+                if (conn.responseCode != 200) { conn.disconnect(); continue }
                 val body = conn.inputStream.bufferedReader().use { it.readText() }
                 conn.disconnect()
                 val arr = JSONArray(body)
@@ -42,12 +39,12 @@ object RadioBrowser {
                     val o = arr.optJSONObject(i) ?: continue
                     var url = o.optString("url_resolved")
                     if (url.isBlank()) url = o.optString("url")
-                    val name = o.optString("name")
-                    if (url.isBlank() || name.isBlank()) continue
+                    val title = o.optString("name")
+                    if (url.isBlank() || title.isBlank()) continue
                     out.add(
                         Station(
                             url = url,
-                            name = name,
+                            name = title,
                             genre = o.optString("tags"),
                             country = o.optString("country"),
                             favicon = o.optString("favicon"),
@@ -56,11 +53,8 @@ object RadioBrowser {
                     )
                 }
                 return out
-            } catch (e: Exception) {
-                last = e
-            }
+            } catch (_: Exception) { }
         }
-        if (last != null) throw last
         return emptyList()
     }
 }

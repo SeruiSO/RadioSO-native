@@ -58,6 +58,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
@@ -144,7 +149,10 @@ class MainActivity : ComponentActivity() {
             when (intent?.action) {
                 RadioWatchService.ACTION_PLAYBACK_UI -> {
                     isPlaying = intent.getBooleanExtra("playing", false)
+                    if (isPlaying) statusText = "playing"
                     readPrefs()
+                    isLocalNow = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                        .getString(LocalMusicPlugin.KEY_MODE, "radio") == "local"
                 }
                 RadioWatchService.ACTION_TRACK_META -> {
                     readPrefs()
@@ -626,6 +634,8 @@ class MainActivity : ComponentActivity() {
         i.putExtra(RadioWatchService.EXTRA_NAME, name)
         startForegroundService(i)
         statusText = "start"
+        isLocalNow = url.startsWith("content:")
+        if (nowOpen) { posHandler.removeCallbacks(posTick); posHandler.post(posTick) }
     }
 
     private fun seekTo(pos: Long) {
@@ -784,13 +794,21 @@ fun StationScreen(
                 Text("🎵 " + (if (track.isBlank()) "Трек: невідомо" else track), color = text, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
                 Text(status, color = acc, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
+            val inf = rememberInfiniteTransition(label = "viz")
+            val pulse = inf.animateFloat(
+                initialValue = 0.25f,
+                targetValue = 1f,
+                animationSpec = infiniteRepeatable(tween(450), RepeatMode.Reverse),
+                label = "p"
+            ).value
             Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.height(36.dp).padding(start = 8.dp)) {
-                listOf(0.7f, 1.0f, 0.75f, 1.1f, 0.85f, 0.95f, 0.8f).forEachIndexed { i, d ->
+                listOf(0.45f, 1f, 0.6f, 0.9f, 0.5f, 0.8f, 0.55f).forEachIndexed { i, base ->
+                    val h = if (playing) (8f + 28f * base * ((pulse + i * 0.12f) % 1f)) else 8f
                     Box(
                         modifier = Modifier
-                            .padding(horizontal = 1.dp)
+                            .padding(horizontal = 1.5.dp)
                             .width(4.dp)
-                            .height(if (playing) (12 + ((i * 7) % 18)).dp else 8.dp)
+                            .height(h.dp)
                             .background(acc.copy(alpha = if (playing) 1f else 0.25f), RoundedCornerShape(2.dp))
                     )
                 }
@@ -855,11 +873,12 @@ fun StationScreen(
                                 Text("↑", color = muted, modifier = Modifier.clickable { onMoveStation(s, -1) }.padding(4.dp))
                                 Text("↓", color = muted, modifier = Modifier.clickable { onMoveStation(s, 1) }.padding(4.dp))
                             }
-                            Text("✕", color = muted, modifier = Modifier.clickable { onDeleteStation(s) }.padding(4.dp))
+                            Text("✕", color = muted, modifier = Modifier.size(40.dp).clickable { onDeleteStation(s) }, style = MaterialTheme.typography.titleLarge)
                             Text(
                                 if (favUrls.contains(s.url)) "★" else "☆",
                                 color = acc,
-                                modifier = Modifier.clickable { onToggleFav(s) }.padding(6.dp)
+                                modifier = Modifier.size(40.dp).clickable { onToggleFav(s) },
+                                style = MaterialTheme.typography.headlineSmall
                             )
                         }
                     }
@@ -884,7 +903,17 @@ fun StationScreen(
                         unselectedContentColor = muted,
                         text = {
                             Text(
-                                tab,
+                                when (tab) {
+                                    "fav" -> "FAV"
+                                    "best" -> "Best"
+                                    "local" -> "Local"
+                                    "search" -> "SEARCH"
+                                    "ukraine" -> "UA"
+                                    "techno" -> "Techno"
+                                    "trance" -> "Trance"
+                                    "pop" -> "Pop"
+                                    else -> tab
+                                },
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.combinedClickable(onClick = { onTab(i) }, onLongClick = { onLongTab(tab) })
@@ -970,7 +999,7 @@ fun StationScreen(
                 Text("країна: $country", color = muted)
                 Text(if (track.isBlank()) "🎵 Трек: невідомо" else "🎵 $track", color = Color.White)
                 Text(status, color = acc)
-                if (isLocalNow) {
+                if (isLocalNow || currentUrl.startsWith("content:")) {
                     Text(if (bestUris.contains(currentUrl)) "★ Local Best" else "☆ у best", color = acc, modifier = Modifier.clickable {
                         localRows.firstOrNull { it.uri == currentUrl }?.let { onToggleBest(it) }
                     }.padding(8.dp))

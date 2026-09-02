@@ -218,6 +218,7 @@ class MainActivity : ComponentActivity() {
                             getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
                                 .edit().putString("currentTab", uiTabs.getOrNull(it) ?: "fav").apply()
                         },
+                        
                         qName = qName, onName = { qName = it },
                         qCountry = qCountry, onCountry = { qCountry = it },
                         qGenre = qGenre, onGenre = { qGenre = it },
@@ -795,6 +796,7 @@ fun StationScreen(
     tabs: List<String>,
     tabIndex: Int,
     onTab: (Int) -> Unit,
+    onRevealCurrent: () -> Unit = {},
     qName: String, onName: (String) -> Unit,
     qCountry: String, onCountry: (String) -> Unit,
     qGenre: String, onGenre: (String) -> Unit,
@@ -1089,7 +1091,9 @@ fun StationScreen(
                                 modifier = Modifier.size(40.dp).clickable { onToggleFav(s) },
                                 style = MaterialTheme.typography.headlineSmall
                             )
-                            Text("🗑", modifier = Modifier.size(36.dp).clickable { onAskDelete(s) })
+                            if (tabs.getOrNull(tabIndex) != "fav") {
+                                Text("🗑", modifier = Modifier.size(36.dp).clickable { onAskDelete(s) })
+                            }
                         }
                     }
                 }
@@ -1125,7 +1129,13 @@ fun StationScreen(
                         modifier = Modifier
                             .background(if (i == tabIndex) acc else card, RoundedCornerShape(6.dp))
                             .border(1.dp, if (i == tabIndex) acc else Color(0xFF3A3A42), RoundedCornerShape(6.dp))
-                            .combinedClickable(onClick = { onTab(i) }, onLongClick = { onLongTab(tab) })
+                            .combinedClickable(onClick = {
+                                if (i == tabIndex) {
+                                    val idx = if (showLocal) localRows.indexOfFirst { it.uri == currentUrl }
+                                    else radioRows.indexOfFirst { it.url == currentUrl }
+                                    if (idx >= 0) scope.launch { listState.scrollToItem(idx) }
+                                } else onTab(i)
+                            }, onLongClick = { onLongTab(tab) })
                             .padding(horizontal = 8.dp, vertical = 5.dp)
                     )
                 }
@@ -1147,7 +1157,7 @@ fun StationScreen(
                     contentAlignment = Alignment.Center
                 ) { Text(lab, color = if (main) Color(0xFF0A0A0C) else Color.White, style = MaterialTheme.typography.headlineMedium) }
             }
-            if (showLocal) {
+            if (tabs.getOrNull(tabIndex) == "local") {
                 Box(
                     modifier = Modifier.size(56.dp).background(Color(0xFF1A1A1E), RoundedCornerShape(12.dp)).clickable { onScan() },
                     contentAlignment = Alignment.Center
@@ -1238,7 +1248,16 @@ fun StationScreen(
     }
     if (nowOpen) {
         ModalBottomSheet(onDismissRequest = onNowClose, containerColor = Color(0xFF121214), sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-            Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(modifier = Modifier.fillMaxWidth().padding(24.dp).pointerInput(Unit) {
+                    var dx = 0f
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            if (dx < -60) onNext()
+                            else if (dx > 60) onPrev()
+                            dx = 0f
+                        }
+                    ) { _, d -> dx += d }
+                }, horizontalAlignment = Alignment.CenterHorizontally) {
                 if (artUrl(favicon).startsWith("http") || artUrl(favicon).startsWith("content:")) {
                     AsyncImage(model = artUrl(favicon), contentDescription = null, modifier = Modifier.size(200.dp), contentScale = ContentScale.Crop)
                 } else Text("🎵", style = MaterialTheme.typography.displayMedium)

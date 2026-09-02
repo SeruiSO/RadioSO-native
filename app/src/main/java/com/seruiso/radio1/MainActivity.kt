@@ -15,6 +15,19 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.height
+import coil.compose.AsyncImage
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -67,7 +80,14 @@ class MainActivity : ComponentActivity() {
     }
 
 
-    private var stationName by mutableStateOf("Radio S O")
+    private var stationName by mutableStateOf("Виберіть станцію")
+    private var currentGenre by mutableStateOf("-")
+    private var currentCountry by mutableStateOf("-")
+    private var currentFavicon by mutableStateOf("")
+    private var currentUrl by mutableStateOf("")
+    private var themeId by mutableStateOf("shadow-pulse")
+    private var accent by mutableStateOf(0xFF00E676)
+    private var nowOpen by mutableStateOf(false)
     private var trackTitle by mutableStateOf("")
     private var isPlaying by mutableStateOf(false)
     private var statusText by mutableStateOf("готово")
@@ -137,6 +157,9 @@ class MainActivity : ComponentActivity() {
         customTabs = TabStore.customTabs(this)
         reloadLocal()
         readPrefs()
+        val lastTab = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE).getString("currentTab", "fav")
+        val idx = uiTabs.indexOf(lastTab)
+        if (idx >= 0) tabIndex = idx
         setContent {
             RadioSOTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
@@ -144,7 +167,11 @@ class MainActivity : ComponentActivity() {
                     StationScreen(
                         tabs = uiTabs,
                         tabIndex = tabIndex,
-                        onTab = { tabIndex = it },
+                        onTab = {
+                            tabIndex = it
+                            getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                                .edit().putString("currentTab", uiTabs.getOrNull(it) ?: "fav").apply()
+                        },
                         qName = qName, onName = { qName = it },
                         qCountry = qCountry, onCountry = { qCountry = it },
                         qGenre = qGenre, onGenre = { qGenre = it },
@@ -217,6 +244,31 @@ class MainActivity : ComponentActivity() {
                         localRows = visibleLocal(),
                         showLocal = tab == "local" || tab == "best",
                         name = stationName,
+                        genre = currentGenre,
+                        country = currentCountry,
+                        favicon = currentFavicon,
+                        currentUrl = currentUrl,
+                        accent = accent,
+                        themeName = themeId,
+                        nowOpen = nowOpen,
+                        onNow = { nowOpen = true },
+                        onNowClose = { nowOpen = false },
+                        onTheme = {
+                            val n = ThemeStore.next(this)
+                            themeId = n.id
+                            accent = n.accent
+                            statusText = n.id
+                        },
+                        onDeleteStation = { s ->
+                            val tab = currentTab()
+                            if (tab !in listOf("fav", "best", "local", "search") ) {
+                                TabStore.removeStation(this, tab, s.url)
+                                addedRev++
+                                statusText = "видалено з $tab"
+                            } else if (tab == "fav") {
+                                toggleFav(s.url)
+                            }
+                        },
                         track = trackTitle,
                         playing = isPlaying,
                         status = statusText,
@@ -403,9 +455,16 @@ class MainActivity : ComponentActivity() {
 
     private fun readPrefs() {
         val p = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-        stationName = p.getString(BluetoothAutoPlayPlugin.KEY_NAME, "Radio S O") ?: "Radio S O"
+        stationName = p.getString(BluetoothAutoPlayPlugin.KEY_NAME, "Виберіть станцію") ?: "Виберіть станцію"
         trackTitle = p.getString(BluetoothAutoPlayPlugin.KEY_TRACK, "") ?: ""
+        currentGenre = p.getString(BluetoothAutoPlayPlugin.KEY_GENRE, "-") ?: "-"
+        currentCountry = p.getString(BluetoothAutoPlayPlugin.KEY_COUNTRY, "-") ?: "-"
+        currentFavicon = p.getString(BluetoothAutoPlayPlugin.KEY_FAVICON, "") ?: ""
+        currentUrl = p.getString(BluetoothAutoPlayPlugin.KEY_URL, "") ?: ""
         isPlaying = p.getBoolean(BluetoothAutoPlayPlugin.KEY_IS_PLAYING, false)
+        val th = ThemeStore.get(this)
+        themeId = th.id
+        accent = th.accent
     }
 
     private fun hasAudioPermission(): Boolean {
@@ -534,7 +593,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun StationScreen(
     tabs: List<String>,
@@ -571,6 +630,17 @@ fun StationScreen(
     localRows: List<LocalTrack>,
     showLocal: Boolean,
     name: String,
+    genre: String,
+    country: String,
+    favicon: String,
+    currentUrl: String,
+    accent: Long,
+    themeName: String,
+    nowOpen: Boolean,
+    onNow: () -> Unit,
+    onNowClose: () -> Unit,
+    onTheme: () -> Unit,
+    onDeleteStation: (Station) -> Unit,
     track: String,
     playing: Boolean,
     status: String,
@@ -595,27 +665,31 @@ fun StationScreen(
     onSleep: (Int) -> Unit,
     onExport: () -> Unit,
     onImport: () -> Unit,
-)
- {
-    Column(modifier = Modifier.fillMaxSize().padding(top = 36.dp)) {
-        Text(name, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 16.dp))
-        Text(if (track.isBlank()) "—" else track, modifier = Modifier.padding(horizontal = 16.dp))
-        Text(status, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 16.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(16.dp)) {
-            Button(onClick = onPrev) { Text("Prev") }
-            Button(onClick = onPlayPause) { Text(if (playing) "Pause" else "Play") }
-            Button(onClick = onNext) { Text("Next") }
-            if (showLocal) Button(onClick = onScan) { Text("Scan") }
-            Button(onClick = onMenu) { Text("⋯") }
+) {
+    val acc = Color(accent)
+    val bg = Color(0xFF0A0A0C)
+    val card = Color(0xFF1A1A1E)
+    val text = Color(0xFFF2F2F5)
+    val muted = Color(0x9EF2F2F5)
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(bg)
+            .padding(top = 28.dp, start = 12.dp, end = 12.dp, bottom = 8.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Text("Radio S O", color = acc, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+            Text("🌙", modifier = Modifier.padding(8.dp).clickable { onTheme() })
+            Text("⋯", color = text, modifier = Modifier.padding(8.dp).clickable { onMenu() })
         }
         if (menuOpen) {
-            Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+            Column(modifier = Modifier.background(card, RoundedCornerShape(12.dp)).padding(8.dp)) {
                 Button(onClick = onBt) { Text(if (btWatch) "BT стеження: увімк" else "BT стеження: вимк") }
                 Button(onClick = onSleepMenu) { Text(sleepLabel) }
                 if (sleepMenu) {
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        listOf(15, 30, 45, 60, 0).forEach { m ->
-                            Button(onClick = { onSleep(m) }) { Text(if (m == 0) "off" else "${m}") }
+                        listOf(15, 30, 60, 0).forEach { m ->
+                            Button(onClick = { onSleep(m) }) { Text(if (m == 0) "off" else "$m") }
                         }
                     }
                 }
@@ -624,139 +698,188 @@ fun StationScreen(
                 Button(onClick = onCloseMenu) { Text("Закрити") }
             }
         }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(card, RoundedCornerShape(12.dp))
+                .padding(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(52.dp)
+                    .background(Color(0xFF222228), CircleShape)
+                    .clickable { onNow() },
+                contentAlignment = Alignment.Center
+            ) {
+                if (favicon.startsWith("http")) {
+                    AsyncImage(model = favicon, contentDescription = null, modifier = Modifier.size(52.dp), contentScale = ContentScale.Crop)
+                } else {
+                    Text("🎵")
+                }
+            }
+            Column(modifier = Modifier.padding(start = 10.dp).weight(1f)) {
+                Text(name, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text("жанр: $genre", color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
+                Text("країна: $country", color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
+                Text("🎵 " + (if (track.isBlank()) "Трек: невідомо" else track), color = text, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
+                Text(status, color = acc, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
         if (tabs.getOrNull(tabIndex) == "search") {
-            Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+            Column(modifier = Modifier.padding(vertical = 6.dp)) {
                 OutlinedTextField(value = qName, onValueChange = onName, singleLine = true, label = { Text("Назва") }, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = qCountry, onValueChange = onCountry, singleLine = true, label = { Text("Країна") }, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = qGenre, onValueChange = onGenre, singleLine = true, label = { Text("Жанр") }, modifier = Modifier.fillMaxWidth())
-                Button(onClick = onSearch, modifier = Modifier.padding(top = 8.dp)) { Text("Знайти") }
-                Row(modifier = Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    countries.take(6).forEach { c ->
-                        Text(c, modifier = Modifier.clickable { onCountry(c) }.padding(4.dp), style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    genres.take(8).forEach { g ->
-                        Text(g, modifier = Modifier.clickable { onGenre(g) }.padding(4.dp), style = MaterialTheme.typography.bodySmall)
-                    }
-                }
+                Button(onClick = onSearch, modifier = Modifier.padding(top = 6.dp)) { Text("🔍 Знайти") }
             }
-        }
-        if (tabs.isNotEmpty()) {
-            ScrollableTabRow(selectedTabIndex = tabIndex.coerceAtMost(tabs.lastIndex)) {
-                tabs.forEachIndexed { i, t ->
-                    Tab(
-                        selected = i == tabIndex,
-                        onClick = { onTab(i) },
-                        text = {
-                            Text(
-                                t,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.combinedClickable(
-                                    onClick = { onTab(i) },
-                                    onLongClick = { onLongTab(t) }
-                                )
-                            )
-                        }
-                    )
-                }
-                Tab(selected = false, onClick = onAddTab, text = { Text("+") })
-            }
-        }
-        if (pickStation != null) {
-            AlertDialog(
-                onDismissRequest = onCancelPick,
-                title = { Text("Виберіть вкладку") },
-                text = {
-                    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                        targetTabs.forEach { tab ->
-                            Text(
-                                tab.uppercase(),
-                                modifier = Modifier.fillMaxWidth().clickable { onPickTabForStation(tab) }.padding(12.dp)
-                            )
-                        }
-                    }
-                },
-                confirmButton = {},
-                dismissButton = { Button(onClick = onCancelPick) { Text("Скасувати") } }
-            )
-        }
-        if (editTab != null) {
-            AlertDialog(
-                onDismissRequest = onCancelEdit,
-                title = { Text("Вкладка $editTab") },
-                text = {
-                    OutlinedTextField(value = editName, onValueChange = onEditName, singleLine = true, label = { Text("перейменувати") })
-                },
-                confirmButton = { Button(onClick = onRenameTab) { Text("Перейменувати") } },
-                dismissButton = {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = onDeleteTab) { Text(if (deleteArmed) "Точно видалити?" else "Видалити") }
-                        Button(onClick = onCancelEdit) { Text("Скасувати") }
-                    }
-                }
-            )
-        }
-        if (newTabOpen) {
-            AlertDialog(
-                onDismissRequest = onCancelNewTab,
-                title = { Text("Нова вкладка") },
-                text = {
-                    OutlinedTextField(value = newTabName, onValueChange = onNewTabName, singleLine = true, label = { Text("назва") })
-                },
-                confirmButton = { Button(onClick = onCreateTab) { Text("Створити") } },
-                dismissButton = { Button(onClick = onCancelNewTab) { Text("Скасувати") } }
-            )
         }
         if (showLocal) {
-            if (localRows.isEmpty()) {
-                Text("Немає треків. Дай дозвіл і натисни Scan.", modifier = Modifier.padding(16.dp))
-            }
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
-                itemsIndexed(localRows, key = { _, t -> t.uri }) { index, t ->
+            if (localRows.isEmpty()) Text("Немає треків. Scan.", color = muted)
+            LazyColumn(modifier = Modifier.weight(1f)) {
+                itemsIndexed(localRows, key = { _, x -> x.uri }) { index, item ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .background(if (item.uri == currentUrl) acc.copy(alpha = 0.18f) else Color.Transparent, RoundedCornerShape(10.dp))
                             .clickable { onPickLocal(localRows, index) }
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
+                        Text("🎵", modifier = Modifier.padding(end = 8.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(t.title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(t.artist, style = MaterialTheme.typography.bodySmall)
+                            Text(item.title, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(item.artist, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
                         }
-                        Text(
-                            if (bestUris.contains(t.uri)) "+b" else "b",
-                            modifier = Modifier.padding(8.dp).clickable { onToggleBest(t) },
-                        )
+                        Text(if (bestUris.contains(item.uri)) "+b" else "b", color = acc, modifier = Modifier.clickable { onToggleBest(item) }.padding(8.dp))
                     }
                 }
             }
         } else {
-            if (radioRows.isEmpty()) {
-                Text(if (tabs.getOrNull(tabIndex) == "search") "Знайди станцію. ★ — вибрати вкладку." else "Порожньо.", modifier = Modifier.padding(16.dp))
-            }
-            if (canMore) {
-                Button(onClick = onMore, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) { Text("Ще 100") }
-            }
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(modifier = Modifier.weight(1f)) {
                 itemsIndexed(radioRows, key = { i, s -> s.tab + s.url + i }) { index, s ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { onPickRadio(radioRows, index) }
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .background(if (s.url == currentUrl) acc.copy(alpha = 0.18f) else Color.Transparent, RoundedCornerShape(10.dp))
+                            .combinedClickable(
+                                onClick = { onPickRadio(radioRows, index) },
+                                onLongClick = { onDeleteStation(s) }
+                            )
+                            .padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(s.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text("${s.genre} · ${s.country}", style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Box(modifier = Modifier.size(32.dp), contentAlignment = Alignment.Center) {
+                            if (s.favicon.startsWith("http") && !s.favicon.contains("example.com")) {
+                                AsyncImage(model = s.favicon, contentDescription = null, modifier = Modifier.size(32.dp), contentScale = ContentScale.Fit)
+                            } else Text("🎵")
+                        }
+                        Column(modifier = Modifier.padding(start = 8.dp).weight(1f)) {
+                            Text(s.name, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text("${s.genre} · ${s.country}", color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
                         }
                         Text(
-                            if (favUrls.contains(s.url)) "★" else "☆",
-                            modifier = Modifier.padding(8.dp).clickable { onToggleFav(s) },
-                            style = MaterialTheme.typography.titleLarge
+                            if (tabs.getOrNull(tabIndex) == "search") "ADD" else if (favUrls.contains(s.url)) "★" else "☆",
+                            color = acc,
+                            modifier = Modifier.clickable { onToggleFav(s) }.padding(8.dp)
                         )
                     }
+                }
+                if (canMore) {
+                    item { Button(onClick = onMore, modifier = Modifier.fillMaxWidth().padding(8.dp)) { Text("Ще 100") } }
+                }
+            }
+        }
+        if (tabs.isNotEmpty()) {
+            ScrollableTabRow(
+                selectedTabIndex = tabIndex.coerceAtMost(tabs.lastIndex),
+                containerColor = bg,
+                contentColor = acc,
+                edgePadding = 4.dp
+            ) {
+                tabs.forEachIndexed { i, tab ->
+                    Tab(
+                        selected = i == tabIndex,
+                        onClick = { onTab(i) },
+                        selectedContentColor = acc,
+                        unselectedContentColor = muted,
+                        text = {
+                            Text(
+                                tab,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.combinedClickable(onClick = { onTab(i) }, onLongClick = { onLongTab(tab) })
+                            )
+                        }
+                    )
+                }
+                Tab(selected = false, onClick = onAddTab, text = { Text("+") }, selectedContentColor = acc, unselectedContentColor = acc)
+            }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Button(onClick = onPrev) { Text("⏮") }
+            Button(onClick = onPlayPause) { Text(if (playing) "⏸" else "▶") }
+            Button(onClick = onNext) { Text("⏭") }
+            if (showLocal) Button(onClick = onScan) { Text("Scan") }
+        }
+    }
+    if (pickStation != null) {
+        AlertDialog(
+            onDismissRequest = onCancelPick,
+            title = { Text("Виберіть вкладку") },
+            text = {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    targetTabs.forEach { tab ->
+                        Text(tab.uppercase(), modifier = Modifier.fillMaxWidth().clickable { onPickTabForStation(tab) }.padding(12.dp))
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = { Button(onClick = onCancelPick) { Text("Скасувати") } }
+        )
+    }
+    if (newTabOpen) {
+        AlertDialog(
+            onDismissRequest = onCancelNewTab,
+            title = { Text("Нова вкладка") },
+            text = { OutlinedTextField(value = newTabName, onValueChange = onNewTabName, singleLine = true) },
+            confirmButton = { Button(onClick = onCreateTab) { Text("Створити") } },
+            dismissButton = { Button(onClick = onCancelNewTab) { Text("Скасувати") } }
+        )
+    }
+    if (editTab != null) {
+        AlertDialog(
+            onDismissRequest = onCancelEdit,
+            title = { Text("Вкладка $editTab") },
+            text = { OutlinedTextField(value = editName, onValueChange = onEditName, singleLine = true) },
+            confirmButton = { Button(onClick = onRenameTab) { Text("Перейменувати") } },
+            dismissButton = {
+                Row {
+                    Button(onClick = onDeleteTab) { Text(if (deleteArmed) "Точно видалити?" else "Видалити") }
+                    Button(onClick = onCancelEdit) { Text("Скасувати") }
+                }
+            }
+        )
+    }
+    if (nowOpen) {
+        ModalBottomSheet(onDismissRequest = onNowClose, containerColor = Color(0xFF121214)) {
+            Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                if (favicon.startsWith("http")) {
+                    AsyncImage(model = favicon, contentDescription = null, modifier = Modifier.size(160.dp), contentScale = ContentScale.Fit)
+                } else Text("🎵", style = MaterialTheme.typography.displayMedium)
+                Text(name, color = Color.White, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text("жанр: $genre", color = muted)
+                Text("країна: $country", color = muted)
+                Text(if (track.isBlank()) "🎵 Трек: невідомо" else "🎵 $track", color = Color.White)
+                Text(status, color = acc)
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(top = 16.dp)) {
+                    Button(onClick = onPrev) { Text("⏮") }
+                    Button(onClick = onPlayPause) { Text(if (playing) "⏸" else "▶") }
+                    Button(onClick = onNext) { Text("⏭") }
                 }
             }
         }

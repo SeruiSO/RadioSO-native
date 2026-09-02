@@ -86,6 +86,21 @@ object TabStore {
         prefs(ctx).edit().putString(KEY_ADDED, root.toString()).commit()
     }
 
+    fun removeStation(ctx: Context, tab: String, url: String) {
+        val root = JSONObject(prefs(ctx).getString(KEY_ADDED, "{}") ?: "{}")
+        val arr = root.optJSONArray(tab) ?: return
+        val next = JSONArray()
+        for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i) ?: continue
+            if (o.optString("value") != url) next.put(o)
+        }
+        root.put(tab, next)
+        prefs(ctx).edit().putString(KEY_ADDED, root.toString()).commit()
+        val del = JSONArray(prefs(ctx).getString("deletedStations", "[]") ?: "[]")
+        del.put(url)
+        prefs(ctx).edit().putString("deletedStations", del.toString()).apply()
+    }
+
     fun extraStations(ctx: Context, tab: String): List<Station> {
         val root = JSONObject(prefs(ctx).getString(KEY_ADDED, "{}") ?: "{}")
         val arr = root.optJSONArray(tab) ?: return emptyList()

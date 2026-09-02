@@ -930,7 +930,9 @@ fun StationScreen(
                 field(qName, onName, "Назва", "name", nameHints)
                 field(qCountry, onCountry, "Країна", "country", countryHints)
                 field(qGenre, onGenre, "Жанр", "genre", genreHints)
-                Button(onClick = onSearch, modifier = Modifier.padding(top = 4.dp).height(40.dp)) { Text("Знайти") }
+                Button(onClick = onSearch, modifier = Modifier.fillMaxWidth().padding(top = 8.dp).height(44.dp),
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = acc, contentColor = Color(0xFF0A0A0C))) { Text("🔍 Знайти") }
+                }
             }
         }
         if (showLocal) {
@@ -987,8 +989,7 @@ fun StationScreen(
                             Text(s.name, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text("${s.genre} · ${s.country}", color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
                         }
-                        androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(10.dp))
-        if (tabs.getOrNull(tabIndex) == "search") {
+                        if (tabs.getOrNull(tabIndex) == "search") {
                             Text("ADD", color = acc, modifier = Modifier.clickable { onAddToTab(s) }.padding(6.dp))
                         } else {
                             Text(
@@ -1017,9 +1018,7 @@ fun StationScreen(
                     Tab(
                         selected = i == tabIndex,
                         onClick = { onTab(i) },
-                        selectedContentColor = acc,
-                        unselectedContentColor = muted,
-                        selectedContentColor = if (i == tabIndex) Color(0xFF0A0A0C) else muted,
+                        selectedContentColor = Color(0xFF0A0A0C),
                         unselectedContentColor = muted,
                         text = {
                             Box(
@@ -1029,16 +1028,16 @@ fun StationScreen(
                                     .padding(horizontal = 14.dp, vertical = 6.dp)
                             ) {
                             Text(
-                                when (tab) {
-                                    "fav" -> "FAV"
-                                    "best" -> "Best"
-                                    "local" -> "Lokal Best"
+                                when (tab.lowercase()) {
+                                    "fav" -> "Best"
+                                    "best" -> "Lokal Best"
+                                    "local" -> "Lokal"
                                     "search" -> "SEARCH"
-                                    "ukraine" -> "UA"
+                                    "ukraine", "ua" -> "UA"
                                     "techno" -> "Techno"
                                     "trance" -> "Trance"
                                     "pop" -> "Pop"
-                                    else -> tab
+                                    else -> tab.replaceFirstChar { it.uppercase() }
                                 },
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,

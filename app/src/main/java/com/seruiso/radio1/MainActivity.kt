@@ -949,6 +949,7 @@ fun StationScreen(
                             )
                         }
                     }
+                    }
                 }
                 if (canMore) {
                     item { Button(onClick = onMore, modifier = Modifier.fillMaxWidth().padding(8.dp)) { Text("Ще 100") } }

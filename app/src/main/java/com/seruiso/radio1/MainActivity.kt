@@ -44,8 +44,15 @@ class MainActivity : ComponentActivity() {
     private var isPlaying by mutableStateOf(false)
     private var statusText by mutableStateOf("готово")
     private var tabIndex by mutableIntStateOf(0)
-    private var tabs by mutableStateOf(listOf<String>())
+    private var sourceTabs by mutableStateOf(listOf<String>())
     private var stations by mutableStateOf(listOf<Station>())
+    private var favUrls by mutableStateOf(setOf<String>())
+    private var bestUrls by mutableStateOf(setOf<String>())
+
+    private val extraTabs = listOf("fav", "best")
+
+    private val uiTabs: List<String>
+        get() = extraTabs + sourceTabs
 
     private val uiReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -70,21 +77,26 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         askNotifyPermission()
         val loaded = StationRepo.load(this)
-        tabs = loaded.first
+        sourceTabs = loaded.first
         stations = loaded.second
+        favUrls = FavStore.urls(this, BluetoothAutoPlayPlugin.KEY_FAVORITES)
+        bestUrls = FavStore.urls(this, BluetoothAutoPlayPlugin.KEY_LOCAL_BEST)
         readPrefs()
         setContent {
             RadioSOTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
+                    val visible = visibleStations()
                     StationScreen(
-                        tabs = tabs,
+                        tabs = uiTabs,
                         tabIndex = tabIndex,
                         onTab = { tabIndex = it },
-                        stations = stations.filter { if (tabs.isEmpty()) true else it.tab == tabs[tabIndex] },
+                        stations = visible,
                         name = stationName,
                         track = trackTitle,
                         playing = isPlaying,
                         status = statusText,
+                        favUrls = favUrls,
+                        bestUrls = bestUrls,
                         onPlayPause = {
                             if (isPlaying) sendAction(RadioWatchService.ACTION_PAUSE)
                             else playCurrentOrFirst()
@@ -92,9 +104,20 @@ class MainActivity : ComponentActivity() {
                         onNext = { sendAction(RadioWatchService.ACTION_NOTIF_NEXT) },
                         onPrev = { sendAction(RadioWatchService.ACTION_NOTIF_PREV) },
                         onPick = { list, index -> playFromList(list, index) },
+                        onToggleFav = { toggle(BluetoothAutoPlayPlugin.KEY_FAVORITES, it.url) },
+                        onToggleBest = { toggle(BluetoothAutoPlayPlugin.KEY_LOCAL_BEST, it.url) },
                     )
                 }
             }
+        }
+    }
+
+    private fun visibleStations(): List<Station> {
+        val tab = uiTabs.getOrNull(tabIndex) ?: return stations
+        return when (tab) {
+            "fav" -> stations.filter { favUrls.contains(it.url) }.distinctBy { it.url }
+            "best" -> stations.filter { bestUrls.contains(it.url) }.distinctBy { it.url }
+            else -> stations.filter { it.tab == tab }
         }
     }
 
@@ -136,20 +159,21 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun toggle(key: String, url: String) {
+        FavStore.toggle(this, key, url)
+        favUrls = FavStore.urls(this, BluetoothAutoPlayPlugin.KEY_FAVORITES)
+        bestUrls = FavStore.urls(this, BluetoothAutoPlayPlugin.KEY_LOCAL_BEST)
+    }
+
     private fun playCurrentOrFirst() {
         val p = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
         val url = p.getString(BluetoothAutoPlayPlugin.KEY_URL, "") ?: ""
         if (url.isNotBlank()) {
             sendAction(RadioWatchService.ACTION_PLAY)
         } else {
-            val list = currentTabStations()
+            val list = visibleStations()
             if (list.isNotEmpty()) playFromList(list, 0)
         }
-    }
-
-    private fun currentTabStations(): List<Station> {
-        if (tabs.isEmpty()) return stations
-        return stations.filter { it.tab == tabs[tabIndex] }
     }
 
     private fun playFromList(list: List<Station>, index: Int) {
@@ -208,40 +232,55 @@ fun StationScreen(
     track: String,
     playing: Boolean,
     status: String,
+    favUrls: Set<String>,
+    bestUrls: Set<String>,
     onPlayPause: () -> Unit,
     onNext: () -> Unit,
     onPrev: () -> Unit,
     onPick: (List<Station>, Int) -> Unit,
+    onToggleFav: (Station) -> Unit,
+    onToggleBest: (Station) -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxSize().padding(top = 36.dp)) {
         Text(name, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 16.dp))
         Text(if (track.isBlank()) "—" else track, modifier = Modifier.padding(horizontal = 16.dp))
         Text(status, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 16.dp))
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.padding(16.dp)
-        ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(16.dp)) {
             Button(onClick = onPrev) { Text("Prev") }
             Button(onClick = onPlayPause) { Text(if (playing) "Pause" else "Play") }
             Button(onClick = onNext) { Text("Next") }
         }
         if (tabs.isNotEmpty()) {
-            ScrollableTabRow(selectedTabIndex = tabIndex) {
+            ScrollableTabRow(selectedTabIndex = tabIndex.coerceAtMost(tabs.lastIndex)) {
                 tabs.forEachIndexed { i, t ->
                     Tab(selected = i == tabIndex, onClick = { onTab(i) }, text = { Text(t) })
                 }
             }
         }
+        if (stations.isEmpty()) {
+            Text("Порожньо. Додай ★ або +best у списку.", modifier = Modifier.padding(16.dp))
+        }
         LazyColumn(modifier = Modifier.fillMaxSize()) {
             itemsIndexed(stations, key = { i, s -> s.tab + s.url + i }) { index, s ->
-                Column(
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable { onPick(stations, index) }
-                        .padding(horizontal = 16.dp, vertical = 10.dp)
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
                 ) {
-                    Text(s.name, style = MaterialTheme.typography.bodyLarge)
-                    Text("${s.genre} · ${s.country}", style = MaterialTheme.typography.bodySmall)
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(s.name, style = MaterialTheme.typography.bodyLarge)
+                        Text("${s.genre} · ${s.country}", style = MaterialTheme.typography.bodySmall)
+                    }
+                    Text(
+                        if (favUrls.contains(s.url)) "★" else "☆",
+                        modifier = Modifier.padding(8.dp).clickable { onToggleFav(s) },
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                    Text(
+                        if (bestUrls.contains(s.url)) "+b" else "b",
+                        modifier = Modifier.padding(8.dp).clickable { onToggleBest(s) },
+                    )
                 }
             }
         }

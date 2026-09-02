@@ -18,4 +18,6 @@ public class BluetoothAutoPlayPlugin {
     public static final String KEY_FAVICON = "lastStationFavicon";
     public static final String KEY_GENRE = "lastStationGenre";
     public static final String KEY_COUNTRY = "lastStationCountry";
+    public static final String KEY_FAVORITES = "favoriteUrls";
+    public static final String KEY_LOCAL_BEST = "localBestUrls";
 }

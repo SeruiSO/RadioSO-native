@@ -136,6 +136,13 @@ object TabStore {
         return out
     }
 
+    fun deleted(ctx: Context): Set<String> {
+        val arr = JSONArray(prefs(ctx).getString("deletedStations", "[]") ?: "[]")
+        val s = linkedSetOf<String>()
+        for (i in 0 until arr.length()) s.add(arr.optString(i))
+        return s
+    }
+
     fun extraStations(ctx: Context, tab: String): List<Station> {
         val root = JSONObject(prefs(ctx).getString(KEY_ADDED, "{}") ?: "{}")
         val arr = root.optJSONArray(tab) ?: return emptyList()

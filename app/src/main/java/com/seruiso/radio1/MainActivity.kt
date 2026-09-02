@@ -93,6 +93,19 @@ class MainActivity : ComponentActivity() {
     private var themeId by mutableStateOf("shadow-pulse")
     private var accent by mutableStateOf(0xFF00E676)
     private var nowOpen by mutableStateOf(false)
+    private var posMs by mutableStateOf(0L)
+    private var durMs by mutableStateOf(0L)
+    private var isLocalNow by mutableStateOf(false)
+    private val posHandler = Handler(Looper.getMainLooper())
+    private val posTick = object : Runnable {
+        override fun run() {
+            val p = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+            posMs = p.getLong("localPositionMs", 0L)
+            durMs = p.getLong("localDurationMs", 0L)
+            isLocalNow = p.getString(LocalMusicPlugin.KEY_MODE, "radio") == "local"
+            if (nowOpen) posHandler.postDelayed(this, 500)
+        }
+    }
     private var trackTitle by mutableStateOf("")
     private var isPlaying by mutableStateOf(false)
     private var statusText by mutableStateOf("готово")
@@ -266,13 +279,15 @@ class MainActivity : ComponentActivity() {
                         },
                         onDeleteStation = { s ->
                             val tab = currentTab()
-                            if (tab !in listOf("fav", "best", "local", "search") ) {
+                            if (tab == "fav") {
+                                toggleFav(s)
+                            } else {
                                 TabStore.removeStation(this, tab, s.url)
-                                addedRev++
-                                statusText = "видалено з $tab"
-                            } else if (tab == "fav") {
-                                toggleFav(s.url)
+                                val rest = visibleRadio().map { it.url }.filter { it != s.url }
+                                TabStore.saveOrder(this, tab, rest)
                             }
+                            addedRev++
+                            statusText = "видалено"
                         },
                         track = trackTitle,
                         playing = isPlaying,
@@ -303,9 +318,9 @@ class MainActivity : ComponentActivity() {
                             }
                         },
                         onSeek = { seekTo(it) },
-                        posMs = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE).getLong("localPositionMs", 0L),
-                        durMs = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE).getLong("localDurationMs", 0L),
-                        isLocalNow = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE).getString(LocalMusicPlugin.KEY_MODE, "radio") == "local",
+                        posMs = posMs,
+                        durMs = durMs,
+                        isLocalNow = isLocalNow,
 
                         onToggleBest = { toggleBest(it.uri) },
                         onScan = { reloadLocal() },
@@ -403,15 +418,16 @@ class MainActivity : ComponentActivity() {
 
     private fun visibleRadio(): List<Station> {
         addedRev // observe
+        val deleted = TabStore.deleted(this)
         val tab = currentTab()
         return when (tab) {
-            "fav" -> (FavStore.stations(this) + stations.filter { favUrls.contains(it.url) }).distinctBy { it.url }
+            "fav" -> (FavStore.stations(this) + stations.filter { favUrls.contains(it.url) }).distinctBy { it.url }.filter { it.url !in deleted }
             "best", "local" -> emptyList()
-            "search" -> searchRows
+            "search" -> searchRows.filter { it.url !in TabStore.deleted(this) }
             else -> {
                 val base = stations.filter { it.tab == tab }
                 val extra = TabStore.extraStations(this, tab)
-                TabStore.applyOrder(this, tab, (base + extra).distinctBy { it.url })
+                TabStore.applyOrder(this, tab, (base + extra).distinctBy { it.url }.filter { it.url !in deleted })
             }
         }
     }
@@ -958,11 +974,18 @@ fun StationScreen(
                     Text(if (bestUris.contains(currentUrl)) "★ Local Best" else "☆ у best", color = acc, modifier = Modifier.clickable {
                         localRows.firstOrNull { it.uri == currentUrl }?.let { onToggleBest(it) }
                     }.padding(8.dp))
-                    if (durMs > 0) {
-                        androidx.compose.material3.Slider(
-                            value = (posMs.toFloat() / durMs.toFloat()).coerceIn(0f, 1f),
-                            onValueChange = { onSeek((it * durMs).toLong()) }
-                        )
+                    val d = if (durMs > 0) durMs else 1L
+                    androidx.compose.material3.Slider(
+                        value = (posMs.toFloat() / d.toFloat()).coerceIn(0f, 1f),
+                        onValueChange = { if (durMs > 0) onSeek((it * durMs).toLong()) }
+                    )
+                    fun fmt(ms: Long): String {
+                        val s = (ms / 1000).coerceAtLeast(0)
+                        return "%d:%02d".format(s / 60, s % 60)
+                    }
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(fmt(posMs), color = muted)
+                        Text(fmt(durMs), color = muted)
                     }
                 } else {
                     Text(if (favUrls.contains(currentUrl)) "★ fav" else "☆ fav", color = acc, modifier = Modifier.clickable {

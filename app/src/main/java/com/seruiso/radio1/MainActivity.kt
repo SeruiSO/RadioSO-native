@@ -258,7 +258,7 @@ fun StationScreen(
             }
         }
         if (stations.isEmpty()) {
-            Text("Порожньо. Додай ★ або +best у списку.", modifier = Modifier.padding(16.dp))
+            Text(if (tabs.getOrNull(tabIndex) == "best") "Local Best — з локальної музики (наступний етап)" else "Порожньо. Додай ★ до станції.", modifier = Modifier.padding(16.dp))
         }
         LazyColumn(modifier = Modifier.fillMaxSize()) {
             itemsIndexed(stations, key = { i, s -> s.tab + s.url + i }) { index, s ->
@@ -276,10 +276,6 @@ fun StationScreen(
                         if (favUrls.contains(s.url)) "★" else "☆",
                         modifier = Modifier.padding(8.dp).clickable { onToggleFav(s) },
                         style = MaterialTheme.typography.titleLarge
-                    )
-                    Text(
-                        if (bestUrls.contains(s.url)) "+b" else "b",
-                        modifier = Modifier.padding(8.dp).clickable { onToggleBest(s) },
                     )
                 }
             }

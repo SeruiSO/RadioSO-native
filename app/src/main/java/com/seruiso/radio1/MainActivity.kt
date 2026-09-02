@@ -610,11 +610,6 @@ class MainActivity : ComponentActivity() {
             addAction(RadioWatchService.ACTION_MEDIA_NEXT)
             addAction(RadioWatchService.ACTION_MEDIA_PREV)
         }
-        if (Build.VERSION.SDK_INT >= 31) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT)
-                != PackageManager.PERMISSION_GRANTED
-            ) need.add(Manifest.permission.BLUETOOTH_CONNECT)
-        }
         if (Build.VERSION.SDK_INT >= 33) {
             registerReceiver(uiReceiver, f, Context.RECEIVER_NOT_EXPORTED)
         } else {
@@ -653,12 +648,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun hasAudioPermission(): Boolean {
-        return if (Build.VERSION.SDK_INT >= 31) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT)
-                != PackageManager.PERMISSION_GRANTED
-            ) need.add(Manifest.permission.BLUETOOTH_CONNECT)
-        }
-        if (Build.VERSION.SDK_INT >= 33) {
+        return if (Build.VERSION.SDK_INT >= 33) {
             ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_AUDIO) ==
                 PackageManager.PERMISSION_GRANTED
         } else {

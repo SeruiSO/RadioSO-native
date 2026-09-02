@@ -8,6 +8,8 @@ import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Build
 import android.net.Uri
+import androidx.core.content.FileProvider
+import java.io.File
 import android.os.Bundle
 import android.os.VibrationEffect
 import android.os.Vibrator
@@ -451,10 +453,14 @@ class MainActivity : ComponentActivity() {
 
     private fun exportBackup() {
         val json = BackupStore.exportJson(this)
+        val file = File(cacheDir, "radio_settings.json")
+        file.writeText(json)
+        val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
         val send = Intent(Intent.ACTION_SEND)
         send.type = "application/json"
-        send.putExtra(Intent.EXTRA_TEXT, json)
-        send.putExtra(Intent.EXTRA_SUBJECT, "RadioSO-backup.json")
+        send.putExtra(Intent.EXTRA_STREAM, uri)
+        send.putExtra(Intent.EXTRA_SUBJECT, "radio_settings.json")
+        send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         startActivity(Intent.createChooser(send, "Експорт RadioSO"))
         statusText = "експорт"
     }

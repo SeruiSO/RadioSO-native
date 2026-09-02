@@ -28,6 +28,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.height
 import coil.compose.AsyncImage
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -40,6 +41,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.AlertDialog
@@ -56,6 +59,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.core.content.ContextCompat
@@ -283,10 +287,20 @@ class MainActivity : ComponentActivity() {
                         onPrev = { sendAction(RadioWatchService.ACTION_NOTIF_PREV) },
                         onPickRadio = { list, index -> playRadio(list, index) },
                         onPickLocal = { list, index -> playLocal(list, index) },
-                        onToggleFav = { s ->
-                            if (currentTab() == "search") pickStation = s
-                            else toggleFav(s.url)
+                        onToggleFav = { s -> toggleFav(s.url) },
+                        onAddToTab = { s -> pickStation = s },
+                        onMoveStation = { s, dir ->
+                            val tab = currentTab()
+                            if (tab !in listOf("fav", "best", "local", "search")) {
+                                TabStore.moveStation(this, tab, s.url, dir)
+                                addedRev++
+                            }
                         },
+                        onSeek = { seekTo(it) },
+                        posMs = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE).getLong("localPositionMs", 0L),
+                        durMs = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE).getLong("localDurationMs", 0L),
+                        isLocalNow = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE).getString(LocalMusicPlugin.KEY_MODE, "radio") == "local",
+
                         onToggleBest = { toggleBest(it.uri) },
                         onScan = { reloadLocal() },
                         menuOpen = menuOpen,
@@ -587,6 +601,13 @@ class MainActivity : ComponentActivity() {
         statusText = "start"
     }
 
+    private fun seekTo(pos: Long) {
+        val i = Intent(this, RadioWatchService::class.java)
+        i.action = RadioWatchService.ACTION_SEEK
+        i.putExtra(RadioWatchService.EXTRA_POSITION_MS, pos)
+        startForegroundService(i)
+    }
+
     private fun sendAction(action: String) {
         val i = Intent(this, RadioWatchService::class.java)
         i.action = action
@@ -653,6 +674,12 @@ fun StationScreen(
     onPickRadio: (List<Station>, Int) -> Unit,
     onPickLocal: (List<LocalTrack>, Int) -> Unit,
     onToggleFav: (Station) -> Unit,
+    onAddToTab: (Station) -> Unit,
+    onMoveStation: (Station, Int) -> Unit,
+    onSeek: (Long) -> Unit,
+    posMs: Long,
+    durMs: Long,
+    isLocalNow: Boolean,
     onToggleBest: (LocalTrack) -> Unit,
     onScan: () -> Unit,
     menuOpen: Boolean,
@@ -676,7 +703,8 @@ fun StationScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(bg)
-            .padding(top = 28.dp, start = 12.dp, end = 12.dp, bottom = 8.dp)
+            .navigationBarsPadding()
+            .padding(top = 28.dp, start = 12.dp, end = 12.dp, bottom = 16.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             Text("Radio S O", color = acc, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
@@ -703,6 +731,9 @@ fun StationScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(card, RoundedCornerShape(12.dp))
+                .pointerInput(Unit) {
+                    detectVerticalDragGestures { _, drag -> if (drag < -24) onNow() }
+                }
                 .padding(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -725,6 +756,17 @@ fun StationScreen(
                 Text("країна: $country", color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
                 Text("🎵 " + (if (track.isBlank()) "Трек: невідомо" else track), color = text, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
                 Text(status, color = acc, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.height(36.dp).padding(start = 8.dp)) {
+                listOf(0.7f, 1.0f, 0.75f, 1.1f, 0.85f, 0.95f, 0.8f).forEachIndexed { i, d ->
+                    Box(
+                        modifier = Modifier
+                            .padding(horizontal = 1.dp)
+                            .width(4.dp)
+                            .height(if (playing) (12 + ((i * 7) % 18)).dp else 8.dp)
+                            .background(acc.copy(alpha = if (playing) 1f else 0.25f), RoundedCornerShape(2.dp))
+                    )
+                }
             }
         }
         if (tabs.getOrNull(tabIndex) == "search") {
@@ -779,10 +821,17 @@ fun StationScreen(
                             Text(s.name, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text("${s.genre} · ${s.country}", color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
                         }
+                        if (tabs.getOrNull(tabIndex) == "search") {
+                            Text("ADD", color = acc, modifier = Modifier.clickable { onAddToTab(s) }.padding(6.dp))
+                        }
+                        if (tabs.getOrNull(tabIndex) !in listOf("search", "fav", "best", "local")) {
+                            Text("↑", color = muted, modifier = Modifier.clickable { onMoveStation(s, -1) }.padding(4.dp))
+                            Text("↓", color = muted, modifier = Modifier.clickable { onMoveStation(s, 1) }.padding(4.dp))
+                        }
                         Text(
-                            if (tabs.getOrNull(tabIndex) == "search") "ADD" else if (favUrls.contains(s.url)) "★" else "☆",
+                            if (favUrls.contains(s.url)) "★" else "☆",
                             color = acc,
-                            modifier = Modifier.clickable { onToggleFav(s) }.padding(8.dp)
+                            modifier = Modifier.clickable { onToggleFav(s) }.padding(6.dp)
                         )
                     }
                 }
@@ -818,18 +867,31 @@ fun StationScreen(
             }
         }
         Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            modifier = Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 8.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Button(onClick = onPrev) { Text("⏮") }
-            Button(onClick = onPlayPause) { Text(if (playing) "⏸" else "▶") }
-            Button(onClick = onNext) { Text("⏭") }
-            if (showLocal) Button(onClick = onScan) { Text("Scan") }
+            listOf(Triple("⏮", 68, onPrev), Triple(if (playing) "⏸" else "▶", if (playing) 76 else 76, onPlayPause), Triple("⏭", 68, onNext)).forEach { (lab, sz, act) ->
+                Box(
+                    modifier = Modifier
+                        .size(sz.dp)
+                        .background(Color(0xFF1A1A1E), RoundedCornerShape(14.dp))
+                        .border(1.dp, acc.copy(alpha = 0.35f), RoundedCornerShape(14.dp))
+                        .clickable { act() },
+                    contentAlignment = Alignment.Center
+                ) { Text(lab, color = Color.White, style = MaterialTheme.typography.headlineSmall) }
+            }
+            if (showLocal) {
+                Box(
+                    modifier = Modifier.size(56.dp).background(Color(0xFF1A1A1E), RoundedCornerShape(12.dp)).clickable { onScan() },
+                    contentAlignment = Alignment.Center
+                ) { Text("Scan", color = acc, style = MaterialTheme.typography.bodySmall) }
+            }
         }
     }
     if (pickStation != null) {
         AlertDialog(
+            containerColor = Color(0xFF1A1A1E),
             onDismissRequest = onCancelPick,
             title = { Text("Виберіть вкладку") },
             text = {
@@ -845,6 +907,7 @@ fun StationScreen(
     }
     if (newTabOpen) {
         AlertDialog(
+            containerColor = Color(0xFF1A1A1E),
             onDismissRequest = onCancelNewTab,
             title = { Text("Нова вкладка") },
             text = { OutlinedTextField(value = newTabName, onValueChange = onNewTabName, singleLine = true) },
@@ -854,6 +917,7 @@ fun StationScreen(
     }
     if (editTab != null) {
         AlertDialog(
+            containerColor = Color(0xFF1A1A1E),
             onDismissRequest = onCancelEdit,
             title = { Text("Вкладка $editTab") },
             text = { OutlinedTextField(value = editName, onValueChange = onEditName, singleLine = true) },
@@ -877,10 +941,26 @@ fun StationScreen(
                 Text("країна: $country", color = muted)
                 Text(if (track.isBlank()) "🎵 Трек: невідомо" else "🎵 $track", color = Color.White)
                 Text(status, color = acc)
+                if (isLocalNow) {
+                    Text(if (bestUris.contains(currentUrl)) "★ Local Best" else "☆ у best", color = acc, modifier = Modifier.clickable {
+                        localRows.firstOrNull { it.uri == currentUrl }?.let { onToggleBest(it) }
+                    }.padding(8.dp))
+                    if (durMs > 0) {
+                        androidx.compose.material3.Slider(
+                            value = (posMs.toFloat() / durMs.toFloat()).coerceIn(0f, 1f),
+                            onValueChange = { onSeek((it * durMs).toLong()) }
+                        )
+                    }
+                } else {
+                    Text(if (favUrls.contains(currentUrl)) "★ fav" else "☆ fav", color = acc, modifier = Modifier.clickable {
+                        radioRows.firstOrNull { it.url == currentUrl }?.let { onToggleFav(it) }
+                            ?: onToggleFav(Station(currentUrl, name, genre, country, favicon, ""))
+                    }.padding(8.dp))
+                }
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(top = 16.dp)) {
-                    Button(onClick = onPrev) { Text("⏮") }
-                    Button(onClick = onPlayPause) { Text(if (playing) "⏸" else "▶") }
-                    Button(onClick = onNext) { Text("⏭") }
+                    Box(modifier = Modifier.size(56.dp).background(Color(0xFF1A1A1E), RoundedCornerShape(14.dp)).clickable { onPrev() }, contentAlignment = Alignment.Center) { Text("⏮") }
+                    Box(modifier = Modifier.size(72.dp).background(acc, RoundedCornerShape(16.dp)).clickable { onPlayPause() }, contentAlignment = Alignment.Center) { Text(if (playing) "⏸" else "▶", color = Color(0xFF0A0A0C)) }
+                    Box(modifier = Modifier.size(56.dp).background(Color(0xFF1A1A1E), RoundedCornerShape(14.dp)).clickable { onNext() }, contentAlignment = Alignment.Center) { Text("⏭") }
                 }
             }
         }

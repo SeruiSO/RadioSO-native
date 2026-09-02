@@ -657,7 +657,22 @@ class MainActivity : ComponentActivity() {
         startForegroundService(i)
         statusText = "start"
         isLocalNow = url.startsWith("content:")
-        if (nowOpen) { posHandler.removeCallbacks(posTick); posHandler.post(posTick) }
+        if (pendingDelete != null) {
+        AlertDialog(
+            containerColor = Color(0xFF1A1A1E),
+            onDismissRequest = onCancelDelete,
+            title = { Text("Видалити станцію?") },
+            text = { Text(pendingDelete?.name ?: "") },
+            confirmButton = {
+                Button(onClick = {
+                    pendingDelete?.let { onDeleteStation(it) }
+                    onCancelDelete()
+                }) { Text("Так") }
+            },
+            dismissButton = { Button(onClick = onCancelDelete) { Text("Ні") } }
+        )
+    }
+    if (nowOpen) { posHandler.removeCallbacks(posTick); posHandler.post(posTick) }
     }
 
         private fun seekTo(pos: Long) {
@@ -792,10 +807,10 @@ fun StationScreen(
             .navigationBarsPadding()
             .padding(top = 28.dp, start = 12.dp, end = 12.dp, bottom = 16.dp)
     ) {
-        Box(modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)) {
-            Text("🌙", modifier = Modifier.align(Alignment.CenterStart).size(36.dp).clickable { onTheme() })
-            Text("Radio S O", color = acc, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.align(Alignment.Center))
-            Text("☰", color = text, modifier = Modifier.align(Alignment.CenterEnd).size(36.dp).clickable { onMenu() })
+        Box(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).height(48.dp)) {
+            Text("🌙", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.align(Alignment.CenterStart).clickable { onTheme() })
+            Text("Radio S O", color = acc, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.align(Alignment.Center))
+            Text("☰", color = text, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.align(Alignment.CenterEnd).clickable { onMenu() })
         }
         if (menuOpen) {
             Column(modifier = Modifier.background(card, RoundedCornerShape(12.dp)).padding(6.dp)) {
@@ -897,13 +912,10 @@ fun StationScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(if (s.url == currentUrl) acc.copy(alpha = 0.18f) else Color.Transparent, RoundedCornerShape(10.dp))
-                            .pointerInput(s.url) {
-                                detectDragGesturesAfterLongPress { _, drag ->
-                                    if (drag.y <= -28) onMoveStation(s, -1)
-                                    else if (drag.y >= 28) onMoveStation(s, 1)
-                                }
-                            }
-                            .clickable { onPickRadio(radioRows, index) }
+                            .combinedClickable(
+                                onClick = { onPickRadio(radioRows, index) },
+                                onLongClick = { onMoveStation(s, -1) }
+                            )
                             .padding(10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -1032,6 +1044,21 @@ fun StationScreen(
                     Button(onClick = onCancelEdit) { Text("Скасувати") }
                 }
             }
+        )
+    }
+    if (pendingDelete != null) {
+        AlertDialog(
+            containerColor = Color(0xFF1A1A1E),
+            onDismissRequest = onCancelDelete,
+            title = { Text("Видалити станцію?") },
+            text = { Text(pendingDelete?.name ?: "") },
+            confirmButton = {
+                Button(onClick = {
+                    pendingDelete?.let { onDeleteStation(it) }
+                    onCancelDelete()
+                }) { Text("Так") }
+            },
+            dismissButton = { Button(onClick = onCancelDelete) { Text("Ні") } }
         )
     }
     if (nowOpen) {

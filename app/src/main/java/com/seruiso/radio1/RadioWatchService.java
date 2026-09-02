@@ -98,6 +98,7 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
     private android.os.Handler silenceHandler;
     private Runnable silenceCheck;
     private int bufferingTicks = 0;
+    private long pendingSeekMs = -1L;
 
     private final BroadcastReceiver noisyReceiver = new BroadcastReceiver() {
         @Override
@@ -880,6 +881,8 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
         }
 
         if (ACTION_SEEK.equals(action) && intent != null) {
+            pendingSeekMs = intent.getLongExtra(EXTRA_POSITION_MS, -1L);
+            if (pendingSeekMs < 0) pendingSeekMs = intent.getIntExtra(EXTRA_POSITION_MS, -1);
             long pos = intent.getLongExtra(EXTRA_POSITION_MS, -1L);
             if (pos < 0) pos = intent.getIntExtra(EXTRA_POSITION_MS, -1);
             if (player != null && pos >= 0) {

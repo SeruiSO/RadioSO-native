@@ -10,7 +10,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.seruiso.radio1"
+        applicationId = "com.seruiso.radioso.nativeapp"
         minSdk = 26
         targetSdk = 37
         versionCode = 1

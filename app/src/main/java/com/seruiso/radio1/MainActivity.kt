@@ -289,15 +289,7 @@ class MainActivity : ComponentActivity() {
                             statusText = n.id
                         },
                         pendingDelete = pendingDelete,
-                        onAskDelete = { s -> pendingDelete = s },
-                        onConfirmDelete = {
-                            val s = pendingDelete ?: return@StationScreen
-                            pendingDelete = null
-                            run {
-                                val xx = s
-                                // reuse body
-                            }
-                        },
+                        onAskDelete = { pendingDelete = it },
                         onCancelDelete = { pendingDelete = null },
                         onDeleteStation = { s ->
                             val tab = currentTab()
@@ -732,6 +724,9 @@ fun StationScreen(
     onNowClose: () -> Unit,
     onTheme: () -> Unit,
     onDeleteStation: (Station) -> Unit,
+    pendingDelete: Station? = null,
+    onAskDelete: (Station) -> Unit = {},
+    onCancelDelete: () -> Unit = {},
     track: String,
     playing: Boolean,
     status: String,
@@ -875,8 +870,13 @@ fun StationScreen(
                             .padding(10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("🎵", modifier = Modifier.padding(end = 8.dp))
-                        Column(modifier = Modifier.weight(1f)) {
+                        Box(modifier = Modifier.size(42.dp), contentAlignment = Alignment.Center) {
+                            val a = if (item.albumId.isNotBlank() && item.albumId != "0")
+                                "content://media/external/audio/albumart/${item.albumId}" else ""
+                            if (a.isNotEmpty()) AsyncImage(model = a, contentDescription = null, modifier = Modifier.size(42.dp), contentScale = ContentScale.Crop)
+                            else Text("🎵")
+                        }
+                        Column(modifier = Modifier.weight(1f).padding(start = 8.dp)) {
                             Text(item.title, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text(item.artist, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
                         }
@@ -891,6 +891,9 @@ fun StationScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(if (s.url == currentUrl) acc.copy(alpha = 0.18f) else Color.Transparent, RoundedCornerShape(10.dp))
+                            .pointerInput(s.url) {
+                                detectHorizontalDragGestures { _, dx -> if (dx < -40) onAskDelete(s) }
+                            }
                             .combinedClickable(
                                 onClick = { onPickRadio(radioRows, index) },
                                 onLongClick = { }
@@ -914,7 +917,6 @@ fun StationScreen(
                                 Text("↑", color = muted, modifier = Modifier.clickable { onMoveStation(s, -1) }.padding(4.dp))
                                 Text("↓", color = muted, modifier = Modifier.clickable { onMoveStation(s, 1) }.padding(4.dp))
                             }
-                            Text("✕", color = muted, modifier = Modifier.size(40.dp).clickable { onDeleteStation(s) }, style = MaterialTheme.typography.titleLarge)
                             Text(
                                 if (favUrls.contains(s.url)) "★" else "☆",
                                 color = acc,

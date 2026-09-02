@@ -55,7 +55,10 @@ public class BluetoothReceiver extends BroadcastReceiver {
             connected = false;
         } else if (BluetoothAdapter.ACTION_CONNECTION_STATE_CHANGED.equals(action)) {
             int state = intent.getIntExtra(BluetoothAdapter.EXTRA_CONNECTION_STATE, BluetoothAdapter.STATE_DISCONNECTED);
-            if (state == BluetoothAdapter.STATE_DISCONNECTED) {
+            if (state == BluetoothAdapter.STATE_CONNECTED) {
+                connected = true;
+                isA2dp = true;
+            } else if (state == BluetoothAdapter.STATE_DISCONNECTED) {
                 connected = false;
             }
         }

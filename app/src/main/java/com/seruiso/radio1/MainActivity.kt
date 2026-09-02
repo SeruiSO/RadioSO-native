@@ -196,6 +196,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         askPermissions()
+        maybeStartBtIfConnected()
         val loaded = StationRepo.load(this)
         sourceTabs = loaded.first
         stations = loaded.second
@@ -609,6 +610,11 @@ class MainActivity : ComponentActivity() {
             addAction(RadioWatchService.ACTION_MEDIA_NEXT)
             addAction(RadioWatchService.ACTION_MEDIA_PREV)
         }
+        if (Build.VERSION.SDK_INT >= 31) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT)
+                != PackageManager.PERMISSION_GRANTED
+            ) need.add(Manifest.permission.BLUETOOTH_CONNECT)
+        }
         if (Build.VERSION.SDK_INT >= 33) {
             registerReceiver(uiReceiver, f, Context.RECEIVER_NOT_EXPORTED)
         } else {
@@ -629,7 +635,7 @@ class MainActivity : ComponentActivity() {
         grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == 1002) reloadLocal()
+        if (requestCode == 1002) { reloadLocal(); maybeStartBtIfConnected() }
     }
 
     private fun readPrefs() {
@@ -647,7 +653,12 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun hasAudioPermission(): Boolean {
-        return if (Build.VERSION.SDK_INT >= 33) {
+        return if (Build.VERSION.SDK_INT >= 31) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT)
+                != PackageManager.PERMISSION_GRANTED
+            ) need.add(Manifest.permission.BLUETOOTH_CONNECT)
+        }
+        if (Build.VERSION.SDK_INT >= 33) {
             ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_AUDIO) ==
                 PackageManager.PERMISSION_GRANTED
         } else {
@@ -656,8 +667,30 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun maybeStartBtIfConnected() {
+        if (!getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                .getBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, true)) return
+        try {
+            if (Build.VERSION.SDK_INT >= 31 &&
+                ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT)
+                != PackageManager.PERMISSION_GRANTED) return
+            val a = android.bluetooth.BluetoothAdapter.getDefaultAdapter() ?: return
+            val st = a.getProfileConnectionState(android.bluetooth.BluetoothProfile.A2DP)
+            if (st == android.bluetooth.BluetoothProfile.STATE_CONNECTED) {
+                val i = Intent(this, RadioWatchService::class.java)
+                i.action = RadioWatchService.ACTION_BT
+                startForegroundService(i)
+            }
+        } catch (_: Exception) {}
+    }
+
     private fun askPermissions() {
         val need = mutableListOf<String>()
+        if (Build.VERSION.SDK_INT >= 31) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT)
+                != PackageManager.PERMISSION_GRANTED
+            ) need.add(Manifest.permission.BLUETOOTH_CONNECT)
+        }
         if (Build.VERSION.SDK_INT >= 33) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
                 != PackageManager.PERMISSION_GRANTED

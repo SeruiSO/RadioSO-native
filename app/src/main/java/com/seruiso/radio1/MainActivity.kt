@@ -7,10 +7,14 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Build
+import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -46,6 +50,23 @@ import org.json.JSONArray
 
 class MainActivity : ComponentActivity() {
 
+    private val importLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        if (uri == null) return@registerForActivityResult
+        try {
+            val raw = contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } ?: ""
+            statusText = BackupStore.importJson(this, raw)
+            customTabs = TabStore.customTabs(this)
+            favUrls = FavStore.urls(this, BluetoothAutoPlayPlugin.KEY_FAVORITES)
+            bestUris = FavStore.urls(this, BluetoothAutoPlayPlugin.KEY_LOCAL_BEST)
+            btWatch = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                .getBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, true)
+            addedRev++
+        } catch (e: Exception) {
+            statusText = "помилка імпорту"
+        }
+    }
+
+
     private var stationName by mutableStateOf("Radio S O")
     private var trackTitle by mutableStateOf("")
     private var isPlaying by mutableStateOf(false)
@@ -70,6 +91,12 @@ class MainActivity : ComponentActivity() {
     private var editTab by mutableStateOf<String?>(null)
     private var editName by mutableStateOf("")
     private var deleteArmed by mutableStateOf(false)
+    private var menuOpen by mutableStateOf(false)
+    private var sleepMenu by mutableStateOf(false)
+    private var btWatch by mutableStateOf(true)
+    private var sleepLabel by mutableStateOf("Таймер сну")
+    private val sleepHandler = Handler(Looper.getMainLooper())
+    private var sleepRunnable: Runnable? = null
 
     private val extraTabs = listOf("fav", "best", "local", "search")
     private val uiTabs: List<String> get() = extraTabs + sourceTabs + customTabs.filter { it !in sourceTabs }
@@ -209,6 +236,18 @@ class MainActivity : ComponentActivity() {
                         },
                         onToggleBest = { toggleBest(it.uri) },
                         onScan = { reloadLocal() },
+                        menuOpen = menuOpen,
+                        onMenu = { menuOpen = !menuOpen },
+                        onCloseMenu = { menuOpen = false; sleepMenu = false },
+                        btWatch = btWatch,
+                        onBt = { toggleBt() },
+                        sleepLabel = sleepLabel,
+                        sleepMenu = sleepMenu,
+                        onSleepMenu = { sleepMenu = !sleepMenu },
+                        onSleep = { armSleep(it) },
+                        onExport = { exportBackup(); menuOpen = false },
+                        onImport = { importLauncher.launch("application/json"); menuOpen = false },
+
                     )
                 }
             }
@@ -247,6 +286,44 @@ class MainActivity : ComponentActivity() {
         if (searchShown >= searchAll.size) return
         searchShown = minOf(searchShown + 100, searchAll.size)
         searchRows = searchAll.take(searchShown)
+    }
+
+    private fun exportBackup() {
+        val json = BackupStore.exportJson(this)
+        val send = Intent(Intent.ACTION_SEND)
+        send.type = "application/json"
+        send.putExtra(Intent.EXTRA_TEXT, json)
+        send.putExtra(Intent.EXTRA_SUBJECT, "RadioSO-backup.json")
+        startActivity(Intent.createChooser(send, "Експорт RadioSO"))
+        statusText = "експорт"
+    }
+
+    private fun toggleBt() {
+        btWatch = !btWatch
+        getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+            .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, btWatch).commit()
+        statusText = if (btWatch) "BT стеження увімк" else "BT стеження вимк"
+    }
+
+    private fun armSleep(mins: Int) {
+        sleepRunnable?.let { sleepHandler.removeCallbacks(it) }
+        sleepRunnable = null
+        if (mins <= 0) {
+            sleepLabel = "Таймер сну"
+            statusText = "таймер вимкнено"
+            sleepMenu = false
+            return
+        }
+        sleepLabel = "Сон: ${mins} хв"
+        statusText = sleepLabel
+        val r = Runnable {
+            sendAction(RadioWatchService.ACTION_PAUSE)
+            sleepLabel = "Таймер сну"
+            statusText = "таймер сну: пауза"
+        }
+        sleepRunnable = r
+        sleepHandler.postDelayed(r, mins * 60_000L)
+        sleepMenu = false
     }
 
     private fun currentTab(): String = uiTabs.getOrNull(tabIndex) ?: ""
@@ -507,7 +584,19 @@ fun StationScreen(
     onToggleFav: (Station) -> Unit,
     onToggleBest: (LocalTrack) -> Unit,
     onScan: () -> Unit,
-) {
+    menuOpen: Boolean,
+    onMenu: () -> Unit,
+    onCloseMenu: () -> Unit,
+    btWatch: Boolean,
+    onBt: () -> Unit,
+    sleepLabel: String,
+    sleepMenu: Boolean,
+    onSleepMenu: () -> Unit,
+    onSleep: (Int) -> Unit,
+    onExport: () -> Unit,
+    onImport: () -> Unit,
+)
+ {
     Column(modifier = Modifier.fillMaxSize().padding(top = 36.dp)) {
         Text(name, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 16.dp))
         Text(if (track.isBlank()) "—" else track, modifier = Modifier.padding(horizontal = 16.dp))
@@ -517,6 +606,23 @@ fun StationScreen(
             Button(onClick = onPlayPause) { Text(if (playing) "Pause" else "Play") }
             Button(onClick = onNext) { Text("Next") }
             if (showLocal) Button(onClick = onScan) { Text("Scan") }
+            Button(onClick = onMenu) { Text("⋯") }
+        }
+        if (menuOpen) {
+            Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                Button(onClick = onBt) { Text(if (btWatch) "BT стеження: увімк" else "BT стеження: вимк") }
+                Button(onClick = onSleepMenu) { Text(sleepLabel) }
+                if (sleepMenu) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf(15, 30, 45, 60, 0).forEach { m ->
+                            Button(onClick = { onSleep(m) }) { Text(if (m == 0) "off" else "${m}") }
+                        }
+                    }
+                }
+                Button(onClick = onExport) { Text("Експорт") }
+                Button(onClick = onImport) { Text("Імпорт") }
+                Button(onClick = onCloseMenu) { Text("Закрити") }
+            }
         }
         if (tabs.getOrNull(tabIndex) == "search") {
             Column(modifier = Modifier.padding(horizontal = 16.dp)) {

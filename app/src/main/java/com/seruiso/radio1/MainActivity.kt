@@ -816,9 +816,15 @@ fun StationScreen(
             .padding(top = 28.dp, start = 12.dp, end = 12.dp, bottom = 16.dp)
     ) {
         Box(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).height(48.dp)) {
-            Text("🌙", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.align(Alignment.CenterStart).clickable { onTheme() })
-            Text("Radio S O", color = acc, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.align(Alignment.Center))
-            Text("☰", color = text, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.align(Alignment.CenterEnd).clickable { onMenu() })
+            Box(
+                modifier = Modifier.align(Alignment.CenterStart).size(40.dp).background(card, RoundedCornerShape(12.dp)).clickable { onTheme() },
+                contentAlignment = Alignment.Center
+            ) { Text("🌙") }
+            Text("Radio S O", color = Color.White, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.align(Alignment.Center))
+            Box(
+                modifier = Modifier.align(Alignment.CenterEnd).size(40.dp).background(card, RoundedCornerShape(12.dp)).clickable { onMenu() },
+                contentAlignment = Alignment.Center
+            ) { Text("⋯", color = Color.White) }
         }
         if (menuOpen) {
             Column(modifier = Modifier.background(card, RoundedCornerShape(12.dp)).padding(6.dp)) {
@@ -847,13 +853,13 @@ fun StationScreen(
         ) {
             Box(
                 modifier = Modifier
-                    .size(64.dp)
-                    .background(Color(0xFF222228), CircleShape)
+                    .size(58.dp)
+                    .background(Color(0xFF222228), RoundedCornerShape(14.dp))
                     .clickable { onNow() },
                 contentAlignment = Alignment.Center
             ) {
                 if (artUrl(favicon).startsWith("http") || artUrl(favicon).startsWith("content:")) {
-                    AsyncImage(model = artUrl(favicon), contentDescription = null, modifier = Modifier.size(64.dp), contentScale = ContentScale.Crop)
+                    AsyncImage(model = artUrl(favicon), contentDescription = null, modifier = Modifier.size(58.dp), contentScale = ContentScale.Crop)
                 } else {
                     Text("🎵")
                 }
@@ -872,12 +878,15 @@ fun StationScreen(
                 animationSpec = infiniteRepeatable(tween(1100, easing = androidx.compose.animation.core.FastOutSlowInEasing), RepeatMode.Reverse),
                 label = "p"
             ).value
-            Box(
-                modifier = Modifier
-                    .padding(start = 8.dp)
-                    .size((if (playing) 18f + 10f * pulse else 16f).dp)
-                    .background(acc.copy(alpha = if (playing) 0.35f + 0.65f * pulse else 0.3f), CircleShape)
-            )
+            Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.height(28.dp).padding(start = 6.dp)) {
+                listOf(0.4f, 0.85f, 0.55f, 1f, 0.5f, 0.75f, 0.45f).forEach { base ->
+                    Box(
+                        modifier = Modifier.padding(horizontal = 1.dp).width(3.dp)
+                            .height((if (playing) 6f + 20f * base * pulse else 6f).dp)
+                            .background(acc, RoundedCornerShape(2.dp))
+                    )
+                }
+            }
         }
         if (tabs.getOrNull(tabIndex) == "search") {
             Column(modifier = Modifier.padding(vertical = 6.dp)) {
@@ -938,7 +947,7 @@ fun StationScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(if (s.url == currentUrl) acc.copy(alpha = 0.18f) else Color.Transparent, RoundedCornerShape(10.dp))
+                            .background(if (s.url == currentUrl) acc.copy(alpha = 0.85f) else card, RoundedCornerShape(14.dp))
                             .pointerInput(s.url) {
                                 var acc = 0f
                                 detectDragGesturesAfterLongPress { _, drag ->
@@ -969,7 +978,7 @@ fun StationScreen(
                                 modifier = Modifier.size(40.dp).clickable { onToggleFav(s) },
                                 style = MaterialTheme.typography.headlineSmall
                             )
-                            Text("✕", color = muted, modifier = Modifier.size(36.dp).clickable { onAskDelete(s) }, style = MaterialTheme.typography.titleLarge)
+                            Text("🗑", modifier = Modifier.size(36.dp).clickable { onAskDelete(s) })
                         }
                     }
                 }
@@ -996,7 +1005,7 @@ fun StationScreen(
                                 when (tab) {
                                     "fav" -> "FAV"
                                     "best" -> "Best"
-                                    "local" -> "Local"
+                                    "local" -> "Lokal Best"
                                     "search" -> "SEARCH"
                                     "ukraine" -> "UA"
                                     "techno" -> "Techno"
@@ -1019,15 +1028,15 @@ fun StationScreen(
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            listOf(Triple("⏮", 68, onPrev), Triple(if (playing) "⏸" else "▶", if (playing) 76 else 76, onPlayPause), Triple("⏭", 68, onNext)).forEach { (lab, sz, act) ->
+            listOf(Triple("⏮", 64, false), Triple(if (playing) "⏸" else "▶", 76, true), Triple("⏭", 64, false)).forEachIndexed { i, (lab, sz, main) ->
+                val act = if (i == 0) onPrev else if (i == 1) onPlayPause else onNext
                 Box(
                     modifier = Modifier
                         .size(sz.dp)
-                        .background(Color(0xFF1A1A1E), RoundedCornerShape(14.dp))
-                        .border(1.dp, acc.copy(alpha = 0.35f), RoundedCornerShape(14.dp))
+                        .background(if (main) acc else card, RoundedCornerShape(16.dp))
                         .clickable { act() },
                     contentAlignment = Alignment.Center
-                ) { Text(lab, color = Color.White, style = MaterialTheme.typography.headlineSmall) }
+                ) { Text(lab, color = if (main) Color(0xFF0A0A0C) else Color.White, style = MaterialTheme.typography.headlineSmall) }
             }
             if (showLocal) {
                 Box(
@@ -1057,7 +1066,7 @@ fun StationScreen(
         AlertDialog(
             containerColor = Color(0xFF1A1A1E),
             onDismissRequest = onCancelNewTab,
-            title = { Text("Нова вкладка") },
+            title = { Text("Створити нову вкладку") },
             text = { OutlinedTextField(value = newTabName, onValueChange = onNewTabName, singleLine = true) },
             confirmButton = { Button(onClick = onCreateTab) { Text("Створити") } },
             dismissButton = { Button(onClick = onCancelNewTab) { Text("Скасувати") } }

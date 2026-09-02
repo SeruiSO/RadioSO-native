@@ -886,6 +886,7 @@ fun StationScreen(
     val card = Color(0xFF141418)
     val text = Color(0xFFF2F2F5)
     val muted = Color(0x9EF2F2F5)
+    var dropAt by androidx.compose.runtime.mutableIntStateOf(-1)
     Box(modifier = Modifier.fillMaxSize().background(bg).navigationBarsPadding()) {
     Column(
         modifier = Modifier
@@ -993,20 +994,23 @@ fun StationScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(if (item.uri == currentUrl) acc.copy(alpha = 0.18f) else Color.Transparent, RoundedCornerShape(10.dp))
+                            .background(when { dropAt == index -> acc.copy(alpha = 0.40f); item.uri == currentUrl -> acc.copy(alpha = 0.18f); else -> Color.Transparent }, RoundedCornerShape(10.dp))
                             .pointerInput(item.uri, index, tabs.getOrNull(tabIndex)) {
                                 if (tabs.getOrNull(tabIndex) != "best") return@pointerInput
                                 var acc = 0f
                                 detectDragGesturesAfterLongPress(
-                                    onDragStart = { onDragStart() },
+                                    onDragStart = { acc = 0f; dropAt = index; onDragStart() },
                                     onDragEnd = {
-                                        val step = (acc / 64f).toInt().coerceIn(-localRows.size, localRows.size)
-                                        val dest = (index + step).coerceIn(0, localRows.lastIndex)
+                                        val dest = dropAt.coerceIn(0, localRows.lastIndex)
                                         if (dest != index) onMoveLocalTo(index, dest)
                                         acc = 0f
+                                        dropAt = -1
                                     },
-                                    onDragCancel = { acc = 0f }
-                                ) { _, drag -> acc += drag.y }
+                                    onDragCancel = { acc = 0f; dropAt = -1 }
+                                ) { _, drag ->
+                                    acc += drag.y
+                                    dropAt = (index + (acc / 88f).toInt()).coerceIn(0, localRows.lastIndex)
+                                }
                             }
                             .clickable { onPickLocal(localRows, index) }
                             .padding(10.dp),
@@ -1032,19 +1036,22 @@ fun StationScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(if (s.url == currentUrl) acc.copy(alpha = 0.18f) else Color.Transparent, RoundedCornerShape(10.dp))
+                            .background(when { dropAt == index -> acc.copy(alpha = 0.40f); s.url == currentUrl -> acc.copy(alpha = 0.18f); else -> Color.Transparent }, RoundedCornerShape(10.dp))
                             .pointerInput(s.url, index) {
                                 var acc = 0f
                                 detectDragGesturesAfterLongPress(
-                                    onDragStart = { acc = 0f; onDragStart() },
+                                    onDragStart = { acc = 0f; dropAt = index; onDragStart() },
                                     onDragEnd = {
-                                        val step = (acc / 64f).toInt().coerceIn(-radioRows.size, radioRows.size)
-                                        val dest = (index + step).coerceIn(0, radioRows.lastIndex)
+                                        val dest = dropAt.coerceIn(0, radioRows.lastIndex)
                                         if (dest != index) onMoveTo(index, dest)
                                         acc = 0f
+                                        dropAt = -1
                                     },
-                                    onDragCancel = { acc = 0f }
-                                ) { _, drag -> acc += drag.y }
+                                    onDragCancel = { acc = 0f; dropAt = -1 }
+                                ) { _, drag ->
+                                    acc += drag.y
+                                    dropAt = (index + (acc / 88f).toInt()).coerceIn(0, radioRows.lastIndex)
+                                }
                             }
                             .clickable { onPickRadio(radioRows, index) }
                             .padding(10.dp),

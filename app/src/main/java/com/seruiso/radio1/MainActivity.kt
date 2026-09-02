@@ -131,6 +131,7 @@ class MainActivity : ComponentActivity() {
     private var qName by mutableStateOf("")
     private var qCountry by mutableStateOf("")
     private var qGenre by mutableStateOf("")
+    private var suggestFor by mutableStateOf("")
     private var searchAll by mutableStateOf(listOf<Station>())
     private var searchRows by mutableStateOf(listOf<Station>())
     private var searchShown by mutableIntStateOf(0)
@@ -208,6 +209,11 @@ class MainActivity : ComponentActivity() {
                         qCountry = qCountry, onCountry = { qCountry = it },
                         qGenre = qGenre, onGenre = { qGenre = it },
                         onSearch = { runSearch() },
+                        suggestFor = suggestFor,
+                        onSuggestFor = { suggestFor = it },
+                        nameHints = SearchHints.past(this) + SearchHints.names,
+                        countryHints = SearchHints.countries,
+                        genreHints = SearchHints.genres,
                         onMore = { loadMoreSearch() },
                         canMore = searchShown < searchAll.size && currentTab() == "search",
                         countries = RadioBrowser.countries,
@@ -378,7 +384,16 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun runSearch() {
-        val n = qName; val c = qCountry; val g = qGenre
+        val n = qName.trim()
+        val c = normalizeCountry(qCountry)
+        qCountry = c
+        val g = qGenre.trim()
+        if (n.isNotBlank()) {
+            val past = SearchHints.past(this).toMutableList()
+            past.remove(n)
+            past.add(0, n)
+            SearchHints.savePast(this, past.take(5))
+        }
         if (n.isBlank() && c.isBlank() && g.isBlank()) {
             statusText = "введи назву, країну або жанр"
             return
@@ -442,6 +457,19 @@ class MainActivity : ComponentActivity() {
         sleepRunnable = r
         sleepHandler.postDelayed(r, mins * 60_000L)
         sleepMenu = false
+    }
+
+    private fun normalizeCountry(raw: String): String {
+        val m = mapOf(
+            "ukraine" to "Ukraine", "ua" to "Ukraine", "italy" to "Italy",
+            "german" to "Germany", "germany" to "Germany", "france" to "France",
+            "spain" to "Spain", "usa" to "United States", "us" to "United States",
+            "uk" to "United Kingdom", "united kingdom" to "United Kingdom",
+            "netherlands" to "Netherlands", "canada" to "Canada"
+        )
+        val k = raw.trim().lowercase()
+        if (k.isEmpty()) return ""
+        return m[k] ?: raw.trim().replaceFirstChar { it.uppercase() }
     }
 
     private fun currentTab(): String = uiTabs.getOrNull(tabIndex) ?: ""
@@ -660,26 +688,16 @@ class MainActivity : ComponentActivity() {
         if (nowOpen) { posHandler.removeCallbacks(posTick); posHandler.post(posTick) }
     }
 
-        private fun seekTo(pos: Long) {
+    private fun seekTo(pos: Long) {
         holdSeek = true
         posMs = pos
-        val p = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-        p.edit().putLong("localPositionMs", pos).commit()
-        val url = p.getString(BluetoothAutoPlayPlugin.KEY_URL, "") ?: ""
-        val name = p.getString(BluetoothAutoPlayPlugin.KEY_NAME, "") ?: ""
+        getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+            .edit().putLong("localPositionMs", pos).commit()
         val i = Intent(this, RadioWatchService::class.java)
         i.action = RadioWatchService.ACTION_SEEK
         i.putExtra(RadioWatchService.EXTRA_POSITION_MS, pos)
-        i.putExtra(RadioWatchService.EXTRA_URL, url)
-        i.putExtra(RadioWatchService.EXTRA_NAME, name)
-        startService(i)
-        val i2 = Intent(this, RadioWatchService::class.java)
-        i2.action = RadioWatchService.ACTION_PLAY_URL
-        i2.putExtra(RadioWatchService.EXTRA_URL, url)
-        i2.putExtra(RadioWatchService.EXTRA_NAME, name)
-        i2.putExtra(RadioWatchService.EXTRA_POSITION_MS, pos)
-        startService(i2)
-        posHandler.postDelayed({ holdSeek = false }, 1500)
+        startForegroundService(i)
+        posHandler.postDelayed({ holdSeek = false }, 800)
     }
 
     private fun sendAction(action: String) {
@@ -699,6 +717,11 @@ fun StationScreen(
     qCountry: String, onCountry: (String) -> Unit,
     qGenre: String, onGenre: (String) -> Unit,
     onSearch: () -> Unit,
+    suggestFor: String = "",
+    onSuggestFor: (String) -> Unit = {},
+    nameHints: List<String> = emptyList(),
+    countryHints: List<String> = emptyList(),
+    genreHints: List<String> = emptyList(),
     onMore: () -> Unit,
     canMore: Boolean,
     countries: List<String>,
@@ -858,9 +881,22 @@ fun StationScreen(
         }
         if (tabs.getOrNull(tabIndex) == "search") {
             Column(modifier = Modifier.padding(vertical = 6.dp)) {
-                OutlinedTextField(value = qName, onValueChange = onName, singleLine = true, label = { Text("Назва") }, modifier = Modifier.fillMaxWidth().height(52.dp))
-                OutlinedTextField(value = qCountry, onValueChange = onCountry, singleLine = true, label = { Text("Країна") }, modifier = Modifier.fillMaxWidth().height(52.dp))
-                OutlinedTextField(value = qGenre, onValueChange = onGenre, singleLine = true, label = { Text("Жанр") }, modifier = Modifier.fillMaxWidth().height(52.dp))
+                fun field(v: String, set: (String) -> Unit, lab: String, key: String, hints: List<String>) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        OutlinedTextField(value = v, onValueChange = set, singleLine = true, label = { Text(lab) }, modifier = Modifier.weight(1f).height(52.dp))
+                        Text("▾", color = acc, modifier = Modifier.padding(start = 6.dp).clickable { onSuggestFor(if (suggestFor == key) "" else key) })
+                    }
+                    if (suggestFor == key) {
+                        Column(modifier = Modifier.fillMaxWidth().background(card, RoundedCornerShape(8.dp)).padding(6.dp)) {
+                            hints.distinct().take(10).forEach { h ->
+                                Text(h, color = text, modifier = Modifier.fillMaxWidth().clickable { set(h); onSuggestFor("") }.padding(6.dp))
+                            }
+                        }
+                    }
+                }
+                field(qName, onName, "Назва", "name", nameHints)
+                field(qCountry, onCountry, "Країна", "country", countryHints)
+                field(qGenre, onGenre, "Жанр", "genre", genreHints)
                 Button(onClick = onSearch, modifier = Modifier.padding(top = 4.dp).height(40.dp)) { Text("Знайти") }
             }
         }

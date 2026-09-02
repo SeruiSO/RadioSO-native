@@ -9,6 +9,8 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.net.Uri
 import android.os.Bundle
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.os.Handler
 import android.os.Looper
 import androidx.activity.ComponentActivity
@@ -335,6 +337,9 @@ class MainActivity : ComponentActivity() {
                         onPickLocal = { list, index -> menuOpen = false; playLocal(list, index) },
                         onToggleFav = { s -> toggleFav(s.url) },
                         onAddToTab = { s -> pickStation = s },
+                        onDragStart = { vibrateTick() },
+                        onMoveTo = { from, to -> moveRadioTo(from, to) },
+                        onMoveLocalTo = { from, to -> moveRadioTo(from, to) },
                         onMoveStation = { s, dir ->
                             val tab = currentTab()
                             if (tab !in listOf("fav", "best", "local", "search")) {
@@ -492,6 +497,36 @@ class MainActivity : ComponentActivity() {
         return m[k] ?: raw.trim().replaceFirstChar { it.uppercase() }
     }
 
+    private fun vibrateTick() {
+        try {
+            val v = getSystemService(Vibrator::class.java)
+            v?.vibrate(VibrationEffect.createOneShot(35, VibrationEffect.DEFAULT_AMPLITUDE))
+        } catch (_: Exception) {}
+    }
+
+    private fun moveRadioTo(from: Int, to: Int) {
+        val tab = currentTab()
+        if (tab in listOf("search", "local")) return
+        if (tab == "best") {
+            val list = visibleLocal().toMutableList()
+            if (from !in list.indices || to !in list.indices || from == to) return
+            val item = list.removeAt(from)
+            list.add(to, item)
+            FavStore.save(this, BluetoothAutoPlayPlugin.KEY_LOCAL_BEST, list.map { it.uri }.toSet())
+            getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                .edit().putString("order_best_uris", org.json.JSONArray(list.map { it.uri }).toString()).commit()
+            bestUris = FavStore.urls(this, BluetoothAutoPlayPlugin.KEY_LOCAL_BEST)
+            addedRev++
+            return
+        }
+        val list = visibleRadio().toMutableList()
+        if (from !in list.indices || to !in list.indices || from == to) return
+        val item = list.removeAt(from)
+        list.add(to, item)
+        TabStore.saveOrder(this, tab, list.map { it.url })
+        addedRev++
+    }
+
     private fun currentTab(): String = uiTabs.getOrNull(tabIndex) ?: ""
 
     private fun visibleRadio(): List<Station> {
@@ -514,7 +549,23 @@ class MainActivity : ComponentActivity() {
         val tab = currentTab()
         return when (tab) {
             "local" -> localTracks
-            "best" -> localTracks.filter { bestUris.contains(it.uri) }
+            "best" -> {
+                val raw = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE).getString("order_best_uris", null)
+                val base = localTracks.filter { bestUris.contains(it.uri) }
+                if (raw.isNullOrBlank()) base
+                else {
+                    val arr = JSONArray(raw)
+                    val map = base.associateBy { it.uri }.toMutableMap()
+                    val out = mutableListOf<LocalTrack>()
+                    for (i in 0 until arr.length()) {
+                        val u = arr.optString(i)
+                        val x = map.remove(u) ?: continue
+                        out.add(x)
+                    }
+                    out.addAll(map.values)
+                    out
+                }
+            }
             else -> emptyList()
         }
     }
@@ -797,6 +848,9 @@ fun StationScreen(
     onPickLocal: (List<LocalTrack>, Int) -> Unit,
     onToggleFav: (Station) -> Unit,
     onAddToTab: (Station) -> Unit,
+    onDragStart: () -> Unit = {},
+    onMoveTo: (Int, Int) -> Unit = { _, _ -> },
+    onMoveLocalTo: (Int, Int) -> Unit = { _, _ -> },
     onMoveStation: (Station, Int) -> Unit,
     onSeek: (Long) -> Unit,
     onShuffle: () -> Unit,
@@ -938,6 +992,18 @@ fun StationScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(if (item.uri == currentUrl) acc.copy(alpha = 0.18f) else Color.Transparent, RoundedCornerShape(10.dp))
+                            .pointerInput(item.uri, index, tabs.getOrNull(tabIndex)) {
+                                if (tabs.getOrNull(tabIndex) != "best") return@pointerInput
+                                var acc = 0f
+                                detectDragGesturesAfterLongPress(
+                                    onDragStart = { onDragStart() },
+                                    onDragEnd = {
+                                        val step = (acc / 56f).toInt()
+                                        if (step != 0) onMoveLocalTo(index, (index + step).coerceIn(0, localRows.lastIndex))
+                                    },
+                                    onDragCancel = { acc = 0f }
+                                ) { _, drag -> acc += drag.y }
+                            }
                             .clickable { onPickLocal(localRows, index) }
                             .padding(10.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -963,13 +1029,16 @@ fun StationScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(if (s.url == currentUrl) acc.copy(alpha = 0.18f) else Color.Transparent, RoundedCornerShape(10.dp))
-                            .pointerInput(s.url) {
+                            .pointerInput(s.url, index) {
                                 var acc = 0f
-                                detectDragGesturesAfterLongPress { _, drag ->
-                                    acc += drag.y
-                                    if (acc > 48f) { onMoveStation(s, 1); acc = 0f }
-                                    if (acc < -48f) { onMoveStation(s, -1); acc = 0f }
-                                }
+                                detectDragGesturesAfterLongPress(
+                                    onDragStart = { onDragStart() },
+                                    onDragEnd = {
+                                        val step = (acc / 56f).toInt()
+                                        if (step != 0) onMoveTo(index, (index + step).coerceIn(0, radioRows.lastIndex))
+                                    },
+                                    onDragCancel = { acc = 0f }
+                                ) { _, drag -> acc += drag.y }
                             }
                             .clickable { onPickRadio(radioRows, index) }
                             .padding(10.dp),
@@ -1023,6 +1092,7 @@ fun StationScreen(
                     Text(
                         lab,
                         color = if (i == tabIndex) Color(0xFF0A0A0C) else muted,
+                        style = MaterialTheme.typography.bodySmall,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier

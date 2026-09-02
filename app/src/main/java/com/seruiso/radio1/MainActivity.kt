@@ -11,23 +11,31 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.seruiso.radio1.ui.theme.RadioSOTheme
+import org.json.JSONArray
 
 class MainActivity : ComponentActivity() {
 
@@ -35,6 +43,9 @@ class MainActivity : ComponentActivity() {
     private var trackTitle by mutableStateOf("")
     private var isPlaying by mutableStateOf(false)
     private var statusText by mutableStateOf("готово")
+    private var tabIndex by mutableIntStateOf(0)
+    private var tabs by mutableStateOf(listOf<String>())
+    private var stations by mutableStateOf(listOf<Station>())
 
     private val uiReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -58,19 +69,31 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         askNotifyPermission()
+        val loaded = StationRepo.load(this)
+        tabs = loaded.first
+        stations = loaded.second
         readPrefs()
         setContent {
             RadioSOTheme {
-                MiniPlayer(
-                    name = stationName,
-                    track = trackTitle,
-                    playing = isPlaying,
-                    status = statusText,
-                    onPlay = { playTest() },
-                    onPause = { sendAction(RadioWatchService.ACTION_PAUSE) },
-                    onNext = { sendAction(RadioWatchService.ACTION_NOTIF_NEXT) },
-                    onPrev = { sendAction(RadioWatchService.ACTION_NOTIF_PREV) },
-                )
+                Surface(modifier = Modifier.fillMaxSize()) {
+                    StationScreen(
+                        tabs = tabs,
+                        tabIndex = tabIndex,
+                        onTab = { tabIndex = it },
+                        stations = stations.filter { if (tabs.isEmpty()) true else it.tab == tabs[tabIndex] },
+                        name = stationName,
+                        track = trackTitle,
+                        playing = isPlaying,
+                        status = statusText,
+                        onPlayPause = {
+                            if (isPlaying) sendAction(RadioWatchService.ACTION_PAUSE)
+                            else playCurrentOrFirst()
+                        },
+                        onNext = { sendAction(RadioWatchService.ACTION_NOTIF_NEXT) },
+                        onPrev = { sendAction(RadioWatchService.ACTION_NOTIF_PREV) },
+                        onPick = { list, index -> playFromList(list, index) },
+                    )
+                }
             }
         }
     }
@@ -113,28 +136,57 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun playTest() {
-        val url = "https://icecast.omroep.nl/radio2-bb-mp3"
-        val name = "NPO Radio 2"
-        stationName = name
+    private fun playCurrentOrFirst() {
+        val p = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+        val url = p.getString(BluetoothAutoPlayPlugin.KEY_URL, "") ?: ""
+        if (url.isNotBlank()) {
+            sendAction(RadioWatchService.ACTION_PLAY)
+        } else {
+            val list = currentTabStations()
+            if (list.isNotEmpty()) playFromList(list, 0)
+        }
+    }
+
+    private fun currentTabStations(): List<Station> {
+        if (tabs.isEmpty()) return stations
+        return stations.filter { it.tab == tabs[tabIndex] }
+    }
+
+    private fun playFromList(list: List<Station>, index: Int) {
+        if (index !in list.indices) return
+        val s = list[index]
+        stationName = s.name
+        trackTitle = ""
+        val urls = JSONArray()
+        val names = JSONArray()
+        val favs = JSONArray()
+        val genres = JSONArray()
+        val countries = JSONArray()
+        list.forEach {
+            urls.put(it.url)
+            names.put(it.name)
+            favs.put(it.favicon)
+            genres.put(it.genre)
+            countries.put(it.country)
+        }
         getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE).edit()
-            .putString(BluetoothAutoPlayPlugin.KEY_URL, url)
-            .putString(BluetoothAutoPlayPlugin.KEY_NAME, name)
+            .putString(BluetoothAutoPlayPlugin.KEY_URL, s.url)
+            .putString(BluetoothAutoPlayPlugin.KEY_NAME, s.name)
+            .putString(BluetoothAutoPlayPlugin.KEY_FAVICON, s.favicon)
+            .putString(BluetoothAutoPlayPlugin.KEY_GENRE, s.genre)
+            .putString(BluetoothAutoPlayPlugin.KEY_COUNTRY, s.country)
             .putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, true)
-            .putString(
-                BluetoothAutoPlayPlugin.KEY_QUEUE_URLS,
-                "[\"$url\"]"
-            )
-            .putString(
-                BluetoothAutoPlayPlugin.KEY_QUEUE_NAMES,
-                "[\"$name\"]"
-            )
-            .putInt(BluetoothAutoPlayPlugin.KEY_QUEUE_INDEX, 0)
+            .putString(BluetoothAutoPlayPlugin.KEY_QUEUE_URLS, urls.toString())
+            .putString(BluetoothAutoPlayPlugin.KEY_QUEUE_NAMES, names.toString())
+            .putString(BluetoothAutoPlayPlugin.KEY_QUEUE_FAVICONS, favs.toString())
+            .putString(BluetoothAutoPlayPlugin.KEY_QUEUE_GENRES, genres.toString())
+            .putString(BluetoothAutoPlayPlugin.KEY_QUEUE_COUNTRIES, countries.toString())
+            .putInt(BluetoothAutoPlayPlugin.KEY_QUEUE_INDEX, index)
             .commit()
         val i = Intent(this, RadioWatchService::class.java)
         i.action = RadioWatchService.ACTION_PLAY_URL
-        i.putExtra(RadioWatchService.EXTRA_URL, url)
-        i.putExtra(RadioWatchService.EXTRA_NAME, name)
+        i.putExtra(RadioWatchService.EXTRA_URL, s.url)
+        i.putExtra(RadioWatchService.EXTRA_NAME, s.name)
         startForegroundService(i)
         statusText = "start"
     }
@@ -147,29 +199,51 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun MiniPlayer(
+fun StationScreen(
+    tabs: List<String>,
+    tabIndex: Int,
+    onTab: (Int) -> Unit,
+    stations: List<Station>,
     name: String,
     track: String,
     playing: Boolean,
     status: String,
-    onPlay: () -> Unit,
-    onPause: () -> Unit,
+    onPlayPause: () -> Unit,
     onNext: () -> Unit,
     onPrev: () -> Unit,
+    onPick: (List<Station>, Int) -> Unit,
 ) {
-    Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(name, style = MaterialTheme.typography.headlineSmall)
-        Text(if (track.isBlank()) "—" else track, style = MaterialTheme.typography.bodyLarge)
-        Text(status, style = MaterialTheme.typography.bodySmall)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 24.dp)) {
+    Column(modifier = Modifier.fillMaxSize().padding(top = 36.dp)) {
+        Text(name, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 16.dp))
+        Text(if (track.isBlank()) "—" else track, modifier = Modifier.padding(horizontal = 16.dp))
+        Text(status, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 16.dp))
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(16.dp)
+        ) {
             Button(onClick = onPrev) { Text("Prev") }
-            if (playing) Button(onClick = onPause) { Text("Pause") }
-            else Button(onClick = onPlay) { Text("Play") }
+            Button(onClick = onPlayPause) { Text(if (playing) "Pause" else "Play") }
             Button(onClick = onNext) { Text("Next") }
+        }
+        if (tabs.isNotEmpty()) {
+            ScrollableTabRow(selectedTabIndex = tabIndex) {
+                tabs.forEachIndexed { i, t ->
+                    Tab(selected = i == tabIndex, onClick = { onTab(i) }, text = { Text(t) })
+                }
+            }
+        }
+        LazyColumn(modifier = Modifier.fillMaxSize()) {
+            itemsIndexed(stations, key = { i, s -> s.tab + s.url + i }) { index, s ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onPick(stations, index) }
+                        .padding(horizontal = 16.dp, vertical = 10.dp)
+                ) {
+                    Text(s.name, style = MaterialTheme.typography.bodyLarge)
+                    Text("${s.genre} · ${s.country}", style = MaterialTheme.typography.bodySmall)
+                }
+            }
         }
     }
 }

@@ -148,8 +148,12 @@ class MainActivity : ComponentActivity() {
     private val sleepHandler = Handler(Looper.getMainLooper())
     private var sleepRunnable: Runnable? = null
 
-    private val extraTabs = listOf("fav", "best", "local", "search")
-    private val uiTabs: List<String> get() = extraTabs + sourceTabs + customTabs.filter { it !in sourceTabs }
+    private val uiTabs: List<String>
+        get() {
+            val mid = sourceTabs.filter { it !in listOf("fav", "best", "local", "search") } +
+                customTabs.filter { it !in sourceTabs && it !in listOf("fav", "best", "local", "search") }
+            return listOf("fav", "best") + mid.distinct() + listOf("local", "search")
+        }
 
     private val uiReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -848,7 +852,7 @@ fun StationScreen(
                 .pointerInput(Unit) {
                     detectVerticalDragGestures { _, drag -> if (drag < -24) onNow() }
                 }
-                .padding(10.dp),
+                .padding(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
@@ -889,7 +893,7 @@ fun StationScreen(
             }
         }
         if (tabs.getOrNull(tabIndex) == "search") {
-            Column(modifier = Modifier.padding(vertical = 6.dp)) {
+            Column(modifier = Modifier.padding(vertical = 4.dp).background(card, RoundedCornerShape(16.dp)).padding(10.dp)) {
                 @Composable fun field(v: String, set: (String) -> Unit, lab: String, key: String, hints: List<String>) {
                     OutlinedTextField(
                         value = v,

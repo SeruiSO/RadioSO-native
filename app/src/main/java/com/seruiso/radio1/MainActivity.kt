@@ -326,6 +326,19 @@ class MainActivity : ComponentActivity() {
                             }
                         },
                         onSeek = { seekTo(it) },
+                        onShuffle = {
+                            val p = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                            val v = !p.getBoolean(LocalMusicPlugin.KEY_LOCAL_SHUFFLE, false)
+                            p.edit().putBoolean(LocalMusicPlugin.KEY_LOCAL_SHUFFLE, v).apply()
+                            statusText = if (v) "shuffle on" else "shuffle off"
+                        },
+                        onRepeat = {
+                            val p = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                            val cur = p.getString(LocalMusicPlugin.KEY_LOCAL_REPEAT, "off")
+                            val next = when (cur) { "off" -> "all"; "all" -> "one"; else -> "off" }
+                            p.edit().putString(LocalMusicPlugin.KEY_LOCAL_REPEAT, next).apply()
+                            statusText = "repeat $next"
+                        },
                         posMs = posMs,
                         durMs = durMs,
                         isLocalNow = isLocalNow,

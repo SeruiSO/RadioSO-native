@@ -714,6 +714,8 @@ fun StationScreen(
     onAddToTab: (Station) -> Unit,
     onMoveStation: (Station, Int) -> Unit,
     onSeek: (Long) -> Unit,
+    onShuffle: () -> Unit,
+    onRepeat: () -> Unit,
     posMs: Long,
     durMs: Long,
     isLocalNow: Boolean,
@@ -731,6 +733,13 @@ fun StationScreen(
     onExport: () -> Unit,
     onImport: () -> Unit,
 ) {
+    fun artUrl(raw: String): String {
+        if (raw.startsWith("http")) return raw
+        if (raw.isNotBlank() && raw != "0" && raw.all { it.isDigit() }) {
+            return "content://media/external/audio/albumart/$raw"
+        }
+        return raw
+    }
     val acc = Color(accent)
     val bg = Color(0xFF0A0A0C)
     val card = Color(0xFF1A1A1E)
@@ -781,8 +790,8 @@ fun StationScreen(
                     .clickable { onNow() },
                 contentAlignment = Alignment.Center
             ) {
-                if (favicon.startsWith("http")) {
-                    AsyncImage(model = favicon, contentDescription = null, modifier = Modifier.size(52.dp), contentScale = ContentScale.Crop)
+                if (artUrl(favicon).startsWith("http") || artUrl(favicon).startsWith("content:")) {
+                    AsyncImage(model = artUrl(favicon), contentDescription = null, modifier = Modifier.size(52.dp), contentScale = ContentScale.Crop)
                 } else {
                     Text("🎵")
                 }
@@ -796,14 +805,14 @@ fun StationScreen(
             }
             val inf = rememberInfiniteTransition(label = "viz")
             val pulse = inf.animateFloat(
-                initialValue = 0.25f,
+                initialValue = 0.35f,
                 targetValue = 1f,
-                animationSpec = infiniteRepeatable(tween(450), RepeatMode.Reverse),
+                animationSpec = infiniteRepeatable(tween(1100, easing = androidx.compose.animation.core.FastOutSlowInEasing), RepeatMode.Reverse),
                 label = "p"
             ).value
             Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.height(36.dp).padding(start = 8.dp)) {
                 listOf(0.45f, 1f, 0.6f, 0.9f, 0.5f, 0.8f, 0.55f).forEachIndexed { i, base ->
-                    val h = if (playing) (8f + 28f * base * ((pulse + i * 0.12f) % 1f)) else 8f
+                    val h = if (playing) (10f + 22f * base * pulse) else 8f
                     Box(
                         modifier = Modifier
                             .padding(horizontal = 1.5.dp)
@@ -991,8 +1000,8 @@ fun StationScreen(
     if (nowOpen) {
         ModalBottomSheet(onDismissRequest = onNowClose, containerColor = Color(0xFF121214)) {
             Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                if (favicon.startsWith("http")) {
-                    AsyncImage(model = favicon, contentDescription = null, modifier = Modifier.size(160.dp), contentScale = ContentScale.Fit)
+                if (artUrl(favicon).startsWith("http") || artUrl(favicon).startsWith("content:")) {
+                    AsyncImage(model = artUrl(favicon), contentDescription = null, modifier = Modifier.size(160.dp), contentScale = ContentScale.Fit)
                 } else Text("🎵", style = MaterialTheme.typography.displayMedium)
                 Text(name, color = Color.White, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Text("жанр: $genre", color = muted)
@@ -1003,10 +1012,19 @@ fun StationScreen(
                     Text(if (bestUris.contains(currentUrl)) "★ Local Best" else "☆ у best", color = acc, modifier = Modifier.clickable {
                         localRows.firstOrNull { it.uri == currentUrl }?.let { onToggleBest(it) }
                     }.padding(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(8.dp)) {
+                        Text("Shuffle", color = acc, modifier = Modifier.clickable { onShuffle() })
+                        Text("Repeat", color = acc, modifier = Modifier.clickable { onRepeat() })
+                    }
                     val d = if (durMs > 0) durMs else 1L
+                    var slide by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(-1f) }
                     androidx.compose.material3.Slider(
-                        value = (posMs.toFloat() / d.toFloat()).coerceIn(0f, 1f),
-                        onValueChange = { if (durMs > 0) onSeek((it * durMs).toLong()) }
+                        value = if (slide >= 0f) slide else (posMs.toFloat() / d.toFloat()).coerceIn(0f, 1f),
+                        onValueChange = { slide = it },
+                        onValueChangeFinished = {
+                            if (durMs > 0 && slide >= 0f) onSeek((slide * durMs).toLong())
+                            slide = -1f
+                        }
                     )
                     fun fmt(ms: Long): String {
                         val s = (ms / 1000).coerceAtLeast(0)

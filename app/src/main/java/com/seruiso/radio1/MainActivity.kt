@@ -547,7 +547,7 @@ class MainActivity : ComponentActivity() {
         return when (tab) {
             "fav" -> TabStore.applyOrder(this, "fav", (FavStore.stations(this) + stations.filter { favUrls.contains(it.url) }).distinctBy { it.url }.filter { it.url !in deleted })
             "best", "local" -> emptyList()
-            "search" -> searchRows.filter { it.url !in TabStore.deleted(this) }
+            "search" -> searchRows
             else -> {
                 val base = stations.filter { it.tab == tab }
                 val extra = TabStore.extraStations(this, tab)
@@ -1023,13 +1023,6 @@ fun StationScreen(
                                 ) { _, drag ->
                                     acc += drag.y
                                     dropAt = (index + (acc / 168f).toInt()).coerceIn(0, localRows.lastIndex)
-                                    val first = listState.firstVisibleItemIndex
-                                    val last = first + listState.layoutInfo.visibleItemsInfo.size.coerceAtLeast(1) - 1
-                                    if (dropAt <= first + 1 && dropAt > 0) {
-                                        scope.launch { listState.scrollToItem((dropAt - 1).coerceAtLeast(0)) }
-                                    } else if (dropAt >= last - 1 && dropAt < localRows.lastIndex) {
-                                        scope.launch { listState.scrollToItem((first + 1).coerceAtMost(localRows.lastIndex)) }
-                                    }
                                 }
                             }
                             .clickable { onPickLocal(localRows, index) }
@@ -1072,13 +1065,6 @@ fun StationScreen(
                                 ) { _, drag ->
                                     acc += drag.y
                                     dropAt = (index + (acc / 168f).toInt()).coerceIn(0, radioRows.lastIndex)
-                                    val first = listState.firstVisibleItemIndex
-                                    val last = first + listState.layoutInfo.visibleItemsInfo.size.coerceAtLeast(1) - 1
-                                    if (dropAt <= first + 1 && dropAt > 0) {
-                                        scope.launch { listState.scrollToItem((dropAt - 1).coerceAtLeast(0)) }
-                                    } else if (dropAt >= last - 1 && dropAt < radioRows.lastIndex) {
-                                        scope.launch { listState.scrollToItem((first + 1).coerceAtMost(radioRows.lastIndex)) }
-                                    }
                                 }
                             }
                             .clickable { onPickRadio(radioRows, index) }

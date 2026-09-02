@@ -55,6 +55,37 @@ object TabStore {
         return null
     }
 
+    fun renameTab(ctx: Context, old: String, rawNew: String): String? {
+        val name = rawNew.trim().lowercase()
+        if (name.isEmpty()) return "Введи назву"
+        if (name == old) return null
+        if (name.length > 10 || !name.matches(Regex("^[a-z0-9_-]+$"))) {
+            return "Лише a-z 0-9 _ - до 10 символів"
+        }
+        val cur = customTabs(ctx).toMutableList()
+        if (reserved.contains(name) || cur.contains(name) || name in listOf("techno","trance","ukraine","pop")) {
+            return "Така вкладка вже є"
+        }
+        val idx = cur.indexOf(old)
+        if (idx < 0) return "Немає вкладки"
+        cur[idx] = name
+        saveTabs(ctx, cur)
+        val root = JSONObject(prefs(ctx).getString(KEY_ADDED, "{}") ?: "{}")
+        if (root.has(old)) {
+            root.put(name, root.optJSONArray(old) ?: JSONArray())
+            root.remove(old)
+            prefs(ctx).edit().putString(KEY_ADDED, root.toString()).commit()
+        }
+        return null
+    }
+
+    fun deleteTab(ctx: Context, tab: String) {
+        saveTabs(ctx, customTabs(ctx).filter { it != tab })
+        val root = JSONObject(prefs(ctx).getString(KEY_ADDED, "{}") ?: "{}")
+        root.remove(tab)
+        prefs(ctx).edit().putString(KEY_ADDED, root.toString()).commit()
+    }
+
     fun extraStations(ctx: Context, tab: String): List<Station> {
         val root = JSONObject(prefs(ctx).getString(KEY_ADDED, "{}") ?: "{}")
         val arr = root.optJSONArray(tab) ?: return emptyList()

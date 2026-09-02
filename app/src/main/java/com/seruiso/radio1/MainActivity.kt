@@ -12,6 +12,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -37,6 +39,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.core.content.ContextCompat
 import com.seruiso.radio1.ui.theme.RadioSOTheme
 import org.json.JSONArray
@@ -62,6 +65,9 @@ class MainActivity : ComponentActivity() {
     private var pickStation by mutableStateOf<Station?>(null)
     private var newTabOpen by mutableStateOf(false)
     private var newTabName by mutableStateOf("")
+    private var editTab by mutableStateOf<String?>(null)
+    private var editName by mutableStateOf("")
+    private var deleteArmed by mutableStateOf(false)
 
     private val extraTabs = listOf("fav", "best", "local", "search")
     private val uiTabs: List<String> get() = extraTabs + sourceTabs + customTabs.filter { it !in sourceTabs }
@@ -140,6 +146,40 @@ class MainActivity : ComponentActivity() {
                             } else statusText = err
                         },
                         onCancelNewTab = { newTabOpen = false },
+                        customTabs = customTabs,
+                        editTab = editTab,
+                        editName = editName,
+                        deleteArmed = deleteArmed,
+                        onLongTab = { tab ->
+                            if (tab in customTabs) {
+                                editTab = tab
+                                editName = tab
+                                deleteArmed = false
+                            }
+                        },
+                        onEditName = { editName = it },
+                        onRenameTab = {
+                            val oldName = editTab ?: return@StationScreen
+                            val err = TabStore.renameTab(this, oldName, editName)
+                            if (err == null) {
+                                customTabs = TabStore.customTabs(this)
+                                addedRev++
+                                statusText = "перейменовано"
+                                editTab = null
+                            } else statusText = err
+                        },
+                        onDeleteTab = {
+                            val tab = editTab ?: return@StationScreen
+                            if (!deleteArmed) { deleteArmed = true; return@StationScreen }
+                            TabStore.deleteTab(this, tab)
+                            customTabs = TabStore.customTabs(this)
+                            addedRev++
+                            if (uiTabs.getOrNull(tabIndex) == tab) tabIndex = 0
+                            statusText = "видалено $tab"
+                            editTab = null
+                            deleteArmed = false
+                        },
+                        onCancelEdit = { editTab = null; deleteArmed = false },
                         radioRows = visibleRadio(),
                         localRows = visibleLocal(),
                         showLocal = tab == "local" || tab == "best",
@@ -394,6 +434,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun StationScreen(
     tabs: List<String>,
@@ -413,6 +454,15 @@ fun StationScreen(
     onNewTabName: (String) -> Unit,
     onCreateTab: () -> Unit,
     onCancelNewTab: () -> Unit,
+    customTabs: List<String>,
+    editTab: String?,
+    editName: String,
+    deleteArmed: Boolean,
+    onLongTab: (String) -> Unit,
+    onEditName: (String) -> Unit,
+    onRenameTab: () -> Unit,
+    onDeleteTab: () -> Unit,
+    onCancelEdit: () -> Unit,
     radioRows: List<Station>,
     localRows: List<LocalTrack>,
     showLocal: Boolean,
@@ -452,7 +502,21 @@ fun StationScreen(
         if (tabs.isNotEmpty()) {
             ScrollableTabRow(selectedTabIndex = tabIndex.coerceAtMost(tabs.lastIndex)) {
                 tabs.forEachIndexed { i, t ->
-                    Tab(selected = i == tabIndex, onClick = { onTab(i) }, text = { Text(t) })
+                    Tab(
+                        selected = i == tabIndex,
+                        onClick = { onTab(i) },
+                        text = {
+                            Text(
+                                t,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.combinedClickable(
+                                    onClick = { onTab(i) },
+                                    onLongClick = { onLongTab(t) }
+                                )
+                            )
+                        }
+                    )
                 }
                 Tab(selected = false, onClick = onAddTab, text = { Text("+") })
             }
@@ -473,6 +537,22 @@ fun StationScreen(
                 },
                 confirmButton = {},
                 dismissButton = { Button(onClick = onCancelPick) { Text("Скасувати") } }
+            )
+        }
+        if (editTab != null) {
+            AlertDialog(
+                onDismissRequest = onCancelEdit,
+                title = { Text("Вкладка $editTab") },
+                text = {
+                    OutlinedTextField(value = editName, onValueChange = onEditName, singleLine = true, label = { Text("перейменувати") })
+                },
+                confirmButton = { Button(onClick = onRenameTab) { Text("Перейменувати") } },
+                dismissButton = {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = onDeleteTab) { Text(if (deleteArmed) "Точно видалити?" else "Видалити") }
+                        Button(onClick = onCancelEdit) { Text("Скасувати") }
+                    }
+                }
             )
         }
         if (newTabOpen) {
@@ -499,7 +579,7 @@ fun StationScreen(
                             .padding(horizontal = 16.dp, vertical = 8.dp)
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(t.title, style = MaterialTheme.typography.bodyLarge)
+                            Text(t.title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text(t.artist, style = MaterialTheme.typography.bodySmall)
                         }
                         Text(
@@ -522,8 +602,8 @@ fun StationScreen(
                             .padding(horizontal = 16.dp, vertical = 8.dp)
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(s.name, style = MaterialTheme.typography.bodyLarge)
-                            Text("${s.genre} · ${s.country}", style = MaterialTheme.typography.bodySmall)
+                            Text(s.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text("${s.genre} · ${s.country}", style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                         Text(
                             if (favUrls.contains(s.url)) "★" else "☆",

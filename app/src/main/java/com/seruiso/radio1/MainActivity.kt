@@ -46,13 +46,12 @@ class MainActivity : ComponentActivity() {
     private var tabIndex by mutableIntStateOf(0)
     private var sourceTabs by mutableStateOf(listOf<String>())
     private var stations by mutableStateOf(listOf<Station>())
+    private var localTracks by mutableStateOf(listOf<LocalTrack>())
     private var favUrls by mutableStateOf(setOf<String>())
-    private var bestUrls by mutableStateOf(setOf<String>())
+    private var bestUris by mutableStateOf(setOf<String>())
 
-    private val extraTabs = listOf("fav", "best")
-
-    private val uiTabs: List<String>
-        get() = extraTabs + sourceTabs
+    private val extraTabs = listOf("fav", "best", "local")
+    private val uiTabs: List<String> get() = extraTabs + sourceTabs
 
     private val uiReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -75,49 +74,82 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        askNotifyPermission()
+        askPermissions()
         val loaded = StationRepo.load(this)
         sourceTabs = loaded.first
         stations = loaded.second
         favUrls = FavStore.urls(this, BluetoothAutoPlayPlugin.KEY_FAVORITES)
-        bestUrls = FavStore.urls(this, BluetoothAutoPlayPlugin.KEY_LOCAL_BEST)
+        bestUris = FavStore.urls(this, BluetoothAutoPlayPlugin.KEY_LOCAL_BEST)
+        reloadLocal()
         readPrefs()
         setContent {
             RadioSOTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    val visible = visibleStations()
+                    val tab = uiTabs.getOrNull(tabIndex) ?: ""
                     StationScreen(
                         tabs = uiTabs,
                         tabIndex = tabIndex,
                         onTab = { tabIndex = it },
-                        stations = visible,
+                        radioRows = visibleRadio(),
+                        localRows = visibleLocal(),
+                        showLocal = tab == "local" || tab == "best",
                         name = stationName,
                         track = trackTitle,
                         playing = isPlaying,
                         status = statusText,
                         favUrls = favUrls,
-                        bestUrls = bestUrls,
+                        bestUris = bestUris,
                         onPlayPause = {
                             if (isPlaying) sendAction(RadioWatchService.ACTION_PAUSE)
                             else playCurrentOrFirst()
                         },
                         onNext = { sendAction(RadioWatchService.ACTION_NOTIF_NEXT) },
                         onPrev = { sendAction(RadioWatchService.ACTION_NOTIF_PREV) },
-                        onPick = { list, index -> playFromList(list, index) },
-                        onToggleFav = { toggle(BluetoothAutoPlayPlugin.KEY_FAVORITES, it.url) },
-                        onToggleBest = { toggle(BluetoothAutoPlayPlugin.KEY_LOCAL_BEST, it.url) },
+                        onPickRadio = { list, index -> playRadio(list, index) },
+                        onPickLocal = { list, index -> playLocal(list, index) },
+                        onToggleFav = { toggleFav(it.url) },
+                        onToggleBest = { toggleBest(it.uri) },
+                        onScan = { reloadLocal() },
                     )
                 }
             }
         }
     }
 
-    private fun visibleStations(): List<Station> {
-        val tab = uiTabs.getOrNull(tabIndex) ?: return stations
+    private fun currentTab(): String = uiTabs.getOrNull(tabIndex) ?: ""
+
+    private fun visibleRadio(): List<Station> {
+        val tab = currentTab()
         return when (tab) {
             "fav" -> stations.filter { favUrls.contains(it.url) }.distinctBy { it.url }
-            "best" -> stations.filter { bestUrls.contains(it.url) }.distinctBy { it.url }
+            "best", "local" -> emptyList()
             else -> stations.filter { it.tab == tab }
+        }
+    }
+
+    private fun visibleLocal(): List<LocalTrack> {
+        val tab = currentTab()
+        return when (tab) {
+            "local" -> localTracks
+            "best" -> localTracks.filter { bestUris.contains(it.uri) }
+            else -> emptyList()
+        }
+    }
+
+    private fun reloadLocal() {
+        if (!hasAudioPermission()) {
+            localTracks = emptyList()
+            statusText = "немає дозволу на аудіо"
+            return
+        }
+        localTracks = try {
+            LocalLibrary.list(this)
+        } catch (e: Exception) {
+            statusText = "scan error"
+            emptyList()
+        }
+        if (currentTab() == "local") {
+            statusText = "треків: ${localTracks.size}"
         }
     }
 
@@ -142,6 +174,15 @@ class MainActivity : ComponentActivity() {
         super.onStop()
     }
 
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 1002) reloadLocal()
+    }
+
     private fun readPrefs() {
         val p = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
         stationName = p.getString(BluetoothAutoPlayPlugin.KEY_NAME, "Radio S O") ?: "Radio S O"
@@ -149,20 +190,41 @@ class MainActivity : ComponentActivity() {
         isPlaying = p.getBoolean(BluetoothAutoPlayPlugin.KEY_IS_PLAYING, false)
     }
 
-    private fun askNotifyPermission() {
-        if (Build.VERSION.SDK_INT >= 33) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
-                != PackageManager.PERMISSION_GRANTED
-            ) {
-                requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1001)
-            }
+    private fun hasAudioPermission(): Boolean {
+        return if (Build.VERSION.SDK_INT >= 33) {
+            ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_AUDIO) ==
+                PackageManager.PERMISSION_GRANTED
+        } else {
+            ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) ==
+                PackageManager.PERMISSION_GRANTED
         }
     }
 
-    private fun toggle(key: String, url: String) {
-        FavStore.toggle(this, key, url)
+    private fun askPermissions() {
+        val need = mutableListOf<String>()
+        if (Build.VERSION.SDK_INT >= 33) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED
+            ) need.add(Manifest.permission.POST_NOTIFICATIONS)
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_AUDIO)
+                != PackageManager.PERMISSION_GRANTED
+            ) need.add(Manifest.permission.READ_MEDIA_AUDIO)
+        } else {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
+                != PackageManager.PERMISSION_GRANTED
+            ) need.add(Manifest.permission.READ_EXTERNAL_STORAGE)
+        }
+        if (need.isNotEmpty()) requestPermissions(need.toTypedArray(), 1002)
+    }
+
+    private fun toggleFav(url: String) {
+        FavStore.toggle(this, BluetoothAutoPlayPlugin.KEY_FAVORITES, url)
         favUrls = FavStore.urls(this, BluetoothAutoPlayPlugin.KEY_FAVORITES)
-        bestUrls = FavStore.urls(this, BluetoothAutoPlayPlugin.KEY_LOCAL_BEST)
+    }
+
+    private fun toggleBest(uri: String) {
+        FavStore.toggle(this, BluetoothAutoPlayPlugin.KEY_LOCAL_BEST, uri)
+        bestUris = FavStore.urls(this, BluetoothAutoPlayPlugin.KEY_LOCAL_BEST)
     }
 
     private fun playCurrentOrFirst() {
@@ -170,30 +232,30 @@ class MainActivity : ComponentActivity() {
         val url = p.getString(BluetoothAutoPlayPlugin.KEY_URL, "") ?: ""
         if (url.isNotBlank()) {
             sendAction(RadioWatchService.ACTION_PLAY)
-        } else {
-            val list = visibleStations()
-            if (list.isNotEmpty()) playFromList(list, 0)
+            return
         }
+        val locals = visibleLocal()
+        if (locals.isNotEmpty()) {
+            playLocal(locals, 0)
+            return
+        }
+        val radios = visibleRadio()
+        if (radios.isNotEmpty()) playRadio(radios, 0)
     }
 
-    private fun playFromList(list: List<Station>, index: Int) {
+    private fun playRadio(list: List<Station>, index: Int) {
         if (index !in list.indices) return
         val s = list[index]
         stationName = s.name
         trackTitle = ""
-        val urls = JSONArray()
-        val names = JSONArray()
-        val favs = JSONArray()
-        val genres = JSONArray()
-        val countries = JSONArray()
+        val urls = JSONArray(); val names = JSONArray(); val favs = JSONArray()
+        val genres = JSONArray(); val countries = JSONArray()
         list.forEach {
-            urls.put(it.url)
-            names.put(it.name)
-            favs.put(it.favicon)
-            genres.put(it.genre)
-            countries.put(it.country)
+            urls.put(it.url); names.put(it.name); favs.put(it.favicon)
+            genres.put(it.genre); countries.put(it.country)
         }
         getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE).edit()
+            .putString(LocalMusicPlugin.KEY_MODE, "radio")
             .putString(BluetoothAutoPlayPlugin.KEY_URL, s.url)
             .putString(BluetoothAutoPlayPlugin.KEY_NAME, s.name)
             .putString(BluetoothAutoPlayPlugin.KEY_FAVICON, s.favicon)
@@ -207,10 +269,41 @@ class MainActivity : ComponentActivity() {
             .putString(BluetoothAutoPlayPlugin.KEY_QUEUE_COUNTRIES, countries.toString())
             .putInt(BluetoothAutoPlayPlugin.KEY_QUEUE_INDEX, index)
             .commit()
+        startPlay(s.url, s.name)
+    }
+
+    private fun playLocal(list: List<LocalTrack>, index: Int) {
+        if (index !in list.indices) return
+        val t = list[index]
+        stationName = t.title
+        trackTitle = t.artist
+        val uris = JSONArray(); val titles = JSONArray()
+        val artists = JSONArray(); val albumIds = JSONArray()
+        list.forEach {
+            uris.put(it.uri); titles.put(it.title)
+            artists.put(it.artist); albumIds.put(it.albumId)
+        }
+        getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE).edit()
+            .putString(LocalMusicPlugin.KEY_MODE, "local")
+            .putString(LocalMusicPlugin.KEY_LOCAL_URIS, uris.toString())
+            .putString(LocalMusicPlugin.KEY_LOCAL_TITLES, titles.toString())
+            .putString(LocalMusicPlugin.KEY_LOCAL_ARTISTS, artists.toString())
+            .putString(LocalMusicPlugin.KEY_LOCAL_ALBUM_IDS, albumIds.toString())
+            .putInt(LocalMusicPlugin.KEY_LOCAL_INDEX, index)
+            .putString(BluetoothAutoPlayPlugin.KEY_URL, t.uri)
+            .putString(BluetoothAutoPlayPlugin.KEY_NAME, t.title)
+            .putString(BluetoothAutoPlayPlugin.KEY_TRACK, t.artist)
+            .putString(BluetoothAutoPlayPlugin.KEY_FAVICON, t.albumId)
+            .putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, true)
+            .commit()
+        startPlay(t.uri, t.title)
+    }
+
+    private fun startPlay(url: String, name: String) {
         val i = Intent(this, RadioWatchService::class.java)
         i.action = RadioWatchService.ACTION_PLAY_URL
-        i.putExtra(RadioWatchService.EXTRA_URL, s.url)
-        i.putExtra(RadioWatchService.EXTRA_NAME, s.name)
+        i.putExtra(RadioWatchService.EXTRA_URL, url)
+        i.putExtra(RadioWatchService.EXTRA_NAME, name)
         startForegroundService(i)
         statusText = "start"
     }
@@ -227,19 +320,23 @@ fun StationScreen(
     tabs: List<String>,
     tabIndex: Int,
     onTab: (Int) -> Unit,
-    stations: List<Station>,
+    radioRows: List<Station>,
+    localRows: List<LocalTrack>,
+    showLocal: Boolean,
     name: String,
     track: String,
     playing: Boolean,
     status: String,
     favUrls: Set<String>,
-    bestUrls: Set<String>,
+    bestUris: Set<String>,
     onPlayPause: () -> Unit,
     onNext: () -> Unit,
     onPrev: () -> Unit,
-    onPick: (List<Station>, Int) -> Unit,
+    onPickRadio: (List<Station>, Int) -> Unit,
+    onPickLocal: (List<LocalTrack>, Int) -> Unit,
     onToggleFav: (Station) -> Unit,
-    onToggleBest: (Station) -> Unit,
+    onToggleBest: (LocalTrack) -> Unit,
+    onScan: () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxSize().padding(top = 36.dp)) {
         Text(name, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 16.dp))
@@ -249,6 +346,7 @@ fun StationScreen(
             Button(onClick = onPrev) { Text("Prev") }
             Button(onClick = onPlayPause) { Text(if (playing) "Pause" else "Play") }
             Button(onClick = onNext) { Text("Next") }
+            if (showLocal) Button(onClick = onScan) { Text("Scan") }
         }
         if (tabs.isNotEmpty()) {
             ScrollableTabRow(selectedTabIndex = tabIndex.coerceAtMost(tabs.lastIndex)) {
@@ -257,26 +355,51 @@ fun StationScreen(
                 }
             }
         }
-        if (stations.isEmpty()) {
-            Text(if (tabs.getOrNull(tabIndex) == "best") "Local Best — з локальної музики (наступний етап)" else "Порожньо. Додай ★ до станції.", modifier = Modifier.padding(16.dp))
-        }
-        LazyColumn(modifier = Modifier.fillMaxSize()) {
-            itemsIndexed(stations, key = { i, s -> s.tab + s.url + i }) { index, s ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onPick(stations, index) }
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(s.name, style = MaterialTheme.typography.bodyLarge)
-                        Text("${s.genre} · ${s.country}", style = MaterialTheme.typography.bodySmall)
+        if (showLocal) {
+            if (localRows.isEmpty()) {
+                Text("Немає треків. Дай дозвіл і натисни Scan.", modifier = Modifier.padding(16.dp))
+            }
+            LazyColumn(modifier = Modifier.fillMaxSize()) {
+                itemsIndexed(localRows, key = { _, t -> t.uri }) { index, t ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onPickLocal(localRows, index) }
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(t.title, style = MaterialTheme.typography.bodyLarge)
+                            Text(t.artist, style = MaterialTheme.typography.bodySmall)
+                        }
+                        Text(
+                            if (bestUris.contains(t.uri)) "+b" else "b",
+                            modifier = Modifier.padding(8.dp).clickable { onToggleBest(t) },
+                        )
                     }
-                    Text(
-                        if (favUrls.contains(s.url)) "★" else "☆",
-                        modifier = Modifier.padding(8.dp).clickable { onToggleFav(s) },
-                        style = MaterialTheme.typography.titleLarge
-                    )
+                }
+            }
+        } else {
+            if (radioRows.isEmpty()) {
+                Text("Порожньо. Додай ★ до станції.", modifier = Modifier.padding(16.dp))
+            }
+            LazyColumn(modifier = Modifier.fillMaxSize()) {
+                itemsIndexed(radioRows, key = { i, s -> s.tab + s.url + i }) { index, s ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onPickRadio(radioRows, index) }
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(s.name, style = MaterialTheme.typography.bodyLarge)
+                            Text("${s.genre} · ${s.country}", style = MaterialTheme.typography.bodySmall)
+                        }
+                        Text(
+                            if (favUrls.contains(s.url)) "★" else "☆",
+                            modifier = Modifier.padding(8.dp).clickable { onToggleFav(s) },
+                            style = MaterialTheme.typography.titleLarge
+                        )
+                    }
                 }
             }
         }

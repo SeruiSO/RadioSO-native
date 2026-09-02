@@ -49,6 +49,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -61,6 +62,8 @@ import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -888,6 +891,8 @@ fun StationScreen(
     val muted = Color(0x9EF2F2F5)
     var dropAt by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(-1) }
     var dragging by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
     Box(modifier = Modifier.fillMaxSize().background(bg).navigationBarsPadding()) {
     Column(
         modifier = Modifier
@@ -990,7 +995,7 @@ fun StationScreen(
         }
         if (showLocal) {
             if (localRows.isEmpty()) Text("Немає треків. Scan.", color = muted)
-            LazyColumn(modifier = Modifier.weight(1f), userScrollEnabled = !dragging) {
+            LazyColumn(modifier = Modifier.weight(1f), state = listState, userScrollEnabled = !dragging) {
                 itemsIndexed(localRows, key = { _, x -> x.uri }) { index, item ->
                     Row(
                         modifier = Modifier
@@ -1012,6 +1017,13 @@ fun StationScreen(
                                 ) { _, drag ->
                                     acc += drag.y
                                     dropAt = (index + (acc / 168f).toInt()).coerceIn(0, localRows.lastIndex)
+                                    val first = listState.firstVisibleItemIndex
+                                    val last = first + listState.layoutInfo.visibleItemsInfo.size.coerceAtLeast(1) - 1
+                                    if (dropAt <= first + 1 && dropAt > 0) {
+                                        scope.launch { listState.scrollToItem((dropAt - 1).coerceAtLeast(0)) }
+                                    } else if (dropAt >= last - 1 && dropAt < localRows.lastIndex) {
+                                        scope.launch { listState.scrollToItem((first + 1).coerceAtMost(localRows.lastIndex)) }
+                                    }
                                 }
                             }
                             .clickable { onPickLocal(localRows, index) }
@@ -1033,7 +1045,7 @@ fun StationScreen(
                 }
             }
         } else {
-            LazyColumn(modifier = Modifier.weight(1f), userScrollEnabled = !dragging) {
+            LazyColumn(modifier = Modifier.weight(1f), state = listState, userScrollEnabled = !dragging) {
                 itemsIndexed(radioRows, key = { i, s -> s.tab + s.url + i }) { index, s ->
                     Row(
                         modifier = Modifier
@@ -1054,6 +1066,13 @@ fun StationScreen(
                                 ) { _, drag ->
                                     acc += drag.y
                                     dropAt = (index + (acc / 168f).toInt()).coerceIn(0, radioRows.lastIndex)
+                                    val first = listState.firstVisibleItemIndex
+                                    val last = first + listState.layoutInfo.visibleItemsInfo.size.coerceAtLeast(1) - 1
+                                    if (dropAt <= first + 1 && dropAt > 0) {
+                                        scope.launch { listState.scrollToItem((dropAt - 1).coerceAtLeast(0)) }
+                                    } else if (dropAt >= last - 1 && dropAt < radioRows.lastIndex) {
+                                        scope.launch { listState.scrollToItem((first + 1).coerceAtMost(radioRows.lastIndex)) }
+                                    }
                                 }
                             }
                             .clickable { onPickRadio(radioRows, index) }

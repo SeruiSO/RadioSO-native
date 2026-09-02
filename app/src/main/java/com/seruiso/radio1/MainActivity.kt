@@ -507,23 +507,25 @@ class MainActivity : ComponentActivity() {
     private fun moveRadioTo(from: Int, to: Int) {
         val tab = currentTab()
         if (tab in listOf("search", "local")) return
+        if (from == to) return
         if (tab == "best") {
             val list = visibleLocal().toMutableList()
-            if (from !in list.indices || to !in list.indices || from == to) return
+            if (from !in list.indices || to !in list.indices) return
             val item = list.removeAt(from)
             list.add(to, item)
             FavStore.save(this, BluetoothAutoPlayPlugin.KEY_LOCAL_BEST, list.map { it.uri }.toSet())
             getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-                .edit().putString("order_best_uris", org.json.JSONArray(list.map { it.uri }).toString()).commit()
+                .edit().putString("order_best_uris", JSONArray(list.map { it.uri }).toString()).commit()
             bestUris = FavStore.urls(this, BluetoothAutoPlayPlugin.KEY_LOCAL_BEST)
             addedRev++
             return
         }
         val list = visibleRadio().toMutableList()
-        if (from !in list.indices || to !in list.indices || from == to) return
+        if (from !in list.indices || to !in list.indices) return
         val item = list.removeAt(from)
         list.add(to, item)
         TabStore.saveOrder(this, tab, list.map { it.url })
+        if (tab == "fav") FavStore.saveStations(this, list)
         addedRev++
     }
 
@@ -534,7 +536,7 @@ class MainActivity : ComponentActivity() {
         val deleted = TabStore.deleted(this)
         val tab = currentTab()
         return when (tab) {
-            "fav" -> (FavStore.stations(this) + stations.filter { favUrls.contains(it.url) }).distinctBy { it.url }.filter { it.url !in deleted }
+            "fav" -> TabStore.applyOrder(this, "fav", (FavStore.stations(this) + stations.filter { favUrls.contains(it.url) }).distinctBy { it.url }.filter { it.url !in deleted })
             "best", "local" -> emptyList()
             "search" -> searchRows.filter { it.url !in TabStore.deleted(this) }
             else -> {
@@ -998,8 +1000,10 @@ fun StationScreen(
                                 detectDragGesturesAfterLongPress(
                                     onDragStart = { onDragStart() },
                                     onDragEnd = {
-                                        val step = (acc / 56f).toInt()
-                                        if (step != 0) onMoveLocalTo(index, (index + step).coerceIn(0, localRows.lastIndex))
+                                        val step = (acc / 64f).toInt().coerceIn(-localRows.size, localRows.size)
+                                        val dest = (index + step).coerceIn(0, localRows.lastIndex)
+                                        if (dest != index) onMoveLocalTo(index, dest)
+                                        acc = 0f
                                     },
                                     onDragCancel = { acc = 0f }
                                 ) { _, drag -> acc += drag.y }
@@ -1032,10 +1036,12 @@ fun StationScreen(
                             .pointerInput(s.url, index) {
                                 var acc = 0f
                                 detectDragGesturesAfterLongPress(
-                                    onDragStart = { onDragStart() },
+                                    onDragStart = { acc = 0f; onDragStart() },
                                     onDragEnd = {
-                                        val step = (acc / 56f).toInt()
-                                        if (step != 0) onMoveTo(index, (index + step).coerceIn(0, radioRows.lastIndex))
+                                        val step = (acc / 64f).toInt().coerceIn(-radioRows.size, radioRows.size)
+                                        val dest = (index + step).coerceIn(0, radioRows.lastIndex)
+                                        if (dest != index) onMoveTo(index, dest)
+                                        acc = 0f
                                     },
                                     onDragCancel = { acc = 0f }
                                 ) { _, drag -> acc += drag.y }
@@ -1092,7 +1098,7 @@ fun StationScreen(
                     Text(
                         lab,
                         color = if (i == tabIndex) Color(0xFF0A0A0C) else muted,
-                        style = MaterialTheme.typography.bodySmall,
+                        style = MaterialTheme.typography.bodyMedium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier

@@ -51,6 +51,15 @@ object FavStore {
         return !exists
     }
 
+    fun saveStations(context: Context, list: List<Station>) {
+        val arr = JSONArray()
+        list.forEach {
+            arr.put(JSONObject().put("value", it.url).put("name", it.name).put("genre", it.genre).put("country", it.country).put("favicon", it.favicon))
+        }
+        context.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)
+            .edit().putString(BluetoothAutoPlayPlugin.KEY_FAVORITES, arr.toString()).commit()
+    }
+
     fun save(context: Context, key: String, urls: Set<String>) {
         val arr = JSONArray()
         urls.forEach { arr.put(it) }

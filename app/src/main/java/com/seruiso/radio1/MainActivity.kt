@@ -882,13 +882,19 @@ fun StationScreen(
         if (tabs.getOrNull(tabIndex) == "search") {
             Column(modifier = Modifier.padding(vertical = 6.dp)) {
                 @Composable fun field(v: String, set: (String) -> Unit, lab: String, key: String, hints: List<String>) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        OutlinedTextField(value = v, onValueChange = set, singleLine = true, label = { Text(lab) }, modifier = Modifier.weight(1f).height(52.dp))
-                        Text("▾", color = acc, modifier = Modifier.padding(start = 6.dp).clickable { onSuggestFor(if (suggestFor == key) "" else key) })
-                    }
+                    OutlinedTextField(
+                        value = v,
+                        onValueChange = set,
+                        singleLine = true,
+                        label = { Text(lab) },
+                        modifier = Modifier.fillMaxWidth().height(54.dp),
+                        trailingIcon = {
+                            Text("▾", color = acc, modifier = Modifier.clickable { onSuggestFor(if (suggestFor == key) "" else key) }.padding(8.dp))
+                        }
+                    )
                     if (suggestFor == key) {
                         Column(modifier = Modifier.fillMaxWidth().background(card, RoundedCornerShape(8.dp)).padding(6.dp)) {
-                            hints.distinct().take(10).forEach { h ->
+                            hints.distinct().take(12).forEach { h ->
                                 Text(h, color = text, modifier = Modifier.fillMaxWidth().clickable { set(h); onSuggestFor("") }.padding(6.dp))
                             }
                         }
@@ -933,10 +939,15 @@ fun StationScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(if (s.url == currentUrl) acc.copy(alpha = 0.18f) else Color.Transparent, RoundedCornerShape(10.dp))
-                            .combinedClickable(
-                                onClick = { onPickRadio(radioRows, index) },
-                                onLongClick = { onMoveStation(s, -1) }
-                            )
+                            .pointerInput(s.url) {
+                                var acc = 0f
+                                detectDragGesturesAfterLongPress { _, drag ->
+                                    acc += drag.y
+                                    if (acc > 48f) { onMoveStation(s, 1); acc = 0f }
+                                    if (acc < -48f) { onMoveStation(s, -1); acc = 0f }
+                                }
+                            }
+                            .clickable { onPickRadio(radioRows, index) }
                             .padding(10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {

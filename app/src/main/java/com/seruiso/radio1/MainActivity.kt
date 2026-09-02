@@ -58,14 +58,20 @@ class MainActivity : ComponentActivity() {
             when (intent?.action) {
                 RadioWatchService.ACTION_PLAYBACK_UI -> {
                     isPlaying = intent.getBooleanExtra("playing", false)
+                    readPrefs()
                 }
                 RadioWatchService.ACTION_TRACK_META -> {
-                    trackTitle = intent.getStringExtra(RadioWatchService.EXTRA_TRACK) ?: ""
+                    readPrefs()
+                    val extra = intent.getStringExtra(RadioWatchService.EXTRA_TRACK) ?: ""
+                    if (extra.isNotBlank()) trackTitle = extra
                 }
+                RadioWatchService.ACTION_MEDIA_NEXT,
+                RadioWatchService.ACTION_MEDIA_PREV -> readPrefs()
                 RadioWatchService.ACTION_STATUS_UI -> {
                     val st = intent.getStringExtra("status") ?: ""
                     val attempt = intent.getIntExtra("attempt", 0)
                     statusText = if (attempt > 0) "$st #$attempt" else st
+                    readPrefs()
                 }
             }
         }
@@ -159,6 +165,8 @@ class MainActivity : ComponentActivity() {
             addAction(RadioWatchService.ACTION_PLAYBACK_UI)
             addAction(RadioWatchService.ACTION_TRACK_META)
             addAction(RadioWatchService.ACTION_STATUS_UI)
+            addAction(RadioWatchService.ACTION_MEDIA_NEXT)
+            addAction(RadioWatchService.ACTION_MEDIA_PREV)
         }
         if (Build.VERSION.SDK_INT >= 33) {
             registerReceiver(uiReceiver, f, Context.RECEIVER_NOT_EXPORTED)

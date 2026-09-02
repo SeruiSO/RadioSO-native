@@ -1027,7 +1027,7 @@ fun StationScreen(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier
                             .background(if (i == tabIndex) acc else card, RoundedCornerShape(14.dp))
-                            .border(1.dp, if (i == tabIndex) acc else Color(0xFF3A3A42), RoundedCornerShape(8.dp))
+                            .border(1.dp, if (i == tabIndex) acc else Color(0xFF3A3A42), RoundedCornerShape(14.dp))
                             .combinedClickable(onClick = { onTab(i) }, onLongClick = { onLongTab(tab) })
                             .padding(horizontal = 8.dp, vertical = 5.dp)
                     )
@@ -1040,7 +1040,7 @@ fun StationScreen(
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            listOf(Triple("⏮", 64, false), Triple(if (playing) "⏸" else "▶", 76, true), Triple("⏭", 64, false)).forEachIndexed { i, (lab, sz, main) ->
+            listOf(Triple("⏮", 78, false), Triple(if (playing) "⏸" else "▶", 78, true), Triple("⏭", 78, false)).forEachIndexed { i, (lab, sz, main) ->
                 val act = if (i == 0) onPrev else if (i == 1) onPlayPause else onNext
                 Box(
                     modifier = Modifier
@@ -1048,7 +1048,7 @@ fun StationScreen(
                         .background(if (main) acc else card, RoundedCornerShape(16.dp))
                         .clickable { act() },
                     contentAlignment = Alignment.Center
-                ) { Text(lab, color = if (main) Color(0xFF0A0A0C) else Color.White, style = MaterialTheme.typography.headlineSmall) }
+                ) { Text(lab, color = if (main) Color(0xFF0A0A0C) else Color.White, style = MaterialTheme.typography.headlineMedium) }
             }
             if (showLocal) {
                 Box(
@@ -1183,9 +1183,9 @@ fun StationScreen(
                     }.padding(8.dp))
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(top = 16.dp)) {
-                    Box(modifier = Modifier.size(68.dp).background(Color(0xFF1A1A1E), RoundedCornerShape(16.dp)).clickable { onPrev() }, contentAlignment = Alignment.Center) { Text("⏮") }
-                    Box(modifier = Modifier.size(88.dp).background(acc, RoundedCornerShape(18.dp)).clickable { onPlayPause() }, contentAlignment = Alignment.Center) { Text(if (playing) "⏸" else "▶", color = Color(0xFF0A0A0C)) }
-                    Box(modifier = Modifier.size(68.dp).background(Color(0xFF1A1A1E), RoundedCornerShape(16.dp)).clickable { onNext() }, contentAlignment = Alignment.Center) { Text("⏭") }
+                    Box(modifier = Modifier.size(80.dp).background(Color(0xFF1A1A1E), RoundedCornerShape(16.dp)).clickable { onPrev() }, contentAlignment = Alignment.Center) { Text("⏮", style = MaterialTheme.typography.headlineMedium) }
+                    Box(modifier = Modifier.size(80.dp).background(acc, RoundedCornerShape(16.dp)).clickable { onPlayPause() }, contentAlignment = Alignment.Center) { Text(if (playing) "⏸" else "▶", color = Color(0xFF0A0A0C), style = MaterialTheme.typography.headlineMedium) }
+                    Box(modifier = Modifier.size(80.dp).background(Color(0xFF1A1A1E), RoundedCornerShape(16.dp)).clickable { onNext() }, contentAlignment = Alignment.Center) { Text("⏭", style = MaterialTheme.typography.headlineMedium) }
                 }
             }
         }

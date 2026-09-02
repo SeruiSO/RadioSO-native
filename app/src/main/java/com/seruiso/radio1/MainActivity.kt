@@ -657,22 +657,7 @@ class MainActivity : ComponentActivity() {
         startForegroundService(i)
         statusText = "start"
         isLocalNow = url.startsWith("content:")
-        if (pendingDelete != null) {
-        AlertDialog(
-            containerColor = Color(0xFF1A1A1E),
-            onDismissRequest = onCancelDelete,
-            title = { Text("Видалити станцію?") },
-            text = { Text(pendingDelete?.name ?: "") },
-            confirmButton = {
-                Button(onClick = {
-                    pendingDelete?.let { onDeleteStation(it) }
-                    onCancelDelete()
-                }) { Text("Так") }
-            },
-            dismissButton = { Button(onClick = onCancelDelete) { Text("Ні") } }
-        )
-    }
-    if (nowOpen) { posHandler.removeCallbacks(posTick); posHandler.post(posTick) }
+        if (nowOpen) { posHandler.removeCallbacks(posTick); posHandler.post(posTick) }
     }
 
         private fun seekTo(pos: Long) {

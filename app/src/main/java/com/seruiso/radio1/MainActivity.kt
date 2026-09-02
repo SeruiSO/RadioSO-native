@@ -131,6 +131,7 @@ class MainActivity : ComponentActivity() {
     private var qName by mutableStateOf("")
     private var qCountry by mutableStateOf("")
     private var qGenre by mutableStateOf("")
+    private var searchOpen by mutableStateOf(false)
     private var suggestFor by mutableStateOf("")
     private var searchAll by mutableStateOf(listOf<Station>())
     private var searchRows by mutableStateOf(listOf<Station>())
@@ -212,6 +213,8 @@ class MainActivity : ComponentActivity() {
                         qName = qName, onName = { qName = it },
                         qCountry = qCountry, onCountry = { qCountry = it },
                         qGenre = qGenre, onGenre = { qGenre = it },
+                        searchOpen = searchOpen,
+                        onSearchOpen = { searchOpen = !searchOpen },
                         onSearch = { runSearch() },
                         suggestFor = suggestFor,
                         onSuggestFor = { suggestFor = it },
@@ -720,6 +723,8 @@ fun StationScreen(
     qName: String, onName: (String) -> Unit,
     qCountry: String, onCountry: (String) -> Unit,
     qGenre: String, onGenre: (String) -> Unit,
+    searchOpen: Boolean = false,
+    onSearchOpen: () -> Unit = {},
     onSearch: () -> Unit,
     suggestFor: String = "",
     onSuggestFor: (String) -> Unit = {},
@@ -808,8 +813,8 @@ fun StationScreen(
         return raw
     }
     val acc = Color(accent)
-    val bg = Color(0xFF0A0A0C)
-    val card = Color(0xFF1A1A1E)
+    val bg = Color(0xFF000000)
+    val card = Color(0xFF2A2A30)
     val text = Color(0xFFF2F2F5)
     val muted = Color(0x9EF2F2F5)
     Column(
@@ -892,8 +897,17 @@ fun StationScreen(
                 }
             }
         }
+        androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(10.dp))
         if (tabs.getOrNull(tabIndex) == "search") {
             Column(modifier = Modifier.padding(vertical = 4.dp).background(card, RoundedCornerShape(16.dp)).padding(10.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().clickable { onSearchOpen() }.padding(bottom = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("🔍  Пошук…", color = Color.White, modifier = Modifier.weight(1f))
+                    Text(if (searchOpen) "▴" else "▾", color = muted)
+                }
+                if (searchOpen) {
                 @Composable fun field(v: String, set: (String) -> Unit, lab: String, key: String, hints: List<String>) {
                     OutlinedTextField(
                         value = v,
@@ -973,7 +987,8 @@ fun StationScreen(
                             Text(s.name, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text("${s.genre} · ${s.country}", color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
                         }
-                        if (tabs.getOrNull(tabIndex) == "search") {
+                        androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(10.dp))
+        if (tabs.getOrNull(tabIndex) == "search") {
                             Text("ADD", color = acc, modifier = Modifier.clickable { onAddToTab(s) }.padding(6.dp))
                         } else {
                             Text(
@@ -1004,7 +1019,15 @@ fun StationScreen(
                         onClick = { onTab(i) },
                         selectedContentColor = acc,
                         unselectedContentColor = muted,
+                        selectedContentColor = if (i == tabIndex) Color(0xFF0A0A0C) else muted,
+                        unselectedContentColor = muted,
                         text = {
+                            Box(
+                                modifier = Modifier
+                                    .background(if (i == tabIndex) acc else Color.Transparent, RoundedCornerShape(20.dp))
+                                    .border(1.dp, if (i == tabIndex) acc else Color(0xFF3A3A42), RoundedCornerShape(20.dp))
+                                    .padding(horizontal = 14.dp, vertical = 6.dp)
+                            ) {
                             Text(
                                 when (tab) {
                                     "fav" -> "FAV"
@@ -1019,8 +1042,10 @@ fun StationScreen(
                                 },
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.combinedClickable(onClick = { onTab(i) }, onLongClick = { onLongTab(tab) })
+                                modifier = Modifier.combinedClickable(onClick = { onTab(i) }, onLongClick = { onLongTab(tab) }),
+                                color = if (i == tabIndex) Color(0xFF0A0A0C) else muted
                             )
+                            }
                         }
                     )
                 }

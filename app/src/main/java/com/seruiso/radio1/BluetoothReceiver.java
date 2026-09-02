@@ -42,9 +42,15 @@ public class BluetoothReceiver extends BroadcastReceiver {
             }
         } else if (BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED.equals(action)) {
             int state = intent.getIntExtra(BluetoothProfile.EXTRA_STATE, BluetoothProfile.STATE_DISCONNECTED);
-            if (state == BluetoothProfile.STATE_DISCONNECTED) {
+            if (state == BluetoothProfile.STATE_CONNECTED) {
+                connected = true;
+                isA2dp = true;
+            } else if (state == BluetoothProfile.STATE_DISCONNECTED) {
                 connected = false;
             }
+        } else if (BluetoothDevice.ACTION_ACL_CONNECTED.equals(action)) {
+            connected = true;
+            isA2dp = true;
         } else if (BluetoothDevice.ACTION_ACL_DISCONNECTED.equals(action)) {
             connected = false;
         } else if (BluetoothAdapter.ACTION_CONNECTION_STATE_CHANGED.equals(action)) {
@@ -76,7 +82,7 @@ public class BluetoothReceiver extends BroadcastReceiver {
                 } else {
                     appCtx.startService(svc);
                 }
-            }, 800);
+            }, 400);
         } else if (!connected) {
             Intent svc = new Intent(context, RadioWatchService.class);
             svc.setAction(RadioWatchService.ACTION_STOP);

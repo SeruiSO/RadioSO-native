@@ -881,7 +881,7 @@ fun StationScreen(
         }
         if (tabs.getOrNull(tabIndex) == "search") {
             Column(modifier = Modifier.padding(vertical = 6.dp)) {
-                fun field(v: String, set: (String) -> Unit, lab: String, key: String, hints: List<String>) {
+                @Composable fun field(v: String, set: (String) -> Unit, lab: String, key: String, hints: List<String>) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         OutlinedTextField(value = v, onValueChange = set, singleLine = true, label = { Text(lab) }, modifier = Modifier.weight(1f).height(52.dp))
                         Text("▾", color = acc, modifier = Modifier.padding(start = 6.dp).clickable { onSuggestFor(if (suggestFor == key) "" else key) })

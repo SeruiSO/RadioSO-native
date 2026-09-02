@@ -34,6 +34,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -829,11 +830,10 @@ fun StationScreen(
     val card = Color(0xFF141418)
     val text = Color(0xFFF2F2F5)
     val muted = Color(0x9EF2F2F5)
+    Box(modifier = Modifier.fillMaxSize().background(bg).navigationBarsPadding()) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(bg)
-            .navigationBarsPadding()
             .padding(top = 28.dp, start = 12.dp, end = 12.dp, bottom = 16.dp)
     ) {
         Box(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).height(48.dp)) {
@@ -846,29 +846,6 @@ fun StationScreen(
                 modifier = Modifier.align(Alignment.CenterEnd).size(40.dp).background(card, RoundedCornerShape(12.dp)).clickable { onMenu() },
                 contentAlignment = Alignment.Center
             ) { Text("⋯", color = Color.White) }
-        }
-        if (menuOpen) {
-            Box(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .width(200.dp)
-                        .background(Color(0xFF16161A), RoundedCornerShape(12.dp))
-                        .padding(8.dp)
-                ) {
-                    Text((if (btWatch) "◉ BT увімк" else "○ BT вимк"), color = text, modifier = Modifier.fillMaxWidth().clickable { onBt(); onCloseMenu() }.padding(8.dp))
-                    Text("◔ $sleepLabel", color = text, modifier = Modifier.fillMaxWidth().clickable { onSleepMenu() }.padding(8.dp))
-                    if (sleepMenu) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            listOf(15, 30, 60, 0).forEach { m ->
-                                Text(if (m == 0) "off" else "${m}хв", color = acc, modifier = Modifier.clickable { onSleep(m); onCloseMenu() }.padding(6.dp))
-                            }
-                        }
-                    }
-                    Text("↑ Експорт", color = text, modifier = Modifier.fillMaxWidth().clickable { onExport() }.padding(8.dp))
-                    Text("↓ Імпорт", color = text, modifier = Modifier.fillMaxWidth().clickable { onImport() }.padding(8.dp))
-                }
-            }
         }
         Row(
             modifier = Modifier
@@ -987,7 +964,7 @@ fun StationScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(if (s.url == currentUrl) acc.copy(alpha = 0.85f) else Color.Transparent, RoundedCornerShape(12.dp))
+                            .background(if (s.url == currentUrl) acc.copy(alpha = 0.18f) else Color.Transparent, RoundedCornerShape(10.dp))
                             .pointerInput(s.url) {
                                 var acc = 0f
                                 detectDragGesturesAfterLongPress { _, drag ->
@@ -1028,47 +1005,36 @@ fun StationScreen(
             }
         }
         if (tabs.isNotEmpty()) {
-            ScrollableTabRow(
-                selectedTabIndex = tabIndex.coerceAtMost(tabs.lastIndex),
-                containerColor = bg,
-                contentColor = acc,
-                edgePadding = 0.dp
+            Row(
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 4.dp, bottom = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(3.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 tabs.forEachIndexed { i, tab ->
-                    Tab(
-                        selected = i == tabIndex,
-                        onClick = { onTab(i) },
-                        selectedContentColor = Color(0xFF0A0A0C),
-                        unselectedContentColor = muted,
-                        text = {
-                            Box(
-                                modifier = Modifier
-                                    .background(if (i == tabIndex) acc else Color.Transparent, RoundedCornerShape(8.dp))
-                                    .border(1.dp, if (i == tabIndex) acc else Color(0xFF3A3A42), RoundedCornerShape(8.dp))
-                                    .padding(horizontal = 8.dp, vertical = 4.dp)
-                            ) {
-                            Text(
-                                when (tab.lowercase()) {
-                                    "fav" -> "Best"
-                                    "best" -> "Lokal Best"
-                                    "local" -> "Lokal"
-                                    "search" -> "SEARCH"
-                                    "ukraine", "ua" -> "UA"
-                                    "techno" -> "Techno"
-                                    "trance" -> "Trance"
-                                    "pop" -> "Pop"
-                                    else -> tab.replaceFirstChar { it.uppercase() }
-                                },
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.combinedClickable(onClick = { onTab(i) }, onLongClick = { onLongTab(tab) }),
-                                color = if (i == tabIndex) Color(0xFF0A0A0C) else muted
-                            )
-                            }
-                        }
+                    val lab = when (tab.lowercase()) {
+                        "fav" -> "Best"
+                        "best" -> "Lokal Best"
+                        "local" -> "Lokal"
+                        "search" -> "SEARCH"
+                        "ukraine", "ua" -> "UA"
+                        "techno" -> "Techno"
+                        "trance" -> "Trance"
+                        "pop" -> "Pop"
+                        else -> tab.replaceFirstChar { it.uppercase() }
+                    }
+                    Text(
+                        lab,
+                        color = if (i == tabIndex) Color(0xFF0A0A0C) else muted,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier
+                            .background(if (i == tabIndex) acc else Color.Transparent, RoundedCornerShape(8.dp))
+                            .border(1.dp, if (i == tabIndex) acc else Color(0xFF3A3A42), RoundedCornerShape(8.dp))
+                            .combinedClickable(onClick = { onTab(i) }, onLongClick = { onLongTab(tab) })
+                            .padding(horizontal = 8.dp, vertical = 5.dp)
                     )
                 }
-                Tab(selected = false, onClick = onAddTab, text = { Text("+") }, selectedContentColor = acc, unselectedContentColor = acc)
+                Text("+", color = acc, modifier = Modifier.padding(horizontal = 6.dp).clickable { onAddTab() })
             }
         }
         Row(
@@ -1093,6 +1059,31 @@ fun StationScreen(
                 ) { Text("Scan", color = acc, style = MaterialTheme.typography.bodySmall) }
             }
         }
+    }
+    if (menuOpen) {
+        Box(modifier = Modifier.fillMaxSize().clickable { onCloseMenu() })
+        Column(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(top = 36.dp, end = 12.dp)
+                .width(200.dp)
+                .background(Color(0xFF16161A), RoundedCornerShape(12.dp))
+                .padding(8.dp)
+                .clickable { }
+        ) {
+            Text((if (btWatch) "◉ BT увімк" else "○ BT вимк"), color = text, modifier = Modifier.fillMaxWidth().clickable { onBt(); onCloseMenu() }.padding(8.dp))
+            Text("◔ $sleepLabel", color = text, modifier = Modifier.fillMaxWidth().clickable { onSleepMenu() }.padding(8.dp))
+            if (sleepMenu) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(15, 30, 60, 0).forEach { m ->
+                        Text(if (m == 0) "off" else "${m}хв", color = acc, modifier = Modifier.clickable { onSleep(m); onCloseMenu() }.padding(6.dp))
+                    }
+                }
+            }
+            Text("↑ Експорт", color = text, modifier = Modifier.fillMaxWidth().clickable { onExport() }.padding(8.dp))
+            Text("↓ Імпорт", color = text, modifier = Modifier.fillMaxWidth().clickable { onImport() }.padding(8.dp))
+        }
+    }
     }
     if (pickStation != null) {
         AlertDialog(

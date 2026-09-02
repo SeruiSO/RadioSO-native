@@ -886,7 +886,8 @@ fun StationScreen(
     val card = Color(0xFF141418)
     val text = Color(0xFFF2F2F5)
     val muted = Color(0x9EF2F2F5)
-    var dropAt by androidx.compose.runtime.mutableIntStateOf(-1)
+    var dropAt by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(-1) }
+    var dragging by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     Box(modifier = Modifier.fillMaxSize().background(bg).navigationBarsPadding()) {
     Column(
         modifier = Modifier
@@ -989,7 +990,7 @@ fun StationScreen(
         }
         if (showLocal) {
             if (localRows.isEmpty()) Text("Немає треків. Scan.", color = muted)
-            LazyColumn(modifier = Modifier.weight(1f)) {
+            LazyColumn(modifier = Modifier.weight(1f), userScrollEnabled = !dragging) {
                 itemsIndexed(localRows, key = { _, x -> x.uri }) { index, item ->
                     Row(
                         modifier = Modifier
@@ -999,17 +1000,18 @@ fun StationScreen(
                                 if (tabs.getOrNull(tabIndex) != "best") return@pointerInput
                                 var acc = 0f
                                 detectDragGesturesAfterLongPress(
-                                    onDragStart = { acc = 0f; dropAt = index; onDragStart() },
+                                    onDragStart = { acc = 0f; dropAt = index; dragging = true; onDragStart() },
                                     onDragEnd = {
                                         val dest = dropAt.coerceIn(0, localRows.lastIndex)
                                         if (dest != index) onMoveLocalTo(index, dest)
                                         acc = 0f
                                         dropAt = -1
+                                        dragging = false
                                     },
-                                    onDragCancel = { acc = 0f; dropAt = -1 }
+                                    onDragCancel = { acc = 0f; dropAt = -1; dragging = false }
                                 ) { _, drag ->
                                     acc += drag.y
-                                    dropAt = (index + (acc / 88f).toInt()).coerceIn(0, localRows.lastIndex)
+                                    dropAt = (index + (acc / 108f).toInt()).coerceIn(0, localRows.lastIndex)
                                 }
                             }
                             .clickable { onPickLocal(localRows, index) }
@@ -1031,7 +1033,7 @@ fun StationScreen(
                 }
             }
         } else {
-            LazyColumn(modifier = Modifier.weight(1f)) {
+            LazyColumn(modifier = Modifier.weight(1f), userScrollEnabled = !dragging) {
                 itemsIndexed(radioRows, key = { i, s -> s.tab + s.url + i }) { index, s ->
                     Row(
                         modifier = Modifier
@@ -1040,17 +1042,18 @@ fun StationScreen(
                             .pointerInput(s.url, index) {
                                 var acc = 0f
                                 detectDragGesturesAfterLongPress(
-                                    onDragStart = { acc = 0f; dropAt = index; onDragStart() },
+                                    onDragStart = { acc = 0f; dropAt = index; dragging = true; onDragStart() },
                                     onDragEnd = {
                                         val dest = dropAt.coerceIn(0, radioRows.lastIndex)
                                         if (dest != index) onMoveTo(index, dest)
                                         acc = 0f
                                         dropAt = -1
+                                        dragging = false
                                     },
-                                    onDragCancel = { acc = 0f; dropAt = -1 }
+                                    onDragCancel = { acc = 0f; dropAt = -1; dragging = false }
                                 ) { _, drag ->
                                     acc += drag.y
-                                    dropAt = (index + (acc / 88f).toInt()).coerceIn(0, radioRows.lastIndex)
+                                    dropAt = (index + (acc / 108f).toInt()).coerceIn(0, radioRows.lastIndex)
                                 }
                             }
                             .clickable { onPickRadio(radioRows, index) }

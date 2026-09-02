@@ -61,7 +61,9 @@ class MainActivity : ComponentActivity() {
     private var qName by mutableStateOf("")
     private var qCountry by mutableStateOf("")
     private var qGenre by mutableStateOf("")
+    private var searchAll by mutableStateOf(listOf<Station>())
     private var searchRows by mutableStateOf(listOf<Station>())
+    private var searchShown by mutableIntStateOf(0)
     private var pickStation by mutableStateOf<Station?>(null)
     private var newTabOpen by mutableStateOf(false)
     private var newTabName by mutableStateOf("")
@@ -120,6 +122,10 @@ class MainActivity : ComponentActivity() {
                         qCountry = qCountry, onCountry = { qCountry = it },
                         qGenre = qGenre, onGenre = { qGenre = it },
                         onSearch = { runSearch() },
+                        onMore = { loadMoreSearch() },
+                        canMore = searchShown < searchAll.size && currentTab() == "search",
+                        countries = RadioBrowser.countries,
+                        genres = RadioBrowser.genres,
                         onAddTab = { newTabOpen = true },
                         pickStation = pickStation,
                         targetTabs = targetTabs(),
@@ -216,14 +222,31 @@ class MainActivity : ComponentActivity() {
 
     private fun runSearch() {
         val n = qName; val c = qCountry; val g = qGenre
+        if (n.isBlank() && c.isBlank() && g.isBlank()) {
+            statusText = "введи назву, країну або жанр"
+            return
+        }
+        val gen = ++RadioBrowser.activeGen
         statusText = "пошук..."
+        searchAll = emptyList()
+        searchRows = emptyList()
+        searchShown = 0
         Thread {
-            val result = try { RadioBrowser.search(n, c, g) } catch (_: Exception) { emptyList() }
+            val result = try { RadioBrowser.search(n, c, g, gen) } catch (_: Exception) { emptyList() }
             runOnUiThread {
-                searchRows = result
-                statusText = if (result.isEmpty()) "нічого не знайдено" else "знайдено: ${result.size}"
+                if (gen != RadioBrowser.activeGen) return@runOnUiThread
+                searchAll = result ?: emptyList()
+                searchShown = minOf(100, searchAll.size)
+                searchRows = searchAll.take(searchShown)
+                statusText = if (searchAll.isEmpty()) "нічого не знайдено" else "знайдено: ${searchAll.size}"
             }
         }.start()
+    }
+
+    private fun loadMoreSearch() {
+        if (searchShown >= searchAll.size) return
+        searchShown = minOf(searchShown + 100, searchAll.size)
+        searchRows = searchAll.take(searchShown)
     }
 
     private fun currentTab(): String = uiTabs.getOrNull(tabIndex) ?: ""
@@ -444,6 +467,10 @@ fun StationScreen(
     qCountry: String, onCountry: (String) -> Unit,
     qGenre: String, onGenre: (String) -> Unit,
     onSearch: () -> Unit,
+    onMore: () -> Unit,
+    canMore: Boolean,
+    countries: List<String>,
+    genres: List<String>,
     onAddTab: () -> Unit,
     pickStation: Station?,
     targetTabs: List<String>,
@@ -497,6 +524,16 @@ fun StationScreen(
                 OutlinedTextField(value = qCountry, onValueChange = onCountry, singleLine = true, label = { Text("Країна") }, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = qGenre, onValueChange = onGenre, singleLine = true, label = { Text("Жанр") }, modifier = Modifier.fillMaxWidth())
                 Button(onClick = onSearch, modifier = Modifier.padding(top = 8.dp)) { Text("Знайти") }
+                Row(modifier = Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    countries.take(6).forEach { c ->
+                        Text(c, modifier = Modifier.clickable { onCountry(c) }.padding(4.dp), style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    genres.take(8).forEach { g ->
+                        Text(g, modifier = Modifier.clickable { onGenre(g) }.padding(4.dp), style = MaterialTheme.typography.bodySmall)
+                    }
+                }
             }
         }
         if (tabs.isNotEmpty()) {
@@ -592,6 +629,9 @@ fun StationScreen(
         } else {
             if (radioRows.isEmpty()) {
                 Text(if (tabs.getOrNull(tabIndex) == "search") "Знайди станцію. ★ — вибрати вкладку." else "Порожньо.", modifier = Modifier.padding(16.dp))
+            }
+            if (canMore) {
+                Button(onClick = onMore, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) { Text("Ще 100") }
             }
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 itemsIndexed(radioRows, key = { i, s -> s.tab + s.url + i }) { index, s ->

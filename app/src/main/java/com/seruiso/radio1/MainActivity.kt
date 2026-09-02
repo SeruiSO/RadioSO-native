@@ -929,7 +929,7 @@ fun StationScreen(
             Box(
                 modifier = Modifier
                     .size(72.dp)
-                    .background(Color(0xFF222228), RoundedCornerShape(14.dp))
+                    .background(Color(0xFF222228), RoundedCornerShape(6.dp))
                     .clickable { onCloseMenu(); onNow() },
                 contentAlignment = Alignment.Center
             ) {
@@ -984,7 +984,7 @@ fun StationScreen(
                         }
                     )
                     if (suggestFor == key) {
-                        Column(modifier = Modifier.fillMaxWidth().background(card, RoundedCornerShape(14.dp)).padding(6.dp)) {
+                        Column(modifier = Modifier.fillMaxWidth().background(card, RoundedCornerShape(6.dp)).padding(6.dp)) {
                             hints.distinct().take(12).forEach { h ->
                                 Text(h, color = text, modifier = Modifier.fillMaxWidth().clickable { set(h); onSuggestFor("") }.padding(6.dp))
                             }
@@ -1123,8 +1123,8 @@ fun StationScreen(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier
-                            .background(if (i == tabIndex) acc else card, RoundedCornerShape(14.dp))
-                            .border(1.dp, if (i == tabIndex) acc else Color(0xFF3A3A42), RoundedCornerShape(14.dp))
+                            .background(if (i == tabIndex) acc else card, RoundedCornerShape(6.dp))
+                            .border(1.dp, if (i == tabIndex) acc else Color(0xFF3A3A42), RoundedCornerShape(6.dp))
                             .combinedClickable(onClick = { onTab(i) }, onLongClick = { onLongTab(tab) })
                             .padding(horizontal = 8.dp, vertical = 5.dp)
                     )

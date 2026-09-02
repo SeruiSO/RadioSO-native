@@ -36,13 +36,11 @@ object TabStore {
 
     fun addStation(ctx: Context, tab: String, s: Station): String? {
         if (reserved.contains(tab) || tab == "search") return "Сюди не можна"
+        unDelete(ctx, s.url)
         val root = JSONObject(prefs(ctx).getString(KEY_ADDED, "{}") ?: "{}")
         val arr = root.optJSONArray(tab) ?: JSONArray()
-        for (i in 0 until arr.length()) {
-            val o = arr.optJSONObject(i) ?: continue
-            if (o.optString("value") == s.url) return "Вже є в $tab"
-        }
-        arr.put(
+        val next = JSONArray()
+        next.put(
             JSONObject()
                 .put("value", s.url)
                 .put("name", s.name)
@@ -50,9 +48,34 @@ object TabStore {
                 .put("country", s.country)
                 .put("favicon", s.favicon)
         )
-        root.put(tab, arr)
-        prefs(ctx).edit().putString(KEY_ADDED, root.toString()).commit()
+        for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i) ?: continue
+            if (o.optString("value") == s.url) continue
+            next.put(o)
+        }
+        root.put(tab, next)
+        val order = mutableListOf(s.url)
+        val rawOrd = prefs(ctx).getString("order_$tab", "[]") ?: "[]"
+        val oa = JSONArray(rawOrd)
+        for (i in 0 until oa.length()) {
+            val u = oa.optString(i)
+            if (u.isNotBlank() && u != s.url) order.add(u)
+        }
+        prefs(ctx).edit()
+            .putString(KEY_ADDED, root.toString())
+            .putString("order_$tab", JSONArray(order).toString())
+            .commit()
         return null
+    }
+
+    fun unDelete(ctx: Context, url: String) {
+        val arr = JSONArray(prefs(ctx).getString("deletedStations", "[]") ?: "[]")
+        val next = JSONArray()
+        for (i in 0 until arr.length()) {
+            val u = arr.optString(i)
+            if (u != url) next.put(u)
+        }
+        prefs(ctx).edit().putString("deletedStations", next.toString()).commit()
     }
 
     fun renameTab(ctx: Context, old: String, rawNew: String): String? {
@@ -132,7 +155,7 @@ object TabStore {
             val s = map.remove(u) ?: continue
             out.add(s)
         }
-        out.addAll(map.values)
+        out.addAll(0, map.values)
         return out
     }
 

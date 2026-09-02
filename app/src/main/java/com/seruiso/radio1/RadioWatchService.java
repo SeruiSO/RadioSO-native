@@ -872,6 +872,10 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
                 loadLocalAlbumArt(albumId);
             }
             playUrl(url);
+            long seekPos = intent.getLongExtra(EXTRA_POSITION_MS, -1L);
+            if (seekPos >= 0 && player != null) {
+                player.seekTo(seekPos);
+            }
             return START_STICKY;
         }
 

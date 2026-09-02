@@ -54,6 +54,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -660,13 +663,23 @@ class MainActivity : ComponentActivity() {
         private fun seekTo(pos: Long) {
         holdSeek = true
         posMs = pos
-        getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-            .edit().putLong("localPositionMs", pos).commit()
+        val p = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+        p.edit().putLong("localPositionMs", pos).commit()
+        val url = p.getString(BluetoothAutoPlayPlugin.KEY_URL, "") ?: ""
+        val name = p.getString(BluetoothAutoPlayPlugin.KEY_NAME, "") ?: ""
         val i = Intent(this, RadioWatchService::class.java)
         i.action = RadioWatchService.ACTION_SEEK
         i.putExtra(RadioWatchService.EXTRA_POSITION_MS, pos)
-        startForegroundService(i)
-        posHandler.postDelayed({ holdSeek = false }, 1200)
+        i.putExtra(RadioWatchService.EXTRA_URL, url)
+        i.putExtra(RadioWatchService.EXTRA_NAME, name)
+        startService(i)
+        val i2 = Intent(this, RadioWatchService::class.java)
+        i2.action = RadioWatchService.ACTION_PLAY_URL
+        i2.putExtra(RadioWatchService.EXTRA_URL, url)
+        i2.putExtra(RadioWatchService.EXTRA_NAME, name)
+        i2.putExtra(RadioWatchService.EXTRA_POSITION_MS, pos)
+        startService(i2)
+        posHandler.postDelayed({ holdSeek = false }, 1500)
     }
 
     private fun sendAction(action: String) {
@@ -887,17 +900,28 @@ fun StationScreen(
         } else {
             LazyColumn(modifier = Modifier.weight(1f)) {
                 itemsIndexed(radioRows, key = { i, s -> s.tab + s.url + i }) { index, s ->
+                    val dismiss = rememberSwipeToDismissBoxState(
+                        confirmValueChange = {
+                            if (it == SwipeToDismissBoxValue.EndToStart) {
+                                onAskDelete(s)
+                                false
+                            } else false
+                        }
+                    )
+                    SwipeToDismissBox(
+                        state = dismiss,
+                        enableDismissFromStartToEnd = false,
+                        backgroundContent = {
+                            Box(modifier = Modifier.fillMaxWidth().background(Color(0xFF5C1A1A)).padding(16.dp), contentAlignment = Alignment.CenterEnd) {
+                                Text("Точно видалити?", color = Color.White)
+                            }
+                        }
+                    ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(if (s.url == currentUrl) acc.copy(alpha = 0.18f) else Color.Transparent, RoundedCornerShape(10.dp))
-                            .pointerInput(s.url) {
-                                detectHorizontalDragGestures { _, dx -> if (dx < -40) onAskDelete(s) }
-                            }
-                            .combinedClickable(
-                                onClick = { onPickRadio(radioRows, index) },
-                                onLongClick = { }
-                            )
+                            .background(if (s.url == currentUrl) acc.copy(alpha = 0.18f) else card, RoundedCornerShape(10.dp))
+                            .clickable { onPickRadio(radioRows, index) }
                             .padding(10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {

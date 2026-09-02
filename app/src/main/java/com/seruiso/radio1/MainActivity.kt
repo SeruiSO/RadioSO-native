@@ -67,6 +67,11 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
@@ -215,7 +220,7 @@ class MainActivity : ComponentActivity() {
                         qGenre = qGenre, onGenre = { qGenre = it },
                         searchOpen = searchOpen,
                         onSearchOpen = { searchOpen = !searchOpen },
-                        onSearch = { runSearch() },
+                        onSearch = { runSearch(); searchOpen = false },
                         suggestFor = suggestFor,
                         onSuggestFor = { suggestFor = it },
                         nameHints = SearchHints.past(this) + SearchHints.names,
@@ -330,8 +335,8 @@ class MainActivity : ComponentActivity() {
                         },
                         onNext = { sendAction(RadioWatchService.ACTION_NOTIF_NEXT) },
                         onPrev = { sendAction(RadioWatchService.ACTION_NOTIF_PREV) },
-                        onPickRadio = { list, index -> playRadio(list, index) },
-                        onPickLocal = { list, index -> playLocal(list, index) },
+                        onPickRadio = { list, index -> menuOpen = false; playRadio(list, index) },
+                        onPickLocal = { list, index -> menuOpen = false; playLocal(list, index) },
                         onToggleFav = { s -> toggleFav(s.url) },
                         onAddToTab = { s -> pickStation = s },
                         onMoveStation = { s, dir ->
@@ -383,6 +388,18 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    private fun tabLabel(tab: String): String = when (tab.lowercase()) {
+        "fav" -> "Best"
+        "best" -> "Lokal Best"
+        "local" -> "Lokal"
+        "search" -> "SEARCH"
+        "ukraine", "ua" -> "UA"
+        "techno" -> "Techno"
+        "trance" -> "Trance"
+        "pop" -> "Pop"
+        else -> tab.replaceFirstChar { it.uppercase() }
     }
 
     private fun targetTabs(): List<String> {
@@ -814,7 +831,7 @@ fun StationScreen(
     }
     val acc = Color(accent)
     val bg = Color(0xFF000000)
-    val card = Color(0xFF2A2A30)
+    val card = Color(0xFF141418)
     val text = Color(0xFFF2F2F5)
     val muted = Color(0x9EF2F2F5)
     Column(
@@ -835,20 +852,35 @@ fun StationScreen(
                 contentAlignment = Alignment.Center
             ) { Text("⋯", color = Color.White) }
         }
-        if (menuOpen) {
-            Column(modifier = Modifier.background(card, RoundedCornerShape(12.dp)).padding(6.dp)) {
-                Text((if (btWatch) "◉ BT увімк" else "○ BT вимк"), color = text, modifier = Modifier.fillMaxWidth().clickable { onBt() }.padding(8.dp))
-                Text("◔ $sleepLabel", color = text, modifier = Modifier.fillMaxWidth().clickable { onSleepMenu() }.padding(8.dp))
-                if (sleepMenu) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(horizontal = 8.dp)) {
-                        listOf(15, 30, 60, 0).forEach { m ->
-                            Text(if (m == 0) "off" else "${m}хв", color = acc, modifier = Modifier.clickable { onSleep(m) }.padding(6.dp))
+        Box(modifier = Modifier.fillMaxWidth()) {
+            AnimatedVisibility(
+                visible = menuOpen,
+                enter = slideInHorizontally(initialOffsetX = { it / 2 }) + fadeIn(),
+                exit = slideOutHorizontally(targetOffsetX = { it / 2 }) + fadeOut(),
+                modifier = Modifier.align(Alignment.TopEnd)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .width(200.dp)
+                        .background(Color(0xFF16161A), RoundedCornerShape(12.dp))
+                        .padding(8.dp)
+                ) {
+                    Text((if (btWatch) "◉ BT увімк" else "○ BT вимк"), color = text, modifier = Modifier.fillMaxWidth().clickable { onBt(); onCloseMenu() }.padding(8.dp))
+                    Text("◔ $sleepLabel", color = text, modifier = Modifier.fillMaxWidth().clickable { onSleepMenu() }.padding(8.dp))
+                    if (sleepMenu) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf(15, 30, 60, 0).forEach { m ->
+                                Text(if (m == 0) "off" else "${m}хв", color = acc, modifier = Modifier.clickable { onSleep(m); onCloseMenu() }.padding(6.dp))
+                            }
                         }
                     }
+                    Text("↑ Експорт", color = text, modifier = Modifier.fillMaxWidth().clickable { onExport() }.padding(8.dp))
+                    Text("↓ Імпорт", color = text, modifier = Modifier.fillMaxWidth().clickable { onImport() }.padding(8.dp))
                 }
-                Text("↑ Експорт", color = text, modifier = Modifier.fillMaxWidth().clickable { onExport() }.padding(8.dp))
-                Text("↓ Імпорт", color = text, modifier = Modifier.fillMaxWidth().clickable { onImport() }.padding(8.dp))
             }
+        }
+        if (menuOpen) {
+            Box(modifier = Modifier.fillMaxWidth().height(8.dp))
         }
         Row(
             modifier = Modifier
@@ -857,18 +889,18 @@ fun StationScreen(
                 .pointerInput(Unit) {
                     detectVerticalDragGestures { _, drag -> if (drag < -24) onNow() }
                 }
-                .padding(8.dp),
+                .padding(6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .size(58.dp)
+                    .size(72.dp)
                     .background(Color(0xFF222228), RoundedCornerShape(14.dp))
-                    .clickable { onNow() },
+                    .clickable { onCloseMenu(); onNow() },
                 contentAlignment = Alignment.Center
             ) {
                 if (artUrl(favicon).startsWith("http") || artUrl(favicon).startsWith("content:")) {
-                    AsyncImage(model = artUrl(favicon), contentDescription = null, modifier = Modifier.size(58.dp), contentScale = ContentScale.Crop)
+                    AsyncImage(model = artUrl(favicon), contentDescription = null, modifier = Modifier.size(72.dp), contentScale = ContentScale.Crop)
                 } else {
                     Text("🎵")
                 }
@@ -914,7 +946,7 @@ fun StationScreen(
                         onValueChange = set,
                         singleLine = true,
                         label = { Text(lab) },
-                        modifier = Modifier.fillMaxWidth().height(54.dp),
+                        modifier = Modifier.fillMaxWidth(),
                         trailingIcon = {
                             Text("▾", color = acc, modifier = Modifier.clickable { onSuggestFor(if (suggestFor == key) "" else key) }.padding(8.dp))
                         }
@@ -957,7 +989,7 @@ fun StationScreen(
                             Text(item.title, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text(item.artist, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
                         }
-                        Text(if (bestUris.contains(item.uri)) "+b" else "b", color = acc, modifier = Modifier.clickable { onToggleBest(item) }.padding(8.dp))
+                        Text(if (bestUris.contains(item.uri)) "★" else "☆", color = acc, modifier = Modifier.size(40.dp).clickable { onToggleBest(item) }, style = MaterialTheme.typography.headlineSmall)
                     }
                 }
             }
@@ -967,7 +999,7 @@ fun StationScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(if (s.url == currentUrl) acc.copy(alpha = 0.85f) else card, RoundedCornerShape(14.dp))
+                            .background(if (s.url == currentUrl) acc.copy(alpha = 0.85f) else Color.Transparent, RoundedCornerShape(12.dp))
                             .pointerInput(s.url) {
                                 var acc = 0f
                                 detectDragGesturesAfterLongPress { _, drag ->
@@ -990,7 +1022,7 @@ fun StationScreen(
                             Text("${s.genre} · ${s.country}", color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
                         }
                         if (tabs.getOrNull(tabIndex) == "search") {
-                            Text("ADD", color = acc, modifier = Modifier.clickable { onAddToTab(s) }.padding(6.dp))
+                            Text("+", color = acc, modifier = Modifier.size(36.dp).clickable { onAddToTab(s) }, style = MaterialTheme.typography.headlineMedium)
                         } else {
                             Text(
                                 if (favUrls.contains(s.url)) "★" else "☆",
@@ -1012,7 +1044,7 @@ fun StationScreen(
                 selectedTabIndex = tabIndex.coerceAtMost(tabs.lastIndex),
                 containerColor = bg,
                 contentColor = acc,
-                edgePadding = 4.dp
+                edgePadding = 0.dp
             ) {
                 tabs.forEachIndexed { i, tab ->
                     Tab(
@@ -1023,9 +1055,9 @@ fun StationScreen(
                         text = {
                             Box(
                                 modifier = Modifier
-                                    .background(if (i == tabIndex) acc else Color.Transparent, RoundedCornerShape(20.dp))
-                                    .border(1.dp, if (i == tabIndex) acc else Color(0xFF3A3A42), RoundedCornerShape(20.dp))
-                                    .padding(horizontal = 14.dp, vertical = 6.dp)
+                                    .background(if (i == tabIndex) acc else Color.Transparent, RoundedCornerShape(8.dp))
+                                    .border(1.dp, if (i == tabIndex) acc else Color(0xFF3A3A42), RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
                             ) {
                             Text(
                                 when (tab.lowercase()) {
@@ -1082,7 +1114,7 @@ fun StationScreen(
             text = {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                     targetTabs.forEach { tab ->
-                        Text(tab.uppercase(), modifier = Modifier.fillMaxWidth().clickable { onPickTabForStation(tab) }.padding(12.dp))
+                        Text(when (tab.lowercase()) { "fav"->"Best"; "best"->"Lokal Best"; "ukraine","ua"->"UA"; "techno"->"Techno"; "trance"->"Trance"; "pop"->"Pop"; else -> tab.replaceFirstChar { it.uppercase() } }, modifier = Modifier.fillMaxWidth().clickable { onPickTabForStation(tab) }.padding(12.dp))
                     }
                 }
             },
@@ -1131,7 +1163,7 @@ fun StationScreen(
         )
     }
     if (nowOpen) {
-        ModalBottomSheet(onDismissRequest = onNowClose, containerColor = Color(0xFF121214)) {
+        ModalBottomSheet(onDismissRequest = onNowClose, containerColor = Color(0xFF121214), sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
             Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 if (artUrl(favicon).startsWith("http") || artUrl(favicon).startsWith("content:")) {
                     AsyncImage(model = artUrl(favicon), contentDescription = null, modifier = Modifier.size(160.dp), contentScale = ContentScale.Fit)
@@ -1145,9 +1177,9 @@ fun StationScreen(
                     Text(if (bestUris.contains(currentUrl)) "★ Local Best" else "☆ у best", color = acc, modifier = Modifier.clickable {
                         localRows.firstOrNull { it.uri == currentUrl }?.let { onToggleBest(it) }
                     }.padding(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(8.dp)) {
-                        Text("Shuffle", color = acc, modifier = Modifier.clickable { onShuffle() })
-                        Text("Repeat", color = acc, modifier = Modifier.clickable { onRepeat() })
+                    Row(horizontalArrangement = Arrangement.spacedBy(20.dp), modifier = Modifier.padding(8.dp)) {
+                        Text("🔀", modifier = Modifier.size(36.dp).clickable { onShuffle() }, style = MaterialTheme.typography.headlineSmall)
+                        Text("🔁", modifier = Modifier.size(36.dp).clickable { onRepeat() }, style = MaterialTheme.typography.headlineSmall)
                     }
                     val d = if (durMs > 0) durMs else 1L
                     var slide by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(-1f) }

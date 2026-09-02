@@ -1007,7 +1007,7 @@ fun StationScreen(
         if (tabs.isNotEmpty()) {
             Row(
                 modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 4.dp, bottom = 2.dp),
-                horizontalArrangement = Arrangement.spacedBy(3.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 tabs.forEachIndexed { i, tab ->
@@ -1028,7 +1028,7 @@ fun StationScreen(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier
-                            .background(if (i == tabIndex) acc else Color.Transparent, RoundedCornerShape(8.dp))
+                            .background(if (i == tabIndex) acc else card, RoundedCornerShape(8.dp))
                             .border(1.dp, if (i == tabIndex) acc else Color(0xFF3A3A42), RoundedCornerShape(8.dp))
                             .combinedClickable(onClick = { onTab(i) }, onLongClick = { onLongTab(tab) })
                             .padding(horizontal = 8.dp, vertical = 5.dp)

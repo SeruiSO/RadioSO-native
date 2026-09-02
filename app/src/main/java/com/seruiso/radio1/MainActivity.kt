@@ -29,7 +29,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.height
 import coil.compose.AsyncImage
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -792,25 +792,24 @@ fun StationScreen(
             .navigationBarsPadding()
             .padding(top = 28.dp, start = 12.dp, end = 12.dp, bottom = 16.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            Text("Radio S O", color = acc, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-            Text("🌙", modifier = Modifier.padding(8.dp).clickable { onTheme() })
-            Text("⋯", color = text, modifier = Modifier.padding(8.dp).clickable { onMenu() })
+        Box(modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)) {
+            Text("🌙", modifier = Modifier.align(Alignment.CenterStart).size(36.dp).clickable { onTheme() })
+            Text("Radio S O", color = acc, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.align(Alignment.Center))
+            Text("☰", color = text, modifier = Modifier.align(Alignment.CenterEnd).size(36.dp).clickable { onMenu() })
         }
         if (menuOpen) {
-            Column(modifier = Modifier.background(card, RoundedCornerShape(12.dp)).padding(8.dp)) {
-                Button(onClick = onBt) { Text(if (btWatch) "BT стеження: увімк" else "BT стеження: вимк") }
-                Button(onClick = onSleepMenu) { Text(sleepLabel) }
+            Column(modifier = Modifier.background(card, RoundedCornerShape(12.dp)).padding(6.dp)) {
+                Text((if (btWatch) "◉ BT увімк" else "○ BT вимк"), color = text, modifier = Modifier.fillMaxWidth().clickable { onBt() }.padding(8.dp))
+                Text("◔ $sleepLabel", color = text, modifier = Modifier.fillMaxWidth().clickable { onSleepMenu() }.padding(8.dp))
                 if (sleepMenu) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(horizontal = 8.dp)) {
                         listOf(15, 30, 60, 0).forEach { m ->
-                            Button(onClick = { onSleep(m) }) { Text(if (m == 0) "off" else "$m") }
+                            Text(if (m == 0) "off" else "${m}хв", color = acc, modifier = Modifier.clickable { onSleep(m) }.padding(6.dp))
                         }
                     }
                 }
-                Button(onClick = onExport) { Text("Експорт") }
-                Button(onClick = onImport) { Text("Імпорт") }
-                Button(onClick = onCloseMenu) { Text("Закрити") }
+                Text("↑ Експорт", color = text, modifier = Modifier.fillMaxWidth().clickable { onExport() }.padding(8.dp))
+                Text("↓ Імпорт", color = text, modifier = Modifier.fillMaxWidth().clickable { onImport() }.padding(8.dp))
             }
         }
         Row(
@@ -825,19 +824,19 @@ fun StationScreen(
         ) {
             Box(
                 modifier = Modifier
-                    .size(52.dp)
+                    .size(64.dp)
                     .background(Color(0xFF222228), CircleShape)
                     .clickable { onNow() },
                 contentAlignment = Alignment.Center
             ) {
                 if (artUrl(favicon).startsWith("http") || artUrl(favicon).startsWith("content:")) {
-                    AsyncImage(model = artUrl(favicon), contentDescription = null, modifier = Modifier.size(52.dp), contentScale = ContentScale.Crop)
+                    AsyncImage(model = artUrl(favicon), contentDescription = null, modifier = Modifier.size(64.dp), contentScale = ContentScale.Crop)
                 } else {
                     Text("🎵")
                 }
             }
             Column(modifier = Modifier.padding(start = 10.dp).weight(1f)) {
-                Text(name, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(name, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
                 Text("жанр: $genre", color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
                 Text("країна: $country", color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
                 Text("🎵 " + (if (track.isBlank()) "Трек: невідомо" else track), color = text, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
@@ -850,25 +849,19 @@ fun StationScreen(
                 animationSpec = infiniteRepeatable(tween(1100, easing = androidx.compose.animation.core.FastOutSlowInEasing), RepeatMode.Reverse),
                 label = "p"
             ).value
-            Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.height(36.dp).padding(start = 8.dp)) {
-                listOf(0.45f, 1f, 0.6f, 0.9f, 0.5f, 0.8f, 0.55f).forEachIndexed { i, base ->
-                    val h = if (playing) (10f + 22f * base * pulse) else 8f
-                    Box(
-                        modifier = Modifier
-                            .padding(horizontal = 1.5.dp)
-                            .width(4.dp)
-                            .height(h.dp)
-                            .background(acc.copy(alpha = if (playing) 1f else 0.25f), RoundedCornerShape(2.dp))
-                    )
-                }
-            }
+            Box(
+                modifier = Modifier
+                    .padding(start = 8.dp)
+                    .size((if (playing) 18f + 10f * pulse else 16f).dp)
+                    .background(acc.copy(alpha = if (playing) 0.35f + 0.65f * pulse else 0.3f), CircleShape)
+            )
         }
         if (tabs.getOrNull(tabIndex) == "search") {
             Column(modifier = Modifier.padding(vertical = 6.dp)) {
-                OutlinedTextField(value = qName, onValueChange = onName, singleLine = true, label = { Text("Назва") }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = qCountry, onValueChange = onCountry, singleLine = true, label = { Text("Країна") }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = qGenre, onValueChange = onGenre, singleLine = true, label = { Text("Жанр") }, modifier = Modifier.fillMaxWidth())
-                Button(onClick = onSearch, modifier = Modifier.padding(top = 6.dp)) { Text("🔍 Знайти") }
+                OutlinedTextField(value = qName, onValueChange = onName, singleLine = true, label = { Text("Назва") }, modifier = Modifier.fillMaxWidth().height(52.dp))
+                OutlinedTextField(value = qCountry, onValueChange = onCountry, singleLine = true, label = { Text("Країна") }, modifier = Modifier.fillMaxWidth().height(52.dp))
+                OutlinedTextField(value = qGenre, onValueChange = onGenre, singleLine = true, label = { Text("Жанр") }, modifier = Modifier.fillMaxWidth().height(52.dp))
+                Button(onClick = onSearch, modifier = Modifier.padding(top = 4.dp).height(40.dp)) { Text("Знайти") }
             }
         }
         if (showLocal) {
@@ -900,27 +893,16 @@ fun StationScreen(
         } else {
             LazyColumn(modifier = Modifier.weight(1f)) {
                 itemsIndexed(radioRows, key = { i, s -> s.tab + s.url + i }) { index, s ->
-                    val dismiss = rememberSwipeToDismissBoxState(
-                        confirmValueChange = {
-                            if (it == SwipeToDismissBoxValue.EndToStart) {
-                                onAskDelete(s)
-                                false
-                            } else false
-                        }
-                    )
-                    SwipeToDismissBox(
-                        state = dismiss,
-                        enableDismissFromStartToEnd = false,
-                        backgroundContent = {
-                            Box(modifier = Modifier.fillMaxWidth().background(Color(0xFF5C1A1A)).padding(16.dp), contentAlignment = Alignment.CenterEnd) {
-                                Text("Точно видалити?", color = Color.White)
-                            }
-                        }
-                    ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(if (s.url == currentUrl) acc.copy(alpha = 0.18f) else card, RoundedCornerShape(10.dp))
+                            .background(if (s.url == currentUrl) acc.copy(alpha = 0.18f) else Color.Transparent, RoundedCornerShape(10.dp))
+                            .pointerInput(s.url) {
+                                detectDragGesturesAfterLongPress { _, drag ->
+                                    if (drag.y <= -28) onMoveStation(s, -1)
+                                    else if (drag.y >= 28) onMoveStation(s, 1)
+                                }
+                            }
                             .clickable { onPickRadio(radioRows, index) }
                             .padding(10.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -937,18 +919,14 @@ fun StationScreen(
                         if (tabs.getOrNull(tabIndex) == "search") {
                             Text("ADD", color = acc, modifier = Modifier.clickable { onAddToTab(s) }.padding(6.dp))
                         } else {
-                            if (tabs.getOrNull(tabIndex) !in listOf("fav", "best", "local")) {
-                                Text("↑", color = muted, modifier = Modifier.clickable { onMoveStation(s, -1) }.padding(4.dp))
-                                Text("↓", color = muted, modifier = Modifier.clickable { onMoveStation(s, 1) }.padding(4.dp))
-                            }
                             Text(
                                 if (favUrls.contains(s.url)) "★" else "☆",
                                 color = acc,
                                 modifier = Modifier.size(40.dp).clickable { onToggleFav(s) },
                                 style = MaterialTheme.typography.headlineSmall
                             )
+                            Text("✕", color = muted, modifier = Modifier.size(36.dp).clickable { onAskDelete(s) }, style = MaterialTheme.typography.titleLarge)
                         }
-                    }
                     }
                 }
                 if (canMore) {

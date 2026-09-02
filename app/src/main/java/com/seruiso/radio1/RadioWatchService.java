@@ -284,12 +284,17 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
             public void onAvailable(Network network) {
                 new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
                     try {
-                        long lostAgo = networkLostAtMs > 0
-                            ? (System.currentTimeMillis() - networkLostAtMs) : Long.MAX_VALUE;
+                        if (networkLostAtMs <= 0) {
+                            android.util.Log.i("RadioWatch", "onAvailable initial — ignore");
+                            return;
+                        }
+                        long lostAgo = System.currentTimeMillis() - networkLostAtMs;
                         networkLostAtMs = 0L;
                         SharedPreferences sp = getSharedPreferences(
                             BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE);
                         if (!sp.getBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, false)) return;
+                        if (!sp.getBoolean(BluetoothAutoPlayPlugin.KEY_IS_PLAYING, false)
+                                && (player == null || !player.getPlayWhenReady())) return;
                         if (isLocalMode()) return;
                         if (player != null && player.isPlaying()) {
                             reconnectAttempt = 0;

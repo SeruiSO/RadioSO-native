@@ -116,6 +116,26 @@ object TabStore {
         prefs(ctx).edit().putString(KEY_ADDED, root.toString()).commit()
     }
 
+    fun saveOrder(ctx: Context, tab: String, urls: List<String>) {
+        val arr = JSONArray()
+        urls.forEach { arr.put(it) }
+        prefs(ctx).edit().putString("order_" + tab, arr.toString()).commit()
+    }
+
+    fun applyOrder(ctx: Context, tab: String, list: List<Station>): List<Station> {
+        val raw = prefs(ctx).getString("order_" + tab, null) ?: return list
+        val arr = JSONArray(raw)
+        val map = list.associateBy { it.url }.toMutableMap()
+        val out = mutableListOf<Station>()
+        for (i in 0 until arr.length()) {
+            val u = arr.optString(i)
+            val s = map.remove(u) ?: continue
+            out.add(s)
+        }
+        out.addAll(map.values)
+        return out
+    }
+
     fun extraStations(ctx: Context, tab: String): List<Station> {
         val root = JSONObject(prefs(ctx).getString(KEY_ADDED, "{}") ?: "{}")
         val arr = root.optJSONArray(tab) ?: return emptyList()

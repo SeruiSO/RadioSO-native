@@ -292,8 +292,14 @@ class MainActivity : ComponentActivity() {
                         onMoveStation = { s, dir ->
                             val tab = currentTab()
                             if (tab !in listOf("fav", "best", "local", "search")) {
-                                TabStore.moveStation(this, tab, s.url, dir)
-                                addedRev++
+                                val list = visibleRadio().toMutableList()
+                                val i = list.indexOfFirst { it.url == s.url }
+                                val j = i + dir
+                                if (i >= 0 && j in list.indices) {
+                                    val a = list[i]; list[i] = list[j]; list[j] = a
+                                    TabStore.saveOrder(this, tab, list.map { it.url })
+                                    addedRev++
+                                }
                             }
                         },
                         onSeek = { seekTo(it) },
@@ -399,13 +405,13 @@ class MainActivity : ComponentActivity() {
         addedRev // observe
         val tab = currentTab()
         return when (tab) {
-            "fav" -> stations.filter { favUrls.contains(it.url) }.distinctBy { it.url }
+            "fav" -> (FavStore.stations(this) + stations.filter { favUrls.contains(it.url) }).distinctBy { it.url }
             "best", "local" -> emptyList()
             "search" -> searchRows
             else -> {
                 val base = stations.filter { it.tab == tab }
                 val extra = TabStore.extraStations(this, tab)
-                (base + extra).distinctBy { it.url }
+                TabStore.applyOrder(this, tab, (base + extra).distinctBy { it.url })
             }
         }
     }
@@ -509,9 +515,14 @@ class MainActivity : ComponentActivity() {
         if (need.isNotEmpty()) requestPermissions(need.toTypedArray(), 1002)
     }
 
-    private fun toggleFav(url: String) {
-        FavStore.toggle(this, BluetoothAutoPlayPlugin.KEY_FAVORITES, url)
+    private fun toggleFav(station: Station) {
+        FavStore.toggleStation(this, station)
         favUrls = FavStore.urls(this, BluetoothAutoPlayPlugin.KEY_FAVORITES)
+    }
+    private fun toggleFav(url: String) {
+        val s = (FavStore.stations(this) + stations + TabStore.extraStations(this, currentTab()))
+            .firstOrNull { it.url == url } ?: Station(url, stationName, currentGenre, currentCountry, currentFavicon, "fav")
+        toggleFav(s)
     }
 
     private fun toggleBest(uri: String) {
@@ -807,7 +818,7 @@ fun StationScreen(
                             .background(if (s.url == currentUrl) acc.copy(alpha = 0.18f) else Color.Transparent, RoundedCornerShape(10.dp))
                             .combinedClickable(
                                 onClick = { onPickRadio(radioRows, index) },
-                                onLongClick = { onDeleteStation(s) }
+                                onLongClick = { }
                             )
                             .padding(10.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -823,16 +834,18 @@ fun StationScreen(
                         }
                         if (tabs.getOrNull(tabIndex) == "search") {
                             Text("ADD", color = acc, modifier = Modifier.clickable { onAddToTab(s) }.padding(6.dp))
+                        } else {
+                            if (tabs.getOrNull(tabIndex) !in listOf("fav", "best", "local")) {
+                                Text("↑", color = muted, modifier = Modifier.clickable { onMoveStation(s, -1) }.padding(4.dp))
+                                Text("↓", color = muted, modifier = Modifier.clickable { onMoveStation(s, 1) }.padding(4.dp))
+                            }
+                            Text("✕", color = muted, modifier = Modifier.clickable { onDeleteStation(s) }.padding(4.dp))
+                            Text(
+                                if (favUrls.contains(s.url)) "★" else "☆",
+                                color = acc,
+                                modifier = Modifier.clickable { onToggleFav(s) }.padding(6.dp)
+                            )
                         }
-                        if (tabs.getOrNull(tabIndex) !in listOf("search", "fav", "best", "local")) {
-                            Text("↑", color = muted, modifier = Modifier.clickable { onMoveStation(s, -1) }.padding(4.dp))
-                            Text("↓", color = muted, modifier = Modifier.clickable { onMoveStation(s, 1) }.padding(4.dp))
-                        }
-                        Text(
-                            if (favUrls.contains(s.url)) "★" else "☆",
-                            color = acc,
-                            modifier = Modifier.clickable { onToggleFav(s) }.padding(6.dp)
-                        )
                     }
                 }
                 if (canMore) {
@@ -867,7 +880,7 @@ fun StationScreen(
             }
         }
         Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 8.dp),
+            modifier = Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 8.dp).pointerInput(Unit) { detectVerticalDragGestures { _, drag -> if (drag < -24) onNow() } },
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {

@@ -67,7 +67,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.AnimatedVisibility
+import AnimatedVisibility
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -852,15 +852,11 @@ fun StationScreen(
                 contentAlignment = Alignment.Center
             ) { Text("⋯", color = Color.White) }
         }
-        Box(modifier = Modifier.fillMaxWidth()) {
-            AnimatedVisibility(
-                visible = menuOpen,
-                enter = slideInHorizontally(initialOffsetX = { it / 2 }) + fadeIn(),
-                exit = slideOutHorizontally(targetOffsetX = { it / 2 }) + fadeOut(),
-                modifier = Modifier.align(Alignment.TopEnd)
-            ) {
+        if (menuOpen) {
+            Box(modifier = Modifier.fillMaxWidth()) {
                 Column(
                     modifier = Modifier
+                        .align(Alignment.TopEnd)
                         .width(200.dp)
                         .background(Color(0xFF16161A), RoundedCornerShape(12.dp))
                         .padding(8.dp)
@@ -878,9 +874,6 @@ fun StationScreen(
                     Text("↓ Імпорт", color = text, modifier = Modifier.fillMaxWidth().clickable { onImport() }.padding(8.dp))
                 }
             }
-        }
-        if (menuOpen) {
-            Box(modifier = Modifier.fillMaxWidth().height(8.dp))
         }
         Row(
             modifier = Modifier

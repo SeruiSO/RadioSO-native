@@ -876,10 +876,12 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
         }
 
         if (ACTION_SEEK.equals(action) && intent != null) {
-            long pos = intent.getLongExtra(EXTRA_POSITION_MS, 0L);
-            if (player != null && isLocalMode()) {
-                player.seekTo(Math.max(0, pos));
-                writeLocalPosition();
+            long pos = intent.getLongExtra(EXTRA_POSITION_MS, -1L);
+            if (pos < 0) pos = intent.getIntExtra(EXTRA_POSITION_MS, -1);
+            if (player != null && pos >= 0) {
+                player.seekTo(pos);
+                getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                    .edit().putLong("localPositionMs", pos).commit();
             }
             return START_STICKY;
         }

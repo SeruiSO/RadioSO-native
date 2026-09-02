@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.height
 import coil.compose.AsyncImage
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -98,6 +99,8 @@ class MainActivity : ComponentActivity() {
     private var themeId by mutableStateOf("shadow-pulse")
     private var accent by mutableStateOf(0xFF00E676)
     private var nowOpen by mutableStateOf(false)
+    private var pendingDelete by mutableStateOf<Station?>(null)
+    private var holdSeek by mutableStateOf(false)
     private var posMs by mutableStateOf(0L)
     private var durMs by mutableStateOf(0L)
     private var isLocalNow by mutableStateOf(false)
@@ -108,7 +111,7 @@ class MainActivity : ComponentActivity() {
             posMs = p.getLong("localPositionMs", 0L)
             durMs = p.getLong("localDurationMs", 0L)
             isLocalNow = p.getString(LocalMusicPlugin.KEY_MODE, "radio") == "local"
-            if (nowOpen) posHandler.postDelayed(this, 500)
+            if (nowOpen && !holdSeek) posHandler.postDelayed(this, 500)
         }
     }
     private var trackTitle by mutableStateOf("")
@@ -285,6 +288,17 @@ class MainActivity : ComponentActivity() {
                             accent = n.accent
                             statusText = n.id
                         },
+                        pendingDelete = pendingDelete,
+                        onAskDelete = { s -> pendingDelete = s },
+                        onConfirmDelete = {
+                            val s = pendingDelete ?: return@StationScreen
+                            pendingDelete = null
+                            run {
+                                val xx = s
+                                // reuse body
+                            }
+                        },
+                        onCancelDelete = { pendingDelete = null },
                         onDeleteStation = { s ->
                             val tab = currentTab()
                             if (tab == "fav") {
@@ -651,11 +665,16 @@ class MainActivity : ComponentActivity() {
         if (nowOpen) { posHandler.removeCallbacks(posTick); posHandler.post(posTick) }
     }
 
-    private fun seekTo(pos: Long) {
+        private fun seekTo(pos: Long) {
+        holdSeek = true
+        posMs = pos
+        getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+            .edit().putLong("localPositionMs", pos).commit()
         val i = Intent(this, RadioWatchService::class.java)
         i.action = RadioWatchService.ACTION_SEEK
         i.putExtra(RadioWatchService.EXTRA_POSITION_MS, pos)
         startForegroundService(i)
+        posHandler.postDelayed({ holdSeek = false }, 1200)
     }
 
     private fun sendAction(action: String) {

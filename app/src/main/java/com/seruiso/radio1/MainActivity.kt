@@ -140,7 +140,7 @@ class MainActivity : ComponentActivity() {
             posMs = p.getLong("localPositionMs", 0L)
             durMs = p.getLong("localDurationMs", 0L)
             isLocalNow = p.getString(LocalMusicPlugin.KEY_MODE, "radio") == "local"
-            if (nowOpen && !holdSeek) posHandler.postDelayed(this, 500)
+            if ((nowOpen || isLocalNow) && !holdSeek) posHandler.postDelayed(this, 400)
         }
     }
     private var trackTitle by mutableStateOf("")
@@ -188,9 +188,17 @@ class MainActivity : ComponentActivity() {
                 RadioWatchService.ACTION_PLAYBACK_UI -> {
                     isPlaying = intent.getBooleanExtra("playing", false)
                     if (isPlaying) statusText = "playing"
+                    val pos = intent.getLongExtra("positionMs", -1L)
+                    val dur = intent.getLongExtra("durationMs", -1L)
+                    if (!holdSeek && pos >= 0) posMs = pos
+                    if (dur > 0) durMs = dur
                     readPrefs()
                     isLocalNow = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
                         .getString(LocalMusicPlugin.KEY_MODE, "radio") == "local"
+                    if (isLocalNow) {
+                        posHandler.removeCallbacks(posTick)
+                        posHandler.post(posTick)
+                    }
                 }
                 RadioWatchService.ACTION_TRACK_META -> {
                     readPrefs()
@@ -324,7 +332,11 @@ class MainActivity : ComponentActivity() {
                         accent = accent,
                         themeName = themeId,
                         nowOpen = nowOpen,
-                        onNow = { nowOpen = true },
+                        onNow = {
+                            nowOpen = true
+                            posHandler.removeCallbacks(posTick)
+                            posHandler.post(posTick)
+                        },
                         onNowClose = { nowOpen = false },
                         onTheme = {
                             val n = ThemeStore.next(this)
@@ -821,7 +833,7 @@ class MainActivity : ComponentActivity() {
         i.action = RadioWatchService.ACTION_SEEK
         i.putExtra(RadioWatchService.EXTRA_POSITION_MS, pos)
         startForegroundService(i)
-        posHandler.postDelayed({ holdSeek = false }, 800)
+        posHandler.postDelayed({ holdSeek = false }, 400)
     }
 
     private fun sendAction(action: String) {

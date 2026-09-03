@@ -99,6 +99,8 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
     private Runnable silenceCheck;
     private int bufferingTicks = 0;
     private long pendingSeekMs = -1L;
+    private android.os.Handler positionHandler;
+    private Runnable positionTicker;
 
     private final BroadcastReceiver noisyReceiver = new BroadcastReceiver() {
         @Override
@@ -250,6 +252,14 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
 
             @Override
             public void onPlaybackStateChanged(int state) {
+                if (state == Player.STATE_READY && isLocalMode()) {
+                    if (pendingSeekMs >= 0 && player != null) {
+                        player.seekTo(pendingSeekMs);
+                        pendingSeekMs = -1L;
+                    }
+                    writeLocalPosition();
+                    armPositionTicker();
+                }
                 if (state == Player.STATE_ENDED) {
                     if (isLocalMode()) {
                         handleLocalEnded();
@@ -896,9 +906,15 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
             long pos = intent.getLongExtra(EXTRA_POSITION_MS, -1L);
             if (pos < 0) pos = intent.getIntExtra(EXTRA_POSITION_MS, -1);
             if (player != null && pos >= 0) {
-                player.seekTo(pos);
+                if (player.getPlaybackState() == Player.STATE_READY) {
+                    player.seekTo(pos);
+                    pendingSeekMs = -1L;
+                } else {
+                    pendingSeekMs = pos;
+                }
                 getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
                     .edit().putLong("localPositionMs", pos).commit();
+                writeLocalPosition();
             }
             return START_STICKY;
         }
@@ -915,13 +931,36 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
         }
     }
 
+    private void armPositionTicker() {
+        if (positionHandler == null) positionHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+        if (positionTicker != null) positionHandler.removeCallbacks(positionTicker);
+        positionTicker = new Runnable() {
+            @Override public void run() {
+                writeLocalPosition();
+                if (player != null && isLocalMode() && (player.isPlaying() || player.getPlayWhenReady())) {
+                    positionHandler.postDelayed(this, 400);
+                }
+            }
+        };
+        positionHandler.post(positionTicker);
+    }
+
     private void writeLocalPosition() {
         if (player == null || !isLocalMode()) return;
         try {
+            long pos = Math.max(0, player.getCurrentPosition());
+            long dur = player.getDuration();
+            if (dur < 0 || dur == androidx.media3.common.C.TIME_UNSET) dur = 0;
             getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE).edit()
-                .putLong("localPositionMs", Math.max(0, player.getCurrentPosition()))
-                .putLong("localDurationMs", Math.max(0, player.getDuration() > 0 ? player.getDuration() : 0))
+                .putLong("localPositionMs", pos)
+                .putLong("localDurationMs", dur)
                 .apply();
+            Intent i = new Intent(ACTION_PLAYBACK_UI);
+            i.setPackage(getPackageName());
+            i.putExtra("playing", player.isPlaying());
+            i.putExtra("positionMs", pos);
+            i.putExtra("durationMs", dur);
+            sendBroadcast(i);
         } catch (Exception ignored) {}
     }
 
@@ -1035,6 +1074,7 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
             player.setMediaItem(item, /* resetPosition= */ true);
             player.prepare();
             player.setPlayWhenReady(true);
+            if (isLocalMode()) armPositionTicker();
             writePlayingFlag(true);
             loadStationArtAsync();
             try { writeActuallyPlaying(true); } catch (Exception ignored) {}

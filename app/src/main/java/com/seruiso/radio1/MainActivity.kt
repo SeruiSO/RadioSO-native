@@ -1176,12 +1176,16 @@ fun StationScreen(
                 Text("+", color = acc, modifier = Modifier.padding(horizontal = 6.dp).clickable { onAddTab() })
             }
         }
+        Box(
+            modifier = Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 8.dp).pointerInput(Unit) {
+                detectVerticalDragGestures { _, drag -> if (drag < -24) onNow() }
+            }
+        ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 8.dp).pointerInput(Unit) { detectVerticalDragGestures { _, drag -> if (drag < -24) onNow() } },
+            modifier = Modifier.align(Alignment.Center).fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("⌃", color = muted, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.clickable { onNow() }.padding(8.dp))
             listOf(Triple("⏮", 78, false), Triple(if (playing) "⏸" else "▶", 78, true), Triple("⏭", 78, false)).forEachIndexed { i, (lab, sz, main) ->
                 val act = if (i == 0) onPrev else if (i == 1) onPlayPause else onNext
                 Box(
@@ -1198,6 +1202,8 @@ fun StationScreen(
                     contentAlignment = Alignment.Center
                 ) { Text("Scan", color = acc, style = MaterialTheme.typography.bodySmall) }
             }
+        }
+            Text("⌃", color = muted, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.align(Alignment.CenterEnd).clickable { onNow() }.padding(4.dp))
         }
     }
     androidx.compose.animation.AnimatedVisibility(
@@ -1290,76 +1296,110 @@ fun StationScreen(
             onDismissRequest = onNowClose,
             properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnBackPress = true, dismissOnClickOutside = true)
         ) {
+            val arts: List<String> = if (showLocal) {
+                localRows.map { if (it.albumId.isNotBlank() && it.albumId != "0") "content://media/external/audio/albumart/${it.albumId}" else "" }
+            } else radioRows.map { it.favicon }
+            val names: List<String> = if (showLocal) localRows.map { it.title } else radioRows.map { it.name }
+            val curI = if (showLocal) localRows.indexOfFirst { it.uri == currentUrl } else radioRows.indexOfFirst { it.url == currentUrl }
+            var dx by androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+            var appear by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+            LaunchedEffect(Unit) { appear = true }
+            val scale = androidx.compose.animation.core.animateFloatAsState(if (appear) 1f else 0.35f, label = "grow").value
             Box(modifier = Modifier.fillMaxSize()) {
-                Box(modifier = Modifier.fillMaxSize().background(Color(0x99000000)).clickable { onNowClose() })
-                var dx by androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+                Box(modifier = Modifier.fillMaxSize().background(Color(0x88000000)).clickable { onNowClose() })
                 Column(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
-                        .background(Color(0xFF121214), RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
+                        .graphicsLayer { scaleX = scale; scaleY = scale; transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 1f) }
+                        .background(Color(0xFF121214), RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp))
                         .navigationBarsPadding()
-                        .padding(20.dp),
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                        .pointerInput(Unit) {
+                            detectVerticalDragGestures { _, drag -> if (drag > 28) onNowClose() }
+                        },
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Box(modifier = Modifier.padding(bottom = 12.dp).width(40.dp).height(4.dp).background(muted, RoundedCornerShape(2.dp)).clickable { onNowClose() })
-                    Box(
-                        modifier = Modifier
-                            .graphicsLayer { translationX = dx * 0.6f }
-                            .pointerInput(currentUrl) {
-                                detectHorizontalDragGestures(
-                                    onDragEnd = {
-                                        if (dx < -56f) onNext()
-                                        else if (dx > 56f) onPrev()
-                                        dx = 0f
-                                    },
-                                    onDragCancel = { dx = 0f }
-                                ) { _, d -> dx += d }
+                    Box(modifier = Modifier.padding(bottom = 10.dp).width(40.dp).height(4.dp).background(muted, RoundedCornerShape(2.dp)))
+                    val w = 220f
+                    Box(modifier = Modifier.height(230.dp).fillMaxWidth().pointerInput(curI, currentUrl) {
+                        detectDragGestures(
+                            onDragEnd = {
+                                if (kotlin.math.abs(dx) > 56f) {
+                                    if (dx < 0) onNext() else onPrev()
+                                }
+                                dx = 0f
+                            },
+                            onDragCancel = { dx = 0f }
+                        ) { _, pan ->
+                            dx += pan.x
+                            if (pan.y > 10 && kotlin.math.abs(pan.y) > kotlin.math.abs(pan.x)) {
+                                onNowClose()
                             }
-                    ) {
-                        if (artUrl(favicon).startsWith("http") || artUrl(favicon).startsWith("content:")) {
-                            AsyncImage(model = artUrl(favicon), contentDescription = null, modifier = Modifier.size(220.dp), contentScale = ContentScale.Crop)
-                        } else Text("🎵", style = MaterialTheme.typography.displayLarge)
-                    }
-                    Text(name, color = Color.White, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 12.dp))
-                    Text(if (track.isBlank()) "🎵 Трек: невідомо" else "🎵 $track", color = muted, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                if (isLocalNow || currentUrl.startsWith("content:")) {
-                    Text(if (bestUris.contains(currentUrl)) "★ Local Best" else "☆ у best", color = acc, modifier = Modifier.clickable {
-                        localRows.firstOrNull { it.uri == currentUrl }?.let { onToggleBest(it) }
-                    }.padding(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(20.dp), modifier = Modifier.padding(8.dp)) {
-                        Text("🔀", modifier = Modifier.size(36.dp).clickable { onShuffle() }, style = MaterialTheme.typography.headlineSmall)
-                        Text("🔁", modifier = Modifier.size(36.dp).clickable { onRepeat() }, style = MaterialTheme.typography.headlineSmall)
-                    }
-                    val d = if (durMs > 0) durMs else 1L
-                    var slide by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(-1f) }
-                    androidx.compose.material3.Slider(
-                        value = if (slide >= 0f) slide else (posMs.toFloat() / d.toFloat()).coerceIn(0f, 1f),
-                        onValueChange = { slide = it },
-                        onValueChangeFinished = {
-                            if (durMs > 0 && slide >= 0f) onSeek((slide * durMs).toLong())
-                            slide = -1f
                         }
-                    )
-                    fun fmt(ms: Long): String {
-                        val s = (ms / 1000).coerceAtLeast(0)
-                        return "%d:%02d".format(s / 60, s % 60)
+                    }) {
+                        listOf(curI - 1, curI, curI + 1).forEach { i ->
+                            if (i < 0 || i >= arts.size) return@forEach
+                            val off = ((i - curI) * w + dx)
+                            Box(
+                                modifier = Modifier.align(Alignment.Center).graphicsLayer { translationX = off },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                val u = arts[i]
+                                if (u.startsWith("http") || u.startsWith("content:")) {
+                                    AsyncImage(model = u, contentDescription = null, modifier = Modifier.size(if (i == curI) 220.dp else 160.dp), contentScale = ContentScale.Crop)
+                                } else Text("🎵", style = if (i == curI) MaterialTheme.typography.displayLarge else MaterialTheme.typography.displayMedium)
+                            }
+                        }
                     }
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(fmt(posMs), color = muted)
-                        Text(fmt(durMs), color = muted)
+                    Text(name, color = Color.White, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(if (track.isBlank()) "🎵 Трек: невідомо" else "🎵 $track", color = muted, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    if (isLocalNow || currentUrl.startsWith("content:")) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(28.dp), modifier = Modifier.padding(8.dp)) {
+                            Text("🔀", modifier = Modifier.size(36.dp).clickable { onShuffle() }, style = MaterialTheme.typography.headlineSmall)
+                            Text("🔁", modifier = Modifier.size(36.dp).clickable { onRepeat() }, style = MaterialTheme.typography.headlineSmall)
+                        }
+                        val d = if (durMs > 0) durMs else 1L
+                        var slide by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(-1f) }
+                        androidx.compose.material3.Slider(
+                            value = if (slide >= 0f) slide else (posMs.toFloat() / d.toFloat()).coerceIn(0f, 1f),
+                            onValueChange = { slide = it },
+                            onValueChangeFinished = {
+                                if (durMs > 0 && slide >= 0f) onSeek((slide * durMs).toLong())
+                                slide = -1f
+                            }
+                        )
+                        fun fmt(ms: Long): String {
+                            val s = (ms / 1000).coerceAtLeast(0)
+                            return "%d:%02d".format(s / 60, s % 60)
+                        }
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(fmt(posMs), color = muted)
+                            Text(fmt(durMs), color = muted)
+                        }
                     }
-                } else {
-                    Text(if (favUrls.contains(currentUrl)) "★ fav" else "☆ fav", color = acc, modifier = Modifier.clickable {
-                        radioRows.firstOrNull { it.url == currentUrl }?.let { onToggleFav(it) }
-                            ?: onToggleFav(Station(currentUrl, name, genre, country, favicon, ""))
-                    }.padding(8.dp))
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(top = 16.dp)) {
-                    Box(modifier = Modifier.size(80.dp).background(Color(0xFF1A1A1E), RoundedCornerShape(16.dp)).clickable { onPrev() }, contentAlignment = Alignment.Center) { Text("⏮", style = MaterialTheme.typography.headlineMedium) }
-                    Box(modifier = Modifier.size(80.dp).background(acc, RoundedCornerShape(16.dp)).clickable { onPlayPause() }, contentAlignment = Alignment.Center) { Text(if (playing) "⏸" else "▶", color = Color(0xFF0A0A0C), style = MaterialTheme.typography.headlineMedium) }
-                    Box(modifier = Modifier.size(80.dp).background(Color(0xFF1A1A1E), RoundedCornerShape(16.dp)).clickable { onNext() }, contentAlignment = Alignment.Center) { Text("⏭", style = MaterialTheme.typography.headlineMedium) }
-                }
+                    if (arts.isNotEmpty() && curI >= 0) {
+                        Row(horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                            ((curI - 3)..(curI + 3)).forEach { i ->
+                                if (i !in arts.indices) return@forEach
+                                val u = arts[i]
+                                Box(
+                                    modifier = Modifier.padding(horizontal = 4.dp).size(if (i == curI) 44.dp else 32.dp)
+                                        .border(if (i == curI) 2.dp else 0.dp, acc, RoundedCornerShape(6.dp))
+                                        .clickable { if (showLocal && i in localRows.indices) onPickLocal(localRows, i) else if (i in radioRows.indices) onPickRadio(radioRows, i) },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (u.startsWith("http") || u.startsWith("content:")) AsyncImage(model = u, contentDescription = null, modifier = Modifier.size(if (i == curI) 44.dp else 32.dp), contentScale = ContentScale.Crop)
+                                    else Text("🎵", style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                        }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(top = 8.dp)) {
+                        Box(modifier = Modifier.size(80.dp).background(Color(0xFF1A1A1E), RoundedCornerShape(16.dp)).clickable { onPrev() }, contentAlignment = Alignment.Center) { Text("⏮", style = MaterialTheme.typography.headlineMedium) }
+                        Box(modifier = Modifier.size(80.dp).background(acc, RoundedCornerShape(16.dp)).clickable { onPlayPause() }, contentAlignment = Alignment.Center) { Text(if (playing) "⏸" else "▶", color = Color(0xFF0A0A0C), style = MaterialTheme.typography.headlineMedium) }
+                        Box(modifier = Modifier.size(80.dp).background(Color(0xFF1A1A1E), RoundedCornerShape(16.dp)).clickable { onNext() }, contentAlignment = Alignment.Center) { Text("⏭", style = MaterialTheme.typography.headlineMedium) }
+                    }
                 }
             }
         }

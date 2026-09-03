@@ -222,8 +222,7 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
         player.addListener(new Player.Listener() {
             @Override
             public void onIsPlayingChanged(boolean isPlaying) {
-                writePlayingFlag(isPlaying);
-                writeActuallyPlaying(isPlaying);
+                reportPlaying(isPlaying);
                 writeLocalPosition();
                 notifyForeground();
                 notifyUiPlayback(isPlaying);
@@ -601,10 +600,7 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
 
 
 
-    private void writePlayingFlag(boolean playing) {
-        getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-            .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_IS_PLAYING, playing).apply();
-    }
+
 
 
 
@@ -808,13 +804,27 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
         silenceHandler.postDelayed(silenceCheck, 3000);
     }
 
-    private void writeActuallyPlaying(boolean playing) {
+    /**
+     * Reported playing state for UI / widget / reconnect gate.
+     * KEY_IS_PLAYING and KEY_ACTUALLY_PLAYING always written together (stack 1A).
+     * KEY_PLAY (intended) is separate and must not be changed here.
+     */
+    private void reportPlaying(boolean playing) {
         try {
             getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
                 .edit()
+                .putBoolean(BluetoothAutoPlayPlugin.KEY_IS_PLAYING, playing)
                 .putBoolean(BluetoothAutoPlayPlugin.KEY_ACTUALLY_PLAYING, playing)
                 .apply();
         } catch (Exception ignored) {}
+    }
+
+    private void writePlayingFlag(boolean playing) {
+        reportPlaying(playing);
+    }
+
+    private void writeActuallyPlaying(boolean playing) {
+        reportPlaying(playing);
     }
 
     private void notifyUiPlayback(boolean playing) {
@@ -1114,9 +1124,8 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
             player.setVolume(1f);
             player.setPlayWhenReady(true);
             if (isLocalMode()) armPositionTicker();
-            writePlayingFlag(true);
+            reportPlaying(true);
             loadStationArtAsync();
-            try { writeActuallyPlaying(true); } catch (Exception ignored) {}
             notifyUiStatus("connecting", 0);
             bufferingTicks = 0;
             notifyForeground();

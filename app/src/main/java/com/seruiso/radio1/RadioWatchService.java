@@ -866,6 +866,12 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
         notifyForeground();
         String action = intent != null ? intent.getAction() : null;
 
+        // Stack 4: watch/start without play (boot must not autoplay)
+        if (ACTION_START.equals(action)) {
+            notifyForeground();
+            return START_STICKY;
+        }
+
         if (ACTION_STOP.equals(action)) {
             pausedByFocusLoss = false;
             clearPlaybackIntent();

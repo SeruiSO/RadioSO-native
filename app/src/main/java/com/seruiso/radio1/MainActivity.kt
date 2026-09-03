@@ -966,8 +966,7 @@ fun StationScreen(
             Box(
                 modifier = Modifier
                     .size(72.dp)
-                    .background(Color(0xFF222228), RoundedCornerShape(6.dp))
-
+                    .background(Color(0xFF222228), RoundedCornerShape(6.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 if (artUrl(favicon).startsWith("http") || artUrl(favicon).startsWith("content:")) {

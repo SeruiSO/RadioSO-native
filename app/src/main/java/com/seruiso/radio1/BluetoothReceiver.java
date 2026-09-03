@@ -29,73 +29,70 @@ public class BluetoothReceiver extends BroadcastReceiver {
     public void onReceive(Context context, Intent intent) {
         if (intent == null || intent.getAction() == null) return;
         String action = intent.getAction();
-        Boolean connected = null;
-        boolean isA2dp = false;
 
+        // Автоплей / stop — ТІЛЬКИ по A2DP. Headset/ACL/Adapter часто мигають
+        // під час підключення машини і раніше слали хибний ACTION_STOP.
         if (BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED.equals(action)) {
             int state = intent.getIntExtra(BluetoothProfile.EXTRA_STATE, BluetoothProfile.STATE_DISCONNECTED);
             if (state == BluetoothProfile.STATE_CONNECTED) {
-                connected = true;
-                isA2dp = true;
+                markA2dp(context);
+                if (!isWatchEnabled(context)) {
+                    android.util.Log.i("BluetoothReceiver", "BT watch disabled — ignore A2DP connect");
+                    return;
+                }
+                final Context appCtx = context.getApplicationContext();
+                // невелика затримка: профілі ще стабілізуються
+                new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                    if (!isWatchEnabled(appCtx)) return;
+                    if (!BtAudio.hasRoute(appCtx)) {
+                        android.util.Log.i("BluetoothReceiver", "A2DP connected but no route yet — still send ACTION_BT");
+                    }
+                    Intent svc = new Intent(appCtx, RadioWatchService.class);
+                    svc.setAction(RadioWatchService.ACTION_BT);
+                    if (Build.VERSION.SDK_INT >= 26) {
+                        appCtx.startForegroundService(svc);
+                    } else {
+                        appCtx.startService(svc);
+                    }
+                }, 600);
             } else if (state == BluetoothProfile.STATE_DISCONNECTED) {
-                connected = false;
+                if (!isWatchEnabled(context)) return;
+                final Context appCtx = context.getApplicationContext();
+                // відкладений stop: якщо за 1.5с маршрут знову є — це transient, не гасимо
+                new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                    if (BtAudio.hasRoute(appCtx)) {
+                        android.util.Log.i("BluetoothReceiver", "A2DP disconnect ignored — route still present");
+                        return;
+                    }
+                    Intent svc = new Intent(appCtx, RadioWatchService.class);
+                    svc.setAction(RadioWatchService.ACTION_STOP);
+                    if (Build.VERSION.SDK_INT >= 26) {
+                        appCtx.startForegroundService(svc);
+                    } else {
+                        appCtx.startService(svc);
+                    }
+                }, 1500);
             }
-        } else if (BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED.equals(action)) {
-            int state = intent.getIntExtra(BluetoothProfile.EXTRA_STATE, BluetoothProfile.STATE_DISCONNECTED);
-            if (state == BluetoothProfile.STATE_CONNECTED) {
-                connected = true;
-                isA2dp = true;
-            } else if (state == BluetoothProfile.STATE_DISCONNECTED) {
-                connected = false;
-            }
-        } else if (BluetoothDevice.ACTION_ACL_CONNECTED.equals(action)) {
-            // годинник/OBD теж шлють ACL — граємо лише якщо вже є BT-аудіо
-            if (BtAudio.hasRoute(context)) {
-                connected = true;
-                isA2dp = true;
-            }
-        } else if (BluetoothDevice.ACTION_ACL_DISCONNECTED.equals(action)) {
-            connected = false;
-        } else if (BluetoothAdapter.ACTION_CONNECTION_STATE_CHANGED.equals(action)) {
-            int state = intent.getIntExtra(BluetoothAdapter.EXTRA_CONNECTION_STATE, BluetoothAdapter.STATE_DISCONNECTED);
-            if (state == BluetoothAdapter.STATE_CONNECTED) {
-                connected = true;
-                isA2dp = true;
-            } else if (state == BluetoothAdapter.STATE_DISCONNECTED) {
-                connected = false;
-            }
-        }
-
-        if (connected == null) return;
-
-        if (connected && isA2dp) {
-            markA2dp(context);
-        }
-
-        if (!isWatchEnabled(context)) {
-            android.util.Log.i("BluetoothReceiver", "BT watch disabled — ignore connect/disconnect automation");
             return;
         }
 
-        if (connected && isA2dp) {
-            final Context appCtx = context.getApplicationContext();
-            new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                if (!isWatchEnabled(appCtx)) return;
-                Intent svc = new Intent(appCtx, RadioWatchService.class);
-                svc.setAction(RadioWatchService.ACTION_BT);
-                if (Build.VERSION.SDK_INT >= 26) {
-                    appCtx.startForegroundService(svc);
-                } else {
-                    appCtx.startService(svc);
-                }
-            }, 400);
-        } else if (!connected) {
-            Intent svc = new Intent(context, RadioWatchService.class);
-            svc.setAction(RadioWatchService.ACTION_STOP);
-            if (Build.VERSION.SDK_INT >= 26) {
-                context.startForegroundService(svc);
-            } else {
-                context.startService(svc);
+        // Інші події — лише mark для allowSessionPlay / діагностики, без start/stop
+        if (BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED.equals(action)) {
+            int state = intent.getIntExtra(BluetoothProfile.EXTRA_STATE, BluetoothProfile.STATE_DISCONNECTED);
+            if (state == BluetoothProfile.STATE_CONNECTED && BtAudio.hasRoute(context)) {
+                markA2dp(context);
+            }
+            return;
+        }
+        if (BluetoothDevice.ACTION_ACL_CONNECTED.equals(action)) {
+            if (BtAudio.hasRoute(context)) markA2dp(context);
+            return;
+        }
+        if (BluetoothAdapter.ACTION_CONNECTION_STATE_CHANGED.equals(action)) {
+            int state = intent.getIntExtra(BluetoothAdapter.EXTRA_CONNECTION_STATE,
+                BluetoothAdapter.STATE_DISCONNECTED);
+            if (state == BluetoothAdapter.STATE_CONNECTED && BtAudio.hasRoute(context)) {
+                markA2dp(context);
             }
         }
     }

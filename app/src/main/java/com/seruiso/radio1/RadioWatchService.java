@@ -106,6 +106,18 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
         @Override
         public void onReceive(Context context, Intent intent) {
             if (AudioManager.ACTION_AUDIO_BECOMING_NOISY.equals(intent.getAction())) {
+                // Під час підключення машини маршрут динамік→BT часто шле NOISY.
+                // Якщо A2DP уже є (або щойно підключили) — не паузити.
+                if (BtAudio.hasRoute(RadioWatchService.this)) {
+                    android.util.Log.i("RadioWatch", "NOISY ignored — BT route present");
+                    return;
+                }
+                long lastBt = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                    .getLong("lastA2dpConnectMs", 0L);
+                if (System.currentTimeMillis() - lastBt < 10000L) {
+                    android.util.Log.i("RadioWatch", "NOISY ignored — within BT handoff window");
+                    return;
+                }
                 if (player != null && player.isPlaying()) {
                     player.pause();
                     writeActuallyPlaying(false);
@@ -422,6 +434,15 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
             case AudioManager.AUDIOFOCUS_LOSS:
             case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT:
             case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK:
+                // Під час handoff на магнітолу стек інколи краде focus на секунду —
+                // не паузимо в цьому вікні (інакше «тиша після перемикання на BT»).
+                long lastBtFocus = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                    .getLong("lastA2dpConnectMs", 0L);
+                if (focusChange != AudioManager.AUDIOFOCUS_LOSS
+                        && System.currentTimeMillis() - lastBtFocus < 10000L) {
+                    android.util.Log.i("RadioWatch", "focus transient ignored — BT handoff window");
+                    break;
+                }
                 // відео / дзвінок / інший плеєр — пауза; resume на GAIN якщо intendedPlaying
                 if (player.isPlaying() || player.getPlayWhenReady()) {
                     pausedByFocusLoss = true;
@@ -992,27 +1013,35 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
         skip(true);
     }
 
+    private Runnable btReadyTick;
+
     private void playLastWhenBtReady() {
         final android.os.Handler h = mainHandler;
-        final long deadline = System.currentTimeMillis() + 8000L;
-        // Не стартуємо play на mute: чекаємо маршрут, потім play на повній гучності.
-        // Інакше UI показує "грає", а звуку немає (залипший volume=0).
-        Runnable tick = new Runnable() {
+        if (btReadyTick != null) {
+            h.removeCallbacks(btReadyTick);
+            btReadyTick = null;
+        }
+        final long deadline = System.currentTimeMillis() + 10000L;
+        // Один політ: скасовуємо попередній wait, якщо прийшов ще один ACTION_BT.
+        // Чекаємо стабільний hasRoute ~2.4с (12×200мс), потім один play на volume=1.
+        btReadyTick = new Runnable() {
             int stableTicks = 0;
             @Override public void run() {
                 boolean has = BtAudio.hasRoute(RadioWatchService.this);
                 if (has) stableTicks++;
                 else stableTicks = 0;
-                // ~2 с стабільного A2DP (10×200мс) або дедлайн 8 с
-                if (stableTicks >= 10 || System.currentTimeMillis() >= deadline) {
+                if (stableTicks >= 12 || System.currentTimeMillis() >= deadline) {
+                    btReadyTick = null;
                     if (player != null) player.setVolume(1f);
+                    // якщо вже граємо той самий URL — не перезапускати (уникнути double-play)
                     playLast();
+                    notifyUiPlayback(true);
                 } else {
                     h.postDelayed(this, 200);
                 }
             }
         };
-        h.post(tick);
+        h.post(btReadyTick);
     }
 
     private void playLast() {

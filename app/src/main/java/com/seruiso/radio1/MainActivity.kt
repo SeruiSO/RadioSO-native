@@ -79,6 +79,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -1306,7 +1307,7 @@ fun StationScreen(
             var dx by androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
             var appear by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
             LaunchedEffect(Unit) { appear = true }
-            val scale by animateFloatAsState(
+            val scale by androidx.compose.animation.core.animateFloatAsState(
                 targetValue = if (appear) 1f else 0.22f,
                 animationSpec = tween(700),
                 label = "grow"

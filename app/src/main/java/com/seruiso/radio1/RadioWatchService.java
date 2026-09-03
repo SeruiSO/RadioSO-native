@@ -423,7 +423,7 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
                     boolean wantPlay = sp.getBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, false);
                     if (!wantPlay) return;
                     boolean watch = sp.getBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, true);
-                    if (watch && !hasBtAudioRoute()) return;
+                    if (watch && !BtAudio.hasRoute(RadioWatchService.this)) return;
                     int state = player.getPlaybackState();
                     if (state == Player.STATE_IDLE || state == Player.STATE_ENDED
                             || player.getCurrentMediaItem() == null) {
@@ -835,7 +835,7 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
                 return START_STICKY;
             }
             spBt.edit().putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, true).apply();
-            playLast();
+            playLastWhenBtReady();
             return START_STICKY;
         }
 
@@ -942,6 +942,21 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
             player.seekTo(0); player.play(); return;
         }
         skip(true);
+    }
+
+    private void playLastWhenBtReady() {
+        final android.os.Handler h = mainHandler;
+        final long deadline = System.currentTimeMillis() + 5000L;
+        Runnable tick = new Runnable() {
+            @Override public void run() {
+                if (BtAudio.hasRoute(RadioWatchService.this) || System.currentTimeMillis() >= deadline) {
+                    playLast();
+                } else {
+                    h.postDelayed(this, 200);
+                }
+            }
+        };
+        h.post(tick);
     }
 
     private void playLast() {

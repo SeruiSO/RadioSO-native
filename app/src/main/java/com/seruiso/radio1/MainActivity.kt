@@ -941,9 +941,9 @@ fun StationScreen(
     ) {
         Box(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).height(48.dp)) {
             Box(
-                modifier = Modifier.align(Alignment.CenterStart).size(40.dp).background(acc, RoundedCornerShape(12.dp)).clickable { onTheme() },
+                modifier = Modifier.align(Alignment.CenterStart).size(40.dp).background(card, RoundedCornerShape(12.dp)).clickable { onTheme() },
                 contentAlignment = Alignment.Center
-            ) { Text("🌙", color = Color(0xFF0A0A0C)) }
+            ) { Text("🌙") }
             Text("Radio S O", color = Color.White, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.align(Alignment.Center))
             Box(
                 modifier = Modifier.align(Alignment.CenterEnd).size(40.dp).background(card, RoundedCornerShape(12.dp)).clickable { onMenu() },
@@ -994,17 +994,6 @@ fun StationScreen(
                     )
                 }
             }
-        }
-        val busy = status.contains("connect", true) || status.contains("мереж") ||
-            status.contains("reconnect", true) || status.contains("buffer", true) || status.contains("пошук")
-        AnimatedVisibility(visible = busy, enter = fadeIn() + slideInVertically(), exit = fadeOut() + slideOutVertically()) {
-            Text(
-                status,
-                color = acc,
-                modifier = Modifier.fillMaxWidth().padding(top = 6.dp).background(acc.copy(alpha = 0.12f), RoundedCornerShape(8.dp)).padding(horizontal = 10.dp, vertical = 6.dp),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
         }
         androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(8.dp))
         if (tabs.getOrNull(tabIndex) == "search") {

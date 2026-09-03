@@ -954,6 +954,7 @@ fun StationScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(card, RoundedCornerShape(12.dp))
+                .clickable { onCloseMenu(); onNow() }
                 .pointerInput(Unit) {
                     detectVerticalDragGestures { _, drag -> if (drag < -24) onNow() }
                 }
@@ -964,7 +965,7 @@ fun StationScreen(
                 modifier = Modifier
                     .size(72.dp)
                     .background(Color(0xFF222228), RoundedCornerShape(6.dp))
-                    .clickable { onCloseMenu(); onNow() },
+                    .then(if (playing) Modifier.border(2.dp, acc, RoundedCornerShape(6.dp)) else Modifier),
                 contentAlignment = Alignment.Center
             ) {
                 if (artUrl(favicon).startsWith("http") || artUrl(favicon).startsWith("content:")) {
@@ -994,6 +995,7 @@ fun StationScreen(
                     )
                 }
             }
+            Text("⌃", color = muted, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(start = 8.dp))
         }
         androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(8.dp))
         if (tabs.getOrNull(tabIndex) == "search") {
@@ -1284,23 +1286,22 @@ fun StationScreen(
     }
     if (nowOpen) {
         ModalBottomSheet(onDismissRequest = onNowClose, containerColor = Color(0xFF121214), sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-            var shown by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
-            LaunchedEffect(Unit) { shown = true }
             var dx by androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
-            AnimatedVisibility(
-                visible = shown,
-                enter = fadeIn() + slideInVertically(initialOffsetY = { it / 2 }) + scaleIn(initialScale = 0.92f)
-            ) {
-            Column(modifier = Modifier.fillMaxWidth().padding(24.dp).pointerInput(Unit) {
-                    detectHorizontalDragGestures(
-                        onDragEnd = {
-                            if (dx < -60) onNext()
-                            else if (dx > 60) onPrev()
-                            dx = 0f
+            Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(
+                    modifier = Modifier
+                        .graphicsLayer { translationX = dx * 0.5f }
+                        .pointerInput(Unit) {
+                            detectHorizontalDragGestures(
+                                onDragEnd = {
+                                    if (dx < -56f) onNext()
+                                    else if (dx > 56f) onPrev()
+                                    dx = 0f
+                                },
+                                onDragCancel = { dx = 0f }
+                            ) { _, d -> dx += d }
                         }
-                    ) { _, d -> dx += d }
-                }, horizontalAlignment = Alignment.CenterHorizontally) {
-                Box(modifier = Modifier.graphicsLayer { translationX = dx * 0.4f }) {
+                ) {
                     if (artUrl(favicon).startsWith("http") || artUrl(favicon).startsWith("content:")) {
                         AsyncImage(model = artUrl(favicon), contentDescription = null, modifier = Modifier.size(220.dp), contentScale = ContentScale.Crop)
                     } else Text("🎵", style = MaterialTheme.typography.displayLarge)
@@ -1344,7 +1345,6 @@ fun StationScreen(
                     Box(modifier = Modifier.size(80.dp).background(acc, RoundedCornerShape(16.dp)).clickable { onPlayPause() }, contentAlignment = Alignment.Center) { Text(if (playing) "⏸" else "▶", color = Color(0xFF0A0A0C), style = MaterialTheme.typography.headlineMedium) }
                     Box(modifier = Modifier.size(80.dp).background(Color(0xFF1A1A1E), RoundedCornerShape(16.dp)).clickable { onNext() }, contentAlignment = Alignment.Center) { Text("⏭", style = MaterialTheme.typography.headlineMedium) }
                 }
-            }
             }
         }
     }

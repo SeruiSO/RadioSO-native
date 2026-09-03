@@ -187,8 +187,7 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
             @Override
             public void play() {
                 if (!allowSessionPlay()) return;
-                getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-                    .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, true).apply();
+                setIntendedPlaying(true);
                 super.play();
             }
 
@@ -199,8 +198,7 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
                     return;
                 }
                 if (playWhenReady) {
-                    getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-                        .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, true).apply();
+                    setIntendedPlaying(true);
                 }
                 super.setPlayWhenReady(playWhenReady);
             }
@@ -510,8 +508,7 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
                         if ("all".equals(repeat)) idx = 0;
                         else {
                             if (player != null) player.pause();
-                            p.edit().putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, false)
-                                .putBoolean(BluetoothAutoPlayPlugin.KEY_IS_PLAYING, false).apply();
+                            clearPlaybackIntent();
                             notifyUiPlayback(false);
                             notifyForeground();
                             return;
@@ -827,6 +824,28 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
         reportPlaying(playing);
     }
 
+    /** KEY_PLAY only — намір слухати (BT/play/session). */
+    private void setIntendedPlaying(boolean intended) {
+        try {
+            getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                .edit()
+                .putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, intended)
+                .apply();
+        } catch (Exception ignored) {}
+    }
+
+    /** Stop/pause від користувача або BT disconnect: намір + reported = false. */
+    private void clearPlaybackIntent() {
+        try {
+            getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                .edit()
+                .putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, false)
+                .putBoolean(BluetoothAutoPlayPlugin.KEY_IS_PLAYING, false)
+                .putBoolean(BluetoothAutoPlayPlugin.KEY_ACTUALLY_PLAYING, false)
+                .commit();
+        } catch (Exception ignored) {}
+    }
+
     private void notifyUiPlayback(boolean playing) {
         Intent i = new Intent(ACTION_PLAYBACK_UI);
         i.setPackage(getPackageName());
@@ -849,9 +868,7 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
 
         if (ACTION_STOP.equals(action)) {
             pausedByFocusLoss = false;
-            getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-                .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, false)
-                .putBoolean(BluetoothAutoPlayPlugin.KEY_IS_PLAYING, false).apply();
+            clearPlaybackIntent();
             if (player != null) {
                 player.stop();
                 player.clearMediaItems();
@@ -864,13 +881,8 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
 
         if (ACTION_PAUSE.equals(action) || ACTION_NOTIF_PAUSE.equals(action)) {
             pausedByFocusLoss = false; // пауза від користувача — не resume
-            getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-                .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, false)
-                .putBoolean(BluetoothAutoPlayPlugin.KEY_IS_PLAYING, false)
-                .putBoolean(BluetoothAutoPlayPlugin.KEY_ACTUALLY_PLAYING, false)
-                .commit();
+            clearPlaybackIntent();
             if (player != null) player.pause();
-            writeActuallyPlaying(false);
             notifyForeground();
             notifyUiPlayback(false);
             try { scheduleWidgetUpdate(); } catch (Exception ignored) {}
@@ -884,14 +896,13 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
                 notifyForeground();
                 return START_STICKY;
             }
-            spBt.edit().putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, true).apply();
+            setIntendedPlaying(true);
             playLastWhenBtReady();
             return START_STICKY;
         }
 
         if (ACTION_PLAY.equals(action) || ACTION_NOTIF_PLAY.equals(action)) {
-            getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-                .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, true).apply();
+            setIntendedPlaying(true);
             playLast();
             return START_STICKY;
         }

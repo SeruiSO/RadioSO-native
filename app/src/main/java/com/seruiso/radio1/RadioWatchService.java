@@ -431,30 +431,28 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
                 break;
             case AudioManager.AUDIOFOCUS_GAIN:
                 player.setVolume(1f);
-                if (!pausedByFocusLoss) break;
-                // невелика затримка: інший додаток ще відпускає focus
                 new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
                     if (player == null) return;
-                    pausedByFocusLoss = false;
                     SharedPreferences sp = getSharedPreferences(
                         BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE);
                     boolean wantPlay = sp.getBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, false);
-                    if (!wantPlay) return;
-                    boolean watch = sp.getBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, true);
-                    if (watch && !BtAudio.hasRoute(RadioWatchService.this)) return;
+                    if (!wantPlay) {
+                        pausedByFocusLoss = false;
+                        return;
+                    }
+                    pausedByFocusLoss = false;
                     int state = player.getPlaybackState();
                     if (state == Player.STATE_IDLE || state == Player.STATE_ENDED
                             || player.getCurrentMediaItem() == null) {
                         String url = resolveReconnectUrl();
                         if (url != null && !url.isEmpty()) playUrl(url);
                     } else {
-                        if (!requestFocus()) {
-                            android.util.Log.w("RadioWatch", "focus re-request failed");
-                        }
+                        requestFocus();
                         player.setPlayWhenReady(true);
                     }
                     notifyForeground();
-                }, 400);
+                    notifyUiPlayback(true);
+                }, 700);
                 break;
         }
     }

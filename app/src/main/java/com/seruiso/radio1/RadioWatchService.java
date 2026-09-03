@@ -994,7 +994,7 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
 
     private void playLastWhenBtReady() {
         final android.os.Handler h = mainHandler;
-        final long deadline = System.currentTimeMillis() + 6000L;
+        final long deadline = System.currentTimeMillis() + 8000L;
         // одразу mute — щоб не було звуку в динамік телефону до handoff на машину
         if (player != null) player.setVolume(0f);
         Runnable tick = new Runnable() {
@@ -1003,12 +1003,13 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
                 boolean has = BtAudio.hasRoute(RadioWatchService.this);
                 if (has) stableTicks++;
                 else stableTicks = 0;
-                // 3 послідовні підтвердження (~600 мс) або дедлайн
-                if (stableTicks >= 3 || System.currentTimeMillis() >= deadline) {
+                // ~2 с стабільного A2DP (10×200мс) або дедлайн 8 с
+                if (stableTicks >= 10 || System.currentTimeMillis() >= deadline) {
                     playLast();
+                    // ще ~2 с mute після старту — у вас ~2 с звук ішов у телефон
                     h.postDelayed(() -> {
                         if (player != null) player.setVolume(1f);
-                    }, 350);
+                    }, 2000);
                 } else {
                     h.postDelayed(this, 200);
                 }

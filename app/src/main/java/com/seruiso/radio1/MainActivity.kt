@@ -76,6 +76,14 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
@@ -933,9 +941,9 @@ fun StationScreen(
     ) {
         Box(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).height(48.dp)) {
             Box(
-                modifier = Modifier.align(Alignment.CenterStart).size(40.dp).background(card, RoundedCornerShape(12.dp)).clickable { onTheme() },
+                modifier = Modifier.align(Alignment.CenterStart).size(40.dp).background(acc, RoundedCornerShape(12.dp)).clickable { onTheme() },
                 contentAlignment = Alignment.Center
-            ) { Text("🌙") }
+            ) { Text("🌙", color = Color(0xFF0A0A0C)) }
             Text("Radio S O", color = Color.White, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.align(Alignment.Center))
             Box(
                 modifier = Modifier.align(Alignment.CenterEnd).size(40.dp).background(card, RoundedCornerShape(12.dp)).clickable { onMenu() },
@@ -987,7 +995,18 @@ fun StationScreen(
                 }
             }
         }
-        androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(10.dp))
+        val busy = status.contains("connect", true) || status.contains("мереж") ||
+            status.contains("reconnect", true) || status.contains("buffer", true) || status.contains("пошук")
+        AnimatedVisibility(visible = busy, enter = fadeIn() + slideInVertically(), exit = fadeOut() + slideOutVertically()) {
+            Text(
+                status,
+                color = acc,
+                modifier = Modifier.fillMaxWidth().padding(top = 6.dp).background(acc.copy(alpha = 0.12f), RoundedCornerShape(8.dp)).padding(horizontal = 10.dp, vertical = 6.dp),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(8.dp))
         if (tabs.getOrNull(tabIndex) == "search") {
             Column(modifier = Modifier.padding(vertical = 4.dp).background(card, RoundedCornerShape(16.dp)).padding(10.dp)) {
                 Row(
@@ -1189,7 +1208,12 @@ fun StationScreen(
             }
         }
     }
-    if (menuOpen) {
+    androidx.compose.animation.AnimatedVisibility(
+        visible = menuOpen,
+        modifier = Modifier.align(Alignment.TopEnd),
+        enter = fadeIn() + scaleIn(initialScale = 0.92f),
+        exit = fadeOut()
+    ) {
         Box(modifier = Modifier.fillMaxSize().clickable { onCloseMenu() })
         Column(
             modifier = Modifier
@@ -1198,7 +1222,6 @@ fun StationScreen(
                 .width(200.dp)
                 .background(Color(0xFF16161A), RoundedCornerShape(12.dp))
                 .padding(8.dp)
-                .clickable { }
         ) {
             Text((if (btWatch) "◉ BT увімк" else "○ BT вимк"), color = text, modifier = Modifier.fillMaxWidth().clickable { onBt(); onCloseMenu() }.padding(8.dp))
             Text("◔ $sleepLabel", color = text, modifier = Modifier.fillMaxWidth().clickable { onSleepMenu() }.padding(8.dp))
@@ -1272,8 +1295,14 @@ fun StationScreen(
     }
     if (nowOpen) {
         ModalBottomSheet(onDismissRequest = onNowClose, containerColor = Color(0xFF121214), sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+            var shown by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+            LaunchedEffect(Unit) { shown = true }
+            var dx by androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+            AnimatedVisibility(
+                visible = shown,
+                enter = fadeIn() + slideInVertically(initialOffsetY = { it / 2 }) + scaleIn(initialScale = 0.92f)
+            ) {
             Column(modifier = Modifier.fillMaxWidth().padding(24.dp).pointerInput(Unit) {
-                    var dx = 0f
                     detectHorizontalDragGestures(
                         onDragEnd = {
                             if (dx < -60) onNext()
@@ -1282,14 +1311,13 @@ fun StationScreen(
                         }
                     ) { _, d -> dx += d }
                 }, horizontalAlignment = Alignment.CenterHorizontally) {
-                if (artUrl(favicon).startsWith("http") || artUrl(favicon).startsWith("content:")) {
-                    AsyncImage(model = artUrl(favicon), contentDescription = null, modifier = Modifier.size(200.dp), contentScale = ContentScale.Crop)
-                } else Text("🎵", style = MaterialTheme.typography.displayMedium)
-                Text(name, color = Color.White, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text("жанр: $genre", color = muted)
-                Text("країна: $country", color = muted)
-                Text(if (track.isBlank()) "🎵 Трек: невідомо" else "🎵 $track", color = Color.White)
-                Text(status, color = acc)
+                Box(modifier = Modifier.graphicsLayer { translationX = dx * 0.4f }) {
+                    if (artUrl(favicon).startsWith("http") || artUrl(favicon).startsWith("content:")) {
+                        AsyncImage(model = artUrl(favicon), contentDescription = null, modifier = Modifier.size(220.dp), contentScale = ContentScale.Crop)
+                    } else Text("🎵", style = MaterialTheme.typography.displayLarge)
+                }
+                Text(name, color = Color.White, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 12.dp))
+                Text(if (track.isBlank()) "🎵 Трек: невідомо" else "🎵 $track", color = muted, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 if (isLocalNow || currentUrl.startsWith("content:")) {
                     Text(if (bestUris.contains(currentUrl)) "★ Local Best" else "☆ у best", color = acc, modifier = Modifier.clickable {
                         localRows.firstOrNull { it.uri == currentUrl }?.let { onToggleBest(it) }
@@ -1327,6 +1355,7 @@ fun StationScreen(
                     Box(modifier = Modifier.size(80.dp).background(acc, RoundedCornerShape(16.dp)).clickable { onPlayPause() }, contentAlignment = Alignment.Center) { Text(if (playing) "⏸" else "▶", color = Color(0xFF0A0A0C), style = MaterialTheme.typography.headlineMedium) }
                     Box(modifier = Modifier.size(80.dp).background(Color(0xFF1A1A1E), RoundedCornerShape(16.dp)).clickable { onNext() }, contentAlignment = Alignment.Center) { Text("⏭", style = MaterialTheme.typography.headlineMedium) }
                 }
+            }
             }
         }
     }

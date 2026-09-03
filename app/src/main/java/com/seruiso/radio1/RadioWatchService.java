@@ -801,19 +801,9 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
         silenceHandler.postDelayed(silenceCheck, 3000);
     }
 
-    /**
-     * Reported playing state for UI / widget / reconnect gate.
-     * KEY_IS_PLAYING and KEY_ACTUALLY_PLAYING always written together (stack 1A).
-     * KEY_PLAY (intended) is separate and must not be changed here.
-     */
+    /** Delegates to PlaybackPrefs (stack 6). */
     private void reportPlaying(boolean playing) {
-        try {
-            getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-                .edit()
-                .putBoolean(BluetoothAutoPlayPlugin.KEY_IS_PLAYING, playing)
-                .putBoolean(BluetoothAutoPlayPlugin.KEY_ACTUALLY_PLAYING, playing)
-                .apply();
-        } catch (Exception ignored) {}
+        PlaybackPrefs.reportPlaying(this, playing);
     }
 
     private void writePlayingFlag(boolean playing) {
@@ -824,26 +814,12 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
         reportPlaying(playing);
     }
 
-    /** KEY_PLAY only — намір слухати (BT/play/session). */
     private void setIntendedPlaying(boolean intended) {
-        try {
-            getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-                .edit()
-                .putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, intended)
-                .apply();
-        } catch (Exception ignored) {}
+        PlaybackPrefs.setIntended(this, intended);
     }
 
-    /** Stop/pause від користувача або BT disconnect: намір + reported = false. */
     private void clearPlaybackIntent() {
-        try {
-            getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-                .edit()
-                .putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, false)
-                .putBoolean(BluetoothAutoPlayPlugin.KEY_IS_PLAYING, false)
-                .putBoolean(BluetoothAutoPlayPlugin.KEY_ACTUALLY_PLAYING, false)
-                .commit();
-        } catch (Exception ignored) {}
+        PlaybackPrefs.clearIntent(this);
     }
 
     private void notifyUiPlayback(boolean playing) {
@@ -876,6 +852,7 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
             pausedByFocusLoss = false;
             clearPlaybackIntent();
             if (player != null) {
+                BtAudio.clearPreferred(player);
                 player.stop();
                 player.clearMediaItems();
             }
@@ -1060,7 +1037,8 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
                 if (stableTicks >= 12 || System.currentTimeMillis() >= deadline) {
                     btReadyTick = null;
                     if (player != null) player.setVolume(1f);
-                    // якщо вже граємо той самий URL — не перезапускати (уникнути double-play)
+                    // Stack 5: попросити вихід на A2DP, якщо API дозволяє
+                    BtAudio.preferA2dp(RadioWatchService.this, player);
                     playLast();
                     notifyUiPlayback(true);
                 } else {

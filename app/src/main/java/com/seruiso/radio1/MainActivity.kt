@@ -81,6 +81,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.AnimatedVisibility
@@ -940,6 +941,17 @@ fun StationScreen(
     var dropAt by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(-1) }
     var dragging by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     val listState = rememberLazyListState()
+    val pullA = androidx.compose.runtime.remember { Animatable(560f) }
+    var sheetShow by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    val sheetScope = rememberCoroutineScope()
+    LaunchedEffect(nowOpen) {
+        if (nowOpen) {
+            sheetShow = true
+            pullA.animateTo(0f, tween(420))
+        } else if (!sheetShow) {
+            pullA.snapTo(560f)
+        }
+    }
     val scope = rememberCoroutineScope()
     Box(modifier = Modifier.fillMaxSize().background(bg).navigationBarsPadding()) {
     Column(
@@ -1184,7 +1196,26 @@ fun StationScreen(
         }
         Box(
             modifier = Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 8.dp).pointerInput(Unit) {
-                detectVerticalDragGestures { _, drag -> if (drag < -24) onNow() }
+                detectVerticalDragGestures(
+                    onDragEnd = {
+                        if (!nowOpen) {
+                            sheetScope.launch {
+                                if (pullA.value < 300f) {
+                                    pullA.animateTo(0f, tween(280))
+                                    onNow()
+                                } else {
+                                    pullA.animateTo(560f, tween(280))
+                                    sheetShow = false
+                                }
+                            }
+                        }
+                    }
+                ) { _, drag ->
+                    if (drag < 0 || sheetShow) {
+                        sheetShow = true
+                        sheetScope.launch { pullA.snapTo((pullA.value + drag).coerceIn(0f, 560f)) }
+                    }
+                }
             }
         ) {
         Row(
@@ -1297,130 +1328,118 @@ fun StationScreen(
             dismissButton = { Button(onClick = onCancelDelete) { Text("Ні") } }
         )
     }
-    if (nowOpen) {
-        Dialog(
-            onDismissRequest = onNowClose,
-            properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnBackPress = true, dismissOnClickOutside = true)
-        ) {
+    if (nowOpen || sheetShow) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            Box(modifier = Modifier.fillMaxSize().background(Color(0x88000000).copy(alpha = ((560f - pullA.value) / 560f * 0.55f).coerceIn(0f, 0.55f))).clickable {
+                sheetScope.launch {
+                    pullA.animateTo(560f, tween(300))
+                    sheetShow = false
+                    onNowClose()
+                }
+            })
+            var dx by androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
             val arts: List<String> = if (showLocal) {
                 localRows.map { if (it.albumId.isNotBlank() && it.albumId != "0") "content://media/external/audio/albumart/${it.albumId}" else "" }
             } else radioRows.map { it.favicon }
             val curI0 = if (showLocal) localRows.indexOfFirst { it.uri == currentUrl } else radioRows.indexOfFirst { it.url == currentUrl }
             val curI = if (curI0 >= 0) curI0 else 0
-            var dx by androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
-            var pull by androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(420f) }
-            var ready by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
-            LaunchedEffect(Unit) { ready = true; pull = 0f }
-            val shownPull by androidx.compose.animation.core.animateFloatAsState(
-                targetValue = if (ready) pull else 420f,
-                animationSpec = tween(620),
-                label = "pull"
-            )
-            val scale by androidx.compose.animation.core.animateFloatAsState(
-                targetValue = (1f - shownPull / 900f).coerceIn(0.4f, 1f),
-                animationSpec = tween(620),
-                label = "sc"
-            )
             val stripState = rememberLazyListState()
             LaunchedEffect(curI) {
                 if (arts.isNotEmpty()) stripState.animateScrollToItem((curI - 3).coerceAtLeast(0))
             }
-            Box(modifier = Modifier.fillMaxSize()) {
-                Box(modifier = Modifier.fillMaxSize().background(Color(0x88000000)).clickable { onNowClose() })
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .fillMaxHeight(0.78f)
-                        .graphicsLayer {
-                            translationY = shownPull
-                            scaleX = scale
-                            scaleY = scale
-                            transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 1f)
-                        }
-                        .background(Color(0xFF121214), RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp))
-                        .navigationBarsPadding()
-                        .padding(horizontal = 12.dp, vertical = 8.dp)
-                        .pointerInput(Unit) {
-                            detectVerticalDragGestures(
-                                onDragEnd = { if (pull > 150f) onNowClose() else pull = 0f },
-                                onDragCancel = { pull = 0f }
-                            ) { _, drag -> pull = (pull + drag).coerceAtLeast(0f) }
-                        },
-                    horizontalAlignment = Alignment.CenterHorizontally
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .fillMaxHeight(0.78f)
+                    .graphicsLayer {
+                        translationY = pullA.value
+                        val sc = (1f - pullA.value / 900f).coerceIn(0.45f, 1f)
+                        scaleX = sc; scaleY = sc
+                        transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 1f)
+                    }
+                    .background(Color(0xFF121214), RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp))
+                    .navigationBarsPadding()
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                    .pointerInput(Unit) {
+                        detectVerticalDragGestures(
+                            onDragEnd = {
+                                sheetScope.launch {
+                                    if (pullA.value > 140f) {
+                                        pullA.animateTo(560f, tween(280))
+                                        sheetShow = false
+                                        onNowClose()
+                                    } else pullA.animateTo(0f, tween(280))
+                                }
+                            }
+                        ) { _, drag -> sheetScope.launch { pullA.snapTo((pullA.value + drag).coerceIn(0f, 560f)) } }
+                    },
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(modifier = Modifier.padding(bottom = 8.dp).width(40.dp).height(4.dp).background(muted, RoundedCornerShape(2.dp)))
+                Box(
+                    modifier = Modifier.size(220.dp).graphicsLayer { translationX = dx * 0.35f }.pointerInput(currentUrl) {
+                        detectHorizontalDragGestures(
+                            onDragEnd = {
+                                if (dx < -70f) onNext() else if (dx > 70f) onPrev()
+                                dx = 0f
+                            },
+                            onDragCancel = { dx = 0f }
+                        ) { _, d -> dx += d }
+                    },
+                    contentAlignment = Alignment.Center
                 ) {
-                    Box(modifier = Modifier.padding(bottom = 8.dp).width(40.dp).height(4.dp).background(muted, RoundedCornerShape(2.dp)))
-                    Box(
-                        modifier = Modifier
-                            .size(220.dp)
-                            .pointerInput(currentUrl) {
-                                detectHorizontalDragGestures(
-                                    onDragEnd = {
-                                        if (dx < -70f) onNext() else if (dx > 70f) onPrev()
-                                        dx = 0f
-                                    },
-                                    onDragCancel = { dx = 0f }
-                                ) { _, d -> dx += d }
-                            }
-                            .graphicsLayer { translationX = dx * 0.35f },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        val u = arts.getOrNull(curI) ?: favicon
-                        if (u.startsWith("http") || u.startsWith("content:")) {
-                            AsyncImage(model = u, contentDescription = null, modifier = Modifier.size(220.dp), contentScale = ContentScale.Crop)
-                        } else Text("🎵", style = MaterialTheme.typography.displayLarge)
+                    val u = arts.getOrNull(curI) ?: favicon
+                    if (u.startsWith("http") || u.startsWith("content:")) {
+                        AsyncImage(model = u, contentDescription = null, modifier = Modifier.size(220.dp), contentScale = ContentScale.Crop)
+                    } else Text("🎵", style = MaterialTheme.typography.displayLarge)
+                }
+                Text(name, color = Color.White, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 8.dp))
+                Text(if (track.isBlank()) "🎵 Трек: невідомо" else "🎵 $track", color = muted, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                if (isLocalNow || currentUrl.startsWith("content:")) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(28.dp), modifier = Modifier.padding(6.dp)) {
+                        Text("🔀", modifier = Modifier.size(36.dp).clickable { onShuffle() }, style = MaterialTheme.typography.headlineSmall)
+                        Text("🔁", modifier = Modifier.size(36.dp).clickable { onRepeat() }, style = MaterialTheme.typography.headlineSmall)
                     }
-                    Text(name, color = Color.White, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 8.dp))
-                    Text(if (track.isBlank()) "🎵 Трек: невідомо" else "🎵 $track", color = muted, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    if (isLocalNow || currentUrl.startsWith("content:")) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(28.dp), modifier = Modifier.padding(6.dp)) {
-                            Text("🔀", modifier = Modifier.size(36.dp).clickable { onShuffle() }, style = MaterialTheme.typography.headlineSmall)
-                            Text("🔁", modifier = Modifier.size(36.dp).clickable { onRepeat() }, style = MaterialTheme.typography.headlineSmall)
+                    val d = if (durMs > 0) durMs else 1L
+                    var slide by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(-1f) }
+                    androidx.compose.material3.Slider(
+                        value = if (slide >= 0f) slide else (posMs.toFloat() / d.toFloat()).coerceIn(0f, 1f),
+                        onValueChange = { slide = it },
+                        onValueChangeFinished = {
+                            if (durMs > 0 && slide >= 0f) onSeek((slide * durMs).toLong())
+                            slide = -1f
                         }
-                        val d = if (durMs > 0) durMs else 1L
-                        var slide by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(-1f) }
-                        androidx.compose.material3.Slider(
-                            value = if (slide >= 0f) slide else (posMs.toFloat() / d.toFloat()).coerceIn(0f, 1f),
-                            onValueChange = { slide = it },
-                            onValueChangeFinished = {
-                                if (durMs > 0 && slide >= 0f) onSeek((slide * durMs).toLong())
-                                slide = -1f
-                            }
-                        )
-                        fun fmt(ms: Long): String {
-                            val s = (ms / 1000).coerceAtLeast(0)
-                            return "%d:%02d".format(s / 60, s % 60)
-                        }
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(fmt(posMs), color = muted)
-                            Text(fmt(durMs), color = muted)
-                        }
+                    )
+                    fun fmt(ms: Long): String {
+                        val s = (ms / 1000).coerceAtLeast(0)
+                        return "%d:%02d".format(s / 60, s % 60)
                     }
-                    androidx.compose.foundation.layout.Spacer(modifier = Modifier.weight(1f))
-                    Box(modifier = Modifier.fillMaxWidth().height(56.dp), contentAlignment = Alignment.Center) {
-                        if (arts.isNotEmpty()) {
-                            LazyRow(state = stripState, modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                itemsIndexed(arts) { i, u ->
-                                    Box(
-                                        modifier = Modifier.size(48.dp).clickable {
-                                            if (showLocal && i in localRows.indices) onPickLocal(localRows, i)
-                                            else if (i in radioRows.indices) onPickRadio(radioRows, i)
-                                        },
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        if (u.startsWith("http") || u.startsWith("content:")) {
-                                            AsyncImage(model = u, contentDescription = null, modifier = Modifier.size(if (i == curI) 44.dp else 34.dp), contentScale = ContentScale.Crop)
-                                        } else Text("🎵")
-                                    }
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(fmt(posMs), color = muted); Text(fmt(durMs), color = muted)
+                    }
+                }
+                androidx.compose.foundation.layout.Spacer(modifier = Modifier.weight(1f))
+                Box(modifier = Modifier.fillMaxWidth().height(56.dp), contentAlignment = Alignment.Center) {
+                    if (arts.isNotEmpty()) {
+                        LazyRow(state = stripState, modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            itemsIndexed(arts) { i, u ->
+                                Box(modifier = Modifier.size(48.dp).clickable {
+                                    if (showLocal && i in localRows.indices) onPickLocal(localRows, i)
+                                    else if (i in radioRows.indices) onPickRadio(radioRows, i)
+                                }, contentAlignment = Alignment.Center) {
+                                    if (u.startsWith("http") || u.startsWith("content:")) {
+                                        AsyncImage(model = u, contentDescription = null, modifier = Modifier.size(if (i == curI) 44.dp else 34.dp), contentScale = ContentScale.Crop)
+                                    } else Text("🎵")
                                 }
                             }
                         }
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(top = 4.dp, bottom = 6.dp)) {
-                        Box(modifier = Modifier.size(80.dp).background(Color(0xFF1A1A1E), RoundedCornerShape(16.dp)).clickable { onPrev() }, contentAlignment = Alignment.Center) { Text("⏮", style = MaterialTheme.typography.headlineMedium) }
-                        Box(modifier = Modifier.size(80.dp).background(acc, RoundedCornerShape(16.dp)).clickable { onPlayPause() }, contentAlignment = Alignment.Center) { Text(if (playing) "⏸" else "▶", color = Color(0xFF0A0A0C), style = MaterialTheme.typography.headlineMedium) }
-                        Box(modifier = Modifier.size(80.dp).background(Color(0xFF1A1A1E), RoundedCornerShape(16.dp)).clickable { onNext() }, contentAlignment = Alignment.Center) { Text("⏭", style = MaterialTheme.typography.headlineMedium) }
-                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(top = 4.dp, bottom = 6.dp)) {
+                    Box(modifier = Modifier.size(80.dp).background(Color(0xFF1A1A1E), RoundedCornerShape(16.dp)).clickable { onPrev() }, contentAlignment = Alignment.Center) { Text("⏮", style = MaterialTheme.typography.headlineMedium) }
+                    Box(modifier = Modifier.size(80.dp).background(acc, RoundedCornerShape(16.dp)).clickable { onPlayPause() }, contentAlignment = Alignment.Center) { Text(if (playing) "⏸" else "▶", color = Color(0xFF0A0A0C), style = MaterialTheme.typography.headlineMedium) }
+                    Box(modifier = Modifier.size(80.dp).background(Color(0xFF1A1A1E), RoundedCornerShape(16.dp)).clickable { onNext() }, contentAlignment = Alignment.Center) { Text("⏭", style = MaterialTheme.typography.headlineMedium) }
                 }
             }
         }

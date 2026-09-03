@@ -995,8 +995,8 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
     private void playLastWhenBtReady() {
         final android.os.Handler h = mainHandler;
         final long deadline = System.currentTimeMillis() + 8000L;
-        // одразу mute — щоб не було звуку в динамік телефону до handoff на машину
-        if (player != null) player.setVolume(0f);
+        // Не стартуємо play на mute: чекаємо маршрут, потім play на повній гучності.
+        // Інакше UI показує "грає", а звуку немає (залипший volume=0).
         Runnable tick = new Runnable() {
             int stableTicks = 0;
             @Override public void run() {
@@ -1005,11 +1005,8 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
                 else stableTicks = 0;
                 // ~2 с стабільного A2DP (10×200мс) або дедлайн 8 с
                 if (stableTicks >= 10 || System.currentTimeMillis() >= deadline) {
+                    if (player != null) player.setVolume(1f);
                     playLast();
-                    // ще ~2 с mute після старту — у вас ~2 с звук ішов у телефон
-                    h.postDelayed(() -> {
-                        if (player != null) player.setVolume(1f);
-                    }, 2000);
                 } else {
                     h.postDelayed(this, 200);
                 }
@@ -1085,6 +1082,7 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
             // Заміна потоку без stop()/clear — ExoPlayer сам кине попередній load
             player.setMediaItem(item, /* resetPosition= */ true);
             player.prepare();
+            player.setVolume(1f);
             player.setPlayWhenReady(true);
             if (isLocalMode()) armPositionTicker();
             writePlayingFlag(true);

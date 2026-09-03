@@ -826,6 +826,8 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
         Intent i = new Intent(ACTION_PLAYBACK_UI);
         i.setPackage(getPackageName());
         i.putExtra("playing", playing);
+        i.putExtra("state", PlaybackState.fromPlayer(player).name());
+        i.putExtra("intended", PlaybackPrefs.isIntended(this));
         sendBroadcast(i);
     }
 
@@ -1153,8 +1155,7 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
     private android.os.Handler reconnectHandler;
     private int reconnectAttempt = 0;
     private long reconnectWindowStart = 0L;
-    private static final long RECONNECT_FAST_MS = 60_000L;
-    private static final long RECONNECT_WINDOW_MS = 5 * 60_000L;
+    // timings → ReconnectPolicy
 
 
     /** URL для reconnect: спочатку те що грали, інакше prefs */
@@ -1192,8 +1193,7 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
 
     private void scheduleReconnect() {
         if (isLocalMode()) return;
-        SharedPreferences sp = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE);
-        if (!sp.getBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, false)) return;
+        if (!PlaybackPrefs.isIntended(this)) return;
         if (player != null && player.isPlaying()) {
             reconnectAttempt = 0;
             reconnectWindowStart = 0L;
@@ -1206,21 +1206,15 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
         long now = System.currentTimeMillis();
         if (reconnectWindowStart == 0L) reconnectWindowStart = now;
         long elapsed = now - reconnectWindowStart;
-        if (elapsed > RECONNECT_WINDOW_MS) {
+        if (ReconnectPolicy.windowExpired(elapsed)) {
             notifyUiStatus("немає мережі", reconnectAttempt);
             return;
         }
-        long delay;
-        if (elapsed < RECONNECT_FAST_MS) {
-            delay = Math.min(3000L, 700L + reconnectAttempt * 400L);
-        } else {
-            delay = 10000L;
-        }
+        long delay = ReconnectPolicy.nextDelayMs(elapsed, reconnectAttempt);
         final int attempt = reconnectAttempt;
         reconnectHandler.postDelayed(() -> {
             if (player == null) return;
-            SharedPreferences p = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE);
-            if (!p.getBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, false)) return;
+            if (!PlaybackPrefs.isIntended(RadioWatchService.this)) return;
             if (player.isPlaying()) {
                 reconnectAttempt = 0;
                 reconnectWindowStart = 0L;
@@ -1265,86 +1259,12 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
     }
 
     private Notification buildNotification() {
-        Intent open = new Intent(this, MainActivity.class);
-        open.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        PendingIntent pi = PendingIntent.getActivity(
-            this, 0, open,
-            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
-        );
-
         boolean playing = player != null && player.isPlaying();
-
-        Intent pauseI = new Intent(this, RadioWatchService.class);
-        pauseI.setAction(ACTION_NOTIF_PAUSE);
-        PendingIntent pausePi = PendingIntent.getService(
-            this, 1, pauseI,
-            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
-        );
-
-        Intent playI = new Intent(this, RadioWatchService.class);
-        playI.setAction(ACTION_NOTIF_PLAY);
-        PendingIntent playPi = PendingIntent.getService(
-            this, 2, playI,
-            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
-        );
-
-        Intent prevI = new Intent(this, RadioWatchService.class);
-        prevI.setAction(ACTION_NOTIF_PREV);
-        PendingIntent prevPi = PendingIntent.getService(
-            this, 3, prevI,
-            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
-        );
-        Intent nextI = new Intent(this, RadioWatchService.class);
-        nextI.setAction(ACTION_NOTIF_NEXT);
-        PendingIntent nextPi = PendingIntent.getService(
-            this, 4, nextI,
-            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
-        );
-
-        String body;
-        if (playing) {
-            if (lastTrackTitle != null && !lastTrackTitle.isEmpty())
-                body = currentName + " · " + lastTrackTitle;
-            else
-                body = "Грає: " + currentName;
-        } else {
-            body = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-                    .getBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, true)
-                ? "На паузі · BT стеження увімк"
-                : "На паузі · BT стеження вимк";
-        }
-
-        NotificationCompat.Builder b = new NotificationCompat.Builder(this, CHANNEL)
-            .setContentTitle(currentName != null ? currentName : "Radio S O")
-            .setContentText(body)
-            .setSmallIcon(android.R.drawable.ic_media_play)
-            .setContentIntent(pi)
-            .setOngoing(true)
-            .setOnlyAlertOnce(true)
-            .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setColor(0xFF121212);
-        if (stationArt != null) {
-            b.setLargeIcon(stationArt);
-        }
-        androidx.media.app.NotificationCompat.MediaStyle style =
-            new androidx.media.app.NotificationCompat.MediaStyle()
-                .setShowActionsInCompactView(0, 1, 2);
-        try {
-            if (mediaSession != null) {
-                style.setMediaSession(mediaSession.getSessionCompatToken());
-            }
-        } catch (Exception ignored) {}
-        b.setStyle(style);
-
-        b.addAction(android.R.drawable.ic_media_previous, "Назад", prevPi);
-        if (playing) {
-            b.addAction(android.R.drawable.ic_media_pause, "Пауза", pausePi);
-        } else {
-            b.addAction(android.R.drawable.ic_media_play, "Грати", playPi);
-        }
-        b.addAction(android.R.drawable.ic_media_next, "Далі", nextPi);
-        return b.build();
+        boolean btWatch = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+            .getBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, true);
+        return RadioNotificationFactory.build(
+            this, CHANNEL, RadioWatchService.class, MainActivity.class,
+            playing, currentName, lastTrackTitle, stationArt, mediaSession, btWatch);
     }
 
     @Override

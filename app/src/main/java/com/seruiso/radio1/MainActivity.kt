@@ -186,13 +186,15 @@ class MainActivity : ComponentActivity() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
                 RadioWatchService.ACTION_PLAYBACK_UI -> {
-                    isPlaying = intent.getBooleanExtra("playing", false)
-                    if (isPlaying) statusText = "playing"
+                    // Stack 2: prefs meta, then isPlaying from service (intent wins)
                     val pos = intent.getLongExtra("positionMs", -1L)
                     val dur = intent.getLongExtra("durationMs", -1L)
                     if (!holdSeek && pos >= 0) posMs = pos
                     if (dur > 0) durMs = dur
                     readPrefs()
+                    isPlaying = intent.getBooleanExtra("playing", false)
+                    if (isPlaying) statusText = "playing"
+                    else if (statusText == "playing") statusText = "pause"
                     isLocalNow = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
                         .getString(LocalMusicPlugin.KEY_MODE, "radio") == "local"
                     if (isLocalNow) {
@@ -200,6 +202,7 @@ class MainActivity : ComponentActivity() {
                         posHandler.post(posTick)
                     }
                 }
+                
                 RadioWatchService.ACTION_TRACK_META -> {
                     readPrefs()
                     val extra = intent.getStringExtra(RadioWatchService.EXTRA_TRACK) ?: ""
@@ -670,6 +673,7 @@ class MainActivity : ComponentActivity() {
         currentCountry = p.getString(BluetoothAutoPlayPlugin.KEY_COUNTRY, "-") ?: "-"
         currentFavicon = p.getString(BluetoothAutoPlayPlugin.KEY_FAVICON, "") ?: ""
         currentUrl = p.getString(BluetoothAutoPlayPlugin.KEY_URL, "") ?: ""
+        // Reported only (KEY_IS_PLAYING). Never KEY_PLAY for UI chrome.
         isPlaying = p.getBoolean(BluetoothAutoPlayPlugin.KEY_IS_PLAYING, false)
         val th = ThemeStore.get(this)
         themeId = th.id

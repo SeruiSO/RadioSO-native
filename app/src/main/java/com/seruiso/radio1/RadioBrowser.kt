@@ -44,7 +44,7 @@ object RadioBrowser {
                 val conn = URL("https://$host$path").openConnection() as HttpURLConnection
                 conn.connectTimeout = 10000
                 conn.readTimeout = 20000
-                conn.setRequestProperty("User-Agent", "RadioSO-native/0.9")
+                conn.setRequestProperty("User-Agent", "RadioSO-native/0.9.50")
                 conn.setRequestProperty("Accept", "application/json")
                 if (conn.responseCode != 200) { conn.disconnect(); continue }
                 val body = conn.inputStream.bufferedReader().use { it.readText() }

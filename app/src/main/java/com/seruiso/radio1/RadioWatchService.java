@@ -433,6 +433,9 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
                 player.setVolume(1f);
                 new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
                     if (player == null) return;
+                    // Resume тільки якщо саме ми віддали фокус (дзвінок/відео),
+                    // а не коли додаток уже був на паузі користувачем.
+                    if (!pausedByFocusLoss) return;
                     SharedPreferences sp = getSharedPreferences(
                         BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE);
                     boolean wantPlay = sp.getBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, false);
@@ -991,11 +994,21 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
 
     private void playLastWhenBtReady() {
         final android.os.Handler h = mainHandler;
-        final long deadline = System.currentTimeMillis() + 5000L;
+        final long deadline = System.currentTimeMillis() + 6000L;
+        // одразу mute — щоб не було звуку в динамік телефону до handoff на машину
+        if (player != null) player.setVolume(0f);
         Runnable tick = new Runnable() {
+            int stableTicks = 0;
             @Override public void run() {
-                if (BtAudio.hasRoute(RadioWatchService.this) || System.currentTimeMillis() >= deadline) {
+                boolean has = BtAudio.hasRoute(RadioWatchService.this);
+                if (has) stableTicks++;
+                else stableTicks = 0;
+                // 3 послідовні підтвердження (~600 мс) або дедлайн
+                if (stableTicks >= 3 || System.currentTimeMillis() >= deadline) {
                     playLast();
+                    h.postDelayed(() -> {
+                        if (player != null) player.setVolume(1f);
+                    }, 350);
                 } else {
                     h.postDelayed(this, 200);
                 }

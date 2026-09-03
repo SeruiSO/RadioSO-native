@@ -422,6 +422,8 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
                         BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE);
                     boolean wantPlay = sp.getBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, false);
                     if (!wantPlay) return;
+                    boolean watch = sp.getBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, true);
+                    if (watch && !hasBtAudioRoute()) return;
                     int state = player.getPlaybackState();
                     if (state == Player.STATE_IDLE || state == Player.STATE_ENDED
                             || player.getCurrentMediaItem() == null) {

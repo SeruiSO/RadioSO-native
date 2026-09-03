@@ -49,8 +49,11 @@ public class BluetoothReceiver extends BroadcastReceiver {
                 connected = false;
             }
         } else if (BluetoothDevice.ACTION_ACL_CONNECTED.equals(action)) {
-            connected = true;
-            isA2dp = true;
+            // годинник/OBD теж шлють ACL — граємо лише якщо вже є BT-аудіо
+            if (BtAudio.hasRoute(context)) {
+                connected = true;
+                isA2dp = true;
+            }
         } else if (BluetoothDevice.ACTION_ACL_DISCONNECTED.equals(action)) {
             connected = false;
         } else if (BluetoothAdapter.ACTION_CONNECTION_STATE_CHANGED.equals(action)) {

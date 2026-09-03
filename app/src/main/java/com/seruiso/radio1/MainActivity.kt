@@ -24,6 +24,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.ui.Alignment
@@ -965,7 +967,7 @@ fun StationScreen(
                 modifier = Modifier
                     .size(72.dp)
                     .background(Color(0xFF222228), RoundedCornerShape(6.dp))
-                    .then(if (playing) Modifier.border(2.dp, acc, RoundedCornerShape(6.dp)) else Modifier),
+
                 contentAlignment = Alignment.Center
             ) {
                 if (artUrl(favicon).startsWith("http") || artUrl(favicon).startsWith("content:")) {
@@ -995,7 +997,6 @@ fun StationScreen(
                     )
                 }
             }
-            Text("⌃", color = muted, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(start = 8.dp))
         }
         androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(8.dp))
         if (tabs.getOrNull(tabIndex) == "search") {
@@ -1181,6 +1182,7 @@ fun StationScreen(
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            Text("⌃", color = muted, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.clickable { onNow() }.padding(8.dp))
             listOf(Triple("⏮", 78, false), Triple(if (playing) "⏸" else "▶", 78, true), Triple("⏭", 78, false)).forEachIndexed { i, (lab, sz, main) ->
                 val act = if (i == 0) onPrev else if (i == 1) onPlayPause else onNext
                 Box(
@@ -1285,29 +1287,43 @@ fun StationScreen(
         )
     }
     if (nowOpen) {
-        ModalBottomSheet(onDismissRequest = onNowClose, containerColor = Color(0xFF121214), sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-            var dx by androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
-            Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Box(
+        Dialog(
+            onDismissRequest = onNowClose,
+            properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnBackPress = true, dismissOnClickOutside = true)
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                Box(modifier = Modifier.fillMaxSize().background(Color(0x99000000)).clickable { onNowClose() })
+                var dx by androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+                Column(
                     modifier = Modifier
-                        .graphicsLayer { translationX = dx * 0.5f }
-                        .pointerInput(Unit) {
-                            detectHorizontalDragGestures(
-                                onDragEnd = {
-                                    if (dx < -56f) onNext()
-                                    else if (dx > 56f) onPrev()
-                                    dx = 0f
-                                },
-                                onDragCancel = { dx = 0f }
-                            ) { _, d -> dx += d }
-                        }
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .background(Color(0xFF121214), RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
+                        .navigationBarsPadding()
+                        .padding(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    if (artUrl(favicon).startsWith("http") || artUrl(favicon).startsWith("content:")) {
-                        AsyncImage(model = artUrl(favicon), contentDescription = null, modifier = Modifier.size(220.dp), contentScale = ContentScale.Crop)
-                    } else Text("🎵", style = MaterialTheme.typography.displayLarge)
-                }
-                Text(name, color = Color.White, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 12.dp))
-                Text(if (track.isBlank()) "🎵 Трек: невідомо" else "🎵 $track", color = muted, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Box(modifier = Modifier.padding(bottom = 12.dp).width(40.dp).height(4.dp).background(muted, RoundedCornerShape(2.dp)).clickable { onNowClose() })
+                    Box(
+                        modifier = Modifier
+                            .graphicsLayer { translationX = dx * 0.6f }
+                            .pointerInput(currentUrl) {
+                                detectHorizontalDragGestures(
+                                    onDragEnd = {
+                                        if (dx < -56f) onNext()
+                                        else if (dx > 56f) onPrev()
+                                        dx = 0f
+                                    },
+                                    onDragCancel = { dx = 0f }
+                                ) { _, d -> dx += d }
+                            }
+                    ) {
+                        if (artUrl(favicon).startsWith("http") || artUrl(favicon).startsWith("content:")) {
+                            AsyncImage(model = artUrl(favicon), contentDescription = null, modifier = Modifier.size(220.dp), contentScale = ContentScale.Crop)
+                        } else Text("🎵", style = MaterialTheme.typography.displayLarge)
+                    }
+                    Text(name, color = Color.White, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 12.dp))
+                    Text(if (track.isBlank()) "🎵 Трек: невідомо" else "🎵 $track", color = muted, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 if (isLocalNow || currentUrl.startsWith("content:")) {
                     Text(if (bestUris.contains(currentUrl)) "★ Local Best" else "☆ у best", color = acc, modifier = Modifier.clickable {
                         localRows.firstOrNull { it.uri == currentUrl }?.let { onToggleBest(it) }
@@ -1345,7 +1361,9 @@ fun StationScreen(
                     Box(modifier = Modifier.size(80.dp).background(acc, RoundedCornerShape(16.dp)).clickable { onPlayPause() }, contentAlignment = Alignment.Center) { Text(if (playing) "⏸" else "▶", color = Color(0xFF0A0A0C), style = MaterialTheme.typography.headlineMedium) }
                     Box(modifier = Modifier.size(80.dp).background(Color(0xFF1A1A1E), RoundedCornerShape(16.dp)).clickable { onNext() }, contentAlignment = Alignment.Center) { Text("⏭", style = MaterialTheme.typography.headlineMedium) }
                 }
+                }
             }
         }
     }
+
 }

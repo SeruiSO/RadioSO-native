@@ -303,6 +303,10 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
                             return;
                         }
                         // короткий обрив (<2с) і ще buffering — почекати, не форсувати
+                        if (player != null && player.isPlaying()) {
+                            android.util.Log.i("RadioWatch", "handoff, still playing");
+                            return;
+                        }
                         if (lostAgo < 2000 && player != null
                                 && player.getPlayWhenReady()) {
                             android.util.Log.i("RadioWatch", "brief network gap, wait");
@@ -311,6 +315,7 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
                         android.util.Log.i("RadioWatch", "network available → reconnect");
                         notifyUiStatus("reconnecting", reconnectAttempt + 1);
                         reconnectAttempt = 0;
+                        reconnectWindowStart = 0L;
                         if (reconnectHandler != null) {
                             reconnectHandler.removeCallbacksAndMessages(null);
                         }
@@ -337,9 +342,12 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
             @Override
             public void onLost(Network network) {
                 new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                    if (hasInternet()) {
+                        android.util.Log.i("RadioWatch", "onLost but other net alive");
+                        return;
+                    }
                     networkLostAtMs = System.currentTimeMillis();
-                    android.util.Log.i("RadioWatch", "network lost (grace)");
-                    // не стопаємо плеєр — короткий gap у місті
+                    android.util.Log.i("RadioWatch", "network lost (grace, keep playing)");
                 });
             }
         };
@@ -1061,7 +1069,9 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
 
     private android.os.Handler reconnectHandler;
     private int reconnectAttempt = 0;
-    private static final int RECONNECT_MAX = 20;
+    private long reconnectWindowStart = 0L;
+    private static final long RECONNECT_FAST_MS = 60_000L;
+    private static final long RECONNECT_WINDOW_MS = 5 * 60_000L;
 
 
     /** URL для reconnect: спочатку те що грали, інакше prefs */
@@ -1082,16 +1092,47 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
         return "";
     }
 
+    private boolean hasInternet() {
+        try {
+            if (connectivityManager == null) {
+                connectivityManager = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
+            }
+            if (connectivityManager == null) return false;
+            Network[] nets = connectivityManager.getAllNetworks();
+            for (Network n : nets) {
+                NetworkCapabilities c = connectivityManager.getNetworkCapabilities(n);
+                if (c != null && c.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) return true;
+            }
+        } catch (Exception ignored) {}
+        return false;
+    }
+
     private void scheduleReconnect() {
         if (isLocalMode()) return;
         SharedPreferences sp = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE);
         if (!sp.getBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, false)) return;
+        if (player != null && player.isPlaying()) {
+            reconnectAttempt = 0;
+            reconnectWindowStart = 0L;
+            return;
+        }
         if (reconnectHandler == null) {
             reconnectHandler = new android.os.Handler(android.os.Looper.getMainLooper());
         }
         reconnectHandler.removeCallbacksAndMessages(null);
-        long delay = Math.min(45000L, 1000L * (1L << Math.min(reconnectAttempt, 5)));
-        // 1s, 2s, 4s, 8s, 16s, 30s...
+        long now = System.currentTimeMillis();
+        if (reconnectWindowStart == 0L) reconnectWindowStart = now;
+        long elapsed = now - reconnectWindowStart;
+        if (elapsed > RECONNECT_WINDOW_MS) {
+            notifyUiStatus("немає мережі", reconnectAttempt);
+            return;
+        }
+        long delay;
+        if (elapsed < RECONNECT_FAST_MS) {
+            delay = Math.min(3000L, 700L + reconnectAttempt * 400L);
+        } else {
+            delay = 10000L;
+        }
         final int attempt = reconnectAttempt;
         reconnectHandler.postDelayed(() -> {
             if (player == null) return;
@@ -1099,22 +1140,23 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
             if (!p.getBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, false)) return;
             if (player.isPlaying()) {
                 reconnectAttempt = 0;
+                reconnectWindowStart = 0L;
+                notifyUiStatus("playing", 0);
+                return;
+            }
+            if (!hasInternet()) {
+                notifyUiStatus("немає мережі", attempt + 1);
+                scheduleReconnect();
                 return;
             }
             String url = resolveReconnectUrl();
             android.util.Log.i("RadioWatch", "reconnect attempt " + attempt + " url=" + url);
             if (url != null && !url.isEmpty()) {
                 reconnectAttempt = attempt + 1;
-                if (reconnectAttempt > RECONNECT_MAX) reconnectAttempt = RECONNECT_MAX;
-                // скинути duplicate-guard щоб playUrl реально перепідключив
                 lastPlayedUrl = "";
                 lastPlayMs = 0;
                 playUrl(url);
-                if (!player.isPlaying()) {
-                    scheduleReconnect();
-                } else {
-                    reconnectAttempt = 0;
-                }
+                scheduleReconnect();
             }
         }, delay);
     }

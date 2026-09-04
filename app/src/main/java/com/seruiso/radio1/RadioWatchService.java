@@ -844,9 +844,10 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
         notifyForeground();
         String action = intent != null ? intent.getAction() : null;
 
-        // Stack 4: watch/start without play (boot must not autoplay)
+        // Stack 4 + 0.9.51: watch FGS; one-shot A2DP probe (cold boot / missed receiver)
         if (ACTION_START.equals(action)) {
             notifyForeground();
+            scheduleWatchProbe();
             return START_STICKY;
         }
 
@@ -1027,28 +1028,75 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
             h.removeCallbacks(btReadyTick);
             btReadyTick = null;
         }
-        final long deadline = System.currentTimeMillis() + 10000L;
-        // Один політ: скасовуємо попередній wait, якщо прийшов ще один ACTION_BT.
-        // Чекаємо стабільний hasRoute ~2.4с (12×200мс), потім один play на volume=1.
+        final long deadline = System.currentTimeMillis() + 12000L;
+        // 0.9.51: ~3.6с стабільного route (18×200мс), потім preferA2DP + play + re-kick
         btReadyTick = new Runnable() {
             int stableTicks = 0;
             @Override public void run() {
                 boolean has = BtAudio.hasRoute(RadioWatchService.this);
                 if (has) stableTicks++;
                 else stableTicks = 0;
-                if (stableTicks >= 12 || System.currentTimeMillis() >= deadline) {
+                if (stableTicks >= 18 || System.currentTimeMillis() >= deadline) {
                     btReadyTick = null;
                     if (player != null) player.setVolume(1f);
-                    // Stack 5: попросити вихід на A2DP, якщо API дозволяє
                     BtAudio.preferA2dp(RadioWatchService.this, player);
                     playLast();
-                    notifyUiPlayback(true);
+                    // Re-kick: якщо анімація/intent є, а семплів ще немає (типовий handoff машини)
+                    h.postDelayed(() -> {
+                        try {
+                            if (player == null) return;
+                            if (!PlaybackPrefs.isIntended(RadioWatchService.this)) return;
+                            BtAudio.preferA2dp(RadioWatchService.this, player);
+                            if (!player.isPlaying()) {
+                                player.setVolume(1f);
+                                player.setPlayWhenReady(true);
+                                android.util.Log.i("RadioWatch", "BT re-kick playWhenReady");
+                            }
+                        } catch (Exception e) {
+                            android.util.Log.w("RadioWatch", "BT re-kick", e);
+                        }
+                    }, 900);
                 } else {
                     h.postDelayed(this, 200);
                 }
             }
         };
         h.post(btReadyTick);
+    }
+
+    /** One-shot after ACTION_START: if A2DP already connected and watch on → ACTION_BT path. */
+    private void scheduleWatchProbe() {
+        mainHandler.postDelayed(() -> {
+            try {
+                SharedPreferences sp = getSharedPreferences(
+                    BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE);
+                if (!sp.getBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, true)) return;
+                if (player != null && (player.isPlaying() || player.getPlayWhenReady())) return;
+                if (!BtAudio.hasRoute(this)) {
+                    // profile state fallback
+                    try {
+                        android.bluetooth.BluetoothAdapter a =
+                            android.bluetooth.BluetoothAdapter.getDefaultAdapter();
+                        if (a == null) return;
+                        int st = a.getProfileConnectionState(
+                            android.bluetooth.BluetoothProfile.A2DP);
+                        if (st != android.bluetooth.BluetoothProfile.STATE_CONNECTED) return;
+                    } catch (Exception ignored) {
+                        return;
+                    }
+                }
+                String url = sp.getString(BluetoothAutoPlayPlugin.KEY_URL, "");
+                if (url == null || url.isEmpty()) {
+                    android.util.Log.i("RadioWatch", "watch probe — no last URL");
+                    return;
+                }
+                android.util.Log.i("RadioWatch", "watch probe — A2DP up, start play");
+                setIntendedPlaying(true);
+                playLastWhenBtReady();
+            } catch (Exception e) {
+                android.util.Log.e("RadioWatch", "watch probe", e);
+            }
+        }, 2500);
     }
 
     private void playLast() {
@@ -1119,9 +1167,10 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
             player.setMediaItem(item, /* resetPosition= */ true);
             player.prepare();
             player.setVolume(1f);
+            BtAudio.preferA2dp(this, player);
             player.setPlayWhenReady(true);
             if (isLocalMode()) armPositionTicker();
-            reportPlaying(true);
+            // 0.9.51: reported playing тільки з onIsPlayingChanged — не раніше
             loadStationArtAsync();
             notifyUiStatus("connecting", 0);
             bufferingTicks = 0;

@@ -30,8 +30,7 @@ public class BluetoothReceiver extends BroadcastReceiver {
         if (intent == null || intent.getAction() == null) return;
         String action = intent.getAction();
 
-        // Автоплей / stop — ТІЛЬКИ по A2DP. Headset/ACL/Adapter часто мигають
-        // під час підключення машини і раніше слали хибний ACTION_STOP.
+        // Автоплей / stop — ТІЛЬКИ по A2DP. Headset/ACL/Adapter лише mark.
         if (BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED.equals(action)) {
             int state = intent.getIntExtra(BluetoothProfile.EXTRA_STATE, BluetoothProfile.STATE_DISCONNECTED);
             if (state == BluetoothProfile.STATE_CONNECTED) {
@@ -41,7 +40,7 @@ public class BluetoothReceiver extends BroadcastReceiver {
                     return;
                 }
                 final Context appCtx = context.getApplicationContext();
-                // невелика затримка: профілі ще стабілізуються
+                // 0.9.51: 900ms — профілі машини часто стабілізуються повільніше
                 new Handler(Looper.getMainLooper()).postDelayed(() -> {
                     if (!isWatchEnabled(appCtx)) return;
                     if (!BtAudio.hasRoute(appCtx)) {
@@ -54,11 +53,11 @@ public class BluetoothReceiver extends BroadcastReceiver {
                     } else {
                         appCtx.startService(svc);
                     }
-                }, 600);
+                }, 900);
             } else if (state == BluetoothProfile.STATE_DISCONNECTED) {
                 if (!isWatchEnabled(context)) return;
                 final Context appCtx = context.getApplicationContext();
-                // відкладений stop: якщо за 1.5с маршрут знову є — це transient, не гасимо
+                // 0.9.51: 2s — transient disconnect під час handoff машини
                 new Handler(Looper.getMainLooper()).postDelayed(() -> {
                     if (BtAudio.hasRoute(appCtx)) {
                         android.util.Log.i("BluetoothReceiver", "A2DP disconnect ignored — route still present");
@@ -71,12 +70,11 @@ public class BluetoothReceiver extends BroadcastReceiver {
                     } else {
                         appCtx.startService(svc);
                     }
-                }, 1500);
+                }, 2000);
             }
             return;
         }
 
-        // Інші події — лише mark для allowSessionPlay / діагностики, без start/stop
         if (BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED.equals(action)) {
             int state = intent.getIntExtra(BluetoothProfile.EXTRA_STATE, BluetoothProfile.STATE_DISCONNECTED);
             if (state == BluetoothProfile.STATE_CONNECTED && BtAudio.hasRoute(context)) {

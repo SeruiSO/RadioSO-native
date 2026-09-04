@@ -691,8 +691,14 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun maybeStartBtIfConnected() {
-        if (!getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-                .getBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, true)) return
+        val sp = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+        if (!sp.getBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, true)) return
+        // 0.9.51: іконка не форсує автостарт, якщо вже грає (у фоні теж)
+        if (sp.getBoolean(BluetoothAutoPlayPlugin.KEY_IS_PLAYING, false)
+            || sp.getBoolean(BluetoothAutoPlayPlugin.KEY_ACTUALLY_PLAYING, false)
+        ) {
+            return
+        }
         try {
             if (Build.VERSION.SDK_INT >= 31 &&
                 ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT)

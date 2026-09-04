@@ -1097,7 +1097,11 @@ fun StationScreen(
     var infoDy by androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
     fun openTopSheet() {
         topShow = true
-        sheetScope.launch { topA.animateTo(0f, tween(320)) }
+        sheetScope.launch {
+            topA.snapTo(topA.value.coerceIn(-780f, 0f))
+            topA.animateTo(0f, tween(320))
+            topShow = true
+        }
     }
     fun closeTopSheet() {
         sheetScope.launch {
@@ -1142,10 +1146,11 @@ fun StationScreen(
                     detectVerticalDragGestures(
                         onDragEnd = {
                             sheetScope.launch {
-                                if (topA.value > -400f || infoDy > 40f) {
+                                // як низ: відкрити якщо пройшли ~половину шляху, інакше закрити
+                                if (topA.value > -420f) {
                                     topShow = true
                                     topA.animateTo(0f, tween(280))
-                                } else if (topShow) {
+                                } else {
                                     topA.animateTo(-780f, tween(260))
                                     topShow = false
                                 }
@@ -1155,29 +1160,21 @@ fun StationScreen(
                         onDragCancel = { infoDy = 0f }
                     ) { _, drag ->
                         infoDy += drag
-                        if (drag > 0 || topShow) {
+                        if (drag > 0 || topShow || infoDy > 8f) {
                             topShow = true
                             sheetScope.launch {
-                                val next = (-780f + infoDy.coerceAtLeast(0f)).coerceIn(-780f, 0f)
-                                topA.snapTo(next)
+                                // relative як pullA у нижній картці
+                                topA.snapTo((topA.value + drag).coerceIn(-780f, 0f))
                             }
                         }
                     }
                 }
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 4.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("⌄", color = muted.copy(alpha = 0.75f), style = MaterialTheme.typography.labelLarge)
-            }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { onCloseMenu(); onNow() }
-                    .padding(start = 6.dp, end = 6.dp, bottom = 6.dp),
+                    .padding(start = 6.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
             Box(
@@ -1191,6 +1188,15 @@ fun StationScreen(
                 } else {
                     Text("🎵")
                 }
+                // ⌄ поверх іконки (не забирає висоту панелі)
+                Text(
+                    "⌄",
+                    color = muted.copy(alpha = 0.9f),
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = 1.dp)
+                )
             }
             Column(modifier = Modifier.padding(start = 10.dp).weight(1f)) {
                 Text(name, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
@@ -1468,12 +1474,16 @@ fun StationScreen(
                         detectVerticalDragGestures(
                             onDragEnd = {
                                 sheetScope.launch {
-                                    if (topA.value < -120f) {
-                                        topA.animateTo(-780f, tween(260))
+                                    // дзеркало низу: close якщо відтягнули >~140px від відкритого
+                                    if (topA.value < -140f) {
+                                        topA.animateTo(-780f, tween(280))
                                         topShow = false
                                         topSleepOpen = false
                                         topThemeOpen = false
-                                    } else topA.animateTo(0f, tween(240))
+                                    } else {
+                                        topA.animateTo(0f, tween(280))
+                                        topShow = true
+                                    }
                                 }
                             }
                         ) { _, drag ->
@@ -1642,15 +1652,15 @@ fun StationScreen(
                         }
                     }
                 }
-                // Історія — 8 останніх
+                // Історія — 4 (1 ряд), місце під кнопки
                 if (!showLocal && recentStations.isNotEmpty()) {
                     Text(
                         "Історія",
                         color = muted,
                         style = MaterialTheme.typography.labelMedium,
-                        modifier = Modifier.padding(top = 8.dp, bottom = 6.dp)
+                        modifier = Modifier.padding(top = 6.dp, bottom = 4.dp)
                     )
-                    val hist = recentStations.filter { it.url != currentUrl }.take(8)
+                    val hist = recentStations.filter { it.url != currentUrl }.take(4)
                     hist.chunked(4).forEach { chunk ->
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
@@ -1707,42 +1717,62 @@ fun StationScreen(
                 ) {
                     Text("✦  Куди несе ефір?", color = acc, style = MaterialTheme.typography.titleSmall)
                 }
-                // Дії: сон / BT / тема
+                // Дії: сон / BT / тема / імпорт / експорт (1 ряд)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 14.dp, bottom = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        .padding(top = 10.dp, bottom = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .background(Color(0xFF1A1A1E), RoundedCornerShape(12.dp))
                             .clickable { topSleepOpen = true }
-                            .padding(vertical = 12.dp),
+                            .padding(vertical = 10.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("◔ ${sleepLabel}", color = text, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text("◔ ${sleepLabel}", color = text, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .background(if (btWatch) acc.copy(alpha = 0.25f) else Color(0xFF1A1A1E), RoundedCornerShape(12.dp))
                             .clickable { onBt() }
-                            .padding(vertical = 12.dp),
+                            .padding(vertical = 10.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(if (btWatch) "◉ BT вкл" else "○ BT викл", color = if (btWatch) acc else text, style = MaterialTheme.typography.labelLarge)
+                        Text(if (btWatch) "◉ BT" else "○ BT", color = if (btWatch) acc else text, style = MaterialTheme.typography.labelMedium)
                     }
                     Box(
                         modifier = Modifier
                             .weight(0.7f)
                             .background(Color(0xFF1A1A1E), RoundedCornerShape(12.dp))
                             .clickable { topThemeOpen = true }
-                            .padding(vertical = 12.dp),
+                            .padding(vertical = 10.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("🌙", style = MaterialTheme.typography.titleMedium)
+                        Text("🌙", style = MaterialTheme.typography.titleSmall)
+                    }
+                    Box(
+                        modifier = Modifier
+                            .weight(0.85f)
+                            .background(Color(0xFF1A1A1E), RoundedCornerShape(12.dp))
+                            .clickable { onExport() }
+                            .padding(vertical = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("↑", color = text, style = MaterialTheme.typography.titleSmall)
+                    }
+                    Box(
+                        modifier = Modifier
+                            .weight(0.85f)
+                            .background(Color(0xFF1A1A1E), RoundedCornerShape(12.dp))
+                            .clickable { onImport() }
+                            .padding(vertical = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("↓", color = text, style = MaterialTheme.typography.titleSmall)
                     }
                 }
             }
@@ -2034,14 +2064,17 @@ fun StationScreen(
                             .fillMaxWidth()
                             .padding(top = 8.dp)
                             .then(
-                                if (!showLocal && !isLocalNow && !currentUrl.startsWith("content:")) {
-                                    Modifier.pointerInput(currentUrl) {
+                                if (!showLocal && !isLocalNow && !currentUrl.startsWith("content:") && arts.isNotEmpty()) {
+                                    Modifier.pointerInput(currentUrl, pageCount) {
                                         var dx = 0f
                                         detectHorizontalDragGestures(
                                             onDragEnd = {
+                                                val page = pagerState.currentPage
                                                 when {
-                                                    dx < -48f -> onNext()
-                                                    dx > 48f -> onPrev()
+                                                    dx < -48f && page < pageCount - 1 ->
+                                                        sheetScope.launch { pagerState.animateScrollToPage(page + 1) }
+                                                    dx > 48f && page > 0 ->
+                                                        sheetScope.launch { pagerState.animateScrollToPage(page - 1) }
                                                 }
                                                 dx = 0f
                                             },
@@ -2105,14 +2138,17 @@ fun StationScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .then(
-                                if (!showLocal && !isLocalNow && !currentUrl.startsWith("content:")) {
-                                    Modifier.pointerInput(currentUrl + "t") {
+                                if (!showLocal && !isLocalNow && !currentUrl.startsWith("content:") && arts.isNotEmpty()) {
+                                    Modifier.pointerInput(currentUrl + "t", pageCount) {
                                         var dx = 0f
                                         detectHorizontalDragGestures(
                                             onDragEnd = {
+                                                val page = pagerState.currentPage
                                                 when {
-                                                    dx < -48f -> onNext()
-                                                    dx > 48f -> onPrev()
+                                                    dx < -48f && page < pageCount - 1 ->
+                                                        sheetScope.launch { pagerState.animateScrollToPage(page + 1) }
+                                                    dx > 48f && page > 0 ->
+                                                        sheetScope.launch { pagerState.animateScrollToPage(page - 1) }
                                                 }
                                                 dx = 0f
                                             },

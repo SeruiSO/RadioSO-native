@@ -88,6 +88,10 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -951,11 +955,62 @@ fun StationScreen(
         }
         return raw
     }
+
     val acc = Color(accent)
     val bg = Color(0xFF000000)
     val card = Color(0xFF141418)
     val text = Color(0xFFF2F2F5)
     val muted = Color(0x9EF2F2F5)
+
+    @Composable
+    fun PlayBtn(
+        playing: Boolean,
+        status: String,
+        sizeDp: androidx.compose.ui.unit.Dp,
+        onClick: () -> Unit,
+    ) {
+        val st = status.lowercase()
+        val busy = !playing && (
+            st.contains("connect") || st.contains("buffer") || st.contains("reconnect") ||
+            st == "start" || st.contains("підключ")
+        )
+        val pulseOn = playing || busy
+        val infinite = rememberInfiniteTransition(label = "playPulse")
+        val pulse by infinite.animateFloat(
+            initialValue = 1f,
+            targetValue = if (busy) 1.09f else 1.06f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(if (busy) 420 else 900, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "playPulseSc"
+        )
+        val interaction = androidx.compose.runtime.remember { MutableInteractionSource() }
+        val pressed by interaction.collectIsPressedAsState()
+        val pressSc by animateFloatAsState(if (pressed) 0.88f else 1f, label = "playPress")
+        val sc = (if (pulseOn) pulse else 1f) * pressSc
+        Box(
+            modifier = Modifier
+                .size(sizeDp)
+                .graphicsLayer { scaleX = sc; scaleY = sc }
+                .background(acc, RoundedCornerShape(16.dp))
+                .clickable(
+                    interactionSource = interaction,
+                    indication = null
+                ) { onClick() },
+            contentAlignment = Alignment.Center
+        ) {
+            when {
+                busy -> CircularProgressIndicator(
+                    modifier = Modifier.size(sizeDp * 0.38f),
+                    color = Color(0xFF0A0A0C),
+                    strokeWidth = 2.5.dp
+                )
+                playing -> Text("⏸", color = Color(0xFF0A0A0C), style = MaterialTheme.typography.headlineMedium)
+                else -> Text("▶", color = Color(0xFF0A0A0C), style = MaterialTheme.typography.headlineMedium)
+            }
+        }
+    }
     var dropAt by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(-1) }
     var dragging by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     val listState = rememberLazyListState()
@@ -1241,16 +1296,15 @@ fun StationScreen(
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            listOf(Triple("⏮", 78, false), Triple(if (playing) "⏸" else "▶", 78, true), Triple("⏭", 78, false)).forEachIndexed { i, (lab, sz, main) ->
-                val act = if (i == 0) onPrev else if (i == 1) onPlayPause else onNext
-                Box(
-                    modifier = Modifier
-                        .size(sz.dp)
-                        .background(if (main) acc else card, RoundedCornerShape(16.dp))
-                        .clickable { act() },
-                    contentAlignment = Alignment.Center
-                ) { Text(lab, color = if (main) Color(0xFF0A0A0C) else Color.White, style = MaterialTheme.typography.headlineMedium) }
-            }
+            Box(
+                modifier = Modifier.size(78.dp).background(card, RoundedCornerShape(16.dp)).clickable { onPrev() },
+                contentAlignment = Alignment.Center
+            ) { Text("⏮", color = Color.White, style = MaterialTheme.typography.headlineMedium) }
+            PlayBtn(playing = playing, status = status, sizeDp = 78.dp, onClick = onPlayPause)
+            Box(
+                modifier = Modifier.size(78.dp).background(card, RoundedCornerShape(16.dp)).clickable { onNext() },
+                contentAlignment = Alignment.Center
+            ) { Text("⏭", color = Color.White, style = MaterialTheme.typography.headlineMedium) }
             if (tabs.getOrNull(tabIndex) == "local") {
                 Box(
                     modifier = Modifier.size(56.dp).background(Color(0xFF1A1A1E), RoundedCornerShape(12.dp)).clickable { onScan() },
@@ -1582,7 +1636,7 @@ fun StationScreen(
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(top = 4.dp, bottom = 6.dp)) {
                     Box(modifier = Modifier.size(80.dp).background(Color(0xFF1A1A1E), RoundedCornerShape(16.dp)).clickable { onPrev() }, contentAlignment = Alignment.Center) { Text("⏮", style = MaterialTheme.typography.headlineMedium) }
-                    Box(modifier = Modifier.size(80.dp).background(acc, RoundedCornerShape(16.dp)).clickable { onPlayPause() }, contentAlignment = Alignment.Center) { Text(if (playing) "⏸" else "▶", color = Color(0xFF0A0A0C), style = MaterialTheme.typography.headlineMedium) }
+                    PlayBtn(playing = playing, status = status, sizeDp = 80.dp, onClick = onPlayPause)
                     Box(modifier = Modifier.size(80.dp).background(Color(0xFF1A1A1E), RoundedCornerShape(16.dp)).clickable { onNext() }, contentAlignment = Alignment.Center) { Text("⏭", style = MaterialTheme.typography.headlineMedium) }
                 }
             }

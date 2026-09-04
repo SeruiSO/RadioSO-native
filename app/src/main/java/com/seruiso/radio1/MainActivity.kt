@@ -693,10 +693,765 @@ class MainActivity : ComponentActivity() {
     private fun maybeStartBtIfConnected() {
         val sp = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
         if (!sp.getBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, true)) return
-        // 0.9.52: відкриття іконки / нотифікації не запускає станцію
         try {
             val i = Intent(this, RadioWatchService::class.java)
             i.action = RadioWatchService.ACTION_START
             startForegroundService(i)
         } catch (_: Exception) {}
     }
+
+    private fun askPermissions() {
+        val need = mutableListOf<String>()
+        if (Build.VERSION.SDK_INT >= 31) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT)
+                != PackageManager.PERMISSION_GRANTED
+            ) need.add(Manifest.permission.BLUETOOTH_CONNECT)
+        }
+        if (Build.VERSION.SDK_INT >= 33) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED
+            ) need.add(Manifest.permission.POST_NOTIFICATIONS)
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_AUDIO)
+                != PackageManager.PERMISSION_GRANTED
+            ) need.add(Manifest.permission.READ_MEDIA_AUDIO)
+        } else {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
+                != PackageManager.PERMISSION_GRANTED
+            ) need.add(Manifest.permission.READ_EXTERNAL_STORAGE)
+        }
+        if (need.isNotEmpty()) requestPermissions(need.toTypedArray(), 1002)
+    }
+
+    private fun toggleFav(station: Station) {
+        FavStore.toggleStation(this, station)
+        favUrls = FavStore.urls(this, BluetoothAutoPlayPlugin.KEY_FAVORITES)
+    }
+    private fun toggleFav(url: String) {
+        val s = (FavStore.stations(this) + stations + TabStore.extraStations(this, currentTab()))
+            .firstOrNull { it.url == url } ?: Station(url, stationName, currentGenre, currentCountry, currentFavicon, "fav")
+        toggleFav(s)
+    }
+
+    private fun toggleBest(uri: String) {
+        FavStore.toggle(this, BluetoothAutoPlayPlugin.KEY_LOCAL_BEST, uri)
+        bestUris = FavStore.urls(this, BluetoothAutoPlayPlugin.KEY_LOCAL_BEST)
+        customTabs = TabStore.customTabs(this)
+    }
+
+    private fun playCurrentOrFirst() {
+        val p = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+        val url = p.getString(BluetoothAutoPlayPlugin.KEY_URL, "") ?: ""
+        if (url.isNotBlank()) {
+            sendAction(RadioWatchService.ACTION_PLAY)
+            return
+        }
+        val locals = visibleLocal()
+        if (locals.isNotEmpty()) {
+            playLocal(locals, 0)
+            return
+        }
+        val radios = visibleRadio()
+        if (radios.isNotEmpty()) playRadio(radios, 0)
+    }
+
+    private fun playRadio(list: List<Station>, index: Int) {
+        if (index !in list.indices) return
+        val s = list[index]
+        stationName = s.name
+        trackTitle = ""
+        val urls = JSONArray(); val names = JSONArray(); val favs = JSONArray()
+        val genres = JSONArray(); val countries = JSONArray()
+        list.forEach {
+            urls.put(it.url); names.put(it.name); favs.put(it.favicon)
+            genres.put(it.genre); countries.put(it.country)
+        }
+        getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE).edit()
+            .putString(LocalMusicPlugin.KEY_MODE, "radio")
+            .putString(BluetoothAutoPlayPlugin.KEY_URL, s.url)
+            .putString(BluetoothAutoPlayPlugin.KEY_NAME, s.name)
+            .putString(BluetoothAutoPlayPlugin.KEY_FAVICON, s.favicon)
+            .putString(BluetoothAutoPlayPlugin.KEY_GENRE, s.genre)
+            .putString(BluetoothAutoPlayPlugin.KEY_COUNTRY, s.country)
+            .putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, true)
+            .putString(BluetoothAutoPlayPlugin.KEY_QUEUE_URLS, urls.toString())
+            .putString(BluetoothAutoPlayPlugin.KEY_QUEUE_NAMES, names.toString())
+            .putString(BluetoothAutoPlayPlugin.KEY_QUEUE_FAVICONS, favs.toString())
+            .putString(BluetoothAutoPlayPlugin.KEY_QUEUE_GENRES, genres.toString())
+            .putString(BluetoothAutoPlayPlugin.KEY_QUEUE_COUNTRIES, countries.toString())
+            .putInt(BluetoothAutoPlayPlugin.KEY_QUEUE_INDEX, index)
+            .commit()
+        startPlay(s.url, s.name)
+    }
+
+    private fun playLocal(list: List<LocalTrack>, index: Int) {
+        if (index !in list.indices) return
+        val t = list[index]
+        stationName = t.title
+        trackTitle = t.artist
+        val uris = JSONArray(); val titles = JSONArray()
+        val artists = JSONArray(); val albumIds = JSONArray()
+        list.forEach {
+            uris.put(it.uri); titles.put(it.title)
+            artists.put(it.artist); albumIds.put(it.albumId)
+        }
+        getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE).edit()
+            .putString(LocalMusicPlugin.KEY_MODE, "local")
+            .putString(LocalMusicPlugin.KEY_LOCAL_URIS, uris.toString())
+            .putString(LocalMusicPlugin.KEY_LOCAL_TITLES, titles.toString())
+            .putString(LocalMusicPlugin.KEY_LOCAL_ARTISTS, artists.toString())
+            .putString(LocalMusicPlugin.KEY_LOCAL_ALBUM_IDS, albumIds.toString())
+            .putInt(LocalMusicPlugin.KEY_LOCAL_INDEX, index)
+            .putString(BluetoothAutoPlayPlugin.KEY_URL, t.uri)
+            .putString(BluetoothAutoPlayPlugin.KEY_NAME, t.title)
+            .putString(BluetoothAutoPlayPlugin.KEY_TRACK, t.artist)
+            .putString(BluetoothAutoPlayPlugin.KEY_FAVICON, t.albumId)
+            .putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, true)
+            .commit()
+        startPlay(t.uri, t.title)
+    }
+
+    private fun startPlay(url: String, name: String) {
+        val i = Intent(this, RadioWatchService::class.java)
+        i.action = RadioWatchService.ACTION_PLAY_URL
+        i.putExtra(RadioWatchService.EXTRA_URL, url)
+        i.putExtra(RadioWatchService.EXTRA_NAME, name)
+        startForegroundService(i)
+        statusText = "start"
+        isLocalNow = url.startsWith("content:")
+        if (nowOpen) { posHandler.removeCallbacks(posTick); posHandler.post(posTick) }
+    }
+
+    private fun seekTo(pos: Long) {
+        holdSeek = true
+        posMs = pos
+        getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+            .edit().putLong("localPositionMs", pos).commit()
+        val i = Intent(this, RadioWatchService::class.java)
+        i.action = RadioWatchService.ACTION_SEEK
+        i.putExtra(RadioWatchService.EXTRA_POSITION_MS, pos)
+        startForegroundService(i)
+        posHandler.postDelayed({ holdSeek = false }, 400)
+    }
+
+    private fun sendAction(action: String) {
+        val i = Intent(this, RadioWatchService::class.java)
+        i.action = action
+        startForegroundService(i)
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
+@Composable
+fun StationScreen(
+    tabs: List<String>,
+    tabIndex: Int,
+    onTab: (Int) -> Unit,
+    onRevealCurrent: () -> Unit = {},
+    qName: String, onName: (String) -> Unit,
+    qCountry: String, onCountry: (String) -> Unit,
+    qGenre: String, onGenre: (String) -> Unit,
+    searchOpen: Boolean = false,
+    onSearchOpen: () -> Unit = {},
+    onSearch: () -> Unit,
+    suggestFor: String = "",
+    onSuggestFor: (String) -> Unit = {},
+    nameHints: List<String> = emptyList(),
+    countryHints: List<String> = emptyList(),
+    genreHints: List<String> = emptyList(),
+    onMore: () -> Unit,
+    canMore: Boolean,
+    countries: List<String>,
+    genres: List<String>,
+    onAddTab: () -> Unit,
+    pickStation: Station?,
+    targetTabs: List<String>,
+    onPickTabForStation: (String) -> Unit,
+    onCancelPick: () -> Unit,
+    newTabOpen: Boolean,
+    newTabName: String,
+    onNewTabName: (String) -> Unit,
+    onCreateTab: () -> Unit,
+    onCancelNewTab: () -> Unit,
+    customTabs: List<String>,
+    editTab: String?,
+    editName: String,
+    deleteArmed: Boolean,
+    onLongTab: (String) -> Unit,
+    onEditName: (String) -> Unit,
+    onRenameTab: () -> Unit,
+    onDeleteTab: () -> Unit,
+    onCancelEdit: () -> Unit,
+    radioRows: List<Station>,
+    localRows: List<LocalTrack>,
+    showLocal: Boolean,
+    name: String,
+    genre: String,
+    country: String,
+    favicon: String,
+    currentUrl: String,
+    accent: Long,
+    themeName: String,
+    nowOpen: Boolean,
+    onNow: () -> Unit,
+    onNowClose: () -> Unit,
+    onTheme: () -> Unit,
+    onDeleteStation: (Station) -> Unit,
+    pendingDelete: Station? = null,
+    onAskDelete: (Station) -> Unit = {},
+    onCancelDelete: () -> Unit = {},
+    track: String,
+    playing: Boolean,
+    status: String,
+    favUrls: Set<String>,
+    bestUris: Set<String>,
+    onPlayPause: () -> Unit,
+    onNext: () -> Unit,
+    onPrev: () -> Unit,
+    onPickRadio: (List<Station>, Int) -> Unit,
+    onPickLocal: (List<LocalTrack>, Int) -> Unit,
+    onToggleFav: (Station) -> Unit,
+    onAddToTab: (Station) -> Unit,
+    onDragStart: () -> Unit = {},
+    onMoveTo: (Int, Int) -> Unit = { _, _ -> },
+    onMoveLocalTo: (Int, Int) -> Unit = { _, _ -> },
+    onMoveStation: (Station, Int) -> Unit,
+    onSeek: (Long) -> Unit,
+    onShuffle: () -> Unit,
+    onRepeat: () -> Unit,
+    posMs: Long,
+    durMs: Long,
+    isLocalNow: Boolean,
+    onToggleBest: (LocalTrack) -> Unit,
+    onScan: () -> Unit,
+    menuOpen: Boolean,
+    onMenu: () -> Unit,
+    onCloseMenu: () -> Unit,
+    btWatch: Boolean,
+    onBt: () -> Unit,
+    sleepLabel: String,
+    sleepMenu: Boolean,
+    onSleepMenu: () -> Unit,
+    onSleep: (Int) -> Unit,
+    onExport: () -> Unit,
+    onImport: () -> Unit,
+) {
+    fun artUrl(raw: String): String {
+        if (raw.startsWith("http")) return raw
+        if (raw.isNotBlank() && raw != "0" && raw.all { it.isDigit() }) {
+            return "content://media/external/audio/albumart/$raw"
+        }
+        return raw
+    }
+    val acc = Color(accent)
+    val bg = Color(0xFF000000)
+    val card = Color(0xFF141418)
+    val text = Color(0xFFF2F2F5)
+    val muted = Color(0x9EF2F2F5)
+    var dropAt by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(-1) }
+    var dragging by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    val listState = rememberLazyListState()
+    val pullA = androidx.compose.runtime.remember { Animatable(560f) }
+    var sheetShow by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    val sheetScope = rememberCoroutineScope()
+    LaunchedEffect(nowOpen) {
+        if (nowOpen) {
+            sheetShow = true
+            pullA.animateTo(0f, tween(420))
+        } else if (!sheetShow) {
+            pullA.snapTo(560f)
+        }
+    }
+    val scope = rememberCoroutineScope()
+    Box(modifier = Modifier.fillMaxSize().background(bg).navigationBarsPadding()) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(top = 28.dp, start = 12.dp, end = 12.dp, bottom = 16.dp)
+    ) {
+        Box(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).height(48.dp)) {
+            Box(
+                modifier = Modifier.align(Alignment.CenterStart).size(40.dp).background(card, RoundedCornerShape(12.dp)).clickable { onTheme() },
+                contentAlignment = Alignment.Center
+            ) { Text("🌙") }
+            Text("Radio S O", color = Color.White, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.align(Alignment.Center))
+            Box(
+                modifier = Modifier.align(Alignment.CenterEnd).size(40.dp).background(card, RoundedCornerShape(12.dp)).clickable { onMenu() },
+                contentAlignment = Alignment.Center
+            ) { Text("⋯", color = Color.White) }
+        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(card, RoundedCornerShape(12.dp))
+                .clickable { onCloseMenu(); onNow() }
+                .pointerInput(Unit) {
+                    detectVerticalDragGestures { _, drag -> if (drag < -24) onNow() }
+                }
+                .padding(6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(72.dp)
+                    .background(Color(0xFF222228), RoundedCornerShape(6.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                if (artUrl(favicon).startsWith("http") || artUrl(favicon).startsWith("content:")) {
+                    AsyncImage(model = artUrl(favicon), contentDescription = null, modifier = Modifier.size(72.dp), contentScale = ContentScale.Crop)
+                } else {
+                    Text("🎵")
+                }
+            }
+            Column(modifier = Modifier.padding(start = 10.dp).weight(1f)) {
+                Text(name, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
+                Text("жанр: $genre", color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
+                Text("країна: $country", color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
+                Text("🎵 " + (if (track.isBlank()) "Трек: невідомо" else track), color = text, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
+                Text(status, color = acc, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            val inf = rememberInfiniteTransition(label = "viz")
+            val pulseA = inf.animateFloat(0.25f, 1f, infiniteRepeatable(tween(420), RepeatMode.Reverse), "a").value
+            val pulseB = inf.animateFloat(0.35f, 1f, infiniteRepeatable(tween(680), RepeatMode.Reverse), "b").value
+            val pulseC = inf.animateFloat(0.2f, 1f, infiniteRepeatable(tween(520), RepeatMode.Reverse), "c").value
+            Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.height(44.dp).padding(start = 6.dp)) {
+                listOf(0.35f, 0.7f, 0.5f, 1f, 0.45f, 0.85f, 0.4f, 0.65f, 0.55f).forEachIndexed { i, base ->
+                    val p = when (i % 3) { 0 -> pulseA; 1 -> pulseB; else -> pulseC }
+                    Box(
+                        modifier = Modifier.padding(horizontal = 1.2.dp).width(3.5.dp)
+                            .height((if (playing) 8f + 34f * base * p else 7f).dp)
+                            .background(acc.copy(alpha = if (playing) 0.55f + 0.45f * p else 0.35f), RoundedCornerShape(50))
+                    )
+                }
+            }
+        }
+        androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(8.dp))
+        if (tabs.getOrNull(tabIndex) == "search") {
+            Column(modifier = Modifier.padding(vertical = 4.dp).background(card, RoundedCornerShape(16.dp)).padding(10.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().clickable { onSearchOpen() }.padding(bottom = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("🔍  Пошук…", color = Color.White, modifier = Modifier.weight(1f))
+                    Text(if (searchOpen) "▴" else "▾", color = muted)
+                }
+                if (searchOpen) {
+                @Composable fun field(v: String, set: (String) -> Unit, lab: String, key: String, hints: List<String>) {
+                    OutlinedTextField(
+                        value = v,
+                        onValueChange = set,
+                        singleLine = true,
+                        label = { Text(lab) },
+                        modifier = Modifier.fillMaxWidth(),
+                        trailingIcon = {
+                            Text("▾", color = acc, modifier = Modifier.clickable { onSuggestFor(if (suggestFor == key) "" else key) }.padding(8.dp))
+                        }
+                    )
+                    if (suggestFor == key) {
+                        Column(modifier = Modifier.fillMaxWidth().background(card, RoundedCornerShape(6.dp)).padding(6.dp)) {
+                            hints.distinct().take(12).forEach { h ->
+                                Text(h, color = text, modifier = Modifier.fillMaxWidth().clickable { set(h); onSuggestFor("") }.padding(6.dp))
+                            }
+                        }
+                    }
+                }
+                field(qName, onName, "Назва", "name", nameHints)
+                field(qCountry, onCountry, "Країна", "country", countryHints)
+                field(qGenre, onGenre, "Жанр", "genre", genreHints)
+                Button(onClick = onSearch, modifier = Modifier.fillMaxWidth().padding(top = 8.dp).height(44.dp),
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = acc, contentColor = Color(0xFF0A0A0C))) { Text("🔍 Знайти") }
+                }
+            }
+        }
+        if (showLocal) {
+            if (localRows.isEmpty()) Text("Немає треків. Scan.", color = muted)
+            LazyColumn(modifier = Modifier.weight(1f), state = listState, userScrollEnabled = !dragging) {
+                itemsIndexed(localRows, key = { _, x -> x.uri }) { index, item ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(when { dropAt == index -> acc.copy(alpha = 0.40f); item.uri == currentUrl -> acc.copy(alpha = 0.18f); else -> Color.Transparent }, RoundedCornerShape(10.dp))
+                            .pointerInput(item.uri, index, tabs.getOrNull(tabIndex)) {
+                                if (tabs.getOrNull(tabIndex) != "best") return@pointerInput
+                                var acc = 0f
+                                detectDragGesturesAfterLongPress(
+                                    onDragStart = { acc = 0f; dropAt = index; dragging = true; onDragStart() },
+                                    onDragEnd = {
+                                        val dest = dropAt.coerceIn(0, localRows.lastIndex)
+                                        if (dest != index) onMoveLocalTo(index, dest)
+                                        acc = 0f
+                                        dropAt = -1
+                                        dragging = false
+                                    },
+                                    onDragCancel = { acc = 0f; dropAt = -1; dragging = false }
+                                ) { _, drag ->
+                                    acc += drag.y
+                                    dropAt = (index + (acc / 168f).toInt()).coerceIn(0, localRows.lastIndex)
+                                }
+                            }
+                            .clickable { onPickLocal(localRows, index) }
+                            .padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(modifier = Modifier.size(42.dp), contentAlignment = Alignment.Center) {
+                            val a = if (item.albumId.isNotBlank() && item.albumId != "0")
+                                "content://media/external/audio/albumart/${item.albumId}" else ""
+                            if (a.isNotEmpty()) AsyncImage(model = a, contentDescription = null, modifier = Modifier.size(42.dp), contentScale = ContentScale.Crop)
+                            else Text("🎵")
+                        }
+                        Column(modifier = Modifier.weight(1f).padding(start = 8.dp)) {
+                            Text(item.title, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(item.artist, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
+                        }
+                        Text(if (bestUris.contains(item.uri)) "★" else "☆", color = acc, modifier = Modifier.clickable { onToggleBest(item) }.padding(start = 10.dp, end = 2.dp), style = MaterialTheme.typography.headlineSmall)
+                    }
+                }
+            }
+        } else {
+            LazyColumn(modifier = Modifier.weight(1f), state = listState, userScrollEnabled = !dragging) {
+                itemsIndexed(radioRows, key = { i, s -> s.tab + s.url + i }) { index, s ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(when { dropAt == index -> acc.copy(alpha = 0.40f); s.url == currentUrl -> acc.copy(alpha = 0.18f); else -> Color.Transparent }, RoundedCornerShape(10.dp))
+                            .pointerInput(s.url, index) {
+                                var acc = 0f
+                                detectDragGesturesAfterLongPress(
+                                    onDragStart = { acc = 0f; dropAt = index; dragging = true; onDragStart() },
+                                    onDragEnd = {
+                                        val dest = dropAt.coerceIn(0, radioRows.lastIndex)
+                                        if (dest != index) onMoveTo(index, dest)
+                                        acc = 0f
+                                        dropAt = -1
+                                        dragging = false
+                                    },
+                                    onDragCancel = { acc = 0f; dropAt = -1; dragging = false }
+                                ) { _, drag ->
+                                    acc += drag.y
+                                    dropAt = (index + (acc / 168f).toInt()).coerceIn(0, radioRows.lastIndex)
+                                }
+                            }
+                            .clickable { onPickRadio(radioRows, index) }
+                            .padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(modifier = Modifier.size(42.dp), contentAlignment = Alignment.Center) {
+                            if (s.favicon.startsWith("http") && !s.favicon.contains("example.com")) {
+                                AsyncImage(model = s.favicon, contentDescription = null, modifier = Modifier.size(42.dp), contentScale = ContentScale.Crop)
+                            } else Text("🎵")
+                        }
+                        Column(modifier = Modifier.padding(start = 8.dp).weight(1f)) {
+                            Text(s.name, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text("${s.genre} · ${s.country}", color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
+                        }
+                        if (tabs.getOrNull(tabIndex) == "search") {
+                            Text("+", color = acc, modifier = Modifier.clickable { onAddToTab(s) }.padding(start = 8.dp), style = MaterialTheme.typography.headlineMedium)
+                        } else {
+                            Text(
+                                if (favUrls.contains(s.url)) "★" else "☆",
+                                color = acc,
+                                modifier = Modifier.clickable { onToggleFav(s) }.padding(start = 8.dp, end = 2.dp),
+                                style = MaterialTheme.typography.headlineSmall
+                            )
+                            if (tabs.getOrNull(tabIndex) != "fav") {
+                                Text("🗑", modifier = Modifier.clickable { onAskDelete(s) }.padding(start = 8.dp, end = 0.dp))
+                            }
+                        }
+                    }
+                }
+                if (canMore) {
+                    item { Button(onClick = onMore, modifier = Modifier.fillMaxWidth().padding(8.dp)) { Text("Ще 100") } }
+                }
+            }
+        }
+        if (tabs.isNotEmpty()) {
+            Row(
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 4.dp, bottom = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(11.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                tabs.forEachIndexed { i, tab ->
+                    val lab = when (tab.lowercase()) {
+                        "fav" -> "Best"
+                        "best" -> "Lokal Best"
+                        "local" -> "Lokal"
+                        "search" -> "SEARCH"
+                        "ukraine", "ua" -> "UA"
+                        "techno" -> "Techno"
+                        "trance" -> "Trance"
+                        "pop" -> "Pop"
+                        else -> tab.replaceFirstChar { it.uppercase() }
+                    }
+                    Text(
+                        lab,
+                        color = if (i == tabIndex) Color(0xFF0A0A0C) else muted,
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier
+                            .background(if (i == tabIndex) acc else card, RoundedCornerShape(6.dp))
+                            .border(1.dp, if (i == tabIndex) acc else Color(0xFF3A3A42), RoundedCornerShape(6.dp))
+                            .combinedClickable(onClick = {
+                                if (i == tabIndex) {
+                                    val idx = if (showLocal) localRows.indexOfFirst { it.uri == currentUrl }
+                                    else radioRows.indexOfFirst { it.url == currentUrl }
+                                    if (idx >= 0) scope.launch { listState.scrollToItem(idx) }
+                                } else onTab(i)
+                            }, onLongClick = { onLongTab(tab) })
+                            .padding(horizontal = 8.dp, vertical = 5.dp)
+                    )
+                }
+                Text("+", color = acc, modifier = Modifier.padding(horizontal = 6.dp).clickable { onAddTab() })
+            }
+        }
+        Box(
+            modifier = Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 8.dp).pointerInput(Unit) {
+                detectVerticalDragGestures(
+                    onDragEnd = {
+                        if (!nowOpen) {
+                            sheetScope.launch {
+                                if (pullA.value < 300f) {
+                                    pullA.animateTo(0f, tween(280))
+                                    onNow()
+                                } else {
+                                    pullA.animateTo(560f, tween(280))
+                                    sheetShow = false
+                                }
+                            }
+                        }
+                    }
+                ) { _, drag ->
+                    if (drag < 0 || sheetShow) {
+                        sheetShow = true
+                        sheetScope.launch { pullA.snapTo((pullA.value + drag).coerceIn(0f, 560f)) }
+                    }
+                }
+            }
+        ) {
+        Row(
+            modifier = Modifier.align(Alignment.Center).fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            listOf(Triple("⏮", 78, false), Triple(if (playing) "⏸" else "▶", 78, true), Triple("⏭", 78, false)).forEachIndexed { i, (lab, sz, main) ->
+                val act = if (i == 0) onPrev else if (i == 1) onPlayPause else onNext
+                Box(
+                    modifier = Modifier
+                        .size(sz.dp)
+                        .background(if (main) acc else card, RoundedCornerShape(16.dp))
+                        .clickable { act() },
+                    contentAlignment = Alignment.Center
+                ) { Text(lab, color = if (main) Color(0xFF0A0A0C) else Color.White, style = MaterialTheme.typography.headlineMedium) }
+            }
+            if (tabs.getOrNull(tabIndex) == "local") {
+                Box(
+                    modifier = Modifier.size(56.dp).background(Color(0xFF1A1A1E), RoundedCornerShape(12.dp)).clickable { onScan() },
+                    contentAlignment = Alignment.Center
+                ) { Text("Scan", color = acc, style = MaterialTheme.typography.bodySmall) }
+            }
+        }
+            Text("⌃", color = muted, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.align(Alignment.CenterEnd).clickable { onNow() }.padding(4.dp))
+        }
+    }
+    androidx.compose.animation.AnimatedVisibility(
+        visible = menuOpen,
+        modifier = Modifier.align(Alignment.TopEnd),
+        enter = fadeIn() + scaleIn(initialScale = 0.92f),
+        exit = fadeOut()
+    ) {
+        Box(modifier = Modifier.fillMaxSize().clickable { onCloseMenu() })
+        Column(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(top = 36.dp, end = 12.dp)
+                .width(200.dp)
+                .background(Color(0xFF16161A), RoundedCornerShape(12.dp))
+                .padding(8.dp)
+        ) {
+            Text((if (btWatch) "◉ BT увімк" else "○ BT вимк"), color = text, modifier = Modifier.fillMaxWidth().clickable { onBt(); onCloseMenu() }.padding(8.dp))
+            Text("◔ $sleepLabel", color = text, modifier = Modifier.fillMaxWidth().clickable { onSleepMenu() }.padding(8.dp))
+            if (sleepMenu) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(15, 30, 60, 0).forEach { m ->
+                        Text(if (m == 0) "off" else "${m}хв", color = acc, modifier = Modifier.clickable { onSleep(m); onCloseMenu() }.padding(6.dp))
+                    }
+                }
+            }
+            Text("↑ Експорт", color = text, modifier = Modifier.fillMaxWidth().clickable { onExport() }.padding(8.dp))
+            Text("↓ Імпорт", color = text, modifier = Modifier.fillMaxWidth().clickable { onImport() }.padding(8.dp))
+        }
+    }
+    }
+    if (pickStation != null) {
+        AlertDialog(
+            containerColor = Color(0xFF1A1A1E),
+            onDismissRequest = onCancelPick,
+            title = { Text("Виберіть вкладку") },
+            text = {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    targetTabs.forEach { tab ->
+                        Text(when (tab.lowercase()) { "fav"->"Best"; "best"->"Lokal Best"; "ukraine","ua"->"UA"; "techno"->"Techno"; "trance"->"Trance"; "pop"->"Pop"; else -> tab.replaceFirstChar { it.uppercase() } }, modifier = Modifier.fillMaxWidth().clickable { onPickTabForStation(tab) }.padding(12.dp))
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = { Button(onClick = onCancelPick) { Text("Скасувати") } }
+        )
+    }
+    if (newTabOpen) {
+        AlertDialog(
+            containerColor = Color(0xFF1A1A1E),
+            onDismissRequest = onCancelNewTab,
+            title = { Text("Створити нову вкладку") },
+            text = { OutlinedTextField(value = newTabName, onValueChange = onNewTabName, singleLine = true) },
+            confirmButton = { Button(onClick = onCreateTab) { Text("Створити") } },
+            dismissButton = { Button(onClick = onCancelNewTab) { Text("Скасувати") } }
+        )
+    }
+    if (editTab != null) {
+        AlertDialog(
+            containerColor = Color(0xFF1A1A1E),
+            onDismissRequest = onCancelEdit,
+            title = { Text("Вкладка $editTab") },
+            text = { OutlinedTextField(value = editName, onValueChange = onEditName, singleLine = true) },
+            confirmButton = { Button(onClick = onRenameTab) { Text("Перейменувати") } },
+            dismissButton = {
+                Row {
+                    Button(onClick = onDeleteTab) { Text(if (deleteArmed) "Точно видалити?" else "Видалити") }
+                    Button(onClick = onCancelEdit) { Text("Скасувати") }
+                }
+            }
+        )
+    }
+    if (pendingDelete != null) {
+        AlertDialog(
+            containerColor = Color(0xFF1A1A1E),
+            onDismissRequest = onCancelDelete,
+            title = { Text("Видалити станцію?") },
+            text = { Text(pendingDelete?.name ?: "") },
+            confirmButton = {
+                Button(onClick = {
+                    pendingDelete?.let { onDeleteStation(it) }
+                    onCancelDelete()
+                }) { Text("Так") }
+            },
+            dismissButton = { Button(onClick = onCancelDelete) { Text("Ні") } }
+        )
+    }
+    if (nowOpen || sheetShow) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            Box(modifier = Modifier.fillMaxSize().background(Color(0x88000000).copy(alpha = ((560f - pullA.value) / 560f * 0.55f).coerceIn(0f, 0.55f))).clickable {
+                sheetScope.launch {
+                    pullA.animateTo(560f, tween(300))
+                    sheetShow = false
+                    onNowClose()
+                }
+            })
+            var dx by androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+            val arts: List<String> = if (showLocal) {
+                localRows.map { if (it.albumId.isNotBlank() && it.albumId != "0") "content://media/external/audio/albumart/${it.albumId}" else "" }
+            } else radioRows.map { it.favicon }
+            val curI0 = if (showLocal) localRows.indexOfFirst { it.uri == currentUrl } else radioRows.indexOfFirst { it.url == currentUrl }
+            val curI = if (curI0 >= 0) curI0 else 0
+            val stripState = rememberLazyListState()
+            LaunchedEffect(curI) {
+                if (arts.isNotEmpty()) stripState.animateScrollToItem((curI - 3).coerceAtLeast(0))
+            }
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .fillMaxHeight(0.78f)
+                    .graphicsLayer {
+                        translationY = pullA.value
+                        val sc = (1f - pullA.value / 900f).coerceIn(0.45f, 1f)
+                        scaleX = sc; scaleY = sc
+                        transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 1f)
+                    }
+                    .background(Color(0xFF121214), RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp))
+                    .navigationBarsPadding()
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                    .pointerInput(Unit) {
+                        detectVerticalDragGestures(
+                            onDragEnd = {
+                                sheetScope.launch {
+                                    if (pullA.value > 140f) {
+                                        pullA.animateTo(560f, tween(280))
+                                        sheetShow = false
+                                        onNowClose()
+                                    } else pullA.animateTo(0f, tween(280))
+                                }
+                            }
+                        ) { _, drag -> sheetScope.launch { pullA.snapTo((pullA.value + drag).coerceIn(0f, 560f)) } }
+                    },
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(modifier = Modifier.padding(bottom = 8.dp).width(40.dp).height(4.dp).background(muted, RoundedCornerShape(2.dp)))
+                Box(
+                    modifier = Modifier.size(220.dp).graphicsLayer { translationX = dx * 0.35f }.pointerInput(currentUrl) {
+                        detectHorizontalDragGestures(
+                            onDragEnd = {
+                                if (dx < -70f) onNext() else if (dx > 70f) onPrev()
+                                dx = 0f
+                            },
+                            onDragCancel = { dx = 0f }
+                        ) { _, d -> dx += d }
+                    },
+                    contentAlignment = Alignment.Center
+                ) {
+                    val u = arts.getOrNull(curI) ?: favicon
+                    if (u.startsWith("http") || u.startsWith("content:")) {
+                        AsyncImage(model = u, contentDescription = null, modifier = Modifier.size(220.dp), contentScale = ContentScale.Crop)
+                    } else Text("🎵", style = MaterialTheme.typography.displayLarge)
+                }
+                Text(name, color = Color.White, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 8.dp))
+                Text(if (track.isBlank()) "🎵 Трек: невідомо" else "🎵 $track", color = muted, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                if (isLocalNow || currentUrl.startsWith("content:")) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(28.dp), modifier = Modifier.padding(6.dp)) {
+                        Text("🔀", modifier = Modifier.size(36.dp).clickable { onShuffle() }, style = MaterialTheme.typography.headlineSmall)
+                        Text("🔁", modifier = Modifier.size(36.dp).clickable { onRepeat() }, style = MaterialTheme.typography.headlineSmall)
+                    }
+                    val d = if (durMs > 0) durMs else 1L
+                    var slide by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(-1f) }
+                    androidx.compose.material3.Slider(
+                        value = if (slide >= 0f) slide else (posMs.toFloat() / d.toFloat()).coerceIn(0f, 1f),
+                        onValueChange = { slide = it },
+                        onValueChangeFinished = {
+                            if (durMs > 0 && slide >= 0f) onSeek((slide * durMs).toLong())
+                            slide = -1f
+                        }
+                    )
+                    fun fmt(ms: Long): String {
+                        val s = (ms / 1000).coerceAtLeast(0)
+                        return "%d:%02d".format(s / 60, s % 60)
+                    }
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(fmt(posMs), color = muted); Text(fmt(durMs), color = muted)
+                    }
+                }
+                androidx.compose.foundation.layout.Spacer(modifier = Modifier.weight(1f))
+                Box(modifier = Modifier.fillMaxWidth().height(56.dp), contentAlignment = Alignment.Center) {
+                    if (arts.isNotEmpty()) {
+                        LazyRow(state = stripState, modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            itemsIndexed(arts) { i, u ->
+                                Box(modifier = Modifier.size(48.dp).clickable {
+                                    if (showLocal && i in localRows.indices) onPickLocal(localRows, i)
+                                    else if (i in radioRows.indices) onPickRadio(radioRows, i)
+                                }, contentAlignment = Alignment.Center) {
+                                    if (u.startsWith("http") || u.startsWith("content:")) {
+                                        AsyncImage(model = u, contentDescription = null, modifier = Modifier.size(if (i == curI) 44.dp else 34.dp), contentScale = ContentScale.Crop)
+                                    } else Text("🎵")
+                                }
+                            }
+                        }
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(top = 4.dp, bottom = 6.dp)) {
+                    Box(modifier = Modifier.size(80.dp).background(Color(0xFF1A1A1E), RoundedCornerShape(16.dp)).clickable { onPrev() }, contentAlignment = Alignment.Center) { Text("⏮", style = MaterialTheme.typography.headlineMedium) }
+                    Box(modifier = Modifier.size(80.dp).background(acc, RoundedCornerShape(16.dp)).clickable { onPlayPause() }, contentAlignment = Alignment.Center) { Text(if (playing) "⏸" else "▶", color = Color(0xFF0A0A0C), style = MaterialTheme.typography.headlineMedium) }
+                    Box(modifier = Modifier.size(80.dp).background(Color(0xFF1A1A1E), RoundedCornerShape(16.dp)).clickable { onNext() }, contentAlignment = Alignment.Center) { Text("⏭", style = MaterialTheme.typography.headlineMedium) }
+                }
+            }
+        }
+    }
+
+}

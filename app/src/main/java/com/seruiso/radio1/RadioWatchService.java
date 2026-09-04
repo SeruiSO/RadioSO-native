@@ -449,6 +449,7 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
                 break;
             case AudioManager.AUDIOFOCUS_GAIN:
                 player.setVolume(1f);
+                if (!pausedByFocusLoss) break;
                 new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
                     if (player == null) return;
                     // Resume тільки якщо саме ми віддали фокус (дзвінок/відео),

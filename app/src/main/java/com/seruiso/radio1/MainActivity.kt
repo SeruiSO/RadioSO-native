@@ -1188,15 +1188,6 @@ fun StationScreen(
                 } else {
                     Text("🎵")
                 }
-                // ⌄ поверх іконки (не забирає висоту панелі)
-                Text(
-                    "⌄",
-                    color = muted.copy(alpha = 0.9f),
-                    style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .padding(top = 1.dp)
-                )
             }
             Column(modifier = Modifier.padding(start = 10.dp).weight(1f)) {
                 Text(name, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
@@ -1205,18 +1196,38 @@ fun StationScreen(
                 Text("🎵 " + (if (track.isBlank()) "Трек: невідомо" else track), color = text, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
                 Text(status, color = acc, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            val inf = rememberInfiniteTransition(label = "viz")
-            val pulseA = inf.animateFloat(0.25f, 1f, infiniteRepeatable(tween(420), RepeatMode.Reverse), "a").value
-            val pulseB = inf.animateFloat(0.35f, 1f, infiniteRepeatable(tween(680), RepeatMode.Reverse), "b").value
-            val pulseC = inf.animateFloat(0.2f, 1f, infiniteRepeatable(tween(520), RepeatMode.Reverse), "c").value
-            Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.height(44.dp).padding(start = 6.dp, end = 6.dp, bottom = 4.dp)) {
-                listOf(0.35f, 0.7f, 0.5f, 1f, 0.45f, 0.85f, 0.4f, 0.65f, 0.55f).forEachIndexed { i, base ->
-                    val p = when (i % 3) { 0 -> pulseA; 1 -> pulseB; else -> pulseC }
-                    Box(
-                        modifier = Modifier.padding(horizontal = 1.2.dp).width(3.5.dp)
-                            .height((if (playing) 8f + 34f * base * p else 7f).dp)
-                            .background(acc.copy(alpha = if (playing) 0.55f + 0.45f * p else 0.35f), RoundedCornerShape(50))
-                    )
+            Box(
+                modifier = Modifier
+                    .height(40.dp)
+                    .padding(start = 4.dp, end = 4.dp, bottom = 2.dp),
+                contentAlignment = Alignment.BottomCenter
+            ) {
+                // ⌄ поверх візуалізатора, без зайвої висоти
+                Text(
+                    "⌄",
+                    color = muted.copy(alpha = 0.85f),
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.align(Alignment.TopCenter)
+                )
+                val inf = rememberInfiniteTransition(label = "viz")
+                val pulseA = inf.animateFloat(0.25f, 1f, infiniteRepeatable(tween(420), RepeatMode.Reverse), "a").value
+                val pulseB = inf.animateFloat(0.35f, 1f, infiniteRepeatable(tween(680), RepeatMode.Reverse), "b").value
+                val pulseC = inf.animateFloat(0.2f, 1f, infiniteRepeatable(tween(520), RepeatMode.Reverse), "c").value
+                Row(
+                    verticalAlignment = Alignment.Bottom,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .height(36.dp)
+                        .padding(bottom = 0.dp)
+                ) {
+                    listOf(0.35f, 0.7f, 0.5f, 1f, 0.45f, 0.85f, 0.4f, 0.65f, 0.55f).forEachIndexed { i, base ->
+                        val p = when (i % 3) { 0 -> pulseA; 1 -> pulseB; else -> pulseC }
+                        Box(
+                            modifier = Modifier.padding(horizontal = 1.2.dp).width(3.5.dp)
+                                .height((if (playing) 8f + 28f * base * p else 6f).dp)
+                                .background(acc.copy(alpha = if (playing) 0.55f + 0.45f * p else 0.35f), RoundedCornerShape(50))
+                        )
+                    }
                 }
             }
             } // end info Row
@@ -1464,7 +1475,8 @@ fun StationScreen(
                     .fillMaxHeight(0.78f)
                     .graphicsLayer {
                         translationY = topA.value
-                        val sc = (1f + topA.value / 1200f).coerceIn(0.9f, 1f)
+                        // дзеркало низу: closed(-780)≈0.45, open(0)=1
+                        val sc = (1f + topA.value / 1400f).coerceIn(0.45f, 1f)
                         scaleX = sc; scaleY = sc
                         transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 0f)
                     }
@@ -1652,7 +1664,7 @@ fun StationScreen(
                         }
                     }
                 }
-                // Історія — 4 (1 ряд), місце під кнопки
+                // Історія — 8 (4×2)
                 if (!showLocal && recentStations.isNotEmpty()) {
                     Text(
                         "Історія",
@@ -1660,7 +1672,7 @@ fun StationScreen(
                         style = MaterialTheme.typography.labelMedium,
                         modifier = Modifier.padding(top = 6.dp, bottom = 4.dp)
                     )
-                    val hist = recentStations.filter { it.url != currentUrl }.take(4)
+                    val hist = recentStations.filter { it.url != currentUrl }.take(8)
                     hist.chunked(4).forEach { chunk ->
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
@@ -1691,88 +1703,69 @@ fun StationScreen(
                         }
                     }
                 }
-                // Куди несе ефір?
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 4.dp, bottom = 8.dp)
-                        .background(acc.copy(alpha = 0.22f), RoundedCornerShape(14.dp))
-                        .border(1.dp, acc.copy(alpha = 0.5f), RoundedCornerShape(14.dp))
-                        .clickable {
-                            if (showLocal) {
-                                if (localRows.isNotEmpty()) {
-                                    onPickLocal(localRows, localRows.indices.random())
-                                }
-                            } else {
-                                val pool = if (allRadio.isNotEmpty()) allRadio else radioRows
-                                val same = if (genre.isNotBlank())
-                                    pool.filter { it.genre.contains(genre, ignoreCase = true) }
-                                else pool
-                                val pick = if (same.isNotEmpty()) same else pool
-                                if (pick.isNotEmpty()) onPickRadio(listOf(pick.random()), 0)
-                            }
-                        }
-                        .padding(vertical = 14.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("✦  Куди несе ефір?", color = acc, style = MaterialTheme.typography.titleSmall)
-                }
-                // Дії: сон / BT / тема / імпорт / експорт (1 ряд)
+                // Дії: ряд1 сон/BT/тема, ряд2 експорт/імпорт
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 10.dp, bottom = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .background(Color(0xFF1A1A1E), RoundedCornerShape(12.dp))
                             .clickable { topSleepOpen = true }
-                            .padding(vertical = 10.dp),
+                            .padding(vertical = 12.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("◔ ${sleepLabel}", color = text, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text("◔ ${sleepLabel}", color = text, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .background(if (btWatch) acc.copy(alpha = 0.25f) else Color(0xFF1A1A1E), RoundedCornerShape(12.dp))
                             .clickable { onBt() }
-                            .padding(vertical = 10.dp),
+                            .padding(vertical = 12.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(if (btWatch) "◉ BT" else "○ BT", color = if (btWatch) acc else text, style = MaterialTheme.typography.labelMedium)
+                        Text(if (btWatch) "◉ BT вкл" else "○ BT викл", color = if (btWatch) acc else text, style = MaterialTheme.typography.labelLarge)
                     }
                     Box(
                         modifier = Modifier
-                            .weight(0.7f)
+                            .weight(0.75f)
                             .background(Color(0xFF1A1A1E), RoundedCornerShape(12.dp))
                             .clickable { topThemeOpen = true }
-                            .padding(vertical = 10.dp),
+                            .padding(vertical = 12.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("🌙", style = MaterialTheme.typography.titleSmall)
+                        Text("🌙", style = MaterialTheme.typography.titleMedium)
                     }
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     Box(
                         modifier = Modifier
-                            .weight(0.85f)
+                            .weight(1f)
                             .background(Color(0xFF1A1A1E), RoundedCornerShape(12.dp))
                             .clickable { onExport() }
-                            .padding(vertical = 10.dp),
+                            .padding(vertical = 12.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("↑", color = text, style = MaterialTheme.typography.titleSmall)
+                        Text("↑ Експорт", color = text, style = MaterialTheme.typography.labelLarge)
                     }
                     Box(
                         modifier = Modifier
-                            .weight(0.85f)
+                            .weight(1f)
                             .background(Color(0xFF1A1A1E), RoundedCornerShape(12.dp))
                             .clickable { onImport() }
-                            .padding(vertical = 10.dp),
+                            .padding(vertical = 12.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("↓", color = text, style = MaterialTheme.typography.titleSmall)
+                        Text("↓ Імпорт", color = text, style = MaterialTheme.typography.labelLarge)
                     }
                 }
             }
@@ -2066,20 +2059,30 @@ fun StationScreen(
                             .then(
                                 if (!showLocal && !isLocalNow && !currentUrl.startsWith("content:") && arts.isNotEmpty()) {
                                     Modifier.pointerInput(currentUrl, pageCount) {
-                                        var dx = 0f
                                         detectHorizontalDragGestures(
                                             onDragEnd = {
                                                 val page = pagerState.currentPage
-                                                when {
-                                                    dx < -48f && page < pageCount - 1 ->
-                                                        sheetScope.launch { pagerState.animateScrollToPage(page + 1) }
-                                                    dx > 48f && page > 0 ->
-                                                        sheetScope.launch { pagerState.animateScrollToPage(page - 1) }
+                                                val off = pagerState.currentPageOffsetFraction
+                                                val target = when {
+                                                    off > 0.25f -> (page + 1).coerceAtMost(pageCount - 1)
+                                                    off < -0.25f -> (page - 1).coerceAtLeast(0)
+                                                    else -> page
                                                 }
-                                                dx = 0f
+                                                sheetScope.launch { pagerState.animateScrollToPage(target) }
                                             },
-                                            onDragCancel = { dx = 0f }
-                                        ) { _, drag -> dx += drag }
+                                            onDragCancel = {
+                                                sheetScope.launch {
+                                                    pagerState.animateScrollToPage(pagerState.currentPage)
+                                                }
+                                            }
+                                        ) { _, drag ->
+                                            // тягнемо pager як свайп по іконці — видно сусідню
+                                            sheetScope.launch {
+                                                pagerState.scroll {
+                                                    scrollBy(-drag)
+                                                }
+                                            }
+                                        }
                                     }
                                 } else Modifier
                             ),
@@ -2140,20 +2143,29 @@ fun StationScreen(
                             .then(
                                 if (!showLocal && !isLocalNow && !currentUrl.startsWith("content:") && arts.isNotEmpty()) {
                                     Modifier.pointerInput(currentUrl + "t", pageCount) {
-                                        var dx = 0f
                                         detectHorizontalDragGestures(
                                             onDragEnd = {
                                                 val page = pagerState.currentPage
-                                                when {
-                                                    dx < -48f && page < pageCount - 1 ->
-                                                        sheetScope.launch { pagerState.animateScrollToPage(page + 1) }
-                                                    dx > 48f && page > 0 ->
-                                                        sheetScope.launch { pagerState.animateScrollToPage(page - 1) }
+                                                val off = pagerState.currentPageOffsetFraction
+                                                val target = when {
+                                                    off > 0.25f -> (page + 1).coerceAtMost(pageCount - 1)
+                                                    off < -0.25f -> (page - 1).coerceAtLeast(0)
+                                                    else -> page
                                                 }
-                                                dx = 0f
+                                                sheetScope.launch { pagerState.animateScrollToPage(target) }
                                             },
-                                            onDragCancel = { dx = 0f }
-                                        ) { _, drag -> dx += drag }
+                                            onDragCancel = {
+                                                sheetScope.launch {
+                                                    pagerState.animateScrollToPage(pagerState.currentPage)
+                                                }
+                                            }
+                                        ) { _, drag ->
+                                            sheetScope.launch {
+                                                pagerState.scroll {
+                                                    scrollBy(-drag)
+                                                }
+                                            }
+                                        }
                                     }
                                 } else Modifier
                             )

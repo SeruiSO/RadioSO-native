@@ -59,6 +59,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -1355,13 +1358,37 @@ fun StationScreen(
                     onNowClose()
                 }
             })
-            var dx by androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
             val arts: List<String> = if (showLocal) {
                 localRows.map { if (it.albumId.isNotBlank() && it.albumId != "0") "content://media/external/audio/albumart/${it.albumId}" else "" }
             } else radioRows.map { it.favicon }
             val curI0 = if (showLocal) localRows.indexOfFirst { it.uri == currentUrl } else radioRows.indexOfFirst { it.url == currentUrl }
             val curI = if (curI0 >= 0) curI0 else 0
             val stripState = rememberLazyListState()
+            val pageCount = arts.size.coerceAtLeast(1)
+            val pagerState = rememberPagerState(
+                initialPage = curI.coerceIn(0, pageCount - 1)
+            ) { pageCount }
+            // Зовнішня зміна станції (⏮⏭ / список) → підкрутити pager
+            LaunchedEffect(curI, pageCount) {
+                val target = curI.coerceIn(0, pageCount - 1)
+                if (!pagerState.isScrollInProgress && pagerState.settledPage != target) {
+                    pagerState.animateScrollToPage(target)
+                }
+            }
+            // Користувач доскролив сторінку → реально змінити станцію
+            LaunchedEffect(pagerState.settledPage) {
+                val i = pagerState.settledPage
+                if (arts.isEmpty()) return@LaunchedEffect
+                if (showLocal) {
+                    if (i in localRows.indices && localRows[i].uri != currentUrl) {
+                        onPickLocal(localRows, i)
+                    }
+                } else {
+                    if (i in radioRows.indices && radioRows[i].url != currentUrl) {
+                        onPickRadio(radioRows, i)
+                    }
+                }
+            }
             LaunchedEffect(curI) {
                 if (arts.isNotEmpty()) stripState.animateScrollToItem((curI - 3).coerceAtLeast(0))
             }
@@ -1395,53 +1422,54 @@ fun StationScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Box(modifier = Modifier.padding(bottom = 8.dp).width(40.dp).height(4.dp).background(muted, RoundedCornerShape(2.dp)))
-                // Вільна зона: свайп станцій (крім каруселі / слайдера / ⏮⏸⏭ нижче)
+                // Page-style: сусідні обкладинки видно, свайп як ViewPager
                 Column(
                     modifier = Modifier
                         .weight(1f, fill = true)
-                        .fillMaxWidth()
-                        .graphicsLayer { translationX = dx * 0.28f }
-                        .pointerInput(currentUrl, curI) {
-                            detectHorizontalDragGestures(
-                                onDragEnd = {
-                                    if (dx < -64f) onNext()
-                                    else if (dx > 64f) onPrev()
-                                    dx = 0f
-                                },
-                                onDragCancel = { dx = 0f }
-                            ) { _, d -> dx += d }
-                        },
+                        .fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Box(
-                        modifier = Modifier.size(220.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        AnimatedContent(
-                            targetState = currentUrl to (arts.getOrNull(curI) ?: favicon),
-                            transitionSpec = {
-                                val left = (dx < 0f) || (targetState.first != initialState.first && dx == 0f)
-                                // наступна ← зправа, попередня → зліва
-                                if (dx <= 0f) {
-                                    (slideInHorizontally { it / 2 } + fadeIn(tween(180))) togetherWith
-                                        (slideOutHorizontally { -it / 2 } + fadeOut(tween(180)))
+                    HorizontalPager(
+                        state = pagerState,
+                        contentPadding = PaddingValues(horizontal = 40.dp),
+                        pageSpacing = 12.dp,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(236.dp),
+                        key = { page ->
+                            if (showLocal) localRows.getOrNull(page)?.uri ?: "p$page"
+                            else radioRows.getOrNull(page)?.url ?: "p$page"
+                        }
+                    ) { page ->
+                        val dist = (pagerState.currentPage - page) + pagerState.currentPageOffsetFraction
+                        val abs = kotlin.math.abs(dist).coerceIn(0f, 1f)
+                        val scale = 1f - 0.14f * abs
+                        val alpha = 1f - 0.38f * abs
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(220.dp)
+                                    .graphicsLayer {
+                                        scaleX = scale
+                                        scaleY = scale
+                                        this.alpha = alpha
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                val u = arts.getOrNull(page) ?: ""
+                                if (u.startsWith("http") || u.startsWith("content:")) {
+                                    AsyncImage(
+                                        model = u,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(220.dp),
+                                        contentScale = ContentScale.Crop
+                                    )
                                 } else {
-                                    (slideInHorizontally { -it / 2 } + fadeIn(tween(180))) togetherWith
-                                        (slideOutHorizontally { it / 2 } + fadeOut(tween(180)))
-                                }.using(SizeTransform(clip = false))
-                            },
-                            label = "nowArt"
-                        ) { st ->
-                            val u = st.second
-                            if (u.startsWith("http") || u.startsWith("content:")) {
-                                AsyncImage(
-                                    model = u,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(220.dp),
-                                    contentScale = ContentScale.Crop
-                                )
-                            } else {
-                                Text("🎵", style = MaterialTheme.typography.displayLarge)
+                                    Text("🎵", style = MaterialTheme.typography.displayLarge)
+                                }
                             }
                         }
                     }

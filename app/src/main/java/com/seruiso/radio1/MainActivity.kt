@@ -1170,25 +1170,12 @@ fun StationScreen(
                     }
                 }
         ) {
-            // ⌄ притиснутий до верху інфо-панелі (над контентом і viz)
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(14.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    "⌄",
-                    color = muted.copy(alpha = 0.9f),
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(0.dp)
-                )
-            }
+            Box(modifier = Modifier.fillMaxWidth()) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { onCloseMenu(); onNow() }
-                    .padding(start = 6.dp, end = 6.dp, top = 0.dp, bottom = 4.dp),
+                    .padding(start = 6.dp, end = 6.dp, top = 6.dp, bottom = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
             Box(
@@ -1234,6 +1221,16 @@ fun StationScreen(
                 }
             }
             } // end info Row
+            // ⌄ у правому верхньому куті інфо-панелі (розмір як ⌃ знизу)
+            Text(
+                "⌄",
+                color = muted,
+                style = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 2.dp, end = 4.dp)
+            )
+            } // end info Box overlay
         } // end info Column
         androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(8.dp))
         if (tabs.getOrNull(tabIndex) == "search") {

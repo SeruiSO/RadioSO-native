@@ -354,8 +354,9 @@ class MainActivity : ComponentActivity() {
                             posHandler.post(posTick)
                         },
                         onNowClose = { nowOpen = false },
-                        onTheme = {
-                            val n = ThemeStore.next(this)
+                        onTheme = { /* picker inside StationScreen */ },
+                        onPickTheme = { id ->
+                            val n = ThemeStore.set(this, id)
                             themeId = n.id
                             accent = n.accent
                             statusText = n.id
@@ -908,6 +909,7 @@ fun StationScreen(
     onNow: () -> Unit,
     onNowClose: () -> Unit,
     onTheme: () -> Unit,
+    onPickTheme: (String) -> Unit = {},
     onDeleteStation: (Station) -> Unit,
     pendingDelete: Station? = null,
     onAskDelete: (Station) -> Unit = {},
@@ -1017,6 +1019,24 @@ fun StationScreen(
     val pullA = androidx.compose.runtime.remember { Animatable(560f) }
     var sheetShow by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     val sheetScope = rememberCoroutineScope()
+    // Верхня картка (свайп вниз по інфо-панелі)
+    val topA = androidx.compose.runtime.remember { Animatable(-520f) }
+    var topShow by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    var topSleepOpen by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    var topThemeOpen by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    var infoDy by androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+    fun openTopSheet() {
+        topShow = true
+        sheetScope.launch { topA.animateTo(0f, tween(320)) }
+    }
+    fun closeTopSheet() {
+        sheetScope.launch {
+            topA.animateTo(-520f, tween(280))
+            topShow = false
+            topSleepOpen = false
+            topThemeOpen = false
+        }
+    }
     LaunchedEffect(nowOpen) {
         if (nowOpen) {
             sheetShow = true
@@ -1034,7 +1054,7 @@ fun StationScreen(
     ) {
         Box(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).height(48.dp)) {
             Box(
-                modifier = Modifier.align(Alignment.CenterStart).size(40.dp).background(card, RoundedCornerShape(12.dp)).clickable { onTheme() },
+                modifier = Modifier.align(Alignment.CenterStart).size(40.dp).background(card, RoundedCornerShape(12.dp)).clickable { topThemeOpen = true },
                 contentAlignment = Alignment.Center
             ) { Text("🌙") }
             Text("Radio S O", color = Color.White, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.align(Alignment.Center))
@@ -1043,17 +1063,36 @@ fun StationScreen(
                 contentAlignment = Alignment.Center
             ) { Text("⋯", color = Color.White) }
         }
-        Row(
+        // Інфо-панель: тап → Now Playing; свайп вниз → верхня картка; свайп вгору більше не відкриває
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(card, RoundedCornerShape(12.dp))
-                .clickable { onCloseMenu(); onNow() }
                 .pointerInput(Unit) {
-                    detectVerticalDragGestures { _, drag -> if (drag < -24) onNow() }
+                    detectVerticalDragGestures(
+                        onDragEnd = {
+                            if (infoDy > 40f) openTopSheet()
+                            infoDy = 0f
+                        },
+                        onDragCancel = { infoDy = 0f }
+                    ) { _, drag -> infoDy += drag }
                 }
-                .padding(6.dp),
-            verticalAlignment = Alignment.CenterVertically
         ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("⌄", color = muted.copy(alpha = 0.75f), style = MaterialTheme.typography.labelLarge)
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onCloseMenu(); onNow() }
+                    .padding(start = 6.dp, end = 6.dp, bottom = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
             Box(
                 modifier = Modifier
                     .size(72.dp)
@@ -1077,7 +1116,7 @@ fun StationScreen(
             val pulseA = inf.animateFloat(0.25f, 1f, infiniteRepeatable(tween(420), RepeatMode.Reverse), "a").value
             val pulseB = inf.animateFloat(0.35f, 1f, infiniteRepeatable(tween(680), RepeatMode.Reverse), "b").value
             val pulseC = inf.animateFloat(0.2f, 1f, infiniteRepeatable(tween(520), RepeatMode.Reverse), "c").value
-            Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.height(44.dp).padding(start = 6.dp)) {
+            Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.height(44.dp).padding(start = 6.dp, end = 6.dp, bottom = 4.dp)) {
                 listOf(0.35f, 0.7f, 0.5f, 1f, 0.45f, 0.85f, 0.4f, 0.65f, 0.55f).forEachIndexed { i, base ->
                     val p = when (i % 3) { 0 -> pulseA; 1 -> pulseB; else -> pulseC }
                     Box(
@@ -1087,7 +1126,8 @@ fun StationScreen(
                     )
                 }
             }
-        }
+            } // end info Row
+        } // end info Column
         androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(8.dp))
         if (tabs.getOrNull(tabIndex) == "search") {
             Column(modifier = Modifier.padding(vertical = 4.dp).background(card, RoundedCornerShape(16.dp)).padding(10.dp)) {
@@ -1315,7 +1355,281 @@ fun StationScreen(
             Text("⌃", color = muted, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.align(Alignment.CenterEnd).clickable { onNow() }.padding(4.dp))
         }
     }
-    // Меню строго під кнопкою ⋯ (TopEnd + відступ під хедер)
+    // ===== Верхня картка (свайп вниз) =====
+    if (topShow) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0x88000000).copy(alpha = ((520f + topA.value) / 520f * 0.5f).coerceIn(0f, 0.5f)))
+                    .clickable { closeTopSheet() }
+            )
+            Column(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .graphicsLayer {
+                        translationY = topA.value
+                        val sc = (1f + topA.value / 900f).coerceIn(0.88f, 1f)
+                        scaleX = sc; scaleY = sc
+                        transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 0f)
+                    }
+                    .background(Color(0xFF121214), RoundedCornerShape(bottomStart = 22.dp, bottomEnd = 22.dp))
+                    .pointerInput(Unit) {
+                        detectVerticalDragGestures(
+                            onDragEnd = {
+                                sheetScope.launch {
+                                    if (topA.value < -120f) {
+                                        topA.animateTo(-520f, tween(260))
+                                        topShow = false
+                                    } else topA.animateTo(0f, tween(240))
+                                }
+                            }
+                        ) { _, drag ->
+                            sheetScope.launch { topA.snapTo((topA.value + drag).coerceIn(-520f, 0f)) }
+                        }
+                    }
+                    .padding(horizontal = 12.dp, vertical = 10.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .padding(bottom = 8.dp)
+                        .width(40.dp)
+                        .height(4.dp)
+                        .background(muted, RoundedCornerShape(2.dp))
+                        .align(Alignment.CenterHorizontally)
+                )
+                // Досьє
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(56.dp)
+                            .background(Color(0xFF222228), RoundedCornerShape(8.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        val u = artUrl(favicon)
+                        if (u.startsWith("http") || u.startsWith("content:")) {
+                            AsyncImage(model = u, contentDescription = null, modifier = Modifier.size(56.dp), contentScale = ContentScale.Crop)
+                        } else Text("🎵")
+                    }
+                    Column(modifier = Modifier.padding(start = 10.dp).weight(1f)) {
+                        Text(name, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            if (track.isBlank()) "🎵 Трек: невідомо" else "🎵 $track",
+                            color = muted,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        Text(status, color = acc, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall)
+                    }
+                    val isLocalCard = showLocal || currentUrl.startsWith("content:")
+                    Text(
+                        if (isLocalCard) {
+                            if (bestUris.contains(currentUrl)) "★" else "☆"
+                        } else {
+                            if (favUrls.contains(currentUrl)) "★" else "☆"
+                        },
+                        color = acc,
+                        style = MaterialTheme.typography.headlineMedium,
+                        modifier = Modifier
+                            .padding(start = 6.dp)
+                            .clickable {
+                                if (isLocalCard) {
+                                    localRows.firstOrNull { it.uri == currentUrl }?.let { onToggleBest(it) }
+                                } else {
+                                    onToggleFav(Station(currentUrl, name, genre, country, favicon, "fav"))
+                                }
+                            }
+                    )
+                }
+                // 3 станції того ж жанру з поточної вкладки
+                val similar = if (showLocal) {
+                    localRows.filter { it.uri != currentUrl }.take(3)
+                } else {
+                    val same = radioRows.filter {
+                        it.url != currentUrl && genre.isNotBlank() &&
+                            it.genre.equals(genre, ignoreCase = true)
+                    }
+                    (same + radioRows.filter { it.url != currentUrl && it !in same }).distinct().take(3)
+                }
+                if (similar.isNotEmpty()) {
+                    Text(
+                        if (showLocal) "Ще з вкладки" else if (genre.isNotBlank()) "Той самий жанр" else "З вкладки",
+                        color = muted,
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.padding(top = 12.dp, bottom = 6.dp)
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        similar.forEach { item ->
+                            val (icon, title, click) = if (showLocal) {
+                                val t = item as LocalTrack
+                                val iu = if (t.albumId.isNotBlank() && t.albumId != "0")
+                                    "content://media/external/audio/albumart/${t.albumId}" else ""
+                                Triple(iu, t.title, {
+                                    val idx = localRows.indexOfFirst { it.uri == t.uri }
+                                    if (idx >= 0) onPickLocal(localRows, idx)
+                                    closeTopSheet()
+                                })
+                            } else {
+                                val s = item as Station
+                                Triple(s.favicon, s.name, {
+                                    val idx = radioRows.indexOfFirst { it.url == s.url }
+                                    if (idx >= 0) onPickRadio(radioRows, idx)
+                                    closeTopSheet()
+                                })
+                            }
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { click() }
+                                    .padding(horizontal = 4.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(56.dp)
+                                        .background(Color(0xFF1A1A1E), RoundedCornerShape(10.dp)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (icon.startsWith("http") || icon.startsWith("content:")) {
+                                        AsyncImage(
+                                            model = icon,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(56.dp),
+                                            contentScale = ContentScale.Crop
+                                        )
+                                    } else Text("🎵")
+                                }
+                                Text(
+                                    title,
+                                    color = text,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    modifier = Modifier.padding(top = 4.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+                // Дії: сон / BT / тема
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 14.dp, bottom = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .background(Color(0xFF1A1A1E), RoundedCornerShape(12.dp))
+                            .clickable { topSleepOpen = true }
+                            .padding(vertical = 12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("◔ ${sleepLabel}", color = text, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .background(if (btWatch) acc.copy(alpha = 0.25f) else Color(0xFF1A1A1E), RoundedCornerShape(12.dp))
+                            .clickable { onBt() }
+                            .padding(vertical = 12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(if (btWatch) "◉ BT вкл" else "○ BT викл", color = if (btWatch) acc else text, style = MaterialTheme.typography.labelLarge)
+                    }
+                    Box(
+                        modifier = Modifier
+                            .weight(0.7f)
+                            .background(Color(0xFF1A1A1E), RoundedCornerShape(12.dp))
+                            .clickable { topThemeOpen = true }
+                            .padding(vertical = 12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("🌙", style = MaterialTheme.typography.titleMedium)
+                    }
+                }
+            }
+        }
+    }
+    if (topSleepOpen) {
+        AlertDialog(
+            containerColor = Color(0xFF1A1A1E),
+            onDismissRequest = { topSleepOpen = false },
+            title = { Text("Таймер сну", color = Color.White) },
+            text = {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    listOf(15, 30, 60, 0).forEach { m ->
+                        Box(
+                            modifier = Modifier
+                                .background(Color(0xFF121214), RoundedCornerShape(10.dp))
+                                .clickable {
+                                    onSleep(m)
+                                    topSleepOpen = false
+                                }
+                                .padding(horizontal = 14.dp, vertical = 10.dp)
+                        ) {
+                            Text(if (m == 0) "off" else "${m} хв", color = acc)
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                Button(onClick = { topSleepOpen = false }) { Text("Закрити") }
+            }
+        )
+    }
+    if (topThemeOpen) {
+        AlertDialog(
+            containerColor = Color(0xFF1A1A1E),
+            onDismissRequest = { topThemeOpen = false },
+            title = { Text("Тема", color = Color.White) },
+            text = {
+                Column {
+                    // 4 в ряд
+                    ThemeStore.all.chunked(4).forEach { row ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            row.forEach { th ->
+                                val selected = th.id == themeName
+                                Box(
+                                    modifier = Modifier
+                                        .size(44.dp)
+                                        .background(Color(th.accent), RoundedCornerShape(10.dp))
+                                        .then(
+                                            if (selected) Modifier.border(2.dp, Color.White, RoundedCornerShape(10.dp))
+                                            else Modifier
+                                        )
+                                        .clickable {
+                                            onPickTheme(th.id)
+                                            topThemeOpen = false
+                                        }
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                Button(onClick = { topThemeOpen = false }) { Text("Закрити") }
+            }
+        )
+    }
+    // Хедер 🌙 теж відкриває вибір теми
+
+        // Меню строго під кнопкою ⋯ (TopEnd + відступ під хедер)
     androidx.compose.animation.AnimatedVisibility(
         visible = menuOpen,
         modifier = Modifier.fillMaxSize(),

@@ -1170,11 +1170,25 @@ fun StationScreen(
                     }
                 }
         ) {
+            // ⌄ притиснутий до верху інфо-панелі (над контентом і viz)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(14.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    "⌄",
+                    color = muted.copy(alpha = 0.9f),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(0.dp)
+                )
+            }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { onCloseMenu(); onNow() }
-                    .padding(start = 6.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
+                    .padding(start = 6.dp, end = 6.dp, top = 0.dp, bottom = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
             Box(
@@ -1201,13 +1215,6 @@ fun StationScreen(
                     .padding(start = 4.dp, end = 4.dp, bottom = 1.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // ⌄ НАД візуалізатором
-                Text(
-                    "⌄",
-                    color = muted.copy(alpha = 0.85f),
-                    style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.padding(bottom = 1.dp)
-                )
                 val inf = rememberInfiniteTransition(label = "viz")
                 val pulseA = inf.animateFloat(0.25f, 1f, infiniteRepeatable(tween(420), RepeatMode.Reverse), "a").value
                 val pulseB = inf.animateFloat(0.35f, 1f, infiniteRepeatable(tween(680), RepeatMode.Reverse), "b").value
@@ -1468,7 +1475,7 @@ fun StationScreen(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .fillMaxWidth()
-                    .fillMaxHeight(0.90f)
+                    .fillMaxHeight(0.82f)
                     .graphicsLayer {
                         translationY = topA.value
                         // дзеркало низу: closed(-780)≈0.45, open(0)=1
@@ -1499,7 +1506,6 @@ fun StationScreen(
                     }
                     .padding(horizontal = 12.dp, vertical = 8.dp)
                     .padding(top = 4.dp)
-                    .verticalScroll(rememberScrollState())
             ) {
                 Box(
                     modifier = Modifier

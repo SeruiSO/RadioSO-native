@@ -54,6 +54,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -141,6 +142,7 @@ class MainActivity : ComponentActivity() {
     private var themeId by mutableStateOf("shadow-pulse")
     private var accent by mutableStateOf(0xFF00E676)
     private var nowOpen by mutableStateOf(false)
+    private var recentStations by mutableStateOf<List<Station>>(emptyList())
     private var pendingDelete by mutableStateOf<Station?>(null)
     private var holdSeek by mutableStateOf(false)
     private var posMs by mutableStateOf(0L)
@@ -205,6 +207,7 @@ class MainActivity : ComponentActivity() {
                     if (!holdSeek && pos >= 0) posMs = pos
                     if (dur > 0) durMs = dur
                     readPrefs()
+        if (recentStations.isEmpty()) recentStations = loadRecentStations()
                     isPlaying = intent.getBooleanExtra("playing", false)
                     if (isPlaying) statusText = "playing"
                     else if (statusText == "playing") statusText = "pause"
@@ -338,6 +341,8 @@ class MainActivity : ComponentActivity() {
                         },
                         onCancelEdit = { editTab = null; deleteArmed = false },
                         radioRows = visibleRadio(),
+                        allRadio = allRadioStations(),
+                        recentStations = recentStations,
                         localRows = visibleLocal(),
                         showLocal = tab == "local" || tab == "best",
                         name = stationName,
@@ -589,6 +594,68 @@ class MainActivity : ComponentActivity() {
 
     private fun currentTab(): String = uiTabs.getOrNull(tabIndex) ?: ""
 
+
+    private fun allRadioStations(): List<Station> {
+        addedRev
+        val deleted = TabStore.deleted(this)
+        val fav = (FavStore.stations(this) + stations.filter { favUrls.contains(it.url) })
+        val fromTabs = customTabs.flatMap { tab ->
+            stations.filter { it.tab == tab } + TabStore.extraStations(this, tab)
+        }
+        return (fav + fromTabs + searchRows + stations)
+            .distinctBy { it.url }
+            .filter { it.url !in deleted }
+    }
+
+    private fun loadRecentStations(): List<Station> {
+        return try {
+            val raw = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                .getString("recentStations", "[]") ?: "[]"
+            val arr = JSONArray(raw)
+            val out = mutableListOf<Station>()
+            for (i in 0 until arr.length()) {
+                val o = arr.optJSONObject(i) ?: continue
+                val url = o.optString("url")
+                if (url.isBlank()) continue
+                out.add(
+                    Station(
+                        url,
+                        o.optString("name", "Station"),
+                        o.optString("genre", ""),
+                        o.optString("country", ""),
+                        o.optString("favicon", ""),
+                        "recent"
+                    )
+                )
+            }
+            out.take(8)
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    private fun pushRecentStation(s: Station) {
+        if (s.url.isBlank() || s.url.startsWith("content:")) return
+        try {
+            val cur = loadRecentStations().filter { it.url != s.url }.toMutableList()
+            cur.add(0, s)
+            val arr = JSONArray()
+            cur.take(8).forEach { x ->
+                arr.put(
+                    org.json.JSONObject()
+                        .put("url", x.url)
+                        .put("name", x.name)
+                        .put("genre", x.genre)
+                        .put("country", x.country)
+                        .put("favicon", x.favicon)
+                )
+            }
+            getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                .edit().putString("recentStations", arr.toString()).apply()
+            recentStations = cur.take(8)
+        } catch (_: Exception) {}
+    }
+
     private fun visibleRadio(): List<Station> {
         addedRev // observe
         val deleted = TabStore.deleted(this)
@@ -771,6 +838,7 @@ class MainActivity : ComponentActivity() {
     private fun playRadio(list: List<Station>, index: Int) {
         if (index !in list.indices) return
         val s = list[index]
+        pushRecentStation(s)
         stationName = s.name
         trackTitle = ""
         val urls = JSONArray(); val names = JSONArray(); val favs = JSONArray()
@@ -896,6 +964,8 @@ fun StationScreen(
     onDeleteTab: () -> Unit,
     onCancelEdit: () -> Unit,
     radioRows: List<Station>,
+    allRadio: List<Station> = emptyList(),
+    recentStations: List<Station> = emptyList(),
     localRows: List<LocalTrack>,
     showLocal: Boolean,
     name: String,
@@ -1024,7 +1094,6 @@ fun StationScreen(
     var topShow by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     var topSleepOpen by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     var topThemeOpen by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
-    var similarMode by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("genre") } // genre | tab
     var infoDy by androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
     fun openTopSheet() {
         topShow = true
@@ -1072,11 +1141,28 @@ fun StationScreen(
                 .pointerInput(Unit) {
                     detectVerticalDragGestures(
                         onDragEnd = {
-                            if (infoDy > 40f) openTopSheet()
+                            sheetScope.launch {
+                                if (topA.value > -400f || infoDy > 40f) {
+                                    topShow = true
+                                    topA.animateTo(0f, tween(280))
+                                } else if (topShow) {
+                                    topA.animateTo(-780f, tween(260))
+                                    topShow = false
+                                }
+                            }
                             infoDy = 0f
                         },
                         onDragCancel = { infoDy = 0f }
-                    ) { _, drag -> infoDy += drag }
+                    ) { _, drag ->
+                        infoDy += drag
+                        if (drag > 0 || topShow) {
+                            topShow = true
+                            sheetScope.launch {
+                                val next = (-780f + infoDy.coerceAtLeast(0f)).coerceIn(-780f, 0f)
+                                topA.snapTo(next)
+                            }
+                        }
+                    }
                 }
         ) {
             Box(
@@ -1363,7 +1449,7 @@ fun StationScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(Color(0x88000000).copy(alpha = ((780f + topA.value) / 780f * 0.5f).coerceIn(0f, 0.5f)))
-                    .clickable { closeTopSheet() }
+                    // закриття лише свайпом вгору
             )
             Column(
                 modifier = Modifier
@@ -1377,6 +1463,7 @@ fun StationScreen(
                         transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 0f)
                     }
                     .background(Color(0xFF121214), RoundedCornerShape(bottomStart = 22.dp, bottomEnd = 22.dp))
+                    .statusBarsPadding()
                     .pointerInput(Unit) {
                         detectVerticalDragGestures(
                             onDragEnd = {
@@ -1384,6 +1471,8 @@ fun StationScreen(
                                     if (topA.value < -120f) {
                                         topA.animateTo(-780f, tween(260))
                                         topShow = false
+                                        topSleepOpen = false
+                                        topThemeOpen = false
                                     } else topA.animateTo(0f, tween(240))
                                 }
                             }
@@ -1392,6 +1481,7 @@ fun StationScreen(
                         }
                     }
                     .padding(horizontal = 12.dp, vertical = 10.dp)
+                    .padding(top = 6.dp)
             ) {
                 Box(
                     modifier = Modifier
@@ -1401,20 +1491,20 @@ fun StationScreen(
                         .background(muted, RoundedCornerShape(2.dp))
                         .align(Alignment.CenterHorizontally)
                 )
-                // Досьє
+                // Досьє (більше + маленький viz)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(56.dp)
+                            .size(72.dp)
                             .background(Color(0xFF222228), RoundedCornerShape(8.dp)),
                         contentAlignment = Alignment.Center
                     ) {
                         val u = artUrl(favicon)
                         if (u.startsWith("http") || u.startsWith("content:")) {
-                            AsyncImage(model = u, contentDescription = null, modifier = Modifier.size(56.dp), contentScale = ContentScale.Crop)
+                            AsyncImage(model = u, contentDescription = null, modifier = Modifier.size(72.dp), contentScale = ContentScale.Crop)
                         } else Text("🎵")
                     }
                     Column(modifier = Modifier.padding(start = 10.dp).weight(1f)) {
@@ -1427,6 +1517,20 @@ fun StationScreen(
                             style = MaterialTheme.typography.bodySmall
                         )
                         Text(status, color = acc, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall)
+                        val topInf = rememberInfiniteTransition(label = "topDossierViz")
+                        val pulseA = topInf.animateFloat(0.35f, 1f, infiniteRepeatable(tween(420), RepeatMode.Reverse), "pa").value
+                        val pulseB = topInf.animateFloat(0.45f, 1f, infiniteRepeatable(tween(560), RepeatMode.Reverse), "pb").value
+                        val pulseC = topInf.animateFloat(0.3f, 1f, infiniteRepeatable(tween(480), RepeatMode.Reverse), "pc").value
+                        Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.height(18.dp).padding(top = 4.dp)) {
+                            listOf(0.35f, 0.7f, 0.5f, 1f, 0.45f, 0.85f, 0.4f, 0.65f).forEachIndexed { i, base ->
+                                val p = when (i % 3) { 0 -> pulseA; 1 -> pulseB; else -> pulseC }
+                                Box(
+                                    modifier = Modifier.padding(horizontal = 1.dp).width(3.dp)
+                                        .height((if (playing) 4f + 12f * base * p else 3f).dp)
+                                        .background(acc.copy(alpha = if (playing) 0.55f + 0.45f * p else 0.35f), RoundedCornerShape(50))
+                                )
+                            }
+                        }
                     }
                     val isLocalCard = showLocal || currentUrl.startsWith("content:")
                     Text(
@@ -1436,7 +1540,7 @@ fun StationScreen(
                             if (favUrls.contains(currentUrl)) "★" else "☆"
                         },
                         color = acc,
-                        style = MaterialTheme.typography.headlineMedium,
+                        style = MaterialTheme.typography.headlineLarge,
                         modifier = Modifier
                             .padding(start = 6.dp)
                             .clickable {
@@ -1448,88 +1552,31 @@ fun StationScreen(
                             }
                     )
                 }
-                // Великий пульс / візуалізатор
-                val topInf = rememberInfiniteTransition(label = "topViz")
-                val tA = topInf.animateFloat(0.3f, 1f, infiniteRepeatable(tween(380), RepeatMode.Reverse), "ta").value
-                val tB = topInf.animateFloat(0.4f, 1f, infiniteRepeatable(tween(560), RepeatMode.Reverse), "tb").value
-                val tC = topInf.animateFloat(0.25f, 1f, infiniteRepeatable(tween(470), RepeatMode.Reverse), "tc").value
-                val tD = topInf.animateFloat(0.35f, 1f, infiniteRepeatable(tween(640), RepeatMode.Reverse), "td").value
-                Row(
-                    verticalAlignment = Alignment.Bottom,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(72.dp)
-                        .padding(top = 12.dp, bottom = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    val bases = listOf(0.35f, 0.7f, 0.5f, 1f, 0.45f, 0.85f, 0.4f, 0.65f, 0.55f, 0.9f, 0.5f, 0.75f, 0.4f, 0.6f, 0.8f, 0.45f)
-                    bases.forEachIndexed { i, base ->
-                        val p = when (i % 4) { 0 -> tA; 1 -> tB; 2 -> tC; else -> tD }
-                        val active = playing || status.lowercase().contains("connect") || status.lowercase().contains("buffer")
-                        Box(
-                            modifier = Modifier
-                                .width(5.dp)
-                                .height((if (active) 10f + 54f * base * p else 8f).dp)
-                                .background(
-                                    acc.copy(alpha = if (active) 0.45f + 0.55f * p else 0.28f),
-                                    RoundedCornerShape(50)
-                                )
-                        )
-                    }
-                }
-                // Чіпи: жанр / вкладка
-                val tabLabel = tabs.getOrNull(tabIndex)?.let { t ->
-                    when (t.lowercase()) {
-                        "fav" -> "Best"
-                        "best" -> "Lokal Best"
-                        "ukraine", "ua" -> "UA"
-                        "local" -> "Local"
-                        else -> t.replaceFirstChar { ch -> ch.uppercase() }
-                    }
-                } ?: "Вкладка"
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp, bottom = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(tabLabel, color = muted, style = MaterialTheme.typography.labelMedium)
-                    listOf("genre" to "Той самий жанр", "tab" to "З вкладки").forEach { (mode, label) ->
-                        val on = similarMode == mode
-                        Text(
-                            label,
-                            color = if (on) Color(0xFF0A0A0C) else text,
-                            style = MaterialTheme.typography.labelMedium,
-                            modifier = Modifier
-                                .background(if (on) acc else Color(0xFF1A1A1E), RoundedCornerShape(8.dp))
-                                .clickable { similarMode = mode }
-                                .padding(horizontal = 10.dp, vertical = 6.dp)
-                        )
-                    }
-                }
-                // 6 станцій (2×3)
+                // Схожі з усіх вкладок (той самий жанр), 8 шт, по 4 в ряд
+                val poolAll = (if (allRadio.isNotEmpty()) allRadio else radioRows).filter { it.url != currentUrl }
                 val similarRadio: List<Station> = if (!showLocal) {
-                    val pool = radioRows.filter { it.url != currentUrl }
-                    val same = if (similarMode == "genre" && genre.isNotBlank())
-                        pool.filter { it.genre.equals(genre, ignoreCase = true) }
+                    val same = if (genre.isNotBlank())
+                        poolAll.filter {
+                            it.genre.contains(genre, ignoreCase = true) ||
+                                (genre.isNotBlank() && it.genre.isNotBlank() && genre.contains(it.genre, ignoreCase = true))
+                        }
                     else emptyList()
-                    (same + pool.filter { s -> same.none { it.url == s.url } }).take(6)
+                    (same + poolAll.filter { s -> same.none { it.url == s.url } }).take(8)
                 } else emptyList()
                 val similarLocal: List<LocalTrack> = if (showLocal) {
-                    localRows.filter { it.uri != currentUrl }.take(6)
+                    localRows.filter { it.uri != currentUrl }.take(8)
                 } else emptyList()
                 val simCount = if (showLocal) similarLocal.size else similarRadio.size
                 if (simCount > 0) {
                     Text(
-                        if (showLocal) "Ще з вкладки"
-                        else if (similarMode == "genre" && genre.isNotBlank()) "Жанр: $genre"
-                        else "З вкладки",
+                        if (showLocal) "Ще з local"
+                        else if (genre.isNotBlank()) "Жанр: $genre"
+                        else "Схожі станції",
                         color = muted,
                         style = MaterialTheme.typography.labelMedium,
-                        modifier = Modifier.padding(top = 6.dp, bottom = 6.dp)
+                        modifier = Modifier.padding(top = 8.dp, bottom = 6.dp)
                     )
-                    val rows: List<List<Int>> = (0 until simCount).toList().chunked(3)
+                    val rows: List<List<Int>> = (0 until simCount).toList().chunked(4)
                     rows.forEach { idxs ->
                         Row(
                             modifier = Modifier
@@ -1539,31 +1586,30 @@ fun StationScreen(
                         ) {
                             idxs.forEach { i ->
                                 if (showLocal) {
-                                    val t = similarLocal[i]
-                                    val iu = if (t.albumId.isNotBlank() && t.albumId != "0")
-                                        "content://media/external/audio/albumart/${t.albumId}" else ""
+                                    val tr = similarLocal[i]
+                                    val iu = if (tr.albumId.isNotBlank() && tr.albumId != "0")
+                                        "content://media/external/audio/albumart/${tr.albumId}" else ""
                                     Column(
                                         horizontalAlignment = Alignment.CenterHorizontally,
                                         modifier = Modifier
                                             .weight(1f)
                                             .clickable {
-                                                val idx = localRows.indexOfFirst { it.uri == t.uri }
+                                                val idx = localRows.indexOfFirst { it.uri == tr.uri }
                                                 if (idx >= 0) onPickLocal(localRows, idx)
-                                                closeTopSheet()
                                             }
-                                            .padding(horizontal = 4.dp)
+                                            .padding(horizontal = 2.dp)
                                     ) {
                                         Box(
                                             modifier = Modifier
-                                                .size(64.dp)
-                                                .background(Color(0xFF1A1A1E), RoundedCornerShape(12.dp)),
+                                                .size(52.dp)
+                                                .background(Color(0xFF222228), RoundedCornerShape(8.dp)),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             if (iu.startsWith("content:")) {
-                                                AsyncImage(model = iu, contentDescription = null, modifier = Modifier.size(64.dp), contentScale = ContentScale.Crop)
+                                                AsyncImage(model = iu, contentDescription = null, modifier = Modifier.size(52.dp), contentScale = ContentScale.Crop)
                                             } else Text("🎵")
                                         }
-                                        Text(t.title, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 4.dp))
+                                        Text(tr.title, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 3.dp))
                                     }
                                 } else {
                                     val s = similarRadio[i]
@@ -1574,32 +1620,68 @@ fun StationScreen(
                                             .clickable {
                                                 val idx = radioRows.indexOfFirst { it.url == s.url }
                                                 if (idx >= 0) onPickRadio(radioRows, idx)
-                                                closeTopSheet()
+                                                else onPickRadio(listOf(s), 0)
                                             }
-                                            .padding(horizontal = 4.dp)
+                                            .padding(horizontal = 2.dp)
                                     ) {
                                         Box(
                                             modifier = Modifier
-                                                .size(64.dp)
-                                                .background(Color(0xFF1A1A1E), RoundedCornerShape(12.dp)),
+                                                .size(52.dp)
+                                                .background(Color(0xFF222228), RoundedCornerShape(8.dp)),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             if (s.favicon.startsWith("http") && !s.favicon.contains("example.com")) {
-                                                AsyncImage(model = s.favicon, contentDescription = null, modifier = Modifier.size(64.dp), contentScale = ContentScale.Crop)
+                                                AsyncImage(model = s.favicon, contentDescription = null, modifier = Modifier.size(52.dp), contentScale = ContentScale.Crop)
                                             } else Text("🎵")
                                         }
-                                        Text(s.name, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 4.dp))
+                                        Text(s.name, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 3.dp))
                                     }
                                 }
                             }
-                            // добиваємо порожні слоти щоб сітка не роз’їжджалась
-                            repeat(3 - idxs.size) {
-                                Box(modifier = Modifier.weight(1f))
-                            }
+                            repeat(4 - idxs.size) { Box(modifier = Modifier.weight(1f)) }
                         }
                     }
                 }
-                // Куди несе ефір? — random з поточної вкладки
+                // Історія — 8 останніх
+                if (!showLocal && recentStations.isNotEmpty()) {
+                    Text(
+                        "Історія",
+                        color = muted,
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.padding(top = 8.dp, bottom = 6.dp)
+                    )
+                    val hist = recentStations.filter { it.url != currentUrl }.take(8)
+                    hist.chunked(4).forEach { chunk ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            chunk.forEach { s ->
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable { onPickRadio(listOf(s), 0) }
+                                        .padding(horizontal = 2.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(52.dp)
+                                            .background(Color(0xFF222228), RoundedCornerShape(8.dp)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        if (s.favicon.startsWith("http") && !s.favicon.contains("example.com")) {
+                                            AsyncImage(model = s.favicon, contentDescription = null, modifier = Modifier.size(52.dp), contentScale = ContentScale.Crop)
+                                        } else Text("🎵")
+                                    }
+                                    Text(s.name, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 3.dp))
+                                }
+                            }
+                            repeat(4 - chunk.size) { Box(modifier = Modifier.weight(1f)) }
+                        }
+                    }
+                }
+                // Куди несе ефір?
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1610,13 +1692,14 @@ fun StationScreen(
                             if (showLocal) {
                                 if (localRows.isNotEmpty()) {
                                     onPickLocal(localRows, localRows.indices.random())
-                                    closeTopSheet()
                                 }
                             } else {
-                                if (radioRows.isNotEmpty()) {
-                                    onPickRadio(radioRows, radioRows.indices.random())
-                                    closeTopSheet()
-                                }
+                                val pool = if (allRadio.isNotEmpty()) allRadio else radioRows
+                                val same = if (genre.isNotBlank())
+                                    pool.filter { it.genre.contains(genre, ignoreCase = true) }
+                                else pool
+                                val pick = if (same.isNotEmpty()) same else pool
+                                if (pick.isNotEmpty()) onPickRadio(listOf(pick.random()), 0)
                             }
                         }
                         .padding(vertical = 14.dp),
@@ -1947,7 +2030,26 @@ fun StationScreen(
                         }
                     }
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp)
+                            .then(
+                                if (!showLocal && !isLocalNow && !currentUrl.startsWith("content:")) {
+                                    Modifier.pointerInput(currentUrl) {
+                                        var dx = 0f
+                                        detectHorizontalDragGestures(
+                                            onDragEnd = {
+                                                when {
+                                                    dx < -48f -> onNext()
+                                                    dx > 48f -> onPrev()
+                                                }
+                                                dx = 0f
+                                            },
+                                            onDragCancel = { dx = 0f }
+                                        ) { _, drag -> dx += drag }
+                                    }
+                                } else Modifier
+                            ),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
@@ -2000,7 +2102,25 @@ fun StationScreen(
                         color = muted,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .then(
+                                if (!showLocal && !isLocalNow && !currentUrl.startsWith("content:")) {
+                                    Modifier.pointerInput(currentUrl + "t") {
+                                        var dx = 0f
+                                        detectHorizontalDragGestures(
+                                            onDragEnd = {
+                                                when {
+                                                    dx < -48f -> onNext()
+                                                    dx > 48f -> onPrev()
+                                                }
+                                                dx = 0f
+                                            },
+                                            onDragCancel = { dx = 0f }
+                                        ) { _, drag -> dx += drag }
+                                    }
+                                } else Modifier
+                            )
                     )
                 }
                 if (isLocalNow || currentUrl.startsWith("content:")) {
@@ -2026,28 +2146,47 @@ fun StationScreen(
                         Text(fmt(posMs), color = muted); Text(fmt(durMs), color = muted)
                     }
                 }
-                Box(modifier = Modifier.fillMaxWidth().height(56.dp), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.fillMaxWidth().height(78.dp), contentAlignment = Alignment.Center) {
                     if (arts.isNotEmpty()) {
-                        LazyRow(state = stripState, modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        LazyRow(state = stripState, modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             itemsIndexed(arts) { i, u ->
-                                Box(modifier = Modifier.size(48.dp).clickable {
-                                    if (showLocal && i in localRows.indices) onPickLocal(localRows, i)
-                                    else if (i in radioRows.indices) onPickRadio(radioRows, i)
-                                }, contentAlignment = Alignment.Center) {
-                                    val target = if (i == curI) 46.dp else 34.dp
-                                    val sz by androidx.compose.animation.core.animateDpAsState(target, label = "stripSz")
-                                    val alpha by androidx.compose.animation.core.animateFloatAsState(if (i == curI) 1f else 0.72f, label = "stripA")
-                                    if (u.startsWith("http") || u.startsWith("content:")) {
-                                        AsyncImage(
-                                            model = u,
-                                            contentDescription = null,
-                                            modifier = Modifier
-                                                .size(sz)
-                                                
-                                                .graphicsLayer { this.alpha = alpha },
-                                            contentScale = ContentScale.Crop
-                                        )
-                                    } else Text("🎵", modifier = Modifier.graphicsLayer { this.alpha = alpha })
+                                val label = when {
+                                    showLocal && i in localRows.indices -> localRows[i].title
+                                    i in radioRows.indices -> radioRows[i].name
+                                    else -> ""
+                                }
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier
+                                        .width(64.dp)
+                                        .clickable {
+                                            if (showLocal && i in localRows.indices) onPickLocal(localRows, i)
+                                            else if (i in radioRows.indices) onPickRadio(radioRows, i)
+                                        }
+                                ) {
+                                    Box(modifier = Modifier.size(56.dp), contentAlignment = Alignment.Center) {
+                                        val target = if (i == curI) 54.dp else 42.dp
+                                        val sz by androidx.compose.animation.core.animateDpAsState(target, label = "stripSz")
+                                        val alpha by androidx.compose.animation.core.animateFloatAsState(if (i == curI) 1f else 0.72f, label = "stripA")
+                                        if (u.startsWith("http") || u.startsWith("content:")) {
+                                            AsyncImage(
+                                                model = u,
+                                                contentDescription = null,
+                                                modifier = Modifier
+                                                    .size(sz)
+                                                    .graphicsLayer { this.alpha = alpha },
+                                                contentScale = ContentScale.Crop
+                                            )
+                                        } else Text("🎵", modifier = Modifier.graphicsLayer { this.alpha = alpha })
+                                    }
+                                    Text(
+                                        label,
+                                        color = if (i == curI) text else muted,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        modifier = Modifier.padding(top = 2.dp).fillMaxWidth()
+                                    )
                                 }
                             }
                         }

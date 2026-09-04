@@ -1020,10 +1020,11 @@ fun StationScreen(
     var sheetShow by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     val sheetScope = rememberCoroutineScope()
     // Верхня картка (свайп вниз по інфо-панелі)
-    val topA = androidx.compose.runtime.remember { Animatable(-520f) }
+    val topA = androidx.compose.runtime.remember { Animatable(-780f) }
     var topShow by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     var topSleepOpen by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     var topThemeOpen by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    var similarMode by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("genre") } // genre | tab
     var infoDy by androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
     fun openTopSheet() {
         topShow = true
@@ -1031,7 +1032,7 @@ fun StationScreen(
     }
     fun closeTopSheet() {
         sheetScope.launch {
-            topA.animateTo(-520f, tween(280))
+            topA.animateTo(-780f, tween(280))
             topShow = false
             topSleepOpen = false
             topThemeOpen = false
@@ -1361,16 +1362,17 @@ fun StationScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color(0x88000000).copy(alpha = ((520f + topA.value) / 520f * 0.5f).coerceIn(0f, 0.5f)))
+                    .background(Color(0x88000000).copy(alpha = ((780f + topA.value) / 780f * 0.5f).coerceIn(0f, 0.5f)))
                     .clickable { closeTopSheet() }
             )
             Column(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .fillMaxWidth()
+                    .fillMaxHeight(0.78f)
                     .graphicsLayer {
                         translationY = topA.value
-                        val sc = (1f + topA.value / 900f).coerceIn(0.88f, 1f)
+                        val sc = (1f + topA.value / 1200f).coerceIn(0.9f, 1f)
                         scaleX = sc; scaleY = sc
                         transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 0f)
                     }
@@ -1380,13 +1382,13 @@ fun StationScreen(
                             onDragEnd = {
                                 sheetScope.launch {
                                     if (topA.value < -120f) {
-                                        topA.animateTo(-520f, tween(260))
+                                        topA.animateTo(-780f, tween(260))
                                         topShow = false
                                     } else topA.animateTo(0f, tween(240))
                                 }
                             }
                         ) { _, drag ->
-                            sheetScope.launch { topA.snapTo((topA.value + drag).coerceIn(-520f, 0f)) }
+                            sheetScope.launch { topA.snapTo((topA.value + drag).coerceIn(-780f, 0f)) }
                         }
                     }
                     .padding(horizontal = 12.dp, vertical = 10.dp)
@@ -1446,78 +1448,181 @@ fun StationScreen(
                             }
                     )
                 }
-                // 3 станції того ж жанру з поточної вкладки
-                val similar = if (showLocal) {
-                    localRows.filter { it.uri != currentUrl }.take(3)
-                } else {
-                    val same = radioRows.filter {
-                        it.url != currentUrl && genre.isNotBlank() &&
-                            it.genre.equals(genre, ignoreCase = true)
+                // Великий пульс / візуалізатор
+                val topInf = rememberInfiniteTransition(label = "topViz")
+                val tA = topInf.animateFloat(0.3f, 1f, infiniteRepeatable(tween(380), RepeatMode.Reverse), "ta").value
+                val tB = topInf.animateFloat(0.4f, 1f, infiniteRepeatable(tween(560), RepeatMode.Reverse), "tb").value
+                val tC = topInf.animateFloat(0.25f, 1f, infiniteRepeatable(tween(470), RepeatMode.Reverse), "tc").value
+                val tD = topInf.animateFloat(0.35f, 1f, infiniteRepeatable(tween(640), RepeatMode.Reverse), "td").value
+                Row(
+                    verticalAlignment = Alignment.Bottom,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(72.dp)
+                        .padding(top = 12.dp, bottom = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    val bases = listOf(0.35f, 0.7f, 0.5f, 1f, 0.45f, 0.85f, 0.4f, 0.65f, 0.55f, 0.9f, 0.5f, 0.75f, 0.4f, 0.6f, 0.8f, 0.45f)
+                    bases.forEachIndexed { i, base ->
+                        val p = when (i % 4) { 0 -> tA; 1 -> tB; 2 -> tC; else -> tD }
+                        val active = playing || status.lowercase().contains("connect") || status.lowercase().contains("buffer")
+                        Box(
+                            modifier = Modifier
+                                .width(5.dp)
+                                .height((if (active) 10f + 54f * base * p else 8f).dp)
+                                .background(
+                                    acc.copy(alpha = if (active) 0.45f + 0.55f * p else 0.28f),
+                                    RoundedCornerShape(50)
+                                )
+                        )
                     }
-                    (same + radioRows.filter { it.url != currentUrl && it !in same }).distinct().take(3)
                 }
-                if (similar.isNotEmpty()) {
+                // Чіпи: жанр / вкладка
+                val tabLabel = tabs.getOrNull(tabIndex)?.let { t ->
+                    when (t.lowercase()) {
+                        "fav" -> "Best"
+                        "best" -> "Lokal Best"
+                        "ukraine", "ua" -> "UA"
+                        "local" -> "Local"
+                        else -> t.replaceFirstChar { ch -> ch.uppercase() }
+                    }
+                } ?: "Вкладка"
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp, bottom = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(tabLabel, color = muted, style = MaterialTheme.typography.labelMedium)
+                    listOf("genre" to "Той самий жанр", "tab" to "З вкладки").forEach { (mode, label) ->
+                        val on = similarMode == mode
+                        Text(
+                            label,
+                            color = if (on) Color(0xFF0A0A0C) else text,
+                            style = MaterialTheme.typography.labelMedium,
+                            modifier = Modifier
+                                .background(if (on) acc else Color(0xFF1A1A1E), RoundedCornerShape(8.dp))
+                                .clickable { similarMode = mode }
+                                .padding(horizontal = 10.dp, vertical = 6.dp)
+                        )
+                    }
+                }
+                // 6 станцій (2×3)
+                val similarRadio: List<Station> = if (!showLocal) {
+                    val pool = radioRows.filter { it.url != currentUrl }
+                    val same = if (similarMode == "genre" && genre.isNotBlank())
+                        pool.filter { it.genre.equals(genre, ignoreCase = true) }
+                    else emptyList()
+                    (same + pool.filter { s -> same.none { it.url == s.url } }).take(6)
+                } else emptyList()
+                val similarLocal: List<LocalTrack> = if (showLocal) {
+                    localRows.filter { it.uri != currentUrl }.take(6)
+                } else emptyList()
+                val simCount = if (showLocal) similarLocal.size else similarRadio.size
+                if (simCount > 0) {
                     Text(
-                        if (showLocal) "Ще з вкладки" else if (genre.isNotBlank()) "Той самий жанр" else "З вкладки",
+                        if (showLocal) "Ще з вкладки"
+                        else if (similarMode == "genre" && genre.isNotBlank()) "Жанр: $genre"
+                        else "З вкладки",
                         color = muted,
                         style = MaterialTheme.typography.labelMedium,
-                        modifier = Modifier.padding(top = 12.dp, bottom = 6.dp)
+                        modifier = Modifier.padding(top = 6.dp, bottom = 6.dp)
                     )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly
-                    ) {
-                        similar.forEach { item ->
-                            val (icon, title, click) = if (showLocal) {
-                                val t = item as LocalTrack
-                                val iu = if (t.albumId.isNotBlank() && t.albumId != "0")
-                                    "content://media/external/audio/albumart/${t.albumId}" else ""
-                                Triple(iu, t.title, {
-                                    val idx = localRows.indexOfFirst { it.uri == t.uri }
-                                    if (idx >= 0) onPickLocal(localRows, idx)
-                                    closeTopSheet()
-                                })
-                            } else {
-                                val s = item as Station
-                                Triple(s.favicon, s.name, {
-                                    val idx = radioRows.indexOfFirst { it.url == s.url }
-                                    if (idx >= 0) onPickRadio(radioRows, idx)
-                                    closeTopSheet()
-                                })
-                            }
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clickable { click() }
-                                    .padding(horizontal = 4.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(56.dp)
-                                        .background(Color(0xFF1A1A1E), RoundedCornerShape(10.dp)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    if (icon.startsWith("http") || icon.startsWith("content:")) {
-                                        AsyncImage(
-                                            model = icon,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(56.dp),
-                                            contentScale = ContentScale.Crop
-                                        )
-                                    } else Text("🎵")
+                    val rows: List<List<Int>> = (0 until simCount).toList().chunked(3)
+                    rows.forEach { idxs ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            idxs.forEach { i ->
+                                if (showLocal) {
+                                    val t = similarLocal[i]
+                                    val iu = if (t.albumId.isNotBlank() && t.albumId != "0")
+                                        "content://media/external/audio/albumart/${t.albumId}" else ""
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clickable {
+                                                val idx = localRows.indexOfFirst { it.uri == t.uri }
+                                                if (idx >= 0) onPickLocal(localRows, idx)
+                                                closeTopSheet()
+                                            }
+                                            .padding(horizontal = 4.dp)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(64.dp)
+                                                .background(Color(0xFF1A1A1E), RoundedCornerShape(12.dp)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            if (iu.startsWith("content:")) {
+                                                AsyncImage(model = iu, contentDescription = null, modifier = Modifier.size(64.dp), contentScale = ContentScale.Crop)
+                                            } else Text("🎵")
+                                        }
+                                        Text(t.title, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 4.dp))
+                                    }
+                                } else {
+                                    val s = similarRadio[i]
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clickable {
+                                                val idx = radioRows.indexOfFirst { it.url == s.url }
+                                                if (idx >= 0) onPickRadio(radioRows, idx)
+                                                closeTopSheet()
+                                            }
+                                            .padding(horizontal = 4.dp)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(64.dp)
+                                                .background(Color(0xFF1A1A1E), RoundedCornerShape(12.dp)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            if (s.favicon.startsWith("http") && !s.favicon.contains("example.com")) {
+                                                AsyncImage(model = s.favicon, contentDescription = null, modifier = Modifier.size(64.dp), contentScale = ContentScale.Crop)
+                                            } else Text("🎵")
+                                        }
+                                        Text(s.name, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 4.dp))
+                                    }
                                 }
-                                Text(
-                                    title,
-                                    color = text,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    modifier = Modifier.padding(top = 4.dp)
-                                )
+                            }
+                            // добиваємо порожні слоти щоб сітка не роз’їжджалась
+                            repeat(3 - idxs.size) {
+                                Box(modifier = Modifier.weight(1f))
                             }
                         }
                     }
+                }
+                // Куди несе ефір? — random з поточної вкладки
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp, bottom = 8.dp)
+                        .background(acc.copy(alpha = 0.22f), RoundedCornerShape(14.dp))
+                        .border(1.dp, acc.copy(alpha = 0.5f), RoundedCornerShape(14.dp))
+                        .clickable {
+                            if (showLocal) {
+                                if (localRows.isNotEmpty()) {
+                                    onPickLocal(localRows, localRows.indices.random())
+                                    closeTopSheet()
+                                }
+                            } else {
+                                if (radioRows.isNotEmpty()) {
+                                    onPickRadio(radioRows, radioRows.indices.random())
+                                    closeTopSheet()
+                                }
+                            }
+                        }
+                        .padding(vertical = 14.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("✦  Куди несе ефір?", color = acc, style = MaterialTheme.typography.titleSmall)
                 }
                 // Дії: сон / BT / тема
                 Row(

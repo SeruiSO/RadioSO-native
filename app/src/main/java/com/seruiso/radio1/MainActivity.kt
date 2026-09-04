@@ -83,6 +83,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -90,6 +91,11 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.SizeTransform
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.Modifier
@@ -1252,32 +1258,35 @@ fun StationScreen(
             Text("⌃", color = muted, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.align(Alignment.CenterEnd).clickable { onNow() }.padding(4.dp))
         }
     }
+    // Меню строго під кнопкою ⋯ (TopEnd + відступ під хедер)
     androidx.compose.animation.AnimatedVisibility(
         visible = menuOpen,
-        modifier = Modifier.align(Alignment.TopEnd),
+        modifier = Modifier.fillMaxSize(),
         enter = fadeIn() + scaleIn(initialScale = 0.92f),
         exit = fadeOut()
     ) {
-        Box(modifier = Modifier.fillMaxSize().clickable { onCloseMenu() })
-        Column(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(top = 36.dp, end = 12.dp)
-                .width(200.dp)
-                .background(Color(0xFF16161A), RoundedCornerShape(12.dp))
-                .padding(8.dp)
-        ) {
-            Text((if (btWatch) "◉ BT увімк" else "○ BT вимк"), color = text, modifier = Modifier.fillMaxWidth().clickable { onBt(); onCloseMenu() }.padding(8.dp))
-            Text("◔ $sleepLabel", color = text, modifier = Modifier.fillMaxWidth().clickable { onSleepMenu() }.padding(8.dp))
-            if (sleepMenu) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(15, 30, 60, 0).forEach { m ->
-                        Text(if (m == 0) "off" else "${m}хв", color = acc, modifier = Modifier.clickable { onSleep(m); onCloseMenu() }.padding(6.dp))
+        Box(modifier = Modifier.fillMaxSize()) {
+            Box(modifier = Modifier.fillMaxSize().clickable { onCloseMenu() })
+            Column(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 76.dp, end = 12.dp)
+                    .width(200.dp)
+                    .background(Color(0xFF16161A), RoundedCornerShape(12.dp))
+                    .padding(8.dp)
+            ) {
+                Text((if (btWatch) "◉ BT увімк" else "○ BT вимк"), color = text, modifier = Modifier.fillMaxWidth().clickable { onBt(); onCloseMenu() }.padding(8.dp))
+                Text("◔ $sleepLabel", color = text, modifier = Modifier.fillMaxWidth().clickable { onSleepMenu() }.padding(8.dp))
+                if (sleepMenu) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(15, 30, 60, 0).forEach { m ->
+                            Text(if (m == 0) "off" else "${m}хв", color = acc, modifier = Modifier.clickable { onSleep(m); onCloseMenu() }.padding(6.dp))
+                        }
                     }
                 }
+                Text("↑ Експорт", color = text, modifier = Modifier.fillMaxWidth().clickable { onExport() }.padding(8.dp))
+                Text("↓ Імпорт", color = text, modifier = Modifier.fillMaxWidth().clickable { onImport() }.padding(8.dp))
             }
-            Text("↑ Експорт", color = text, modifier = Modifier.fillMaxWidth().clickable { onExport() }.padding(8.dp))
-            Text("↓ Імпорт", color = text, modifier = Modifier.fillMaxWidth().clickable { onImport() }.padding(8.dp))
         }
     }
     }
@@ -1386,25 +1395,113 @@ fun StationScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Box(modifier = Modifier.padding(bottom = 8.dp).width(40.dp).height(4.dp).background(muted, RoundedCornerShape(2.dp)))
-                Box(
-                    modifier = Modifier.size(220.dp).graphicsLayer { translationX = dx * 0.35f }.pointerInput(currentUrl) {
-                        detectHorizontalDragGestures(
-                            onDragEnd = {
-                                if (dx < -70f) onNext() else if (dx > 70f) onPrev()
-                                dx = 0f
-                            },
-                            onDragCancel = { dx = 0f }
-                        ) { _, d -> dx += d }
-                    },
-                    contentAlignment = Alignment.Center
+                // Вільна зона: свайп станцій (крім каруселі / слайдера / ⏮⏸⏭ нижче)
+                Column(
+                    modifier = Modifier
+                        .weight(1f, fill = true)
+                        .fillMaxWidth()
+                        .graphicsLayer { translationX = dx * 0.28f }
+                        .pointerInput(currentUrl, curI) {
+                            detectHorizontalDragGestures(
+                                onDragEnd = {
+                                    if (dx < -64f) onNext()
+                                    else if (dx > 64f) onPrev()
+                                    dx = 0f
+                                },
+                                onDragCancel = { dx = 0f }
+                            ) { _, d -> dx += d }
+                        },
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    val u = arts.getOrNull(curI) ?: favicon
-                    if (u.startsWith("http") || u.startsWith("content:")) {
-                        AsyncImage(model = u, contentDescription = null, modifier = Modifier.size(220.dp), contentScale = ContentScale.Crop)
-                    } else Text("🎵", style = MaterialTheme.typography.displayLarge)
+                    Box(
+                        modifier = Modifier.size(220.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        AnimatedContent(
+                            targetState = currentUrl to (arts.getOrNull(curI) ?: favicon),
+                            transitionSpec = {
+                                val left = (dx < 0f) || (targetState.first != initialState.first && dx == 0f)
+                                // наступна ← зправа, попередня → зліва
+                                if (dx <= 0f) {
+                                    (slideInHorizontally { it / 2 } + fadeIn(tween(180))) togetherWith
+                                        (slideOutHorizontally { -it / 2 } + fadeOut(tween(180)))
+                                } else {
+                                    (slideInHorizontally { -it / 2 } + fadeIn(tween(180))) togetherWith
+                                        (slideOutHorizontally { it / 2 } + fadeOut(tween(180)))
+                                }.using(SizeTransform(clip = false))
+                            },
+                            label = "nowArt"
+                        ) { st ->
+                            val u = st.second
+                            if (u.startsWith("http") || u.startsWith("content:")) {
+                                AsyncImage(
+                                    model = u,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(220.dp),
+                                    contentScale = ContentScale.Crop
+                                )
+                            } else {
+                                Text("🎵", style = MaterialTheme.typography.displayLarge)
+                            }
+                        }
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            name,
+                            color = Color.White,
+                            style = MaterialTheme.typography.titleLarge,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                        val isLocalCard = showLocal || currentUrl.startsWith("content:")
+                        if (isLocalCard) {
+                            val on = bestUris.contains(currentUrl)
+                            Text(
+                                if (on) "★" else "☆",
+                                color = acc,
+                                style = MaterialTheme.typography.headlineMedium,
+                                modifier = Modifier
+                                    .padding(start = 8.dp)
+                                    .clickable {
+                                        val t = localRows.firstOrNull { it.uri == currentUrl }
+                                        if (t != null) onToggleBest(t)
+                                    }
+                            )
+                        } else {
+                            val on = favUrls.contains(currentUrl)
+                            Text(
+                                if (on) "★" else "☆",
+                                color = acc,
+                                style = MaterialTheme.typography.headlineMedium,
+                                modifier = Modifier
+                                    .padding(start = 8.dp)
+                                    .clickable {
+                                        onToggleFav(
+                                            Station(
+                                                currentUrl,
+                                                name,
+                                                genre,
+                                                country,
+                                                favicon,
+                                                "fav"
+                                            )
+                                        )
+                                    }
+                            )
+                        }
+                    }
+                    Text(
+                        if (track.isBlank()) "🎵 Трек: невідомо" else "🎵 $track",
+                        color = muted,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
-                Text(name, color = Color.White, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 8.dp))
-                Text(if (track.isBlank()) "🎵 Трек: невідомо" else "🎵 $track", color = muted, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 if (isLocalNow || currentUrl.startsWith("content:")) {
                     Row(horizontalArrangement = Arrangement.spacedBy(28.dp), modifier = Modifier.padding(6.dp)) {
                         Text("🔀", modifier = Modifier.size(36.dp).clickable { onShuffle() }, style = MaterialTheme.typography.headlineSmall)
@@ -1428,7 +1525,6 @@ fun StationScreen(
                         Text(fmt(posMs), color = muted); Text(fmt(durMs), color = muted)
                     }
                 }
-                androidx.compose.foundation.layout.Spacer(modifier = Modifier.weight(1f))
                 Box(modifier = Modifier.fillMaxWidth().height(56.dp), contentAlignment = Alignment.Center) {
                     if (arts.isNotEmpty()) {
                         LazyRow(state = stripState, modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -1437,9 +1533,20 @@ fun StationScreen(
                                     if (showLocal && i in localRows.indices) onPickLocal(localRows, i)
                                     else if (i in radioRows.indices) onPickRadio(radioRows, i)
                                 }, contentAlignment = Alignment.Center) {
+                                    val target = if (i == curI) 46.dp else 34.dp
+                                    val sz by androidx.compose.animation.core.animateDpAsState(target, label = "stripSz")
+                                    val alpha by androidx.compose.animation.core.animateFloatAsState(if (i == curI) 1f else 0.72f, label = "stripA")
                                     if (u.startsWith("http") || u.startsWith("content:")) {
-                                        AsyncImage(model = u, contentDescription = null, modifier = Modifier.size(if (i == curI) 44.dp else 34.dp), contentScale = ContentScale.Crop)
-                                    } else Text("🎵")
+                                        AsyncImage(
+                                            model = u,
+                                            contentDescription = null,
+                                            modifier = Modifier
+                                                .size(sz)
+                                                
+                                                .graphicsLayer { this.alpha = alpha },
+                                            contentScale = ContentScale.Crop
+                                        )
+                                    } else Text("🎵", modifier = Modifier.graphicsLayer { this.alpha = alpha })
                                 }
                             }
                         }

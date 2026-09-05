@@ -288,6 +288,7 @@ class MainActivity : ComponentActivity() {
                         genreHints = SearchHints.genres,
                         onMore = { loadMoreSearch() },
                         canMore = searchShown < searchAll.size && currentTab() == "search",
+                        canMoreSearch = searchShown < searchAll.size,
                         countries = RadioBrowser.countries,
                         genres = RadioBrowser.genres,
                         onAddTab = { newTabOpen = true },
@@ -954,6 +955,7 @@ fun StationScreen(
     genreHints: List<String> = emptyList(),
     onMore: () -> Unit,
     canMore: Boolean,
+    canMoreSearch: Boolean = false,
     countries: List<String>,
     genres: List<String>,
     onAddTab: () -> Unit,
@@ -1836,51 +1838,67 @@ fun StationScreen(
         }
     }
     // ===== Права картка пошуку (свайп з правого краю) =====
-    // Зона свайпу: праві ~20% екрану (зірочка/корзина). Не зникає під час жесту — без «2 етапів».
+    // Вузька смуга (~40dp) біля правого краю — ★/🗑 лишаються клікабельні лівіше.
+    // Картка їде за пальцем; відпуск / швидкий свайп → відкрити.
     if (!topShow && !nowOpen && !sheetShow) {
+        val dens = LocalDensity.current
+        val cfg = LocalConfiguration.current
+        val sheetWpx = with(dens) { (cfg.screenWidthDp * 0.80f).dp.toPx() }
         Box(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
                 .fillMaxHeight()
-                .fillMaxWidth(0.20f)
-                .pointerInput(Unit) {
+                .width(40.dp)
+                .pointerInput(sheetWpx) {
                     var dragged = false
+                    var totalDx = 0f
+                    var lastT = 0L
+                    var velPx = 0f
                     detectHorizontalDragGestures(
+                        onDragStart = {
+                            totalDx = 0f
+                            velPx = 0f
+                            lastT = System.nanoTime()
+                        },
                         onDragEnd = {
                             sheetScope.launch {
-                                if (dragged && rightA.value < 0.55f) {
+                                val fast = totalDx < -64f && velPx > 900f
+                                val enough = rightA.value < 0.62f
+                                if (dragged && (enough || fast)) {
                                     rightShow = true
                                     rightSearchOpen = true
-                                    rightA.animateTo(0f, tween(260))
+                                    rightA.animateTo(0f, tween(250))
                                 } else {
-                                    rightA.animateTo(1f, tween(240))
+                                    rightA.animateTo(1f, tween(230))
                                     rightShow = false
                                 }
                             }
                             dragged = false
+                            totalDx = 0f
                         },
                         onDragCancel = {
                             dragged = false
+                            totalDx = 0f
                             sheetScope.launch {
-                                if (rightA.value >= 0.55f) {
-                                    rightA.animateTo(1f, tween(200))
-                                    rightShow = false
-                                }
+                                rightA.animateTo(1f, tween(200))
+                                rightShow = false
                             }
                         }
-                    ) { _, drag ->
-                        // вліво (drag<0) відкриває; один безперервний жест
-                        if (drag < -1f || dragged) {
+                    ) { change, drag ->
+                        val now = System.nanoTime()
+                        val dt = ((now - lastT) / 1_000_000_000f).coerceAtLeast(0.001f)
+                        lastT = now
+                        totalDx += drag
+                        if (drag < 0f) velPx = (-drag) / dt
+                        if (drag < -0.5f || dragged) {
                             if (!dragged) {
                                 dragged = true
                                 rightShow = true
                                 rightSearchOpen = true
                                 onRightOpen()
                             }
-                            // size.width тут = 20% екрану → повна ширина ≈ size.width/0.2
-                            val full = (size.width / 0.20f).coerceAtLeast(1f)
-                            val next = (rightA.value + drag / full).coerceIn(0f, 1f)
-                            // snap синхронно в тому ж жесті (без окремого launch-стрибка)
+                            // 1:1 з пальцем відносно ширини картки
+                            val next = (rightA.value + drag / sheetWpx).coerceIn(0f, 1f)
                             sheetScope.launch { rightA.snapTo(next) }
                         }
                     }
@@ -2088,14 +2106,22 @@ fun StationScreen(
                             )
                         }
                     }
-                    if (canMore) {
+                    if (canMoreSearch && rightRows.isNotEmpty()) {
                         item {
                             Button(
                                 onClick = onMore,
-                                modifier = Modifier.fillMaxWidth().padding(8.dp)
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp)
+                                    .height(44.dp),
+                                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                                    containerColor = acc,
+                                    contentColor = Color(0xFF0A0A0C)
+                                )
                             ) { Text("Ще 100") }
                         }
                     }
+                    item { androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(16.dp)) }
                 }
             }
         }

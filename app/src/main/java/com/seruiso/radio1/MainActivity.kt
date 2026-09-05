@@ -1849,72 +1849,11 @@ fun StationScreen(
         }
     }
     // ===== Права картка пошуку =====
-    // Смуга ВСЕГДИ в композиції (не зникає під час жесту → немає onDragCancel → «зліт»).
-    if (!topShow && !nowOpen && !sheetShow) {
-        val dens = LocalDensity.current
-        val cfg = LocalConfiguration.current
-        val sheetWpxEdge = with(dens) { (cfg.screenWidthDp * 0.80f).dp.toPx() }
-        Box(
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .fillMaxHeight()
-                .width(22.dp)
-                .pointerInput(sheetWpxEdge) {
-                    var dragged = false
-                    detectHorizontalDragGestures(
-                        onDragEnd = {
-                            val was = dragged
-                            dragged = false
-                            sheetScope.launch {
-                                rightA.stop()
-                                // як верхня: за порогом → відкрити, інакше закрити
-                                if (was && rightA.value < 0.55f) {
-                                    rightShow = true
-                                    rightSearchOpen = true
-                                    rightA.animateTo(0f, tween(280))
-                                    rightA.snapTo(0f)
-                                } else {
-                                    rightA.animateTo(1f, tween(260))
-                                    rightA.snapTo(1f)
-                                    rightShow = false
-                                }
-                            }
-                        },
-                        onDragCancel = {
-                            val was = dragged
-                            dragged = false
-                            sheetScope.launch {
-                                rightA.stop()
-                                if (was && rightA.value < 0.55f) {
-                                    rightShow = true
-                                    rightA.animateTo(0f, tween(280))
-                                    rightA.snapTo(0f)
-                                } else {
-                                    rightA.animateTo(1f, tween(240))
-                                    rightA.snapTo(1f)
-                                    rightShow = false
-                                }
-                            }
-                        }
-                    ) { _, drag ->
-                        // повністю відкрито — край мовчить (немає «другий свайп вліво»)
-                        if (rightShow && rightA.value <= 0.05f) return@detectHorizontalDragGestures
-                        // відкриття лише тягнучи ВЛІВО
-                        if (drag < -0.5f || (dragged && drag < 0f)) {
-                            if (!dragged) {
-                                dragged = true
-                                rightShow = true
-                                rightSearchOpen = true
-                                onRightOpen()
-                            }
-                            // 1:1 за пальцем (як topA + drag)
-                            val next = (rightA.value + drag / sheetWpxEdge).coerceIn(0f, 1f)
-                            sheetScope.launch { rightA.snapTo(next) }
-                        }
-                    }
-                }
-        )
-    }
+    // Край поверх картки під час відкриття. Повністю відкриту — край вимкнено
+    // (повторний свайп вліво більше не закриває).
+    val rightFullyOpen = rightShow && rightA.value <= 0.05f
+    val showRightEdge = !topShow && !nowOpen && !sheetShow && !rightFullyOpen
+
     if (rightShow || rightA.value < 0.999f) {
         val cfg = LocalConfiguration.current
         val density = LocalDensity.current
@@ -1944,8 +1883,54 @@ fun StationScreen(
                     )
                     .statusBarsPadding()
                     .navigationBarsPadding()
-                    // ОДИН жест на всю панель (Initial) — працює і на списку, і на пустому
-                    
+                    .pointerInput(sheetWpx) {
+                        val slop = viewConfiguration.touchSlop
+                        awaitEachGesture {
+                            awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                            var locked = false
+                            var accX = 0f
+                            var accY = 0f
+                            var finished = false
+                            while (!finished) {
+                                val ev = awaitPointerEvent(PointerEventPass.Initial)
+                                val ch = ev.changes.firstOrNull() ?: break
+                                if (!ch.pressed) {
+                                    finished = true
+                                    break
+                                }
+                                val dx = ch.positionChange().x
+                                val dy = ch.positionChange().y
+                                accX += dx
+                                accY += dy
+                                if (!locked) {
+                                    if (kotlin.math.abs(accX) > slop || kotlin.math.abs(accY) > slop) {
+                                        if (kotlin.math.abs(accX) > kotlin.math.abs(accY) && accX > 0f) {
+                                            locked = true
+                                        } else {
+                                            break
+                                        }
+                                    }
+                                }
+                                if (locked) {
+                                    ch.consume()
+                                    val next = (rightA.value + dx / sheetWpx).coerceIn(0f, 1f)
+                                    sheetScope.launch { rightA.snapTo(next) }
+                                }
+                            }
+                            if (locked) {
+                                sheetScope.launch {
+                                    rightA.stop()
+                                    if (rightA.value >= 0.07f) {
+                                        rightA.animateTo(1f, tween(280))
+                                        rightShow = false
+                                    } else {
+                                        rightA.animateTo(0f, tween(280))
+                                        rightShow = true
+                                    }
+                                }
+                            }
+                        }
+                    }
                     .padding(horizontal = 12.dp, vertical = 10.dp)
             ) {
                 // Ручка закриття (окремо від LazyColumn — жести не конфліктують)
@@ -2125,6 +2110,69 @@ Text(
                 }
             }
         }
+    }
+
+    if (showRightEdge) {
+        val dens = LocalDensity.current
+        val cfg = LocalConfiguration.current
+        val sheetWpxEdge = with(dens) { (cfg.screenWidthDp * 0.80f).dp.toPx() }
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .fillMaxHeight()
+                .width(22.dp)
+                .pointerInput(sheetWpxEdge) {
+                    var dragged = false
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            val was = dragged
+                            dragged = false
+                            if (!was) return@detectHorizontalDragGestures
+                            sheetScope.launch {
+                                rightA.stop()
+                                if (rightA.value <= 0.93f) {
+                                    rightShow = true
+                                    rightSearchOpen = true
+                                    rightA.animateTo(0f, tween(280))
+                                    rightA.snapTo(0f)
+                                } else {
+                                    rightA.animateTo(1f, tween(260))
+                                    rightA.snapTo(1f)
+                                    rightShow = false
+                                }
+                            }
+                        },
+                        onDragCancel = {
+                            val was = dragged
+                            dragged = false
+                            if (!was) return@detectHorizontalDragGestures
+                            sheetScope.launch {
+                                rightA.stop()
+                                if (rightA.value <= 0.93f) {
+                                    rightShow = true
+                                    rightSearchOpen = true
+                                    rightA.animateTo(0f, tween(280))
+                                    rightA.snapTo(0f)
+                                } else {
+                                    rightA.animateTo(1f, tween(240))
+                                    rightA.snapTo(1f)
+                                    rightShow = false
+                                }
+                            }
+                        }
+                    ) { _, drag ->
+                        if (!dragged) {
+                            if (drag >= -0.5f) return@detectHorizontalDragGestures
+                            dragged = true
+                            rightShow = true
+                            rightSearchOpen = true
+                            onRightOpen()
+                        }
+                        val next = (rightA.value + drag / sheetWpxEdge).coerceIn(0f, 1f)
+                        sheetScope.launch { rightA.snapTo(next) }
+                    }
+                }
+        )
     }
 
     if (topSleepOpen) {

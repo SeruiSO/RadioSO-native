@@ -11,6 +11,9 @@ import android.net.Uri
 import androidx.core.content.FileProvider
 import java.io.File
 import android.os.Bundle
+import java.util.Locale
+import android.location.LocationManager
+import android.location.Geocoder
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.Handler
@@ -286,10 +289,7 @@ class MainActivity : ComponentActivity() {
                         onSearchOpen = { searchOpen = !searchOpen },
                         onSearch = { runSearch(); searchOpen = false },
                         onRightOpen = {
-                            searchAll = emptyList()
-                            searchRows = emptyList()
-                            searchShown = 0
-                            statusText = ""
+                            autoSearchByGeo()
                         },
                         suggestFor = suggestFor,
                         onSuggestFor = { suggestFor = it },
@@ -572,15 +572,160 @@ class MainActivity : ComponentActivity() {
 
     private fun normalizeCountry(raw: String): String {
         val m = mapOf(
-            "ukraine" to "Ukraine", "ua" to "Ukraine", "italy" to "Italy",
-            "german" to "Germany", "germany" to "Germany", "france" to "France",
-            "spain" to "Spain", "usa" to "United States", "us" to "United States",
-            "uk" to "United Kingdom", "united kingdom" to "United Kingdom",
-            "netherlands" to "Netherlands", "canada" to "Canada"
+            "ukraine" to "Ukraine", "ua" to "Ukraine",
+            "italy" to "Italy", "it" to "Italy",
+            "german" to "Germany", "germany" to "Germany", "de" to "Germany",
+            "france" to "France", "fr" to "France",
+            "spain" to "Spain", "es" to "Spain",
+            "usa" to "United States", "us" to "United States", "united states" to "United States",
+            "uk" to "United Kingdom", "gb" to "United Kingdom", "united kingdom" to "United Kingdom",
+            "netherlands" to "Netherlands", "nl" to "Netherlands",
+            "canada" to "Canada", "ca" to "Canada",
+            "poland" to "Poland", "pl" to "Poland",
+            "austria" to "Austria", "at" to "Austria",
+            "switzerland" to "Switzerland", "ch" to "Switzerland",
+            "belgium" to "Belgium", "be" to "Belgium",
+            "sweden" to "Sweden", "se" to "Sweden",
+            "norway" to "Norway", "no" to "Norway",
+            "denmark" to "Denmark", "dk" to "Denmark",
+            "australia" to "Australia", "au" to "Australia",
+            "japan" to "Japan", "jp" to "Japan",
+            "south korea" to "South Korea", "korea" to "South Korea", "kr" to "South Korea",
+            "new zealand" to "New Zealand", "nz" to "New Zealand",
+            "portugal" to "Portugal", "pt" to "Portugal",
+            "romania" to "Romania", "ro" to "Romania",
+            "czech" to "Czechia", "czechia" to "Czechia", "cz" to "Czechia",
+            "slovakia" to "Slovakia", "sk" to "Slovakia",
+            "hungary" to "Hungary", "hu" to "Hungary",
+            "ireland" to "Ireland", "ie" to "Ireland",
+            "finland" to "Finland", "fi" to "Finland",
+            "greece" to "Greece", "gr" to "Greece",
+            "turkey" to "Turkey", "tr" to "Turkey",
+            "brazil" to "Brazil", "br" to "Brazil",
+            "mexico" to "Mexico", "mx" to "Mexico",
+            "india" to "India", "in" to "India",
+            "israel" to "Israel", "il" to "Israel",
+            "russia" to "Russia", "ru" to "Russia"
         )
         val k = raw.trim().lowercase()
         if (k.isEmpty()) return ""
         return m[k] ?: raw.trim().replaceFirstChar { it.uppercase() }
+    }
+
+    private fun countryFromLocale(): String {
+        val iso = try { Locale.getDefault().country } catch (_: Exception) { "" }
+        return normalizeCountry(iso)
+    }
+
+    private fun countryFromCache(): String {
+        val raw = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+            .getString("geoCountry", "") ?: ""
+        return normalizeCountry(raw)
+    }
+
+    private fun saveGeoCountry(c: String) {
+        val n = normalizeCountry(c)
+        if (n.isBlank()) return
+        getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+            .edit().putString("geoCountry", n).apply()
+    }
+
+    /** IP → країна (без GPS). */
+    private fun countryFromIp(): String {
+        val urls = listOf(
+            "http://ip-api.com/json/?fields=status,country",
+            "https://ipapi.co/json/"
+        )
+        for (u in urls) {
+            try {
+                val conn = java.net.URL(u).openConnection() as java.net.HttpURLConnection
+                conn.connectTimeout = 4000
+                conn.readTimeout = 6000
+                conn.setRequestProperty("User-Agent", "RadioSO-native/0.9.82")
+                if (conn.responseCode != 200) { conn.disconnect(); continue }
+                val body = conn.inputStream.bufferedReader().use { it.readText() }
+                conn.disconnect()
+                val o = org.json.JSONObject(body)
+                val name = when {
+                    o.optString("status") == "success" -> o.optString("country")
+                    o.has("country_name") -> o.optString("country_name")
+                    o.has("country") -> o.optString("country")
+                    else -> ""
+                }
+                val n = normalizeCountry(name)
+                if (n.isNotBlank()) return n
+            } catch (_: Exception) { }
+        }
+        return ""
+    }
+
+    /** Coarse location → країна, лише якщо дозвіл уже є. */
+    private fun countryFromLocation(): String {
+        try {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED
+            ) return ""
+            val lm = getSystemService(LocationManager::class.java) ?: return ""
+            val loc = lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+                ?: lm.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+                ?: return ""
+            if (!Geocoder.isPresent()) return ""
+            val geo = Geocoder(this, Locale.ENGLISH)
+            @Suppress("DEPRECATION")
+            val list = geo.getFromLocation(loc.latitude, loc.longitude, 1)
+            val c = list?.firstOrNull()?.countryName ?: ""
+            return normalizeCountry(c)
+        } catch (_: Exception) {
+            return ""
+        }
+    }
+
+    /**
+     * Гібрид D при відкритті правої картки:
+     * 1) кеш / Locale → одразу пошук
+     * 2) IP (і GPS якщо є дозвіл) → уточнити й перезапустити, якщо країна інша
+     */
+    private fun autoSearchByGeo() {
+        val cached = countryFromCache()
+        val localeC = countryFromLocale()
+        val first = when {
+            cached.isNotBlank() -> cached
+            localeC.isNotBlank() -> localeC
+            else -> ""
+        }
+        qName = ""
+        qGenre = ""
+        if (first.isNotBlank()) {
+            qCountry = first
+            statusText = "пошук: $first…"
+            runSearch()
+        } else {
+            statusText = "визначаємо країну…"
+            searchAll = emptyList()
+            searchRows = emptyList()
+            searchShown = 0
+        }
+        Thread {
+            var refined = countryFromIp()
+            if (refined.isBlank()) refined = countryFromLocation()
+            if (refined.isBlank()) {
+                runOnUiThread {
+                    if (searchRows.isEmpty() && first.isBlank()) statusText = "не вдалося визначити країну"
+                }
+                return@Thread
+            }
+            saveGeoCountry(refined)
+            val cur = normalizeCountry(qCountry)
+            if (cur != refined) {
+                runOnUiThread {
+                    qCountry = refined
+                    statusText = "пошук: $refined…"
+                    runSearch()
+                }
+            } else if (cached.isBlank()) {
+                // вже шукали по locale — просто зберегли IP-країну
+            }
+        }.start()
     }
 
     private fun vibrateTick() {
@@ -806,6 +951,9 @@ class MainActivity : ComponentActivity() {
 
     private fun askPermissions() {
         val need = mutableListOf<String>()
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
+            != PackageManager.PERMISSION_GRANTED
+        ) need.add(Manifest.permission.ACCESS_COARSE_LOCATION)
         if (Build.VERSION.SDK_INT >= 31) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT)
                 != PackageManager.PERMISSION_GRANTED

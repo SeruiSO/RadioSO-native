@@ -923,7 +923,7 @@ class MainActivity : ComponentActivity() {
         startForegroundService(i)
         statusText = "start"
         isLocalNow = url.startsWith("content:")
-        if (nowOpen) { posHandler.removeCallbacks(posTick); posHandler.post(posTick) }
+        if (nowOpen || url.startsWith("content:")) { posHandler.removeCallbacks(posTick); posHandler.post(posTick) }
     }
 
     private fun seekTo(pos: Long) {
@@ -1920,7 +1920,14 @@ fun StationScreen(
         acc = acc, muted = muted, text = text,
         onPickLocal = onPickLocal,
         onToggleBest = onToggleBest,
-        onScan = onScan
+        onScan = onScan,
+        posMs = posMs,
+        durMs = durMs,
+        isLocalNow = isLocalNow,
+        playing = playing,
+        status = status,
+        onSeek = onSeek,
+        onPlayPause = onPlayPause
     )
 
     if (topSleepOpen) {
@@ -2672,6 +2679,13 @@ private fun BoxScope.LeftLokalPanel(
     onPickLocal: (List<LocalTrack>, Int) -> Unit,
     onToggleBest: (LocalTrack) -> Unit,
     onScan: () -> Unit,
+    posMs: Long,
+    durMs: Long,
+    isLocalNow: Boolean,
+    playing: Boolean,
+    status: String,
+    onSeek: (Long) -> Unit,
+    onPlayPause: () -> Unit,
 ) {
     val sheetScope = rememberCoroutineScope()
     fun closeLeftSheet() {
@@ -2701,47 +2715,51 @@ private fun BoxScope.LeftLokalPanel(
                     .background(Color(0xFF121214), RoundedCornerShape(topEnd = 22.dp, bottomEnd = 22.dp))
                     .statusBarsPadding()
                     .navigationBarsPadding()
-                    .pointerInput(sheetWpxL) {
-                        val slop = viewConfiguration.touchSlop
-                        awaitEachGesture {
-                            awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
-                            var locked = false
-                            var accX = 0f
-                            var accY = 0f
-                            var finished = false
-                            while (!finished) {
-                                val ev = awaitPointerEvent(PointerEventPass.Initial)
-                                val ch = ev.changes.firstOrNull() ?: break
-                                if (!ch.pressed) { finished = true; break }
-                                val dx = ch.positionChange().x
-                                val dy = ch.positionChange().y
-                                accX += dx; accY += dy
-                                if (!locked) {
-                                    if (kotlin.math.abs(accX) > slop || kotlin.math.abs(accY) > slop) {
-                                        if (kotlin.math.abs(accX) > kotlin.math.abs(accY) && accX < 0f) locked = true
-                                        else break
+                    .padding(horizontal = 12.dp, vertical = 10.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .pointerInput(sheetWpxL) {
+                            val slop = viewConfiguration.touchSlop
+                            awaitEachGesture {
+                                awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                                var locked = false
+                                var accX = 0f
+                                var accY = 0f
+                                var finished = false
+                                while (!finished) {
+                                    val ev = awaitPointerEvent(PointerEventPass.Initial)
+                                    val ch = ev.changes.firstOrNull() ?: break
+                                    if (!ch.pressed) { finished = true; break }
+                                    val dx = ch.positionChange().x
+                                    val dy = ch.positionChange().y
+                                    accX += dx; accY += dy
+                                    if (!locked) {
+                                        if (kotlin.math.abs(accX) > slop || kotlin.math.abs(accY) > slop) {
+                                            if (kotlin.math.abs(accX) > kotlin.math.abs(accY) && accX < 0f) locked = true
+                                            else break
+                                        }
+                                    }
+                                    if (locked) {
+                                        ch.consume()
+                                        val next = (leftA.value - dx / sheetWpxL).coerceIn(0f, 1f)
+                                        sheetScope.launch { leftA.snapTo(next) }
                                     }
                                 }
                                 if (locked) {
-                                    ch.consume()
-                                    val next = (leftA.value - dx / sheetWpxL).coerceIn(0f, 1f)
-                                    sheetScope.launch { leftA.snapTo(next) }
-                                }
-                            }
-                            if (locked) {
-                                sheetScope.launch {
-                                    leftA.stop()
-                                    if (leftA.value >= 0.07f) {
-                                        leftA.animateTo(1f, tween(280)); onLeftShow(false)
-                                    } else {
-                                        leftA.animateTo(0f, tween(280)); onLeftShow(true)
+                                    sheetScope.launch {
+                                        leftA.stop()
+                                        if (leftA.value >= 0.07f) {
+                                            leftA.animateTo(1f, tween(280)); onLeftShow(false)
+                                        } else {
+                                            leftA.animateTo(0f, tween(280)); onLeftShow(true)
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
-                    .padding(horizontal = 12.dp, vertical = 10.dp)
-            ) {
+                ) {
                 Box(modifier = Modifier.fillMaxWidth().height(28.dp), contentAlignment = Alignment.Center) {
                     Box(modifier = Modifier.width(40.dp).height(4.dp).background(muted, RoundedCornerShape(2.dp)))
                 }
@@ -2780,7 +2798,49 @@ private fun BoxScope.LeftLokalPanel(
                             )
                         }
                     }
-                    item { androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(16.dp)) }
+                    item { androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(8.dp)) }
+                }
+                }
+                val localPlaying = isLocalNow || currentUrl.startsWith("content:")
+                val nowTitle = allLocal.firstOrNull { it.uri == currentUrl }?.title.orEmpty()
+                if (nowTitle.isNotBlank()) {
+                    Text(
+                        nowTitle,
+                        color = text,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.labelLarge,
+                        modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
+                    )
+                }
+                if (localPlaying) {
+                    val d = if (durMs > 0) durMs else 1L
+                    var slide by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(-1f) }
+                    androidx.compose.material3.Slider(
+                        value = if (slide >= 0f) slide else (posMs.toFloat() / d.toFloat()).coerceIn(0f, 1f),
+                        onValueChange = { slide = it },
+                        onValueChangeFinished = {
+                            if (durMs > 0 && slide >= 0f) onSeek((slide * durMs).toLong())
+                            slide = -1f
+                        }
+                    )
+                    fun fmt(ms: Long): String {
+                        val s = (ms / 1000).coerceAtLeast(0)
+                        return "%d:%02d".format(s / 60, s % 60)
+                    }
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(fmt(posMs), color = muted); Text(fmt(durMs), color = muted)
+                    }
+                }
+                Box(
+                    modifier = Modifier
+                        .padding(top = 6.dp, bottom = 4.dp)
+                        .size(56.dp)
+                        .background(acc, RoundedCornerShape(14.dp))
+                        .clickable { onPlayPause() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(if (playing) "⏸" else "▶", color = Color(0xFF0A0A0C), style = MaterialTheme.typography.headlineSmall)
                 }
             }
         }

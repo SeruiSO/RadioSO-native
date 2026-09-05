@@ -1119,13 +1119,18 @@ fun StationScreen(
         rightShow = true
         rightSearchOpen = true
         sheetScope.launch {
+            rightA.stop()
             rightA.snapTo(1f)
             rightA.animateTo(0f, tween(300))
+            rightA.snapTo(0f)
+            rightShow = true
         }
     }
     fun closeRightSheet() {
         sheetScope.launch {
+            rightA.stop()
             rightA.animateTo(1f, tween(280))
+            rightA.snapTo(1f)
             rightShow = false
         }
     }
@@ -1840,7 +1845,8 @@ fun StationScreen(
     // ===== Права картка пошуку (свайп з правого краю) =====
     // Вузька смуга (~40dp) біля правого краю — ★/🗑 лишаються клікабельні лівіше.
     // Картка їде за пальцем; відпуск / швидкий свайп → відкрити.
-    if (!topShow && !nowOpen && !sheetShow) {
+    // Смуга відкриття лише коли картка ЗАКРИТА (не конфліктує з жестом закриття)
+    if (!topShow && !nowOpen && !sheetShow && !rightShow && rightA.value >= 0.99f) {
         val dens = LocalDensity.current
         val cfg = LocalConfiguration.current
         val sheetWpx = with(dens) { (cfg.screenWidthDp * 0.80f).dp.toPx() }
@@ -1851,53 +1857,40 @@ fun StationScreen(
                 .width(22.dp)
                 .pointerInput(sheetWpx) {
                     var dragged = false
-                    var totalDx = 0f
-                    var lastT = 0L
-                    var velPx = 0f
                     detectHorizontalDragGestures(
-                        onDragStart = {
-                            totalDx = 0f
-                            velPx = 0f
-                            lastT = System.nanoTime()
-                        },
                         onDragEnd = {
                             sheetScope.launch {
-                                // щойно почали тягнути — відкриваємо повністю (незалежно від точки відпуску)
                                 if (dragged) {
+                                    // короткий свайп → зафіксувати ВІДКРИТО
                                     rightShow = true
                                     rightSearchOpen = true
                                     rightA.animateTo(0f, tween(250))
+                                    rightA.snapTo(0f)
+                                    rightShow = true
                                 } else {
-                                    rightA.animateTo(1f, tween(230))
+                                    rightA.snapTo(1f)
                                     rightShow = false
                                 }
                             }
                             dragged = false
-                            totalDx = 0f
                         },
                         onDragCancel = {
                             dragged = false
-                            totalDx = 0f
                             sheetScope.launch {
-                                rightA.animateTo(1f, tween(200))
+                                rightA.snapTo(1f)
                                 rightShow = false
                             }
                         }
                     ) { _, drag ->
-                        val now = System.nanoTime()
-                        val dt = ((now - lastT) / 1_000_000_000f).coerceAtLeast(0.001f)
-                        lastT = now
-                        totalDx += drag
-                        if (drag < 0f) velPx = (-drag) / dt
-                        if (drag < -0.5f || dragged) {
+                        if (drag < -1f || dragged) {
                             if (!dragged) {
                                 dragged = true
                                 rightShow = true
                                 rightSearchOpen = true
                                 onRightOpen()
                             }
-                            // короткий свайп: ~35% ширини картки пальцем = повне відкриття
-                            val sens = (sheetWpx * 0.35f).coerceAtLeast(1f)
+                            // короткий жест: 40% ширини картки = повне відкриття
+                            val sens = (sheetWpx * 0.40f).coerceAtLeast(1f)
                             val next = (rightA.value + drag / sens).coerceIn(0f, 1f)
                             sheetScope.launch { rightA.snapTo(next) }
                         }
@@ -1933,54 +1926,52 @@ fun StationScreen(
                     )
                     .statusBarsPadding()
                     .navigationBarsPadding()
-                    .pointerInput(sheetWpx) {
-                        var cDrag = false
-                        var cDx = 0f
-                        var cLast = 0L
-                        var cVel = 0f
+                                        .pointerInput(sheetWpx) {
+                        var started = false
+                        var dx = 0f
                         detectHorizontalDragGestures(
                             onDragStart = {
-                                cDrag = false
-                                cDx = 0f
-                                cVel = 0f
-                                cLast = System.nanoTime()
+                                started = false
+                                dx = 0f
                             },
                             onDragEnd = {
                                 sheetScope.launch {
-                                    // короткий свайп вправо або невелике зміщення → закрити
-                                    val fastClose = cDx > 48f && cVel > 700f
-                                    val shortClose = cDrag && (rightA.value > 0.12f || cDx > 40f)
-                                    if (fastClose || shortClose) {
-                                        rightA.animateTo(1f, tween(240))
+                                    // закрити лише якщо явно потягнули вправо
+                                    if (started && (rightA.value > 0.18f || dx > 56f)) {
+                                        rightA.animateTo(1f, tween(250))
+                                        rightA.snapTo(1f)
                                         rightShow = false
                                     } else {
                                         rightA.animateTo(0f, tween(220))
+                                        rightA.snapTo(0f)
                                         rightShow = true
                                     }
                                 }
-                                cDrag = false
-                                cDx = 0f
+                                started = false
+                                dx = 0f
                             },
                             onDragCancel = {
-                                cDrag = false
-                                sheetScope.launch { rightA.animateTo(0f, tween(200)); rightShow = true }
+                                started = false
+                                dx = 0f
+                                sheetScope.launch {
+                                    rightA.snapTo(0f)
+                                    rightShow = true
+                                }
                             }
                         ) { _, drag ->
-                            val now = System.nanoTime()
-                            val dt = ((now - cLast) / 1_000_000_000f).coerceAtLeast(0.001f)
-                            cLast = now
-                            cDx += drag
-                            if (drag > 0f) cVel = drag / dt
-                            if (drag > 0.5f || cDrag) {
-                                cDrag = true
-                                // короткий свайп: ~30% ширини картки = повне закриття візуально
-                                val sens = (sheetWpx * 0.30f).coerceAtLeast(1f)
-                                val next = (rightA.value + drag / sens).coerceIn(0f, 1f)
-                                sheetScope.launch { rightA.snapTo(next) }
+                            // тільки горизонталь вправо починає закриття; вліво ігнор коли відкрито
+                            if (drag > 1.5f || (started && kotlin.math.abs(drag) > 0.5f)) {
+                                if (!started && drag > 1.5f) started = true
+                                if (started) {
+                                    dx += drag
+                                    val sens = (sheetWpx * 0.40f).coerceAtLeast(1f)
+                                    val next = (rightA.value + drag / sens).coerceIn(0f, 1f)
+                                    sheetScope.launch { rightA.snapTo(next) }
+                                }
                             }
                         }
                     }
-                    .padding(horizontal = 12.dp, vertical = 10.dp)
+.padding(horizontal = 12.dp, vertical = 10.dp)
             ) {
                 Box(
                     modifier = Modifier

@@ -57,6 +57,11 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Velocity
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.width
@@ -1122,15 +1127,12 @@ fun StationScreen(
             rightA.stop()
             rightA.snapTo(1f)
             rightA.animateTo(0f, tween(300))
-            rightA.snapTo(0f)
-            rightShow = true
         }
     }
     fun closeRightSheet() {
         sheetScope.launch {
             rightA.stop()
             rightA.animateTo(1f, tween(280))
-            rightA.snapTo(1f)
             rightShow = false
         }
     }
@@ -1914,6 +1916,33 @@ fun StationScreen(
         val density = LocalDensity.current
         val sheetW = (cfg.screenWidthDp * 0.80f).dp
         val sheetWpx = with(density) { sheetW.toPx() }
+
+        val rightNest = androidx.compose.runtime.remember(sheetWpx) {
+            object : NestedScrollConnection {
+                override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                    val ax = available.x
+                    val ay = available.y
+                    // лише коли горизонталь домінує
+                    if (kotlin.math.abs(ax) <= kotlin.math.abs(ay)) return Offset.Zero
+                    if (rightA.value <= 0.001f && ax <= 0f) return Offset.Zero
+                    val next = (rightA.value + ax / sheetWpx).coerceIn(0f, 1f)
+                    sheetScope.launch { rightA.snapTo(next) }
+                    return Offset(ax, 0f)
+                }
+                override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+                    if (rightA.value <= 0.001f) return Velocity.Zero
+                    rightA.stop()
+                    if (rightA.value > 0.12f) {
+                        rightA.animateTo(1f, tween(280))
+                        rightShow = false
+                    } else {
+                        rightA.animateTo(0f, tween(280))
+                        rightShow = true
+                    }
+                    return Velocity(available.x, 0f)
+                }
+            }
+        }
         Box(modifier = Modifier.fillMaxSize()) {
             Box(
                 modifier = Modifier
@@ -1937,6 +1966,7 @@ fun StationScreen(
                     )
                     .statusBarsPadding()
                     .navigationBarsPadding()
+                    .nestedScroll(rightNest)
                     .padding(horizontal = 12.dp, vertical = 10.dp)
             ) {
                 // Ручка закриття (окремо від LazyColumn — жести не конфліктують)
@@ -1944,46 +1974,28 @@ fun StationScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(28.dp)
-                        .pointerInput(sheetWpx) {
-                            var started = false
-                            detectHorizontalDragGestures(
-                                onDragStart = { started = false },
-                                onDragEnd = {
-                                    val s = started
-                                    started = false
-                                    sheetScope.launch {
-                                        rightA.stop()
-                                        // 10–15%: якщо відтягнули більше ~12% вправо — закрити, інакше лишити відкритим
-                                        if (s && rightA.value > 0.12f) {
-                                            rightA.animateTo(1f, tween(280))
-                                            rightA.snapTo(1f)
-                                            rightShow = false
-                                        } else {
-                                            rightA.animateTo(0f, tween(260))
-                                            rightA.snapTo(0f)
-                                            rightShow = true
-                                        }
-                                    }
-                                },
-                                onDragCancel = {
-                                    started = false
-                                    sheetScope.launch {
-                                        rightA.stop()
-                                        rightA.animateTo(0f, tween(240))
-                                        rightA.snapTo(0f)
+                                            .pointerInput(sheetWpx) {
+                        detectHorizontalDragGestures(
+                            onDragEnd = {
+                                sheetScope.launch {
+                                    rightA.stop()
+                                    // ~12%% ширини — як topA < -140
+                                    if (rightA.value > 0.12f) {
+                                        rightA.animateTo(1f, tween(280))
+                                        rightShow = false
+                                    } else {
+                                        rightA.animateTo(0f, tween(280))
                                         rightShow = true
                                     }
                                 }
-                            ) { _, drag ->
-                                // ЛИШЕ вправо рухає картку до закриття (1:1 за пальцем)
-                                // вліво / дрібні тремтіння — ігнор
-                                if (drag > 1f) {
-                                    started = true
-                                    val next = (rightA.value + drag / sheetWpx).coerceIn(0f, 1f)
-                                    sheetScope.launch { rightA.snapTo(next) }
-                                }
                             }
-                        },
+                        ) { _, drag ->
+                            // 1:1 за пальцем у будь-який бік (як topA + drag)
+                            sheetScope.launch {
+                                rightA.snapTo((rightA.value + drag / sheetWpx).coerceIn(0f, 1f))
+                            }
+                        }
+                    },
                     contentAlignment = Alignment.Center
                 ) {
                     Box(
@@ -2091,46 +2103,28 @@ Text(
                 LazyColumn(
                     modifier = Modifier
                         .weight(1f)
-                        .pointerInput(sheetWpx) {
-                            var started = false
-                            detectHorizontalDragGestures(
-                                onDragStart = { started = false },
-                                onDragEnd = {
-                                    val s = started
-                                    started = false
-                                    sheetScope.launch {
-                                        rightA.stop()
-                                        // 10–15%: якщо відтягнули більше ~12% вправо — закрити, інакше лишити відкритим
-                                        if (s && rightA.value > 0.12f) {
-                                            rightA.animateTo(1f, tween(280))
-                                            rightA.snapTo(1f)
-                                            rightShow = false
-                                        } else {
-                                            rightA.animateTo(0f, tween(260))
-                                            rightA.snapTo(0f)
-                                            rightShow = true
-                                        }
-                                    }
-                                },
-                                onDragCancel = {
-                                    started = false
-                                    sheetScope.launch {
-                                        rightA.stop()
-                                        rightA.animateTo(0f, tween(240))
-                                        rightA.snapTo(0f)
+                                            .pointerInput(sheetWpx) {
+                        detectHorizontalDragGestures(
+                            onDragEnd = {
+                                sheetScope.launch {
+                                    rightA.stop()
+                                    // ~12%% ширини — як topA < -140
+                                    if (rightA.value > 0.12f) {
+                                        rightA.animateTo(1f, tween(280))
+                                        rightShow = false
+                                    } else {
+                                        rightA.animateTo(0f, tween(280))
                                         rightShow = true
                                     }
                                 }
-                            ) { _, drag ->
-                                // ЛИШЕ вправо рухає картку до закриття (1:1 за пальцем)
-                                // вліво / дрібні тремтіння — ігнор
-                                if (drag > 1f) {
-                                    started = true
-                                    val next = (rightA.value + drag / sheetWpx).coerceIn(0f, 1f)
-                                    sheetScope.launch { rightA.snapTo(next) }
-                                }
+                            }
+                        ) { _, drag ->
+                            // 1:1 за пальцем у будь-який бік (як topA + drag)
+                            sheetScope.launch {
+                                rightA.snapTo((rightA.value + drag / sheetWpx).coerceIn(0f, 1f))
                             }
                         }
+                    }
                 ) {
                     itemsIndexed(rightRows, key = { i, s -> "r-" + s.url + i }) { _, s ->
                         Row(

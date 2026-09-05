@@ -55,6 +55,9 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -1096,6 +1099,21 @@ fun StationScreen(
     var topSleepOpen by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     var topThemeOpen by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     var infoDy by androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+    // Права картка пошуку (свайп з правого краю / 🔍)
+    val rightA = androidx.compose.runtime.remember { Animatable(1f) } // 1=закрито, 0=відкрито
+    var rightShow by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    var rightSearchOpen by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(true) }
+    fun openRightSheet() {
+        rightShow = true
+        rightSearchOpen = true
+        sheetScope.launch { rightA.animateTo(0f, tween(300)) }
+    }
+    fun closeRightSheet() {
+        sheetScope.launch {
+            rightA.animateTo(1f, tween(280))
+            rightShow = false
+        }
+    }
     fun openTopSheet() {
         topShow = true
         sheetScope.launch {
@@ -1133,10 +1151,26 @@ fun StationScreen(
                 contentAlignment = Alignment.Center
             ) { Text("🌙") }
             Text("Radio S O", color = Color.White, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.align(Alignment.Center))
-            Box(
-                modifier = Modifier.align(Alignment.CenterEnd).size(40.dp).background(card, RoundedCornerShape(12.dp)).clickable { onMenu() },
-                contentAlignment = Alignment.Center
-            ) { Text("⋯", color = Color.White) }
+            Row(
+                modifier = Modifier.align(Alignment.CenterEnd),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(card, RoundedCornerShape(12.dp))
+                        .clickable { openRightSheet() },
+                    contentAlignment = Alignment.Center
+                ) { Text("🔍", color = Color.White) }
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(card, RoundedCornerShape(12.dp))
+                        .clickable { onMenu() },
+                    contentAlignment = Alignment.Center
+                ) { Text("⋯", color = Color.White) }
+            }
         }
         // Інфо-панель: тап → Now Playing; свайп вниз → верхня картка; свайп вгору більше не відкриває
         Column(
@@ -1788,6 +1822,250 @@ fun StationScreen(
             }
         }
     }
+    // ===== Права картка пошуку (свайп з правого краю) =====
+    if (!rightShow && !topShow && !nowOpen && !sheetShow) {
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .fillMaxHeight()
+                .width(28.dp)
+                .pointerInput(Unit) {
+                    var dragged = false
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            sheetScope.launch {
+                                if (dragged && rightA.value < 0.55f) {
+                                    rightShow = true
+                                    rightSearchOpen = true
+                                    rightA.animateTo(0f, tween(280))
+                                } else {
+                                    rightA.snapTo(1f)
+                                    rightShow = false
+                                }
+                            }
+                            dragged = false
+                        },
+                        onDragCancel = { dragged = false }
+                    ) { _, drag ->
+                        if (drag < -2f || dragged) {
+                            dragged = true
+                            rightShow = true
+                            sheetScope.launch {
+                                rightA.snapTo((rightA.value + drag / 600f).coerceIn(0f, 1f))
+                            }
+                        }
+                    }
+                }
+        )
+    }
+    if (rightShow || rightA.value < 0.999f) {
+        val cfg = LocalConfiguration.current
+        val density = LocalDensity.current
+        val sheetW = (cfg.screenWidthDp * 0.80f).dp
+        val sheetWpx = with(density) { sheetW.toPx() }
+        Box(modifier = Modifier.fillMaxSize()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Color(0x88000000).copy(
+                            alpha = ((1f - rightA.value) * 0.5f).coerceIn(0f, 0.5f)
+                        )
+                    )
+                    .clickable { closeRightSheet() }
+            )
+            Column(
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .fillMaxHeight()
+                    .width(sheetW)
+                    .graphicsLayer { translationX = rightA.value * sheetWpx }
+                    .background(
+                        Color(0xFF121214),
+                        RoundedCornerShape(topStart = 22.dp, bottomStart = 22.dp)
+                    )
+                    .statusBarsPadding()
+                    .navigationBarsPadding()
+                    .pointerInput(sheetWpx) {
+                        detectHorizontalDragGestures(
+                            onDragEnd = {
+                                sheetScope.launch {
+                                    if (rightA.value > 0.35f) {
+                                        rightA.animateTo(1f, tween(280))
+                                        rightShow = false
+                                    } else {
+                                        rightA.animateTo(0f, tween(240))
+                                        rightShow = true
+                                    }
+                                }
+                            }
+                        ) { _, drag ->
+                            sheetScope.launch {
+                                rightA.snapTo((rightA.value + drag / sheetWpx).coerceIn(0f, 1f))
+                            }
+                        }
+                    }
+                    .padding(horizontal = 12.dp, vertical = 10.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .padding(bottom = 10.dp)
+                        .width(40.dp)
+                        .height(4.dp)
+                        .background(muted, RoundedCornerShape(2.dp))
+                        .align(Alignment.CenterHorizontally)
+                )
+                Text(
+                    "🔍 Пошук",
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { rightSearchOpen = !rightSearchOpen }
+                        .padding(bottom = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Поля пошуку", color = Color.White, modifier = Modifier.weight(1f))
+                    Text(if (rightSearchOpen) "▴" else "▾", color = muted)
+                }
+                if (rightSearchOpen) {
+                    @Composable
+                    fun rField(v: String, set: (String) -> Unit, lab: String, key: String, hints: List<String>) {
+                        OutlinedTextField(
+                            value = v,
+                            onValueChange = set,
+                            singleLine = true,
+                            label = { Text(lab) },
+                            modifier = Modifier.fillMaxWidth(),
+                            trailingIcon = {
+                                Text(
+                                    "▾",
+                                    color = acc,
+                                    modifier = Modifier
+                                        .clickable { onSuggestFor(if (suggestFor == key) "" else key) }
+                                        .padding(8.dp)
+                                )
+                            }
+                        )
+                        if (suggestFor == key) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = 160.dp)
+                                    .verticalScroll(rememberScrollState())
+                                    .background(card, RoundedCornerShape(6.dp))
+                                    .padding(6.dp)
+                            ) {
+                                hints.distinct().take(24).forEach { h ->
+                                    Text(
+                                        h,
+                                        color = text,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { set(h); onSuggestFor("") }
+                                            .padding(6.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    rField(qName, onName, "Назва", "name", nameHints)
+                    rField(qCountry, onCountry, "Країна", "country", countryHints)
+                    rField(qGenre, onGenre, "Жанр", "genre", genreHints)
+                    Button(
+                        onClick = {
+                            val si = tabs.indexOfFirst { it.equals("search", ignoreCase = true) }
+                            if (si >= 0) onTab(si)
+                            onSearch()
+                            rightSearchOpen = false
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp)
+                            .height(44.dp),
+                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                            containerColor = acc,
+                            contentColor = Color(0xFF0A0A0C)
+                        )
+                    ) { Text("🔍 Знайти") }
+                }
+                Text(
+                    status,
+                    color = muted,
+                    style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                // Результати: ті самі searchRows через radioRows коли tab=search.
+                // Щоб завжди бачити search — перемикаємось на search при відкритті з кнопки не обов'язково;
+                // показуємо radioRows якщо tab search, інакше підказка.
+                val rightRows = radioRows
+                LazyColumn(modifier = Modifier.weight(1f)) {
+                    itemsIndexed(rightRows, key = { i, s -> "r-" + s.url + i }) { _, s ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp)
+                                .background(
+                                    if (s.url == currentUrl) acc.copy(alpha = 0.18f) else Color.Transparent,
+                                    RoundedCornerShape(10.dp)
+                                )
+                                .clickable { onPickRadio(rightRows, rightRows.indexOf(s).coerceAtLeast(0)) }
+                                .padding(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(42.dp)
+                                    .background(Color(0xFF222228), RoundedCornerShape(6.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (s.favicon.startsWith("http") && !s.favicon.contains("example.com")) {
+                                    AsyncImage(
+                                        model = s.favicon,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(42.dp),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                } else Text("🎵")
+                            }
+                            Column(modifier = Modifier.weight(1f).padding(start = 8.dp)) {
+                                Text(s.name, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(
+                                    "${s.genre} · ${s.country}",
+                                    color = muted,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                            Text(
+                                "+",
+                                color = acc,
+                                modifier = Modifier
+                                    .clickable { onAddToTab(s) }
+                                    .padding(start = 8.dp, end = 4.dp),
+                                style = MaterialTheme.typography.headlineSmall
+                            )
+                        }
+                    }
+                    if (canMore) {
+                        item {
+                            Button(
+                                onClick = onMore,
+                                modifier = Modifier.fillMaxWidth().padding(8.dp)
+                            ) { Text("Ще 100") }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     if (topSleepOpen) {
         AlertDialog(
             containerColor = Color(0xFF1A1A1E),

@@ -57,6 +57,10 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
@@ -1917,32 +1921,6 @@ fun StationScreen(
         val sheetW = (cfg.screenWidthDp * 0.80f).dp
         val sheetWpx = with(density) { sheetW.toPx() }
 
-        val rightNest = androidx.compose.runtime.remember(sheetWpx) {
-            object : NestedScrollConnection {
-                override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                    val ax = available.x
-                    val ay = available.y
-                    // лише горизонталь, і лише ВПРАВО (закриття)
-                    if (kotlin.math.abs(ax) <= kotlin.math.abs(ay)) return Offset.Zero
-                    if (ax <= 0.5f) return Offset.Zero
-                    val next = (rightA.value + ax / sheetWpx).coerceIn(0f, 1f)
-                    sheetScope.launch { rightA.snapTo(next) }
-                    return Offset(ax, 0f)
-                }
-                override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
-                    if (rightA.value <= 0.001f) return Velocity.Zero
-                    rightA.stop()
-                    if (rightA.value > 0.07f) {
-                        rightA.animateTo(1f, tween(280))
-                        rightShow = false
-                    } else {
-                        rightA.animateTo(0f, tween(280))
-                        rightShow = true
-                    }
-                    return Velocity(available.x, 0f)
-                }
-            }
-        }
         Box(modifier = Modifier.fillMaxSize()) {
             Box(
                 modifier = Modifier
@@ -1966,50 +1944,15 @@ fun StationScreen(
                     )
                     .statusBarsPadding()
                     .navigationBarsPadding()
-                    .nestedScroll(rightNest)
+                    // ОДИН жест на всю панель (Initial) — працює і на списку, і на пустому
+                    
                     .padding(horizontal = 12.dp, vertical = 10.dp)
             ) {
                 // Ручка закриття (окремо від LazyColumn — жести не конфліктують)
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(28.dp)
-                                            .pointerInput(sheetWpx) {
-                        var movedRight = false
-                        detectHorizontalDragGestures(
-                            onDragStart = { movedRight = false },
-                            onDragEnd = {
-                                sheetScope.launch {
-                                    rightA.stop()
-                                    // закрити лише після свайпу ВПРАВО і >7%
-                                    if (movedRight && rightA.value > 0.07f) {
-                                        rightA.animateTo(1f, tween(280))
-                                        rightShow = false
-                                    } else {
-                                        rightA.animateTo(0f, tween(280))
-                                        rightShow = true
-                                    }
-                                }
-                                movedRight = false
-                            },
-                            onDragCancel = {
-                                movedRight = false
-                                sheetScope.launch {
-                                    rightA.stop()
-                                    rightA.animateTo(0f, tween(240))
-                                    rightShow = true
-                                }
-                            }
-                        ) { _, drag ->
-                            // тільки вправо рухає до закриття; вліво/шум — ігнор
-                            if (drag > 0.5f) {
-                                movedRight = true
-                                sheetScope.launch {
-                                    rightA.snapTo((rightA.value + drag / sheetWpx).coerceIn(0f, 1f))
-                                }
-                            }
-                        }
-                    },
+                        .height(28.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Box(
@@ -2114,46 +2057,7 @@ Text(
                         modifier = Modifier.padding(top = 12.dp)
                     )
                 }
-                LazyColumn(
-                    modifier = Modifier
-                        .weight(1f)
-                                            .pointerInput(sheetWpx) {
-                        var movedRight = false
-                        detectHorizontalDragGestures(
-                            onDragStart = { movedRight = false },
-                            onDragEnd = {
-                                sheetScope.launch {
-                                    rightA.stop()
-                                    // закрити лише після свайпу ВПРАВО і >7%
-                                    if (movedRight && rightA.value > 0.07f) {
-                                        rightA.animateTo(1f, tween(280))
-                                        rightShow = false
-                                    } else {
-                                        rightA.animateTo(0f, tween(280))
-                                        rightShow = true
-                                    }
-                                }
-                                movedRight = false
-                            },
-                            onDragCancel = {
-                                movedRight = false
-                                sheetScope.launch {
-                                    rightA.stop()
-                                    rightA.animateTo(0f, tween(240))
-                                    rightShow = true
-                                }
-                            }
-                        ) { _, drag ->
-                            // тільки вправо рухає до закриття; вліво/шум — ігнор
-                            if (drag > 0.5f) {
-                                movedRight = true
-                                sheetScope.launch {
-                                    rightA.snapTo((rightA.value + drag / sheetWpx).coerceIn(0f, 1f))
-                                }
-                            }
-                        }
-                    }
-                ) {
+                LazyColumn(modifier = Modifier.weight(1f)) {
                     itemsIndexed(rightRows, key = { i, s -> "r-" + s.url + i }) { _, s ->
                         Row(
                             modifier = Modifier

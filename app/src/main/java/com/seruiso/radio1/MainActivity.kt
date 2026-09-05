@@ -1861,45 +1861,48 @@ fun StationScreen(
                             dragged = false
                             sheetScope.launch {
                                 rightA.stop()
-                                if (was) {
+                                // як верхня: за порогом → відкрити, інакше закрити
+                                if (was && rightA.value < 0.55f) {
                                     rightShow = true
                                     rightSearchOpen = true
-                                    rightA.animateTo(0f, tween(250))
+                                    rightA.animateTo(0f, tween(280))
                                     rightA.snapTo(0f)
                                 } else {
+                                    rightA.animateTo(1f, tween(260))
                                     rightA.snapTo(1f)
                                     rightShow = false
                                 }
                             }
                         },
                         onDragCancel = {
-                            // НЕ закриваємо на cancel якщо вже тягнули — інакше «зліт»
                             val was = dragged
                             dragged = false
                             sheetScope.launch {
                                 rightA.stop()
-                                if (was) {
+                                if (was && rightA.value < 0.55f) {
                                     rightShow = true
-                                    rightA.animateTo(0f, tween(250))
+                                    rightA.animateTo(0f, tween(280))
                                     rightA.snapTo(0f)
                                 } else {
+                                    rightA.animateTo(1f, tween(240))
                                     rightA.snapTo(1f)
                                     rightShow = false
                                 }
                             }
                         }
                     ) { _, drag ->
-                        // якщо вже повністю відкрито — край не чіпає
-                        if (rightShow && rightA.value < 0.02f) return@detectHorizontalDragGestures
-                        if (drag < -1f || dragged) {
+                        // повністю відкрито — край мовчить (немає «другий свайп вліво»)
+                        if (rightShow && rightA.value <= 0.02f) return@detectHorizontalDragGestures
+                        // відкриття лише тягнучи ВЛІВО
+                        if (drag < -0.5f || (dragged && drag < 0f)) {
                             if (!dragged) {
                                 dragged = true
                                 rightShow = true
                                 rightSearchOpen = true
                                 onRightOpen()
                             }
-                            val sens = (sheetWpxEdge * 0.38f).coerceAtLeast(1f)
-                            val next = (rightA.value + drag / sens).coerceIn(0f, 1f)
+                            // 1:1 за пальцем (як topA + drag)
+                            val next = (rightA.value + drag / sheetWpxEdge).coerceIn(0f, 1f)
                             sheetScope.launch { rightA.snapTo(next) }
                         }
                     }
@@ -1953,28 +1956,28 @@ fun StationScreen(
                                     dx = 0f
                                     sheetScope.launch {
                                         rightA.stop()
-                                        if (s && (rightA.value > 0.15f || d > 40f)) {
-                                            rightA.animateTo(1f, tween(250))
+                                        // закриття лише якщо тягнули ВПРАВО
+                                        if (s && d > 0f && (rightA.value > 0.22f || d > 36f)) {
+                                            rightA.animateTo(1f, tween(280))
                                             rightA.snapTo(1f)
                                             rightShow = false
                                         } else {
-                                            rightA.animateTo(0f, tween(220))
+                                            rightA.animateTo(0f, tween(260))
                                             rightA.snapTo(0f)
                                             rightShow = true
                                         }
                                     }
                                 },
-                                onDragCancel = {
-                                    started = false
-                                    dx = 0f
-                                }
+                                onDragCancel = { started = false; dx = 0f }
                             ) { _, drag ->
-                                if (kotlin.math.abs(drag) > 0.5f) {
-                                    started = true
-                                    dx += drag
-                                    val sens = (sheetWpx * 0.35f).coerceAtLeast(1f)
-                                    val next = (rightA.value + drag / sens).coerceIn(0f, 1f)
-                                    sheetScope.launch { rightA.snapTo(next) }
+                                // тільки вправо починає закриття; вліво не закриває
+                                if (drag > 0.5f || (started && drag != 0f)) {
+                                    if (!started && drag > 0.5f) started = true
+                                    if (started) {
+                                        dx += drag
+                                        val next = (rightA.value + drag / sheetWpx).coerceIn(0f, 1f)
+                                        sheetScope.launch { rightA.snapTo(next) }
+                                    }
                                 }
                             }
                         },
@@ -2082,7 +2085,45 @@ Text(
                         modifier = Modifier.padding(top = 12.dp)
                     )
                 }
-                LazyColumn(modifier = Modifier.weight(1f)) {
+                LazyColumn(
+                    modifier = Modifier
+                        .weight(1f)
+                        .pointerInput(sheetWpx) {
+                            var started = false
+                            var dx = 0f
+                            detectHorizontalDragGestures(
+                                onDragStart = { started = false; dx = 0f },
+                                onDragEnd = {
+                                    val s = started
+                                    val d = dx
+                                    started = false
+                                    dx = 0f
+                                    sheetScope.launch {
+                                        rightA.stop()
+                                        if (s && d > 0f && (rightA.value > 0.22f || d > 36f)) {
+                                            rightA.animateTo(1f, tween(280))
+                                            rightA.snapTo(1f)
+                                            rightShow = false
+                                        } else {
+                                            rightA.animateTo(0f, tween(260))
+                                            rightA.snapTo(0f)
+                                            rightShow = true
+                                        }
+                                    }
+                                },
+                                onDragCancel = { started = false; dx = 0f }
+                            ) { _, drag ->
+                                if (drag > 0.5f || (started && drag != 0f)) {
+                                    if (!started && drag > 0.5f) started = true
+                                    if (started) {
+                                        dx += drag
+                                        val next = (rightA.value + drag / sheetWpx).coerceIn(0f, 1f)
+                                        sheetScope.launch { rightA.snapTo(next) }
+                                    }
+                                }
+                            }
+                        }
+                ) {
                     itemsIndexed(rightRows, key = { i, s -> "r-" + s.url + i }) { _, s ->
                         Row(
                             modifier = Modifier

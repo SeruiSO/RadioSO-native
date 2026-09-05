@@ -1883,7 +1883,7 @@ fun StationScreen(
                                 rightShow = false
                             }
                         }
-                    ) { change, drag ->
+                    ) { _, drag ->
                         val now = System.nanoTime()
                         val dt = ((now - lastT) / 1_000_000_000f).coerceAtLeast(0.001f)
                         lastT = now
@@ -1896,8 +1896,9 @@ fun StationScreen(
                                 rightSearchOpen = true
                                 onRightOpen()
                             }
-                            // 1:1 з пальцем відносно ширини картки
-                            val next = (rightA.value + drag / sheetWpx).coerceIn(0f, 1f)
+                            // короткий свайп: ~35% ширини картки пальцем = повне відкриття
+                            val sens = (sheetWpx * 0.35f).coerceAtLeast(1f)
+                            val next = (rightA.value + drag / sens).coerceIn(0f, 1f)
                             sheetScope.launch { rightA.snapTo(next) }
                         }
                     }
@@ -1933,21 +1934,49 @@ fun StationScreen(
                     .statusBarsPadding()
                     .navigationBarsPadding()
                     .pointerInput(sheetWpx) {
+                        var cDrag = false
+                        var cDx = 0f
+                        var cLast = 0L
+                        var cVel = 0f
                         detectHorizontalDragGestures(
+                            onDragStart = {
+                                cDrag = false
+                                cDx = 0f
+                                cVel = 0f
+                                cLast = System.nanoTime()
+                            },
                             onDragEnd = {
                                 sheetScope.launch {
-                                    if (rightA.value > 0.35f) {
-                                        rightA.animateTo(1f, tween(280))
+                                    // короткий свайп вправо або невелике зміщення → закрити
+                                    val fastClose = cDx > 48f && cVel > 700f
+                                    val shortClose = cDrag && (rightA.value > 0.12f || cDx > 40f)
+                                    if (fastClose || shortClose) {
+                                        rightA.animateTo(1f, tween(240))
                                         rightShow = false
                                     } else {
-                                        rightA.animateTo(0f, tween(240))
+                                        rightA.animateTo(0f, tween(220))
                                         rightShow = true
                                     }
                                 }
+                                cDrag = false
+                                cDx = 0f
+                            },
+                            onDragCancel = {
+                                cDrag = false
+                                sheetScope.launch { rightA.animateTo(0f, tween(200)); rightShow = true }
                             }
                         ) { _, drag ->
-                            sheetScope.launch {
-                                rightA.snapTo((rightA.value + drag / sheetWpx).coerceIn(0f, 1f))
+                            val now = System.nanoTime()
+                            val dt = ((now - cLast) / 1_000_000_000f).coerceAtLeast(0.001f)
+                            cLast = now
+                            cDx += drag
+                            if (drag > 0f) cVel = drag / dt
+                            if (drag > 0.5f || cDrag) {
+                                cDrag = true
+                                // короткий свайп: ~30% ширини картки = повне закриття візуально
+                                val sens = (sheetWpx * 0.30f).coerceAtLeast(1f)
+                                val next = (rightA.value + drag / sens).coerceIn(0f, 1f)
+                                sheetScope.launch { rightA.snapTo(next) }
                             }
                         }
                     }

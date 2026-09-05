@@ -46,6 +46,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -365,6 +366,7 @@ class MainActivity : ComponentActivity() {
                         allRadio = allRadioStations(),
                         recentStations = recentStations,
                         localRows = visibleLocal(),
+                        allLocal = localTracks,
                         showLocal = tab == "local" || tab == "best",
                         name = stationName,
                         genre = currentGenre,
@@ -991,6 +993,7 @@ fun StationScreen(
     allRadio: List<Station> = emptyList(),
     recentStations: List<Station> = emptyList(),
     localRows: List<LocalTrack>,
+    allLocal: List<LocalTrack> = emptyList(),
     showLocal: Boolean,
     name: String,
     genre: String,
@@ -1140,6 +1143,26 @@ fun StationScreen(
             rightShow = false
         }
     }
+    // Ліва картка Lokal (свайп з лівого краю / SD)
+    val leftA = androidx.compose.runtime.remember { Animatable(1f) } // 1=закрито, 0=відкрито
+    var leftShow by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    fun openLeftSheet() {
+        if (rightShow) closeRightSheet()
+        onScan()
+        leftShow = true
+        sheetScope.launch {
+            leftA.stop()
+            leftA.snapTo(1f)
+            leftA.animateTo(0f, tween(300))
+        }
+    }
+    fun closeLeftSheet() {
+        sheetScope.launch {
+            leftA.stop()
+            leftA.animateTo(1f, tween(280))
+            leftShow = false
+        }
+    }
     fun openTopSheet() {
         topShow = true
         sheetScope.launch {
@@ -1172,10 +1195,20 @@ fun StationScreen(
             .padding(top = 28.dp, start = 12.dp, end = 12.dp, bottom = 16.dp)
     ) {
         Box(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).height(48.dp)) {
-            Box(
-                modifier = Modifier.align(Alignment.CenterStart).size(40.dp).background(card, RoundedCornerShape(12.dp)).clickable { topThemeOpen = true },
-                contentAlignment = Alignment.Center
-            ) { Text("🌙") }
+            Row(
+                modifier = Modifier.align(Alignment.CenterStart),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier.size(40.dp).background(card, RoundedCornerShape(12.dp)).clickable { topThemeOpen = true },
+                    contentAlignment = Alignment.Center
+                ) { Text("🌙") }
+                Box(
+                    modifier = Modifier.size(40.dp).background(card, RoundedCornerShape(12.dp)).clickable { openLeftSheet() },
+                    contentAlignment = Alignment.Center
+                ) { Text("SD", color = Color.White, style = MaterialTheme.typography.labelLarge) }
+            }
             Text("Radio S O", color = Color.White, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.align(Alignment.Center))
             Row(
                 modifier = Modifier.align(Alignment.CenterEnd),
@@ -1852,328 +1885,43 @@ fun StationScreen(
     // Край поверх картки під час відкриття. Повністю відкриту — край вимкнено
     // (повторний свайп вліво більше не закриває).
     val rightFullyOpen = rightShow && rightA.value <= 0.05f
-    val showRightEdge = !topShow && !nowOpen && !sheetShow && !rightFullyOpen
+    val leftFullyOpen = leftShow && leftA.value <= 0.05f
+    val leftBusy = leftShow || leftA.value < 0.999f
+    val rightBusy = rightShow || rightA.value < 0.999f
+    val showRightEdge = !topShow && !nowOpen && !sheetShow && !rightFullyOpen && !leftBusy
+    val showLeftEdge = !topShow && !nowOpen && !sheetShow && !leftFullyOpen && !rightBusy
 
-    if (rightShow || rightA.value < 0.999f) {
-        val cfg = LocalConfiguration.current
-        val density = LocalDensity.current
-        val sheetW = (cfg.screenWidthDp * 0.80f).dp
-        val sheetWpx = with(density) { sheetW.toPx() }
-
-        Box(modifier = Modifier.fillMaxSize()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Color(0x88000000).copy(
-                            alpha = ((1f - rightA.value) * 0.5f).coerceIn(0f, 0.5f)
-                        )
-                    )
-                    .clickable { closeRightSheet() }
-            )
-            Column(
-                modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .fillMaxHeight()
-                    .width(sheetW)
-                    .graphicsLayer { translationX = rightA.value * sheetWpx }
-                    .background(
-                        Color(0xFF121214),
-                        RoundedCornerShape(topStart = 22.dp, bottomStart = 22.dp)
-                    )
-                    .statusBarsPadding()
-                    .navigationBarsPadding()
-                    .pointerInput(sheetWpx) {
-                        val slop = viewConfiguration.touchSlop
-                        awaitEachGesture {
-                            awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
-                            var locked = false
-                            var accX = 0f
-                            var accY = 0f
-                            var finished = false
-                            while (!finished) {
-                                val ev = awaitPointerEvent(PointerEventPass.Initial)
-                                val ch = ev.changes.firstOrNull() ?: break
-                                if (!ch.pressed) {
-                                    finished = true
-                                    break
-                                }
-                                val dx = ch.positionChange().x
-                                val dy = ch.positionChange().y
-                                accX += dx
-                                accY += dy
-                                if (!locked) {
-                                    if (kotlin.math.abs(accX) > slop || kotlin.math.abs(accY) > slop) {
-                                        if (kotlin.math.abs(accX) > kotlin.math.abs(accY) && accX > 0f) {
-                                            locked = true
-                                        } else {
-                                            break
-                                        }
-                                    }
-                                }
-                                if (locked) {
-                                    ch.consume()
-                                    val next = (rightA.value + dx / sheetWpx).coerceIn(0f, 1f)
-                                    sheetScope.launch { rightA.snapTo(next) }
-                                }
-                            }
-                            if (locked) {
-                                sheetScope.launch {
-                                    rightA.stop()
-                                    if (rightA.value >= 0.07f) {
-                                        rightA.animateTo(1f, tween(280))
-                                        rightShow = false
-                                    } else {
-                                        rightA.animateTo(0f, tween(280))
-                                        rightShow = true
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    .padding(horizontal = 12.dp, vertical = 10.dp)
-            ) {
-                // Ручка закриття (окремо від LazyColumn — жести не конфліктують)
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(28.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .width(40.dp)
-                            .height(4.dp)
-                            .background(muted, RoundedCornerShape(2.dp))
-                    )
-                }
-Text(
-                    "🔍 Пошук",
-                    color = Color.White,
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { rightSearchOpen = !rightSearchOpen }
-                        .padding(bottom = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Поля пошуку", color = Color.White, modifier = Modifier.weight(1f))
-                    Text(if (rightSearchOpen) "▴" else "▾", color = muted)
-                }
-                if (rightSearchOpen) {
-                    @Composable
-                    fun rField(v: String, set: (String) -> Unit, lab: String, key: String, hints: List<String>) {
-                        OutlinedTextField(
-                            value = v,
-                            onValueChange = set,
-                            singleLine = true,
-                            label = { Text(lab) },
-                            modifier = Modifier.fillMaxWidth(),
-                            trailingIcon = {
-                                Text(
-                                    "▾",
-                                    color = acc,
-                                    modifier = Modifier
-                                        .clickable { onSuggestFor(if (suggestFor == key) "" else key) }
-                                        .padding(8.dp)
-                                )
-                            }
-                        )
-                        if (suggestFor == key) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(max = 160.dp)
-                                    .verticalScroll(rememberScrollState())
-                                    .background(card, RoundedCornerShape(6.dp))
-                                    .padding(6.dp)
-                            ) {
-                                hints.distinct().take(24).forEach { h ->
-                                    Text(
-                                        h,
-                                        color = text,
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clickable { set(h); onSuggestFor("") }
-                                            .padding(6.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    rField(qName, onName, "Назва", "name", nameHints)
-                    rField(qCountry, onCountry, "Країна", "country", countryHints)
-                    rField(qGenre, onGenre, "Жанр", "genre", genreHints)
-                    Button(
-                        onClick = {
-                            onSearch()
-                            rightSearchOpen = false
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 8.dp)
-                            .height(44.dp),
-                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                            containerColor = acc,
-                            contentColor = Color(0xFF0A0A0C)
-                        )
-                    ) { Text("🔍 Знайти") }
-                }
-                Text(
-                    status,
-                    color = muted,
-                    style = MaterialTheme.typography.labelMedium,
-                    modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-                // Результати: ті самі searchRows через radioRows коли tab=search.
-                // Щоб завжди бачити search — перемикаємось на search при відкритті з кнопки не обов'язково;
-                // показуємо radioRows якщо tab search, інакше підказка.
-                val rightRows = searchRows
-                if (rightRows.isEmpty()) {
-                    Text(
-                        "Введіть запит і натисніть «Знайти»",
-                        color = muted,
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(top = 12.dp)
-                    )
-                }
-                LazyColumn(modifier = Modifier.weight(1f)) {
-                    itemsIndexed(rightRows, key = { i, s -> "r-" + s.url + i }) { _, s ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp)
-                                .background(
-                                    if (s.url == currentUrl) acc.copy(alpha = 0.18f) else Color.Transparent,
-                                    RoundedCornerShape(10.dp)
-                                )
-                                .clickable { onPickRadio(rightRows, rightRows.indexOfFirst { it.url == s.url }.coerceAtLeast(0)) }
-                                .padding(6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(42.dp)
-                                    .background(Color(0xFF222228), RoundedCornerShape(6.dp)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                if (s.favicon.startsWith("http") && !s.favicon.contains("example.com")) {
-                                    AsyncImage(
-                                        model = s.favicon,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(42.dp),
-                                        contentScale = ContentScale.Crop
-                                    )
-                                } else Text("🎵")
-                            }
-                            Column(modifier = Modifier.weight(1f).padding(start = 8.dp)) {
-                                Text(s.name, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(
-                                    "${s.genre} · ${s.country}",
-                                    color = muted,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                            }
-                            Text(
-                                "+",
-                                color = acc,
-                                modifier = Modifier
-                                    .clickable { onAddToTab(s) }
-                                    .padding(start = 8.dp, end = 4.dp),
-                                style = MaterialTheme.typography.headlineSmall
-                            )
-                        }
-                    }
-                    if (canMoreSearch && rightRows.isNotEmpty()) {
-                        item {
-                            Button(
-                                onClick = onMore,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 8.dp)
-                                    .height(44.dp),
-                                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                                    containerColor = acc,
-                                    contentColor = Color(0xFF0A0A0C)
-                                )
-                            ) { Text("Ще 100") }
-                        }
-                    }
-                    item { androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(16.dp)) }
-                }
-            }
-        }
-    }
-
-    if (showRightEdge) {
-        val dens = LocalDensity.current
-        val cfg = LocalConfiguration.current
-        val sheetWpxEdge = with(dens) { (cfg.screenWidthDp * 0.80f).dp.toPx() }
-        Box(
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .fillMaxHeight()
-                .width(22.dp)
-                .pointerInput(sheetWpxEdge) {
-                    var dragged = false
-                    detectHorizontalDragGestures(
-                        onDragEnd = {
-                            val was = dragged
-                            dragged = false
-                            if (!was) return@detectHorizontalDragGestures
-                            sheetScope.launch {
-                                rightA.stop()
-                                if (rightA.value <= 0.93f) {
-                                    rightShow = true
-                                    rightSearchOpen = true
-                                    rightA.animateTo(0f, tween(280))
-                                    rightA.snapTo(0f)
-                                } else {
-                                    rightA.animateTo(1f, tween(260))
-                                    rightA.snapTo(1f)
-                                    rightShow = false
-                                }
-                            }
-                        },
-                        onDragCancel = {
-                            val was = dragged
-                            dragged = false
-                            if (!was) return@detectHorizontalDragGestures
-                            sheetScope.launch {
-                                rightA.stop()
-                                if (rightA.value <= 0.93f) {
-                                    rightShow = true
-                                    rightSearchOpen = true
-                                    rightA.animateTo(0f, tween(280))
-                                    rightA.snapTo(0f)
-                                } else {
-                                    rightA.animateTo(1f, tween(240))
-                                    rightA.snapTo(1f)
-                                    rightShow = false
-                                }
-                            }
-                        }
-                    ) { _, drag ->
-                        if (!dragged) {
-                            if (drag >= -0.5f) return@detectHorizontalDragGestures
-                            dragged = true
-                            rightShow = true
-                            rightSearchOpen = true
-                            onRightOpen()
-                        }
-                        val next = (rightA.value + drag / sheetWpxEdge).coerceIn(0f, 1f)
-                        sheetScope.launch { rightA.snapTo(next) }
-                    }
-                }
-        )
-    }
+    RightSearchPanel(
+        rightA = rightA,
+        rightShow = rightShow,
+        onRightShow = { rightShow = it },
+        showRightEdge = showRightEdge,
+        rightSearchOpen = rightSearchOpen,
+        onRightSearchOpen = { rightSearchOpen = it },
+        onRightOpen = onRightOpen,
+        qName = qName, onName = onName,
+        qCountry = qCountry, onCountry = onCountry,
+        qGenre = qGenre, onGenre = onGenre,
+        suggestFor = suggestFor, onSuggestFor = onSuggestFor,
+        nameHints = nameHints, countryHints = countryHints, genreHints = genreHints,
+        onSearch = onSearch, onMore = onMore, canMoreSearch = canMoreSearch,
+        searchRows = searchRows, currentUrl = currentUrl, status = status,
+        acc = acc, muted = muted, text = text, card = card,
+        onPickRadio = onPickRadio, onAddToTab = onAddToTab
+    )
+    LeftLokalPanel(
+        leftA = leftA,
+        leftShow = leftShow,
+        onLeftShow = { leftShow = it },
+        showLeftEdge = showLeftEdge,
+        allLocal = allLocal,
+        currentUrl = currentUrl,
+        bestUris = bestUris,
+        acc = acc, muted = muted, text = text,
+        onPickLocal = onPickLocal,
+        onToggleBest = onToggleBest,
+        onScan = onScan
+    )
 
     if (topSleepOpen) {
         AlertDialog(
@@ -2672,4 +2420,416 @@ Text(
         }
     }
 
+}
+
+@Composable
+private fun BoxScope.RightSearchPanel(
+    rightA: Animatable<Float, *>,
+    rightShow: Boolean,
+    onRightShow: (Boolean) -> Unit,
+    showRightEdge: Boolean,
+    rightSearchOpen: Boolean,
+    onRightSearchOpen: (Boolean) -> Unit,
+    onRightOpen: () -> Unit,
+    qName: String, onName: (String) -> Unit,
+    qCountry: String, onCountry: (String) -> Unit,
+    qGenre: String, onGenre: (String) -> Unit,
+    suggestFor: String, onSuggestFor: (String) -> Unit,
+    nameHints: List<String>, countryHints: List<String>, genreHints: List<String>,
+    onSearch: () -> Unit, onMore: () -> Unit, canMoreSearch: Boolean,
+    searchRows: List<Station>, currentUrl: String, status: String,
+    acc: Color, muted: Color, text: Color, card: Color,
+    onPickRadio: (List<Station>, Int) -> Unit,
+    onAddToTab: (Station) -> Unit,
+) {
+    val sheetScope = rememberCoroutineScope()
+    fun closeRightSheet() {
+        sheetScope.launch {
+            rightA.stop()
+            rightA.animateTo(1f, tween(280))
+            onRightShow(false)
+        }
+    }
+    if (rightShow || rightA.value < 0.999f) {
+        val cfg = LocalConfiguration.current
+        val density = LocalDensity.current
+        val sheetW = (cfg.screenWidthDp * 0.80f).dp
+        val sheetWpx = with(density) { sheetW.toPx() }
+        Box(modifier = Modifier.fillMaxSize()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Color(0x88000000).copy(
+                            alpha = ((1f - rightA.value) * 0.5f).coerceIn(0f, 0.5f)
+                        )
+                    )
+                    .clickable { closeRightSheet() }
+            )
+            Column(
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .fillMaxHeight()
+                    .width(sheetW)
+                    .graphicsLayer { translationX = rightA.value * sheetWpx }
+                    .background(
+                        Color(0xFF121214),
+                        RoundedCornerShape(topStart = 22.dp, bottomStart = 22.dp)
+                    )
+                    .statusBarsPadding()
+                    .navigationBarsPadding()
+                    .pointerInput(sheetWpx) {
+                        val slop = viewConfiguration.touchSlop
+                        awaitEachGesture {
+                            awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                            var locked = false
+                            var accX = 0f
+                            var accY = 0f
+                            var finished = false
+                            while (!finished) {
+                                val ev = awaitPointerEvent(PointerEventPass.Initial)
+                                val ch = ev.changes.firstOrNull() ?: break
+                                if (!ch.pressed) {
+                                    finished = true
+                                    break
+                                }
+                                val dx = ch.positionChange().x
+                                val dy = ch.positionChange().y
+                                accX += dx
+                                accY += dy
+                                if (!locked) {
+                                    if (kotlin.math.abs(accX) > slop || kotlin.math.abs(accY) > slop) {
+                                        if (kotlin.math.abs(accX) > kotlin.math.abs(accY) && accX > 0f) locked = true
+                                        else break
+                                    }
+                                }
+                                if (locked) {
+                                    ch.consume()
+                                    val next = (rightA.value + dx / sheetWpx).coerceIn(0f, 1f)
+                                    sheetScope.launch { rightA.snapTo(next) }
+                                }
+                            }
+                            if (locked) {
+                                sheetScope.launch {
+                                    rightA.stop()
+                                    if (rightA.value >= 0.07f) {
+                                        rightA.animateTo(1f, tween(280))
+                                        onRightShow(false)
+                                    } else {
+                                        rightA.animateTo(0f, tween(280))
+                                        onRightShow(true)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .padding(horizontal = 12.dp, vertical = 10.dp)
+            ) {
+                Box(
+                    modifier = Modifier.fillMaxWidth().height(28.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Box(modifier = Modifier.width(40.dp).height(4.dp).background(muted, RoundedCornerShape(2.dp)))
+                }
+                Text("🔍 Пошук", color = Color.White, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth().clickable { onRightSearchOpen(!rightSearchOpen) }.padding(bottom = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Поля пошуку", color = Color.White, modifier = Modifier.weight(1f))
+                    Text(if (rightSearchOpen) "▴" else "▾", color = muted)
+                }
+                if (rightSearchOpen) {
+                    @Composable
+                    fun rField(v: String, set: (String) -> Unit, lab: String, key: String, hints: List<String>) {
+                        OutlinedTextField(
+                            value = v, onValueChange = set, singleLine = true, label = { Text(lab) },
+                            modifier = Modifier.fillMaxWidth(),
+                            trailingIcon = {
+                                Text("▾", color = acc, modifier = Modifier.clickable { onSuggestFor(if (suggestFor == key) "" else key) }.padding(8.dp))
+                            }
+                        )
+                        if (suggestFor == key) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth().heightIn(max = 160.dp).verticalScroll(rememberScrollState())
+                                    .background(card, RoundedCornerShape(6.dp)).padding(6.dp)
+                            ) {
+                                hints.distinct().take(24).forEach { h ->
+                                    Text(h, color = text, modifier = Modifier.fillMaxWidth().clickable { set(h); onSuggestFor("") }.padding(6.dp))
+                                }
+                            }
+                        }
+                    }
+                    rField(qName, onName, "Назва", "name", nameHints)
+                    rField(qCountry, onCountry, "Країна", "country", countryHints)
+                    rField(qGenre, onGenre, "Жанр", "genre", genreHints)
+                    Button(
+                        onClick = { onSearch(); onRightSearchOpen(false) },
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp).height(44.dp),
+                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = acc, contentColor = Color(0xFF0A0A0C))
+                    ) { Text("🔍 Знайти") }
+                }
+                Text(status, color = muted, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 8.dp, bottom = 4.dp), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                val rightRows = searchRows
+                if (rightRows.isEmpty()) {
+                    Text("Введіть запит і натисніть «Знайти»", color = muted, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 12.dp))
+                }
+                LazyColumn(modifier = Modifier.weight(1f)) {
+                    itemsIndexed(rightRows, key = { i, s -> "r-" + s.url + i }) { _, s ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                                .background(if (s.url == currentUrl) acc.copy(alpha = 0.18f) else Color.Transparent, RoundedCornerShape(10.dp))
+                                .clickable { onPickRadio(rightRows, rightRows.indexOfFirst { it.url == s.url }.coerceAtLeast(0)) }
+                                .padding(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(modifier = Modifier.size(42.dp).background(Color(0xFF222228), RoundedCornerShape(6.dp)), contentAlignment = Alignment.Center) {
+                                if (s.favicon.startsWith("http") && !s.favicon.contains("example.com")) {
+                                    AsyncImage(model = s.favicon, contentDescription = null, modifier = Modifier.size(42.dp), contentScale = ContentScale.Crop)
+                                } else Text("🎵")
+                            }
+                            Column(modifier = Modifier.weight(1f).padding(start = 8.dp)) {
+                                Text(s.name, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text("${s.genre} · ${s.country}", color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
+                            }
+                            Text("+", color = acc, modifier = Modifier.clickable { onAddToTab(s) }.padding(start = 8.dp, end = 4.dp), style = MaterialTheme.typography.headlineSmall)
+                        }
+                    }
+                    if (canMoreSearch && rightRows.isNotEmpty()) {
+                        item {
+                            Button(
+                                onClick = onMore,
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp).height(44.dp),
+                                colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = acc, contentColor = Color(0xFF0A0A0C))
+                            ) { Text("Ще 100") }
+                        }
+                    }
+                    item { androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(16.dp)) }
+                }
+            }
+        }
+    }
+    if (showRightEdge) {
+        val dens = LocalDensity.current
+        val cfg = LocalConfiguration.current
+        val sheetWpxEdge = with(dens) { (cfg.screenWidthDp * 0.80f).dp.toPx() }
+        Box(
+            modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(22.dp).pointerInput(sheetWpxEdge) {
+                var dragged = false
+                detectHorizontalDragGestures(
+                    onDragEnd = {
+                        val was = dragged
+                        dragged = false
+                        if (!was) return@detectHorizontalDragGestures
+                        sheetScope.launch {
+                            rightA.stop()
+                            if (rightA.value <= 0.93f) {
+                                onRightShow(true); onRightSearchOpen(true)
+                                rightA.animateTo(0f, tween(280)); rightA.snapTo(0f)
+                            } else {
+                                rightA.animateTo(1f, tween(260)); rightA.snapTo(1f); onRightShow(false)
+                            }
+                        }
+                    },
+                    onDragCancel = {
+                        val was = dragged
+                        dragged = false
+                        if (!was) return@detectHorizontalDragGestures
+                        sheetScope.launch {
+                            rightA.stop()
+                            if (rightA.value <= 0.93f) {
+                                onRightShow(true); onRightSearchOpen(true)
+                                rightA.animateTo(0f, tween(280)); rightA.snapTo(0f)
+                            } else {
+                                rightA.animateTo(1f, tween(240)); rightA.snapTo(1f); onRightShow(false)
+                            }
+                        }
+                    }
+                ) { _, drag ->
+                    if (!dragged) {
+                        if (drag >= -0.5f) return@detectHorizontalDragGestures
+                        dragged = true
+                        onRightShow(true); onRightSearchOpen(true); onRightOpen()
+                    }
+                    val next = (rightA.value + drag / sheetWpxEdge).coerceIn(0f, 1f)
+                    sheetScope.launch { rightA.snapTo(next) }
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun BoxScope.LeftLokalPanel(
+    leftA: Animatable<Float, *>,
+    leftShow: Boolean,
+    onLeftShow: (Boolean) -> Unit,
+    showLeftEdge: Boolean,
+    allLocal: List<LocalTrack>,
+    currentUrl: String,
+    bestUris: Set<String>,
+    acc: Color, muted: Color, text: Color,
+    onPickLocal: (List<LocalTrack>, Int) -> Unit,
+    onToggleBest: (LocalTrack) -> Unit,
+    onScan: () -> Unit,
+) {
+    val sheetScope = rememberCoroutineScope()
+    fun closeLeftSheet() {
+        sheetScope.launch {
+            leftA.stop()
+            leftA.animateTo(1f, tween(280))
+            onLeftShow(false)
+        }
+    }
+    if (leftShow || leftA.value < 0.999f) {
+        val cfgL = LocalConfiguration.current
+        val densL = LocalDensity.current
+        val sheetWL = (cfgL.screenWidthDp * 0.80f).dp
+        val sheetWpxL = with(densL) { sheetWL.toPx() }
+        Box(modifier = Modifier.fillMaxSize()) {
+            Box(
+                modifier = Modifier.fillMaxSize()
+                    .background(Color(0x88000000).copy(alpha = ((1f - leftA.value) * 0.5f).coerceIn(0f, 0.5f)))
+                    .clickable { closeLeftSheet() }
+            )
+            Column(
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .fillMaxHeight()
+                    .width(sheetWL)
+                    .graphicsLayer { translationX = -leftA.value * sheetWpxL }
+                    .background(Color(0xFF121214), RoundedCornerShape(topEnd = 22.dp, bottomEnd = 22.dp))
+                    .statusBarsPadding()
+                    .navigationBarsPadding()
+                    .pointerInput(sheetWpxL) {
+                        val slop = viewConfiguration.touchSlop
+                        awaitEachGesture {
+                            awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                            var locked = false
+                            var accX = 0f
+                            var accY = 0f
+                            var finished = false
+                            while (!finished) {
+                                val ev = awaitPointerEvent(PointerEventPass.Initial)
+                                val ch = ev.changes.firstOrNull() ?: break
+                                if (!ch.pressed) { finished = true; break }
+                                val dx = ch.positionChange().x
+                                val dy = ch.positionChange().y
+                                accX += dx; accY += dy
+                                if (!locked) {
+                                    if (kotlin.math.abs(accX) > slop || kotlin.math.abs(accY) > slop) {
+                                        if (kotlin.math.abs(accX) > kotlin.math.abs(accY) && accX < 0f) locked = true
+                                        else break
+                                    }
+                                }
+                                if (locked) {
+                                    ch.consume()
+                                    val next = (leftA.value - dx / sheetWpxL).coerceIn(0f, 1f)
+                                    sheetScope.launch { leftA.snapTo(next) }
+                                }
+                            }
+                            if (locked) {
+                                sheetScope.launch {
+                                    leftA.stop()
+                                    if (leftA.value >= 0.07f) {
+                                        leftA.animateTo(1f, tween(280)); onLeftShow(false)
+                                    } else {
+                                        leftA.animateTo(0f, tween(280)); onLeftShow(true)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .padding(horizontal = 12.dp, vertical = 10.dp)
+            ) {
+                Box(modifier = Modifier.fillMaxWidth().height(28.dp), contentAlignment = Alignment.Center) {
+                    Box(modifier = Modifier.width(40.dp).height(4.dp).background(muted, RoundedCornerShape(2.dp)))
+                }
+                Row(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("SD Lokal", color = Color.White, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                    Text("Scan", color = acc, modifier = Modifier.clickable { onScan() }.padding(8.dp), style = MaterialTheme.typography.labelLarge)
+                }
+                Text(
+                    if (allLocal.isEmpty()) "Немає треків" else "треків: ${allLocal.size}",
+                    color = muted, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(bottom = 6.dp)
+                )
+                LazyColumn(modifier = Modifier.weight(1f)) {
+                    itemsIndexed(allLocal, key = { i, x -> "l-" + x.uri + i }) { index, item ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                                .background(if (item.uri == currentUrl) acc.copy(alpha = 0.18f) else Color.Transparent, RoundedCornerShape(10.dp))
+                                .clickable { onPickLocal(allLocal, index) }
+                                .padding(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(modifier = Modifier.size(42.dp).background(Color(0xFF222228), RoundedCornerShape(6.dp)), contentAlignment = Alignment.Center) {
+                                val a = if (item.albumId.isNotBlank() && item.albumId != "0")
+                                    "content://media/external/audio/albumart/${item.albumId}" else ""
+                                if (a.isNotEmpty()) AsyncImage(model = a, contentDescription = null, modifier = Modifier.size(42.dp), contentScale = ContentScale.Crop)
+                                else Text("🎵")
+                            }
+                            Column(modifier = Modifier.weight(1f).padding(start = 8.dp)) {
+                                Text(item.title, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(item.artist, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
+                            }
+                            Text(
+                                if (bestUris.contains(item.uri)) "★" else "☆",
+                                color = acc,
+                                modifier = Modifier.clickable { onToggleBest(item) }.padding(start = 10.dp, end = 2.dp),
+                                style = MaterialTheme.typography.headlineSmall
+                            )
+                        }
+                    }
+                    item { androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(16.dp)) }
+                }
+            }
+        }
+    }
+    if (showLeftEdge) {
+        val densL = LocalDensity.current
+        val cfgL = LocalConfiguration.current
+        val sheetWpxEdgeL = with(densL) { (cfgL.screenWidthDp * 0.80f).dp.toPx() }
+        Box(
+            modifier = Modifier.align(Alignment.CenterStart).fillMaxHeight().width(22.dp).pointerInput(sheetWpxEdgeL) {
+                var dragged = false
+                detectHorizontalDragGestures(
+                    onDragEnd = {
+                        val was = dragged
+                        dragged = false
+                        if (!was) return@detectHorizontalDragGestures
+                        sheetScope.launch {
+                            leftA.stop()
+                            if (leftA.value <= 0.93f) {
+                                onLeftShow(true); leftA.animateTo(0f, tween(280)); leftA.snapTo(0f)
+                            } else {
+                                leftA.animateTo(1f, tween(260)); leftA.snapTo(1f); onLeftShow(false)
+                            }
+                        }
+                    },
+                    onDragCancel = {
+                        val was = dragged
+                        dragged = false
+                        if (!was) return@detectHorizontalDragGestures
+                        sheetScope.launch {
+                            leftA.stop()
+                            if (leftA.value <= 0.93f) {
+                                onLeftShow(true); leftA.animateTo(0f, tween(280)); leftA.snapTo(0f)
+                            } else {
+                                leftA.animateTo(1f, tween(240)); leftA.snapTo(1f); onLeftShow(false)
+                            }
+                        }
+                    }
+                ) { _, drag ->
+                    if (!dragged) {
+                        if (drag <= 0.5f) return@detectHorizontalDragGestures
+                        dragged = true
+                        onLeftShow(true)
+                        onScan()
+                    }
+                    val next = (leftA.value - drag / sheetWpxEdgeL).coerceIn(0f, 1f)
+                    sheetScope.launch { leftA.snapTo(next) }
+                }
+            }
+        )
+    }
 }

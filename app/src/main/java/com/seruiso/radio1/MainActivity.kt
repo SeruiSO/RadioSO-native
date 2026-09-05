@@ -1848,7 +1848,7 @@ fun StationScreen(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
                 .fillMaxHeight()
-                .width(40.dp)
+                .width(22.dp)
                 .pointerInput(sheetWpx) {
                     var dragged = false
                     var totalDx = 0f
@@ -1862,9 +1862,8 @@ fun StationScreen(
                         },
                         onDragEnd = {
                             sheetScope.launch {
-                                val fast = totalDx < -64f && velPx > 900f
-                                val enough = rightA.value < 0.62f
-                                if (dragged && (enough || fast)) {
+                                // щойно почали тягнути — відкриваємо повністю (незалежно від точки відпуску)
+                                if (dragged) {
                                     rightShow = true
                                     rightSearchOpen = true
                                     rightA.animateTo(0f, tween(250))

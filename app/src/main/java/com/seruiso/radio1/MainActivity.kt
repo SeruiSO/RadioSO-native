@@ -1842,46 +1842,55 @@ fun StationScreen(
             }
         }
     }
-    // ===== Права картка пошуку (свайп з правого краю) =====
-    // Вузька смуга (~40dp) біля правого краю — ★/🗑 лишаються клікабельні лівіше.
-    // Картка їде за пальцем; відпуск / швидкий свайп → відкрити.
-    // Смуга відкриття лише коли картка ЗАКРИТА (не конфліктує з жестом закриття)
-    if (!topShow && !nowOpen && !sheetShow && !rightShow && rightA.value >= 0.99f) {
+    // ===== Права картка пошуку =====
+    // Смуга ВСЕГДИ в композиції (не зникає під час жесту → немає onDragCancel → «зліт»).
+    if (!topShow && !nowOpen && !sheetShow) {
         val dens = LocalDensity.current
         val cfg = LocalConfiguration.current
-        val sheetWpx = with(dens) { (cfg.screenWidthDp * 0.80f).dp.toPx() }
+        val sheetWpxEdge = with(dens) { (cfg.screenWidthDp * 0.80f).dp.toPx() }
         Box(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
                 .fillMaxHeight()
                 .width(22.dp)
-                .pointerInput(sheetWpx) {
+                .pointerInput(sheetWpxEdge) {
                     var dragged = false
                     detectHorizontalDragGestures(
                         onDragEnd = {
+                            val was = dragged
+                            dragged = false
                             sheetScope.launch {
-                                if (dragged) {
-                                    // короткий свайп → зафіксувати ВІДКРИТО
+                                rightA.stop()
+                                if (was) {
                                     rightShow = true
                                     rightSearchOpen = true
                                     rightA.animateTo(0f, tween(250))
                                     rightA.snapTo(0f)
-                                    rightShow = true
                                 } else {
                                     rightA.snapTo(1f)
                                     rightShow = false
                                 }
                             }
-                            dragged = false
                         },
                         onDragCancel = {
+                            // НЕ закриваємо на cancel якщо вже тягнули — інакше «зліт»
+                            val was = dragged
                             dragged = false
                             sheetScope.launch {
-                                rightA.snapTo(1f)
-                                rightShow = false
+                                rightA.stop()
+                                if (was) {
+                                    rightShow = true
+                                    rightA.animateTo(0f, tween(250))
+                                    rightA.snapTo(0f)
+                                } else {
+                                    rightA.snapTo(1f)
+                                    rightShow = false
+                                }
                             }
                         }
                     ) { _, drag ->
+                        // якщо вже повністю відкрито — край не чіпає
+                        if (rightShow && rightA.value < 0.02f) return@detectHorizontalDragGestures
                         if (drag < -1f || dragged) {
                             if (!dragged) {
                                 dragged = true
@@ -1889,8 +1898,7 @@ fun StationScreen(
                                 rightSearchOpen = true
                                 onRightOpen()
                             }
-                            // короткий жест: 40% ширини картки = повне відкриття
-                            val sens = (sheetWpx * 0.40f).coerceAtLeast(1f)
+                            val sens = (sheetWpxEdge * 0.38f).coerceAtLeast(1f)
                             val next = (rightA.value + drag / sens).coerceIn(0f, 1f)
                             sheetScope.launch { rightA.snapTo(next) }
                         }
@@ -1926,62 +1934,60 @@ fun StationScreen(
                     )
                     .statusBarsPadding()
                     .navigationBarsPadding()
-                                        .pointerInput(sheetWpx) {
-                        var started = false
-                        var dx = 0f
-                        detectHorizontalDragGestures(
-                            onDragStart = {
-                                started = false
-                                dx = 0f
-                            },
-                            onDragEnd = {
-                                sheetScope.launch {
-                                    // закрити лише якщо явно потягнули вправо
-                                    if (started && (rightA.value > 0.18f || dx > 56f)) {
-                                        rightA.animateTo(1f, tween(250))
-                                        rightA.snapTo(1f)
-                                        rightShow = false
-                                    } else {
-                                        rightA.animateTo(0f, tween(220))
-                                        rightA.snapTo(0f)
-                                        rightShow = true
+                    .padding(horizontal = 12.dp, vertical = 10.dp)
+            ) {
+                // Ручка закриття (окремо від LazyColumn — жести не конфліктують)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(28.dp)
+                        .pointerInput(sheetWpx) {
+                            var started = false
+                            var dx = 0f
+                            detectHorizontalDragGestures(
+                                onDragStart = { started = false; dx = 0f },
+                                onDragEnd = {
+                                    val s = started
+                                    val d = dx
+                                    started = false
+                                    dx = 0f
+                                    sheetScope.launch {
+                                        rightA.stop()
+                                        if (s && (rightA.value > 0.15f || d > 40f)) {
+                                            rightA.animateTo(1f, tween(250))
+                                            rightA.snapTo(1f)
+                                            rightShow = false
+                                        } else {
+                                            rightA.animateTo(0f, tween(220))
+                                            rightA.snapTo(0f)
+                                            rightShow = true
+                                        }
                                     }
+                                },
+                                onDragCancel = {
+                                    started = false
+                                    dx = 0f
                                 }
-                                started = false
-                                dx = 0f
-                            },
-                            onDragCancel = {
-                                started = false
-                                dx = 0f
-                                sheetScope.launch {
-                                    rightA.snapTo(0f)
-                                    rightShow = true
-                                }
-                            }
-                        ) { _, drag ->
-                            // тільки горизонталь вправо починає закриття; вліво ігнор коли відкрито
-                            if (drag > 1.5f || (started && kotlin.math.abs(drag) > 0.5f)) {
-                                if (!started && drag > 1.5f) started = true
-                                if (started) {
+                            ) { _, drag ->
+                                if (kotlin.math.abs(drag) > 0.5f) {
+                                    started = true
                                     dx += drag
-                                    val sens = (sheetWpx * 0.40f).coerceAtLeast(1f)
+                                    val sens = (sheetWpx * 0.35f).coerceAtLeast(1f)
                                     val next = (rightA.value + drag / sens).coerceIn(0f, 1f)
                                     sheetScope.launch { rightA.snapTo(next) }
                                 }
                             }
-                        }
-                    }
-.padding(horizontal = 12.dp, vertical = 10.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .padding(bottom = 10.dp)
-                        .width(40.dp)
-                        .height(4.dp)
-                        .background(muted, RoundedCornerShape(2.dp))
-                        .align(Alignment.CenterHorizontally)
-                )
-                Text(
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .width(40.dp)
+                            .height(4.dp)
+                            .background(muted, RoundedCornerShape(2.dp))
+                    )
+                }
+Text(
                     "🔍 Пошук",
                     color = Color.White,
                     style = MaterialTheme.typography.titleMedium,

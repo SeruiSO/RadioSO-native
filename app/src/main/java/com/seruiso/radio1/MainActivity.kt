@@ -1946,18 +1946,15 @@ fun StationScreen(
                         .height(28.dp)
                         .pointerInput(sheetWpx) {
                             var started = false
-                            var dx = 0f
                             detectHorizontalDragGestures(
-                                onDragStart = { started = false; dx = 0f },
+                                onDragStart = { started = false },
                                 onDragEnd = {
                                     val s = started
-                                    val d = dx
                                     started = false
-                                    dx = 0f
                                     sheetScope.launch {
                                         rightA.stop()
-                                        // закриття лише якщо тягнули ВПРАВО
-                                        if (s && d > 0f && (rightA.value > 0.22f || d > 36f)) {
+                                        // 10–15%: якщо відтягнули більше ~12% вправо — закрити, інакше лишити відкритим
+                                        if (s && rightA.value > 0.12f) {
                                             rightA.animateTo(1f, tween(280))
                                             rightA.snapTo(1f)
                                             rightShow = false
@@ -1968,16 +1965,22 @@ fun StationScreen(
                                         }
                                     }
                                 },
-                                onDragCancel = { started = false; dx = 0f }
-                            ) { _, drag ->
-                                // тільки вправо починає закриття; вліво не закриває
-                                if (drag > 0.5f || (started && drag != 0f)) {
-                                    if (!started && drag > 0.5f) started = true
-                                    if (started) {
-                                        dx += drag
-                                        val next = (rightA.value + drag / sheetWpx).coerceIn(0f, 1f)
-                                        sheetScope.launch { rightA.snapTo(next) }
+                                onDragCancel = {
+                                    started = false
+                                    sheetScope.launch {
+                                        rightA.stop()
+                                        rightA.animateTo(0f, tween(240))
+                                        rightA.snapTo(0f)
+                                        rightShow = true
                                     }
+                                }
+                            ) { _, drag ->
+                                // ЛИШЕ вправо рухає картку до закриття (1:1 за пальцем)
+                                // вліво / дрібні тремтіння — ігнор
+                                if (drag > 1f) {
+                                    started = true
+                                    val next = (rightA.value + drag / sheetWpx).coerceIn(0f, 1f)
+                                    sheetScope.launch { rightA.snapTo(next) }
                                 }
                             }
                         },
@@ -2090,17 +2093,15 @@ Text(
                         .weight(1f)
                         .pointerInput(sheetWpx) {
                             var started = false
-                            var dx = 0f
                             detectHorizontalDragGestures(
-                                onDragStart = { started = false; dx = 0f },
+                                onDragStart = { started = false },
                                 onDragEnd = {
                                     val s = started
-                                    val d = dx
                                     started = false
-                                    dx = 0f
                                     sheetScope.launch {
                                         rightA.stop()
-                                        if (s && d > 0f && (rightA.value > 0.22f || d > 36f)) {
+                                        // 10–15%: якщо відтягнули більше ~12% вправо — закрити, інакше лишити відкритим
+                                        if (s && rightA.value > 0.12f) {
                                             rightA.animateTo(1f, tween(280))
                                             rightA.snapTo(1f)
                                             rightShow = false
@@ -2111,15 +2112,22 @@ Text(
                                         }
                                     }
                                 },
-                                onDragCancel = { started = false; dx = 0f }
-                            ) { _, drag ->
-                                if (drag > 0.5f || (started && drag != 0f)) {
-                                    if (!started && drag > 0.5f) started = true
-                                    if (started) {
-                                        dx += drag
-                                        val next = (rightA.value + drag / sheetWpx).coerceIn(0f, 1f)
-                                        sheetScope.launch { rightA.snapTo(next) }
+                                onDragCancel = {
+                                    started = false
+                                    sheetScope.launch {
+                                        rightA.stop()
+                                        rightA.animateTo(0f, tween(240))
+                                        rightA.snapTo(0f)
+                                        rightShow = true
                                     }
+                                }
+                            ) { _, drag ->
+                                // ЛИШЕ вправо рухає картку до закриття (1:1 за пальцем)
+                                // вліво / дрібні тремтіння — ігнор
+                                if (drag > 1f) {
+                                    started = true
+                                    val next = (rightA.value + drag / sheetWpx).coerceIn(0f, 1f)
+                                    sheetScope.launch { rightA.snapTo(next) }
                                 }
                             }
                         }

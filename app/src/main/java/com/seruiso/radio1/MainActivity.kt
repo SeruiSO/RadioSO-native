@@ -275,6 +275,12 @@ class MainActivity : ComponentActivity() {
                         searchOpen = searchOpen,
                         onSearchOpen = { searchOpen = !searchOpen },
                         onSearch = { runSearch(); searchOpen = false },
+                        onRightOpen = {
+                            searchAll = emptyList()
+                            searchRows = emptyList()
+                            searchShown = 0
+                            statusText = ""
+                        },
                         suggestFor = suggestFor,
                         onSuggestFor = { suggestFor = it },
                         nameHints = SearchHints.past(this) + SearchHints.names,
@@ -345,6 +351,7 @@ class MainActivity : ComponentActivity() {
                         },
                         onCancelEdit = { editTab = null; deleteArmed = false },
                         radioRows = visibleRadio(),
+                        searchRows = searchRows,
                         allRadio = allRadioStations(),
                         recentStations = recentStations,
                         localRows = visibleLocal(),
@@ -939,6 +946,7 @@ fun StationScreen(
     searchOpen: Boolean = false,
     onSearchOpen: () -> Unit = {},
     onSearch: () -> Unit,
+    onRightOpen: () -> Unit = {},
     suggestFor: String = "",
     onSuggestFor: (String) -> Unit = {},
     nameHints: List<String> = emptyList(),
@@ -968,6 +976,7 @@ fun StationScreen(
     onDeleteTab: () -> Unit,
     onCancelEdit: () -> Unit,
     radioRows: List<Station>,
+    searchRows: List<Station> = emptyList(),
     allRadio: List<Station> = emptyList(),
     recentStations: List<Station> = emptyList(),
     localRows: List<LocalTrack>,
@@ -1104,9 +1113,13 @@ fun StationScreen(
     var rightShow by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     var rightSearchOpen by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(true) }
     fun openRightSheet() {
+        onRightOpen()
         rightShow = true
         rightSearchOpen = true
-        sheetScope.launch { rightA.animateTo(0f, tween(300)) }
+        sheetScope.launch {
+            rightA.snapTo(1f)
+            rightA.animateTo(0f, tween(300))
+        }
     }
     fun closeRightSheet() {
         sheetScope.launch {
@@ -1823,12 +1836,13 @@ fun StationScreen(
         }
     }
     // ===== Права картка пошуку (свайп з правого краю) =====
-    if (!rightShow && !topShow && !nowOpen && !sheetShow) {
+    // Зона свайпу: праві ~20% екрану (зірочка/корзина). Не зникає під час жесту — без «2 етапів».
+    if (!topShow && !nowOpen && !sheetShow) {
         Box(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
                 .fillMaxHeight()
-                .width(28.dp)
+                .fillMaxWidth(0.20f)
                 .pointerInput(Unit) {
                     var dragged = false
                     detectHorizontalDragGestures(
@@ -1837,22 +1851,37 @@ fun StationScreen(
                                 if (dragged && rightA.value < 0.55f) {
                                     rightShow = true
                                     rightSearchOpen = true
-                                    rightA.animateTo(0f, tween(280))
+                                    rightA.animateTo(0f, tween(260))
                                 } else {
-                                    rightA.snapTo(1f)
+                                    rightA.animateTo(1f, tween(240))
                                     rightShow = false
                                 }
                             }
                             dragged = false
                         },
-                        onDragCancel = { dragged = false }
-                    ) { _, drag ->
-                        if (drag < -2f || dragged) {
-                            dragged = true
-                            rightShow = true
+                        onDragCancel = {
+                            dragged = false
                             sheetScope.launch {
-                                rightA.snapTo((rightA.value + drag / 600f).coerceIn(0f, 1f))
+                                if (rightA.value >= 0.55f) {
+                                    rightA.animateTo(1f, tween(200))
+                                    rightShow = false
+                                }
                             }
+                        }
+                    ) { _, drag ->
+                        // вліво (drag<0) відкриває; один безперервний жест
+                        if (drag < -1f || dragged) {
+                            if (!dragged) {
+                                dragged = true
+                                rightShow = true
+                                rightSearchOpen = true
+                                onRightOpen()
+                            }
+                            // size.width тут = 20% екрану → повна ширина ≈ size.width/0.2
+                            val full = (size.width / 0.20f).coerceAtLeast(1f)
+                            val next = (rightA.value + drag / full).coerceIn(0f, 1f)
+                            // snap синхронно в тому ж жесті (без окремого launch-стрибка)
+                            sheetScope.launch { rightA.snapTo(next) }
                         }
                     }
                 }
@@ -1977,8 +2006,6 @@ fun StationScreen(
                     rField(qGenre, onGenre, "Жанр", "genre", genreHints)
                     Button(
                         onClick = {
-                            val si = tabs.indexOfFirst { it.equals("search", ignoreCase = true) }
-                            if (si >= 0) onTab(si)
                             onSearch()
                             rightSearchOpen = false
                         },
@@ -2003,7 +2030,15 @@ fun StationScreen(
                 // Результати: ті самі searchRows через radioRows коли tab=search.
                 // Щоб завжди бачити search — перемикаємось на search при відкритті з кнопки не обов'язково;
                 // показуємо radioRows якщо tab search, інакше підказка.
-                val rightRows = radioRows
+                val rightRows = searchRows
+                if (rightRows.isEmpty()) {
+                    Text(
+                        "Введіть запит і натисніть «Знайти»",
+                        color = muted,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(top = 12.dp)
+                    )
+                }
                 LazyColumn(modifier = Modifier.weight(1f)) {
                     itemsIndexed(rightRows, key = { i, s -> "r-" + s.url + i }) { _, s ->
                         Row(
@@ -2014,7 +2049,7 @@ fun StationScreen(
                                     if (s.url == currentUrl) acc.copy(alpha = 0.18f) else Color.Transparent,
                                     RoundedCornerShape(10.dp)
                                 )
-                                .clickable { onPickRadio(rightRows, rightRows.indexOf(s).coerceAtLeast(0)) }
+                                .clickable { onPickRadio(rightRows, rightRows.indexOfFirst { it.url == s.url }.coerceAtLeast(0)) }
                                 .padding(6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {

@@ -1894,7 +1894,7 @@ fun StationScreen(
                         }
                     ) { _, drag ->
                         // повністю відкрито — край мовчить (немає «другий свайп вліво»)
-                        if (rightShow && rightA.value <= 0.02f) return@detectHorizontalDragGestures
+                        if (rightShow && rightA.value <= 0.05f) return@detectHorizontalDragGestures
                         // відкриття лише тягнучи ВЛІВО
                         if (drag < -0.5f || (dragged && drag < 0f)) {
                             if (!dragged) {
@@ -1922,9 +1922,9 @@ fun StationScreen(
                 override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
                     val ax = available.x
                     val ay = available.y
-                    // лише коли горизонталь домінує
+                    // лише горизонталь, і лише ВПРАВО (закриття)
                     if (kotlin.math.abs(ax) <= kotlin.math.abs(ay)) return Offset.Zero
-                    if (rightA.value <= 0.001f && ax <= 0f) return Offset.Zero
+                    if (ax <= 0.5f) return Offset.Zero
                     val next = (rightA.value + ax / sheetWpx).coerceIn(0f, 1f)
                     sheetScope.launch { rightA.snapTo(next) }
                     return Offset(ax, 0f)
@@ -1932,7 +1932,7 @@ fun StationScreen(
                 override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
                     if (rightA.value <= 0.001f) return Velocity.Zero
                     rightA.stop()
-                    if (rightA.value > 0.12f) {
+                    if (rightA.value > 0.07f) {
                         rightA.animateTo(1f, tween(280))
                         rightShow = false
                     } else {
@@ -1975,12 +1975,14 @@ fun StationScreen(
                         .fillMaxWidth()
                         .height(28.dp)
                                             .pointerInput(sheetWpx) {
+                        var movedRight = false
                         detectHorizontalDragGestures(
+                            onDragStart = { movedRight = false },
                             onDragEnd = {
                                 sheetScope.launch {
                                     rightA.stop()
-                                    // ~12%% ширини — як topA < -140
-                                    if (rightA.value > 0.12f) {
+                                    // закрити лише після свайпу ВПРАВО і >7%
+                                    if (movedRight && rightA.value > 0.07f) {
                                         rightA.animateTo(1f, tween(280))
                                         rightShow = false
                                     } else {
@@ -1988,11 +1990,23 @@ fun StationScreen(
                                         rightShow = true
                                     }
                                 }
+                                movedRight = false
+                            },
+                            onDragCancel = {
+                                movedRight = false
+                                sheetScope.launch {
+                                    rightA.stop()
+                                    rightA.animateTo(0f, tween(240))
+                                    rightShow = true
+                                }
                             }
                         ) { _, drag ->
-                            // 1:1 за пальцем у будь-який бік (як topA + drag)
-                            sheetScope.launch {
-                                rightA.snapTo((rightA.value + drag / sheetWpx).coerceIn(0f, 1f))
+                            // тільки вправо рухає до закриття; вліво/шум — ігнор
+                            if (drag > 0.5f) {
+                                movedRight = true
+                                sheetScope.launch {
+                                    rightA.snapTo((rightA.value + drag / sheetWpx).coerceIn(0f, 1f))
+                                }
                             }
                         }
                     },
@@ -2104,12 +2118,14 @@ Text(
                     modifier = Modifier
                         .weight(1f)
                                             .pointerInput(sheetWpx) {
+                        var movedRight = false
                         detectHorizontalDragGestures(
+                            onDragStart = { movedRight = false },
                             onDragEnd = {
                                 sheetScope.launch {
                                     rightA.stop()
-                                    // ~12%% ширини — як topA < -140
-                                    if (rightA.value > 0.12f) {
+                                    // закрити лише після свайпу ВПРАВО і >7%
+                                    if (movedRight && rightA.value > 0.07f) {
                                         rightA.animateTo(1f, tween(280))
                                         rightShow = false
                                     } else {
@@ -2117,11 +2133,23 @@ Text(
                                         rightShow = true
                                     }
                                 }
+                                movedRight = false
+                            },
+                            onDragCancel = {
+                                movedRight = false
+                                sheetScope.launch {
+                                    rightA.stop()
+                                    rightA.animateTo(0f, tween(240))
+                                    rightShow = true
+                                }
                             }
                         ) { _, drag ->
-                            // 1:1 за пальцем у будь-який бік (як topA + drag)
-                            sheetScope.launch {
-                                rightA.snapTo((rightA.value + drag / sheetWpx).coerceIn(0f, 1f))
+                            // тільки вправо рухає до закриття; вліво/шум — ігнор
+                            if (drag > 0.5f) {
+                                movedRight = true
+                                sheetScope.launch {
+                                    rightA.snapTo((rightA.value + drag / sheetWpx).coerceIn(0f, 1f))
+                                }
                             }
                         }
                     }

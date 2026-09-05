@@ -1927,7 +1927,9 @@ fun StationScreen(
         playing = playing,
         status = status,
         onSeek = onSeek,
-        onPlayPause = onPlayPause
+        onPlayPause = onPlayPause,
+        onPrev = onPrev,
+        onNext = onNext
     )
 
     if (topSleepOpen) {
@@ -2686,6 +2688,8 @@ private fun BoxScope.LeftLokalPanel(
     status: String,
     onSeek: (Long) -> Unit,
     onPlayPause: () -> Unit,
+    onPrev: () -> Unit,
+    onNext: () -> Unit,
 ) {
     val sheetScope = rememberCoroutineScope()
     fun closeLeftSheet() {
@@ -2832,15 +2836,75 @@ private fun BoxScope.LeftLokalPanel(
                         Text(fmt(posMs), color = muted); Text(fmt(durMs), color = muted)
                     }
                 }
-                Box(
+                Row(
                     modifier = Modifier
-                        .padding(top = 6.dp, bottom = 4.dp)
-                        .size(56.dp)
-                        .background(acc, RoundedCornerShape(14.dp))
-                        .clickable { onPlayPause() },
-                    contentAlignment = Alignment.Center
+                        .fillMaxWidth()
+                        .padding(top = 6.dp, bottom = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(if (playing) "⏸" else "▶", color = Color(0xFF0A0A0C), style = MaterialTheme.typography.headlineSmall)
+                    // іконка вибраного треку — пульсує коли play
+                    run {
+                        val infinite = rememberInfiniteTransition(label = "leftArtPulse")
+                        val pulse by infinite.animateFloat(
+                            initialValue = 1f,
+                            targetValue = if (playing) 1.08f else 1f,
+                            animationSpec = infiniteRepeatable(
+                                animation = tween(if (playing) 900 else 1, easing = FastOutSlowInEasing),
+                                repeatMode = RepeatMode.Reverse
+                            ),
+                            label = "leftArtPulseSc"
+                        )
+                        val cur = allLocal.firstOrNull { it.uri == currentUrl }
+                        val au = if (cur != null && cur.albumId.isNotBlank() && cur.albumId != "0")
+                            "content://media/external/audio/albumart/${cur.albumId}" else ""
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .graphicsLayer {
+                                    scaleX = pulse
+                                    scaleY = pulse
+                                    clip = true
+                                    shape = RoundedCornerShape(12.dp)
+                                }
+                                .background(Color(0xFF1A1A1E), RoundedCornerShape(12.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (au.isNotBlank()) {
+                                AsyncImage(
+                                    model = au,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(48.dp),
+                                    contentScale = ContentScale.Crop
+                                )
+                            } else {
+                                Text("🎵", style = MaterialTheme.typography.titleMedium)
+                            }
+                        }
+                    }
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .background(Color(0xFF1A1A1E), RoundedCornerShape(12.dp))
+                            .clickable { onPrev() },
+                        contentAlignment = Alignment.Center
+                    ) { Text("⏮", color = text, style = MaterialTheme.typography.titleLarge) }
+                    Box(
+                        modifier = Modifier
+                            .size(56.dp)
+                            .background(acc, RoundedCornerShape(14.dp))
+                            .clickable { onPlayPause() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(if (playing) "⏸" else "▶", color = Color(0xFF0A0A0C), style = MaterialTheme.typography.headlineSmall)
+                    }
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .background(Color(0xFF1A1A1E), RoundedCornerShape(12.dp))
+                            .clickable { onNext() },
+                        contentAlignment = Alignment.Center
+                    ) { Text("⏭", color = text, style = MaterialTheme.typography.titleLarge) }
                 }
             }
         }

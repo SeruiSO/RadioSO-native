@@ -106,23 +106,31 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
         @Override
         public void onReceive(Context context, Intent intent) {
             if (AudioManager.ACTION_AUDIO_BECOMING_NOISY.equals(intent.getAction())) {
-                // Під час підключення машини маршрут динамік→BT часто шле NOISY.
-                // Якщо A2DP уже є (або щойно підключили) — не паузити.
+                // Втрачено аудіо-маршрут (навушники/BT). Якщо A2DP ще є — ігнор.
                 if (BtAudio.hasRoute(RadioWatchService.this)) {
                     android.util.Log.i("RadioWatch", "NOISY ignored — BT route present");
                     return;
                 }
-                long lastBt = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-                    .getLong("lastA2dpConnectMs", 0L);
-                if (System.currentTimeMillis() - lastBt < 10000L) {
-                    android.util.Log.i("RadioWatch", "NOISY ignored — within BT handoff window");
-                    return;
+                SharedPreferences spNoisy = getSharedPreferences(
+                    BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE);
+                boolean watch = spNoisy.getBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, true);
+                // Вікно handoff лише коли увімкнено BT-відстеження (автостарт у машині).
+                // Якщо watch вимкнено — завжди зупиняємо (не лишаємо гру на динаміку телефону).
+                if (watch) {
+                    long lastBt = spNoisy.getLong("lastA2dpConnectMs", 0L);
+                    if (System.currentTimeMillis() - lastBt < 10000L) {
+                        android.util.Log.i("RadioWatch", "NOISY ignored — within BT handoff window");
+                        return;
+                    }
                 }
-                if (player != null && player.isPlaying()) {
+                if (player != null && (player.isPlaying() || player.getPlayWhenReady())) {
+                    pausedByFocusLoss = false;
+                    clearPlaybackIntent();
                     player.pause();
                     writeActuallyPlaying(false);
                     notifyForeground();
                     notifyUiPlayback(false);
+                    android.util.Log.i("RadioWatch", "NOISY → pause (watch=" + watch + ")");
                 }
             }
         }

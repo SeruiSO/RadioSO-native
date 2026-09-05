@@ -55,6 +55,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -1174,14 +1175,15 @@ fun StationScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { onCloseMenu(); onNow() }
                     .padding(start = 6.dp, end = 6.dp, top = 6.dp, bottom = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+            // іконка → нижня картка
             Box(
                 modifier = Modifier
                     .size(72.dp)
-                    .background(Color(0xFF222228), RoundedCornerShape(6.dp)),
+                    .background(Color(0xFF222228), RoundedCornerShape(6.dp))
+                    .clickable { onCloseMenu(); onNow() },
                 contentAlignment = Alignment.Center
             ) {
                 if (artUrl(favicon).startsWith("http") || artUrl(favicon).startsWith("content:")) {
@@ -1190,7 +1192,13 @@ fun StationScreen(
                     Text("🎵")
                 }
             }
-            Column(modifier = Modifier.padding(start = 10.dp).weight(1f)) {
+            // текст інфо → верхня картка
+            Column(
+                modifier = Modifier
+                    .padding(start = 10.dp)
+                    .weight(1f)
+                    .clickable { onCloseMenu(); openTopSheet() }
+            ) {
                 Text(name, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
                 Text("жанр: $genre", color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
                 Text("країна: $country", color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
@@ -1199,7 +1207,8 @@ fun StationScreen(
             }
             Column(
                 modifier = Modifier
-                    .padding(start = 4.dp, end = 4.dp, bottom = 1.dp),
+                    .padding(start = 4.dp, end = 4.dp, bottom = 1.dp)
+                    .clickable { onCloseMenu(); openTopSheet() },
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 val inf = rememberInfiniteTransition(label = "viz")
@@ -1229,6 +1238,7 @@ fun StationScreen(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(top = 2.dp, end = 4.dp)
+                    .clickable { onCloseMenu(); openTopSheet() }
             )
             } // end info Box overlay
         } // end info Column
@@ -1255,8 +1265,15 @@ fun StationScreen(
                         }
                     )
                     if (suggestFor == key) {
-                        Column(modifier = Modifier.fillMaxWidth().background(card, RoundedCornerShape(6.dp)).padding(6.dp)) {
-                            hints.distinct().take(12).forEach { h ->
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 200.dp)
+                                .verticalScroll(rememberScrollState())
+                                .background(card, RoundedCornerShape(6.dp))
+                                .padding(6.dp)
+                        ) {
+                            hints.distinct().take(24).forEach { h ->
                                 Text(h, color = text, modifier = Modifier.fillMaxWidth().clickable { set(h); onSuggestFor("") }.padding(6.dp))
                             }
                         }

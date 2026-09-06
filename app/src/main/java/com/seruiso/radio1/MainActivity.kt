@@ -97,6 +97,7 @@ import kotlinx.coroutines.launch
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.animateFloat
@@ -150,6 +151,12 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private val permissionsLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { _ ->
+        reloadLocal()
+        maybeStartBtIfConnected()
+    }
 
     private var stationName by mutableStateOf("Виберіть станцію")
     private var currentGenre by mutableStateOf("-")
@@ -273,6 +280,15 @@ class MainActivity : ComponentActivity() {
             RadioSOTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     val tab = uiTabs.getOrNull(tabIndex) ?: ""
+                    val radioRowsMemo = remember(addedRev, tabIndex, customTabs, favUrls, searchRows) {
+                        visibleRadio()
+                    }
+                    val allRadioMemo = remember(addedRev, customTabs, favUrls, searchRows) {
+                        allRadioStations()
+                    }
+                    val localRowsMemo = remember(tabIndex, customTabs, localTracks, bestUris, addedRev) {
+                        visibleLocal()
+                    }
                     StationScreen(
                         tabs = uiTabs,
                         tabIndex = tabIndex,
@@ -361,11 +377,11 @@ class MainActivity : ComponentActivity() {
                             deleteArmed = false
                         },
                         onCancelEdit = { editTab = null; deleteArmed = false },
-                        radioRows = visibleRadio(),
+                        radioRows = radioRowsMemo,
                         searchRows = searchRows,
-                        allRadio = allRadioStations(),
+                        allRadio = allRadioMemo,
                         recentStations = recentStations,
-                        localRows = visibleLocal(),
+                        localRows = localRowsMemo,
                         allLocal = localTracks,
                         showLocal = tab == "local" || tab == "best",
                         name = stationName,
@@ -905,15 +921,6 @@ class MainActivity : ComponentActivity() {
         super.onStop()
     }
 
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == 1002) { reloadLocal(); maybeStartBtIfConnected() }
-    }
-
     private fun readPrefs() {
         val p = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
         stationName = p.getString(BluetoothAutoPlayPlugin.KEY_NAME, "Виберіть станцію") ?: "Виберіть станцію"
@@ -971,7 +978,7 @@ class MainActivity : ComponentActivity() {
                 != PackageManager.PERMISSION_GRANTED
             ) need.add(Manifest.permission.READ_EXTERNAL_STORAGE)
         }
-        if (need.isNotEmpty()) requestPermissions(need.toTypedArray(), 1002)
+        if (need.isNotEmpty()) permissionsLauncher.launch(need.toTypedArray())
     }
 
     private fun toggleFav(station: Station) {
@@ -1032,7 +1039,7 @@ class MainActivity : ComponentActivity() {
             .putString(BluetoothAutoPlayPlugin.KEY_QUEUE_GENRES, genres.toString())
             .putString(BluetoothAutoPlayPlugin.KEY_QUEUE_COUNTRIES, countries.toString())
             .putInt(BluetoothAutoPlayPlugin.KEY_QUEUE_INDEX, index)
-            .commit()
+            .apply()
         startPlay(s.url, s.name)
     }
 
@@ -1059,7 +1066,7 @@ class MainActivity : ComponentActivity() {
             .putString(BluetoothAutoPlayPlugin.KEY_TRACK, t.artist)
             .putString(BluetoothAutoPlayPlugin.KEY_FAVICON, t.albumId)
             .putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, true)
-            .commit()
+            .apply()
         startPlay(t.uri, t.title)
     }
 
@@ -2363,49 +2370,50 @@ fun StationScreen(
                             }
                         }
                     }
+                    val pagerDragModifier: Modifier =
+                        if (!showLocal && !isLocalNow && !currentUrl.startsWith("content:") && arts.isNotEmpty()) {
+                            Modifier.pointerInput(currentUrl, pageCount) {
+                                detectHorizontalDragGestures(
+                                    onDragStart = { pagerUserDrag = true },
+                                    onDragEnd = {
+                                        val page = pagerState.currentPage
+                                        val off = pagerState.currentPageOffsetFraction
+                                        val target = when {
+                                            off > 0.28f -> (page + 1).coerceAtMost(pageCount - 1)
+                                            off < -0.28f -> (page - 1).coerceAtLeast(0)
+                                            else -> page
+                                        }
+                                        sheetScope.launch {
+                                            pagerState.animateScrollToPage(target)
+                                            pagerUserDrag = false
+                                            // зміна станції лише після відпускання
+                                            if (showLocal) {
+                                                if (target in localRows.indices && localRows[target].uri != currentUrl)
+                                                    onPickLocal(localRows, target)
+                                            } else {
+                                                if (target in radioRows.indices && radioRows[target].url != currentUrl)
+                                                    onPickRadio(radioRows, target)
+                                            }
+                                        }
+                                    },
+                                    onDragCancel = {
+                                        sheetScope.launch {
+                                            pagerState.animateScrollToPage(pagerState.currentPage)
+                                            pagerUserDrag = false
+                                        }
+                                    }
+                                ) { _, drag ->
+                                    // синхронно за пальцем, без окремих launch-гонок
+                                    pagerState.dispatchRawDelta(-drag)
+                                }
+                            }
+                        } else Modifier
+
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = 8.dp)
-                            .then(
-                                if (!showLocal && !isLocalNow && !currentUrl.startsWith("content:") && arts.isNotEmpty()) {
-                                    Modifier.pointerInput(currentUrl, pageCount) {
-                                        detectHorizontalDragGestures(
-                                            onDragStart = { pagerUserDrag = true },
-                                            onDragEnd = {
-                                                val page = pagerState.currentPage
-                                                val off = pagerState.currentPageOffsetFraction
-                                                val target = when {
-                                                    off > 0.28f -> (page + 1).coerceAtMost(pageCount - 1)
-                                                    off < -0.28f -> (page - 1).coerceAtLeast(0)
-                                                    else -> page
-                                                }
-                                                sheetScope.launch {
-                                                    pagerState.animateScrollToPage(target)
-                                                    pagerUserDrag = false
-                                                    // зміна станції лише після відпускання
-                                                    if (showLocal) {
-                                                        if (target in localRows.indices && localRows[target].uri != currentUrl)
-                                                            onPickLocal(localRows, target)
-                                                    } else {
-                                                        if (target in radioRows.indices && radioRows[target].url != currentUrl)
-                                                            onPickRadio(radioRows, target)
-                                                    }
-                                                }
-                                            },
-                                            onDragCancel = {
-                                                sheetScope.launch {
-                                                    pagerState.animateScrollToPage(pagerState.currentPage)
-                                                    pagerUserDrag = false
-                                                }
-                                            }
-                                        ) { _, drag ->
-                                            // синхронно за пальцем, без окремих launch-гонок
-                                            pagerState.dispatchRawDelta(-drag)
-                                        }
-                                    }
-                                } else Modifier
-                            ),
+                            .then(pagerDragModifier),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
@@ -2460,43 +2468,7 @@ fun StationScreen(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .then(
-                                if (!showLocal && !isLocalNow && !currentUrl.startsWith("content:") && arts.isNotEmpty()) {
-                                    Modifier.pointerInput(currentUrl + "t", pageCount) {
-                                        detectHorizontalDragGestures(
-                                            onDragStart = { pagerUserDrag = true },
-                                            onDragEnd = {
-                                                val page = pagerState.currentPage
-                                                val off = pagerState.currentPageOffsetFraction
-                                                val target = when {
-                                                    off > 0.28f -> (page + 1).coerceAtMost(pageCount - 1)
-                                                    off < -0.28f -> (page - 1).coerceAtLeast(0)
-                                                    else -> page
-                                                }
-                                                sheetScope.launch {
-                                                    pagerState.animateScrollToPage(target)
-                                                    pagerUserDrag = false
-                                                    if (showLocal) {
-                                                        if (target in localRows.indices && localRows[target].uri != currentUrl)
-                                                            onPickLocal(localRows, target)
-                                                    } else {
-                                                        if (target in radioRows.indices && radioRows[target].url != currentUrl)
-                                                            onPickRadio(radioRows, target)
-                                                    }
-                                                }
-                                            },
-                                            onDragCancel = {
-                                                sheetScope.launch {
-                                                    pagerState.animateScrollToPage(pagerState.currentPage)
-                                                    pagerUserDrag = false
-                                                }
-                                            }
-                                        ) { _, drag ->
-                                            pagerState.dispatchRawDelta(-drag)
-                                        }
-                                    }
-                                } else Modifier
-                            )
+                            .then(pagerDragModifier)
                     )
                 }
                 if (isLocalNow || currentUrl.startsWith("content:")) {

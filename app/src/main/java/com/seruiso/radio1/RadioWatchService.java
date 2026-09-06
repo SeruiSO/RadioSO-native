@@ -118,7 +118,7 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
                 // Якщо watch вимкнено — завжди зупиняємо (не лишаємо гру на динаміку телефону).
                 if (watch) {
                     long lastBt = spNoisy.getLong("lastA2dpConnectMs", 0L);
-                    if (System.currentTimeMillis() - lastBt < 10000L) {
+                    if (System.currentTimeMillis() - lastBt < BT_HANDOFF_WINDOW_MS) {
                         android.util.Log.i("RadioWatch", "NOISY ignored — within BT handoff window");
                         return;
                     }
@@ -263,8 +263,7 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
             @Override
             public void onPlayerError(androidx.media3.common.PlaybackException error) {
                 android.util.Log.w("RadioWatch", "player error: " + error.getMessage());
-                if (isLocalMode()) return;
-                scheduleReconnect();
+                attemptReconnect("player-error", false);
             }
 
             @Override
@@ -282,20 +281,10 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
                         handleLocalEnded();
                         return;
                     }
-                    SharedPreferences sp = getSharedPreferences(
-                        BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE);
-                    if (sp.getBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, false)
-                            && !pausedByFocusLoss) {
-                        scheduleReconnect();
-                    }
+                    if (!pausedByFocusLoss) attemptReconnect("state-ended", false);
                 } else if (state == Player.STATE_IDLE) {
                     if (isLocalMode()) return;
-                    SharedPreferences sp = getSharedPreferences(
-                        BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE);
-                    if (sp.getBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, false)
-                            && !pausedByFocusLoss) {
-                        scheduleReconnect();
-                    }
+                    if (!pausedByFocusLoss) attemptReconnect("state-idle", false);
                 }
             }
         });
@@ -329,37 +318,27 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
                             notifyUiStatus("playing", 0);
                             return;
                         }
-                        // короткий обрив (<2с) і ще buffering — почекати, не форсувати
-                        if (player != null && player.isPlaying()) {
-                            android.util.Log.i("RadioWatch", "handoff, still playing");
-                            return;
-                        }
-                        if (lostAgo < 2000 && player != null
+                        // ще буферизує (не зупинився, не в помилці) — дати шанс
+                        // самому догрузитись замість форсування повного реконекту
+                        if (player != null
+                                && player.getPlaybackState() == Player.STATE_BUFFERING
                                 && player.getPlayWhenReady()) {
-                            android.util.Log.i("RadioWatch", "brief network gap, wait");
+                            android.util.Log.i("RadioWatch", "still buffering — grace period before forcing reconnect");
+                            if (reconnectHandler == null) {
+                                reconnectHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+                            }
+                            reconnectHandler.postDelayed(() -> {
+                                if (player != null && player.isPlaying()) {
+                                    reconnectAttempt = 0;
+                                    notifyUiStatus("playing", 0);
+                                    return;
+                                }
+                                android.util.Log.i("RadioWatch", "still not playing after grace — forcing reconnect");
+                                attemptReconnect("network-available-after-grace", true);
+                            }, 4000);
                             return;
                         }
-                        android.util.Log.i("RadioWatch", "network available → reconnect");
-                        notifyUiStatus("reconnecting", reconnectAttempt + 1);
-                        reconnectAttempt = 0;
-                        reconnectWindowStart = 0L;
-                        if (reconnectHandler != null) {
-                            reconnectHandler.removeCallbacksAndMessages(null);
-                        }
-                        lastPlayedUrl = "";
-                        lastPlayMs = 0;
-                        if (reconnectHandler == null) {
-                            reconnectHandler = new android.os.Handler(android.os.Looper.getMainLooper());
-                        }
-                        reconnectHandler.postDelayed(() -> {
-                            try {
-                                String url = resolveReconnectUrl();
-                                if (url != null && !url.isEmpty()) playUrl(url);
-                                else scheduleReconnect();
-                            } catch (Exception e) {
-                                android.util.Log.e("RadioWatch", "reconnect", e);
-                            }
-                        }, 700);
+                        attemptReconnect("network-available", true);
                     } catch (Exception e) {
                         android.util.Log.e("RadioWatch", "onAvailable", e);
                     }
@@ -381,11 +360,69 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
         try {
             NetworkRequest req = new NetworkRequest.Builder()
                 .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
                 .build();
             connectivityManager.registerNetworkCallback(req, networkCallback);
             networkCallbackRegistered = true;
         } catch (Exception e) {
             android.util.Log.e("RadioWatch", "registerNetworkCallback", e);
+        }
+    }
+
+    /** Форсований реконект: скидає лічильники і одразу пробує грати resolved URL. */
+    private void forceNetworkReconnect() {
+        android.util.Log.i("RadioWatch", "network available → reconnect");
+        notifyUiStatus("reconnecting", reconnectAttempt + 1);
+        reconnectAttempt = 0;
+        reconnectWindowStart = 0L;
+        if (reconnectHandler != null) {
+            reconnectHandler.removeCallbacksAndMessages(null);
+        }
+        lastPlayedUrl = "";
+        lastPlayMs = 0;
+        if (reconnectHandler == null) {
+            reconnectHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+        }
+        reconnectHandler.postDelayed(() -> {
+            try {
+                String url = resolveReconnectUrl();
+                if (url != null && !url.isEmpty()) playUrl(url);
+                else scheduleReconnect();
+            } catch (Exception e) {
+                android.util.Log.e("RadioWatch", "reconnect", e);
+            }
+        }, 700);
+    }
+
+    /**
+     * Єдина точка входу для всіх reconnect/resume-тригерів (помилка плеєра,
+     * ENDED/IDLE, мережа знову з'явилась, аудіо-фокус повернувся після дзвінка,
+     * вотчдог тиші/буферизації). Дебаунс запобігає подвійному playUrl(),
+     * якщо два тригери спрацюють майже одночасно.
+     */
+    private void attemptReconnect(String reason, boolean immediate) {
+        if (isLocalMode()) return;
+        if (!PlaybackPrefs.isIntended(this)) {
+            android.util.Log.i("RadioWatch", "attemptReconnect(" + reason + ") skip — not intended");
+            return;
+        }
+        if (player != null && player.isPlaying()) {
+            reconnectAttempt = 0;
+            reconnectWindowStart = 0L;
+            notifyUiStatus("playing", 0);
+            return;
+        }
+        long now = System.currentTimeMillis();
+        if (now - lastReconnectTriggerMs < RECONNECT_DEBOUNCE_MS) {
+            android.util.Log.i("RadioWatch", "attemptReconnect(" + reason + ") debounced");
+            return;
+        }
+        lastReconnectTriggerMs = now;
+        android.util.Log.i("RadioWatch", "attemptReconnect: " + reason + " immediate=" + immediate);
+        if (immediate) {
+            forceNetworkReconnect();
+        } else {
+            scheduleReconnect();
         }
     }
 
@@ -444,7 +481,7 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
                 long lastBtFocus = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
                     .getLong("lastA2dpConnectMs", 0L);
                 if (focusChange != AudioManager.AUDIOFOCUS_LOSS
-                        && System.currentTimeMillis() - lastBtFocus < 10000L) {
+                        && System.currentTimeMillis() - lastBtFocus < BT_HANDOFF_WINDOW_MS) {
                     android.util.Log.i("RadioWatch", "focus transient ignored — BT handoff window");
                     break;
                 }
@@ -474,8 +511,7 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
                     int state = player.getPlaybackState();
                     if (state == Player.STATE_IDLE || state == Player.STATE_ENDED
                             || player.getCurrentMediaItem() == null) {
-                        String url = resolveReconnectUrl();
-                        if (url != null && !url.isEmpty()) playUrl(url);
+                        attemptReconnect("focus-gain", true);
                     } else {
                         requestFocus();
                         player.setPlayWhenReady(true);
@@ -788,11 +824,10 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
                         }
                         if (bufferingTicks >= 8) { // ~8 * 3s ≈ 24s
                             android.util.Log.w("RadioWatch", "silence/buffer timeout → reconnect");
-                            notifyUiStatus("reconnecting", reconnectAttempt + 1);
                             bufferingTicks = 0;
                             lastPlayedUrl = "";
                             lastPlayMs = 0;
-                            scheduleReconnect();
+                            attemptReconnect("buffer-timeout", false);
                             return;
                         }
                     } else if (playing) {
@@ -1221,6 +1256,14 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
     private android.os.Handler reconnectHandler;
     private int reconnectAttempt = 0;
     private long reconnectWindowStart = 0L;
+    private long lastReconnectTriggerMs = 0L;
+    private static final long RECONNECT_DEBOUNCE_MS = 1500L;
+    /** Скільки часу після BT-конекту вважаємо, що ще триває апаратний handoff
+     *  (магнітола/колонка можуть на мить забрати audio focus чи знімати маршрут) —
+     *  протягом цього вікна ігноруємо NOISY та transient focus loss, щоб не
+     *  ставити паузу через "тишу після перемикання на BT". Було 10с — на
+     *  повільніших головних пристроях цього не завжди вистачало. */
+    private static final long BT_HANDOFF_WINDOW_MS = 15000L;
     // timings → ReconnectPolicy
 
 
@@ -1251,7 +1294,13 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
             Network[] nets = connectivityManager.getAllNetworks();
             for (Network n : nets) {
                 NetworkCapabilities c = connectivityManager.getNetworkCapabilities(n);
-                if (c != null && c.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) return true;
+                // VALIDATED — мережа реально перевірена системою на вихід в інтернет,
+                // а не просто "заявляє" про це (рятує від капчальних порталів/мертвого Wi-Fi)
+                if (c != null
+                        && c.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                        && c.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)) {
+                    return true;
+                }
             }
         } catch (Exception ignored) {}
         return false;

@@ -475,7 +475,6 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
         switch (focusChange) {
             case AudioManager.AUDIOFOCUS_LOSS:
             case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT:
-            case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK:
                 // Під час handoff на магнітолу стек інколи краде focus на секунду —
                 // не паузимо в цьому вікні (інакше «тиша після перемикання на BT»).
                 long lastBtFocus = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
@@ -490,6 +489,14 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
                     pausedByFocusLoss = true;
                     player.pause();
                     notifyForeground();
+                }
+                break;
+            case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK:
+                // Короткий звук, що НЕ потребує тиші (пуш-сповіщення, системний клік) —
+                // система явно дозволяє просто притишити, а не зупиняти. Пауза тут була б
+                // надлишковою і для живого стріму означала б зайвий ребаферинг на кожен пінг.
+                if (player.isPlaying()) {
+                    player.setVolume(0.2f);
                 }
                 break;
             case AudioManager.AUDIOFOCUS_GAIN:

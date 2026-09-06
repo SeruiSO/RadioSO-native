@@ -94,6 +94,19 @@ import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.FileUpload
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material.icons.filled.Repeat
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.rememberSwipeToDismissBoxState
@@ -283,7 +296,7 @@ class MainActivity : ComponentActivity() {
         val idx = uiTabs.indexOf(lastTab)
         if (idx >= 0) tabIndex = idx
         setContent {
-            RadioSOTheme {
+            RadioSOTheme(accent = Color(accent)) {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     val tab = uiTabs.getOrNull(tabIndex) ?: ""
                     val radioRowsMemo = remember(addedRev, tabIndex, customTabs, favUrls, searchRows) {
@@ -501,8 +514,8 @@ class MainActivity : ComponentActivity() {
 
     private fun tabLabel(tab: String): String = when (tab.lowercase()) {
         "fav" -> "Best"
-        "best" -> "Lokal Best"
-        "local" -> "Lokal"
+        "best" -> "Топ лок."
+        "local" -> "Локальні"
         "search" -> "SEARCH"
         "ukraine", "ua" -> "UA"
         "techno" -> "Techno"
@@ -1269,8 +1282,8 @@ fun StationScreen(
                     color = Color(0xFF0A0A0C),
                     strokeWidth = 2.5.dp
                 )
-                playing -> Text("⏸", color = Color(0xFF0A0A0C), style = MaterialTheme.typography.headlineMedium)
-                else -> Text("▶", color = Color(0xFF0A0A0C), style = MaterialTheme.typography.headlineMedium)
+                playing -> Icon(Icons.Filled.Pause, contentDescription = "Пауза", tint = Color(0xFF0A0A0C), modifier = Modifier.size(sizeDp * 0.42f))
+                else -> Icon(Icons.Filled.PlayArrow, contentDescription = "Відтворити", tint = Color(0xFF0A0A0C), modifier = Modifier.size(sizeDp * 0.42f))
             }
         }
     }
@@ -1470,7 +1483,7 @@ fun StationScreen(
                 if (artUrl(favicon).startsWith("http") || artUrl(favicon).startsWith("content:")) {
                     AsyncImage(model = artUrl(favicon), contentDescription = null, modifier = Modifier.size(72.dp), contentScale = ContentScale.Crop)
                 } else {
-                    Text("🎵")
+                    Icon(Icons.Filled.MusicNote, contentDescription = null, tint = muted)
                 }
             }
             // текст інфо → верхня картка
@@ -1530,7 +1543,8 @@ fun StationScreen(
                     modifier = Modifier.fillMaxWidth().clickable { onSearchOpen() }.padding(bottom = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("🔍  Пошук…", color = Color.White, modifier = Modifier.weight(1f))
+                    Icon(Icons.Filled.Search, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                    Text(" Пошук…", color = Color.White, modifier = Modifier.weight(1f))
                     Text(if (searchOpen) "▴" else "▾", color = muted)
                 }
                 if (searchOpen) {
@@ -1564,7 +1578,7 @@ fun StationScreen(
                 field(qCountry, onCountry, "Країна", "country", countryHints)
                 field(qGenre, onGenre, "Жанр", "genre", genreHints)
                 Button(onClick = onSearch, modifier = Modifier.fillMaxWidth().padding(top = 8.dp).height(44.dp),
-                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = acc, contentColor = Color(0xFF0A0A0C))) { Text("🔍 Знайти") }
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = acc, contentColor = Color(0xFF0A0A0C))) { Text("Знайти") }
                 }
             }
         }
@@ -1602,13 +1616,18 @@ fun StationScreen(
                             val a = if (item.albumId.isNotBlank() && item.albumId != "0")
                                 "content://media/external/audio/albumart/${item.albumId}" else ""
                             if (a.isNotEmpty()) AsyncImage(model = a, contentDescription = null, modifier = Modifier.size(42.dp), contentScale = ContentScale.Crop)
-                            else Text("🎵")
+                            else Icon(Icons.Filled.MusicNote, contentDescription = null, tint = muted)
                         }
                         Column(modifier = Modifier.weight(1f).padding(start = 8.dp)) {
                             Text(item.title, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text(item.artist, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
                         }
-                        Text(if (bestUris.contains(item.uri)) "★" else "☆", color = acc, modifier = Modifier.clickable { onToggleBest(item) }.padding(start = 10.dp, end = 2.dp), style = MaterialTheme.typography.headlineSmall)
+                        Icon(
+                            if (bestUris.contains(item.uri)) Icons.Filled.Star else Icons.Filled.StarBorder,
+                            contentDescription = if (bestUris.contains(item.uri)) "Прибрати з топ локальних" else "Додати в топ локальні",
+                            tint = acc,
+                            modifier = Modifier.clickable { onToggleBest(item) }.padding(start = 10.dp, end = 2.dp).size(24.dp)
+                        )
                     }
                 }
             }
@@ -1643,7 +1662,7 @@ fun StationScreen(
                         Box(modifier = Modifier.size(42.dp), contentAlignment = Alignment.Center) {
                             if (s.favicon.startsWith("http") && !s.favicon.contains("example.com")) {
                                 AsyncImage(model = s.favicon, contentDescription = null, modifier = Modifier.size(42.dp), contentScale = ContentScale.Crop)
-                            } else Text("🎵")
+                            } else Icon(Icons.Filled.MusicNote, contentDescription = null, tint = muted)
                         }
                         Column(modifier = Modifier.padding(start = 8.dp).weight(1f)) {
                             Text(s.name, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -1652,14 +1671,19 @@ fun StationScreen(
                         if (tabs.getOrNull(tabIndex) == "search") {
                             Text("+", color = acc, modifier = Modifier.clickable { onAddToTab(s) }.padding(start = 8.dp), style = MaterialTheme.typography.headlineMedium)
                         } else {
-                            Text(
-                                if (favUrls.contains(s.url)) "★" else "☆",
-                                color = acc,
-                                modifier = Modifier.clickable { onToggleFav(s) }.padding(start = 8.dp, end = 2.dp),
-                                style = MaterialTheme.typography.headlineSmall
+                            Icon(
+                                if (favUrls.contains(s.url)) Icons.Filled.Star else Icons.Filled.StarBorder,
+                                contentDescription = if (favUrls.contains(s.url)) "Прибрати з улюблених" else "Додати в улюблені",
+                                tint = acc,
+                                modifier = Modifier.clickable { onToggleFav(s) }.padding(start = 8.dp, end = 2.dp).size(24.dp)
                             )
                             if (tabs.getOrNull(tabIndex) != "fav") {
-                                Text("🗑", modifier = Modifier.clickable { onAskDelete(s) }.padding(start = 8.dp, end = 0.dp))
+                                Icon(
+                                    Icons.Filled.Delete,
+                                    contentDescription = "Видалити станцію",
+                                    tint = muted,
+                                    modifier = Modifier.clickable { onAskDelete(s) }.padding(start = 8.dp, end = 0.dp).size(22.dp)
+                                )
                             }
                         }
                     }
@@ -1678,8 +1702,8 @@ fun StationScreen(
                 tabs.forEachIndexed { i, tab ->
                     val lab = when (tab.lowercase()) {
                         "fav" -> "Best"
-                        "best" -> "Lokal Best"
-                        "local" -> "Lokal"
+                        "best" -> "Топ лок."
+                        "local" -> "Локальні"
                         "search" -> "SEARCH"
                         "ukraine", "ua" -> "UA"
                         "techno" -> "Techno"
@@ -1824,7 +1848,7 @@ fun StationScreen(
                         val u = artUrl(favicon)
                         if (u.startsWith("http") || u.startsWith("content:")) {
                             AsyncImage(model = u, contentDescription = null, modifier = Modifier.size(72.dp), contentScale = ContentScale.Crop)
-                        } else Text("🎵")
+                        } else Icon(Icons.Filled.MusicNote, contentDescription = null, tint = muted)
                     }
                     Column(modifier = Modifier.padding(start = 10.dp).weight(1f)) {
                         Text(name, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
@@ -1852,16 +1876,15 @@ fun StationScreen(
                         }
                     }
                     val isLocalCard = showLocal || currentUrl.startsWith("content:")
-                    Text(
-                        if (isLocalCard) {
-                            if (bestUris.contains(currentUrl)) "★" else "☆"
-                        } else {
-                            if (favUrls.contains(currentUrl)) "★" else "☆"
-                        },
-                        color = acc,
-                        style = MaterialTheme.typography.headlineLarge,
+                    Icon(
+                        if (if (isLocalCard) bestUris.contains(currentUrl) else favUrls.contains(currentUrl))
+                            Icons.Filled.Star else Icons.Filled.StarBorder,
+                        contentDescription = if (if (isLocalCard) bestUris.contains(currentUrl) else favUrls.contains(currentUrl))
+                            "Прибрати з улюблених" else "Додати в улюблені",
+                        tint = acc,
                         modifier = Modifier
                             .padding(start = 6.dp)
+                            .size(32.dp)
                             .clickable {
                                 if (isLocalCard) {
                                     localRows.firstOrNull { it.uri == currentUrl }?.let { onToggleBest(it) }
@@ -1926,7 +1949,7 @@ fun StationScreen(
                                         ) {
                                             if (iu.startsWith("content:")) {
                                                 AsyncImage(model = iu, contentDescription = null, modifier = Modifier.size(52.dp), contentScale = ContentScale.Crop)
-                                            } else Text("🎵")
+                                            } else Icon(Icons.Filled.MusicNote, contentDescription = null, tint = muted)
                                         }
                                         Text(tr.title, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 3.dp))
                                     }
@@ -1951,7 +1974,7 @@ fun StationScreen(
                                         ) {
                                             if (s.favicon.startsWith("http") && !s.favicon.contains("example.com")) {
                                                 AsyncImage(model = s.favicon, contentDescription = null, modifier = Modifier.size(52.dp), contentScale = ContentScale.Crop)
-                                            } else Text("🎵")
+                                            } else Icon(Icons.Filled.MusicNote, contentDescription = null, tint = muted)
                                         }
                                         Text(s.name, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 3.dp))
                                     }
@@ -1992,7 +2015,7 @@ fun StationScreen(
                                     ) {
                                         if (s.favicon.startsWith("http") && !s.favicon.contains("example.com")) {
                                             AsyncImage(model = s.favicon, contentDescription = null, modifier = Modifier.size(52.dp), contentScale = ContentScale.Crop)
-                                        } else Text("🎵")
+                                        } else Icon(Icons.Filled.MusicNote, contentDescription = null, tint = muted)
                                     }
                                     Text(s.name, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 3.dp))
                                 }
@@ -2036,7 +2059,7 @@ fun StationScreen(
                             .padding(vertical = 12.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("🌙", style = MaterialTheme.typography.titleMedium)
+                        Icon(Icons.Filled.DarkMode, contentDescription = "Обрати тему оформлення", tint = acc)
                     }
                 }
                 Row(
@@ -2053,7 +2076,10 @@ fun StationScreen(
                             .padding(vertical = 12.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("↑ Експорт", color = text, style = MaterialTheme.typography.labelLarge)
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Icon(Icons.Filled.FileUpload, contentDescription = null, tint = text, modifier = Modifier.size(18.dp))
+                            Text("Експорт", color = text, style = MaterialTheme.typography.labelLarge)
+                        }
                     }
                     Box(
                         modifier = Modifier
@@ -2063,7 +2089,10 @@ fun StationScreen(
                             .padding(vertical = 12.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("↓ Імпорт", color = text, style = MaterialTheme.typography.labelLarge)
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Icon(Icons.Filled.FileDownload, contentDescription = null, tint = text, modifier = Modifier.size(18.dp))
+                            Text("Імпорт", color = text, style = MaterialTheme.typography.labelLarge)
+                        }
                     }
                 }
             }
@@ -2122,7 +2151,7 @@ fun StationScreen(
 
     if (topSleepOpen) {
         AlertDialog(
-            containerColor = Color(0xFF1A1A1E),
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
             onDismissRequest = { topSleepOpen = false },
             title = { Text("Таймер сну", color = Color.White) },
             text = {
@@ -2150,7 +2179,7 @@ fun StationScreen(
     }
     if (topThemeOpen) {
         AlertDialog(
-            containerColor = Color(0xFF1A1A1E),
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
             onDismissRequest = { topThemeOpen = false },
             title = { Text("Тема", color = Color.White) },
             text = {
@@ -2215,21 +2244,27 @@ fun StationScreen(
                         }
                     }
                 }
-                Text("↑ Експорт", color = text, modifier = Modifier.fillMaxWidth().clickable { onExport() }.padding(8.dp))
-                Text("↓ Імпорт", color = text, modifier = Modifier.fillMaxWidth().clickable { onImport() }.padding(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth().clickable { onExport() }.padding(8.dp)) {
+                    Icon(Icons.Filled.FileUpload, contentDescription = null, tint = text, modifier = Modifier.size(18.dp))
+                    Text("Експорт", color = text)
+                }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth().clickable { onImport() }.padding(8.dp)) {
+                    Icon(Icons.Filled.FileDownload, contentDescription = null, tint = text, modifier = Modifier.size(18.dp))
+                    Text("Імпорт", color = text)
+                }
             }
         }
     }
     }
     if (pickStation != null) {
         AlertDialog(
-            containerColor = Color(0xFF1A1A1E),
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
             onDismissRequest = onCancelPick,
             title = { Text("Виберіть вкладку") },
             text = {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                     targetTabs.forEach { tab ->
-                        Text(when (tab.lowercase()) { "fav"->"Best"; "best"->"Lokal Best"; "ukraine","ua"->"UA"; "techno"->"Techno"; "trance"->"Trance"; "pop"->"Pop"; else -> tab.replaceFirstChar { it.uppercase() } }, modifier = Modifier.fillMaxWidth().clickable { onPickTabForStation(tab) }.padding(12.dp))
+                        Text(when (tab.lowercase()) { "fav"->"Best"; "best"->"Топ лок."; "ukraine","ua"->"UA"; "techno"->"Techno"; "trance"->"Trance"; "pop"->"Pop"; else -> tab.replaceFirstChar { it.uppercase() } }, modifier = Modifier.fillMaxWidth().clickable { onPickTabForStation(tab) }.padding(12.dp))
                     }
                 }
             },
@@ -2239,7 +2274,7 @@ fun StationScreen(
     }
     if (newTabOpen) {
         AlertDialog(
-            containerColor = Color(0xFF1A1A1E),
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
             onDismissRequest = onCancelNewTab,
             title = { Text("Створити нову вкладку") },
             text = { OutlinedTextField(value = newTabName, onValueChange = onNewTabName, singleLine = true) },
@@ -2249,7 +2284,7 @@ fun StationScreen(
     }
     if (editTab != null) {
         AlertDialog(
-            containerColor = Color(0xFF1A1A1E),
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
             onDismissRequest = onCancelEdit,
             title = { Text("Вкладка $editTab") },
             text = { OutlinedTextField(value = editName, onValueChange = onEditName, singleLine = true) },
@@ -2264,7 +2299,7 @@ fun StationScreen(
     }
     if (pendingDelete != null) {
         AlertDialog(
-            containerColor = Color(0xFF1A1A1E),
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
             onDismissRequest = onCancelDelete,
             title = { Text("Видалити станцію?") },
             text = { Text(pendingDelete?.name ?: "") },
@@ -2398,7 +2433,7 @@ fun StationScreen(
                                         contentScale = ContentScale.Crop
                                     )
                                 } else {
-                                    Text("🎵", style = MaterialTheme.typography.displayLarge)
+                                    Icon(Icons.Filled.MusicNote, contentDescription = null, tint = muted, modifier = Modifier.size(72.dp))
                                 }
                             }
                         }
@@ -2460,12 +2495,13 @@ fun StationScreen(
                         val isLocalCard = showLocal || currentUrl.startsWith("content:")
                         if (isLocalCard) {
                             val on = bestUris.contains(currentUrl)
-                            Text(
-                                if (on) "★" else "☆",
-                                color = acc,
-                                style = MaterialTheme.typography.headlineMedium,
+                            Icon(
+                                if (on) Icons.Filled.Star else Icons.Filled.StarBorder,
+                                contentDescription = if (on) "Прибрати з топ локальних" else "Додати в топ локальні",
+                                tint = acc,
                                 modifier = Modifier
                                     .padding(start = 8.dp)
+                                    .size(28.dp)
                                     .clickable {
                                         val t = localRows.firstOrNull { it.uri == currentUrl }
                                         if (t != null) onToggleBest(t)
@@ -2473,12 +2509,13 @@ fun StationScreen(
                             )
                         } else {
                             val on = favUrls.contains(currentUrl)
-                            Text(
-                                if (on) "★" else "☆",
-                                color = acc,
-                                style = MaterialTheme.typography.headlineMedium,
+                            Icon(
+                                if (on) Icons.Filled.Star else Icons.Filled.StarBorder,
+                                contentDescription = if (on) "Прибрати з улюблених" else "Додати в улюблені",
+                                tint = acc,
                                 modifier = Modifier
                                     .padding(start = 8.dp)
+                                    .size(28.dp)
                                     .clickable {
                                         onToggleFav(
                                             Station(
@@ -2495,7 +2532,7 @@ fun StationScreen(
                         }
                     }
                     Text(
-                        if (track.isBlank()) "🎵 Трек: невідомо" else "🎵 $track",
+                        if (track.isBlank()) "Трек: невідомо" else track,
                         color = muted,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
@@ -2506,8 +2543,8 @@ fun StationScreen(
                 }
                 if (isLocalNow || currentUrl.startsWith("content:")) {
                     Row(horizontalArrangement = Arrangement.spacedBy(28.dp), modifier = Modifier.padding(6.dp)) {
-                        Text("🔀", modifier = Modifier.size(36.dp).clickable { onShuffle() }, style = MaterialTheme.typography.headlineSmall)
-                        Text("🔁", modifier = Modifier.size(36.dp).clickable { onRepeat() }, style = MaterialTheme.typography.headlineSmall)
+                        Icon(Icons.Filled.Shuffle, contentDescription = "Перемішати", tint = text, modifier = Modifier.size(30.dp).clickable { onShuffle() })
+                        Icon(Icons.Filled.Repeat, contentDescription = "Повторити", tint = text, modifier = Modifier.size(30.dp).clickable { onRepeat() })
                     }
                     val d = if (durMs > 0) durMs else 1L
                     var slide by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(-1f) }
@@ -2558,7 +2595,7 @@ fun StationScreen(
                                                     .graphicsLayer { this.alpha = alpha },
                                                 contentScale = ContentScale.Crop
                                             )
-                                        } else Text("🎵", modifier = Modifier.graphicsLayer { this.alpha = alpha })
+                                        } else Icon(Icons.Filled.MusicNote, contentDescription = null, tint = muted, modifier = Modifier.graphicsLayer { this.alpha = alpha })
                                     }
                                     Text(
                                         label,
@@ -2693,7 +2730,7 @@ private fun BoxScope.RightSearchPanel(
                 ) {
                     Box(modifier = Modifier.width(40.dp).height(4.dp).background(muted, RoundedCornerShape(2.dp)))
                 }
-                Text("🔍 Пошук", color = Color.White, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
+                Text("Пошук", color = Color.White, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth().clickable { onRightSearchOpen(!rightSearchOpen) }.padding(bottom = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -2729,7 +2766,7 @@ private fun BoxScope.RightSearchPanel(
                         onClick = { onSearch(); onRightSearchOpen(false) },
                         modifier = Modifier.fillMaxWidth().padding(top = 8.dp).height(44.dp),
                         colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = acc, contentColor = Color(0xFF0A0A0C))
-                    ) { Text("🔍 Знайти") }
+                    ) { Text("Знайти") }
                 }
                 Text(status, color = muted, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 8.dp, bottom = 4.dp), maxLines = 2, overflow = TextOverflow.Ellipsis)
                 val rightRows = searchRows
@@ -2748,7 +2785,7 @@ private fun BoxScope.RightSearchPanel(
                             Box(modifier = Modifier.size(42.dp).background(Color(0xFF222228), RoundedCornerShape(6.dp)), contentAlignment = Alignment.Center) {
                                 if (s.favicon.startsWith("http") && !s.favicon.contains("example.com")) {
                                     AsyncImage(model = s.favicon, contentDescription = null, modifier = Modifier.size(42.dp), contentScale = ContentScale.Crop)
-                                } else Text("🎵")
+                                } else Icon(Icons.Filled.MusicNote, contentDescription = null, tint = muted)
                             }
                             Column(modifier = Modifier.weight(1f).padding(start = 8.dp)) {
                                 Text(s.name, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -2941,17 +2978,17 @@ private fun BoxScope.LeftLokalPanel(
                                 val a = if (item.albumId.isNotBlank() && item.albumId != "0")
                                     "content://media/external/audio/albumart/${item.albumId}" else ""
                                 if (a.isNotEmpty()) AsyncImage(model = a, contentDescription = null, modifier = Modifier.size(42.dp), contentScale = ContentScale.Crop)
-                                else Text("🎵")
+                                else Icon(Icons.Filled.MusicNote, contentDescription = null, tint = muted)
                             }
                             Column(modifier = Modifier.weight(1f).padding(start = 8.dp)) {
                                 Text(item.title, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 Text(item.artist, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
                             }
-                            Text(
-                                if (bestUris.contains(item.uri)) "★" else "☆",
-                                color = acc,
-                                modifier = Modifier.clickable { onToggleBest(item) }.padding(start = 10.dp, end = 2.dp),
-                                style = MaterialTheme.typography.headlineSmall
+                            Icon(
+                                if (bestUris.contains(item.uri)) Icons.Filled.Star else Icons.Filled.StarBorder,
+                                contentDescription = if (bestUris.contains(item.uri)) "Прибрати з топ локальних" else "Додати в топ локальні",
+                                tint = acc,
+                                modifier = Modifier.clickable { onToggleBest(item) }.padding(start = 10.dp, end = 2.dp).size(24.dp)
                             )
                         }
                     }
@@ -3031,7 +3068,7 @@ private fun BoxScope.LeftLokalPanel(
                                     contentScale = ContentScale.Crop
                                 )
                             } else {
-                                Text("🎵", style = MaterialTheme.typography.titleMedium)
+                                Icon(Icons.Filled.MusicNote, contentDescription = null, tint = muted, modifier = Modifier.size(24.dp))
                             }
                         }
                     }
@@ -3041,7 +3078,7 @@ private fun BoxScope.LeftLokalPanel(
                             .background(Color(0xFF1A1A1E), RoundedCornerShape(12.dp))
                             .clickable { onPrev() },
                         contentAlignment = Alignment.Center
-                    ) { Text("⏮", color = text, style = MaterialTheme.typography.titleLarge) }
+                    ) { Icon(Icons.Filled.SkipPrevious, contentDescription = "Попередня", tint = text, modifier = Modifier.size(26.dp)) }
                     Box(
                         modifier = Modifier
                             .size(56.dp)
@@ -3049,7 +3086,12 @@ private fun BoxScope.LeftLokalPanel(
                             .clickable { onPlayPause() },
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(if (playing) "⏸" else "▶", color = Color(0xFF0A0A0C), style = MaterialTheme.typography.headlineSmall)
+                        Icon(
+                            if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                            contentDescription = if (playing) "Пауза" else "Відтворити",
+                            tint = Color(0xFF0A0A0C),
+                            modifier = Modifier.size(26.dp)
+                        )
                     }
                     Box(
                         modifier = Modifier
@@ -3057,7 +3099,7 @@ private fun BoxScope.LeftLokalPanel(
                             .background(Color(0xFF1A1A1E), RoundedCornerShape(12.dp))
                             .clickable { onNext() },
                         contentAlignment = Alignment.Center
-                    ) { Text("⏭", color = text, style = MaterialTheme.typography.titleLarge) }
+                    ) { Icon(Icons.Filled.SkipNext, contentDescription = "Наступна", tint = text, modifier = Modifier.size(26.dp)) }
                 }
             }
         }

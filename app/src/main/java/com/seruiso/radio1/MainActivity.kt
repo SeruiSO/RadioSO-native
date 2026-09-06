@@ -88,6 +88,12 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.LibraryMusic
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.rememberSwipeToDismissBoxState
@@ -233,8 +239,8 @@ class MainActivity : ComponentActivity() {
                     readPrefs()
         if (recentStations.isEmpty()) recentStations = loadRecentStations()
                     isPlaying = intent.getBooleanExtra("playing", false)
-                    if (isPlaying) statusText = "playing"
-                    else if (statusText == "playing") statusText = "pause"
+                    if (isPlaying) statusText = "відтворення"
+                    else if (statusText == "відтворення") statusText = "пауза"
                     isLocalNow = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
                         .getString(LocalMusicPlugin.KEY_MODE, "radio") == "local"
                     if (isLocalNow) {
@@ -456,14 +462,18 @@ class MainActivity : ComponentActivity() {
                             val p = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
                             val v = !p.getBoolean(LocalMusicPlugin.KEY_LOCAL_SHUFFLE, false)
                             p.edit().putBoolean(LocalMusicPlugin.KEY_LOCAL_SHUFFLE, v).apply()
-                            statusText = if (v) "shuffle on" else "shuffle off"
+                            statusText = if (v) "перемішування: увімк" else "перемішування: вимк"
                         },
                         onRepeat = {
                             val p = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
                             val cur = p.getString(LocalMusicPlugin.KEY_LOCAL_REPEAT, "off")
                             val next = when (cur) { "off" -> "all"; "all" -> "one"; else -> "off" }
                             p.edit().putString(LocalMusicPlugin.KEY_LOCAL_REPEAT, next).apply()
-                            statusText = "repeat $next"
+                            statusText = when (next) {
+                                "all" -> "повтор: усі"
+                                "one" -> "повтор: один трек"
+                                else -> "повтор: вимкнено"
+                            }
                         },
                         posMs = posMs,
                         durMs = durMs,
@@ -890,7 +900,7 @@ class MainActivity : ComponentActivity() {
         localTracks = try {
             LocalLibrary.list(this)
         } catch (e: Exception) {
-            statusText = "scan error"
+            statusText = "помилка сканування"
             emptyList()
         }
         if (currentTab() == "local") {
@@ -1076,7 +1086,7 @@ class MainActivity : ComponentActivity() {
         i.putExtra(RadioWatchService.EXTRA_URL, url)
         i.putExtra(RadioWatchService.EXTRA_NAME, name)
         startForegroundService(i)
-        statusText = "start"
+        statusText = "запуск"
         isLocalNow = url.startsWith("content:")
         if (nowOpen || url.startsWith("content:")) { posHandler.removeCallbacks(posTick); posHandler.post(posTick) }
     }
@@ -1225,8 +1235,7 @@ fun StationScreen(
     ) {
         val st = status.lowercase()
         val busy = !playing && (
-            st.contains("connect") || st.contains("buffer") || st.contains("reconnect") ||
-            st == "start" || st.contains("підключ")
+            st.contains("підключ") || st.contains("буфер") || st == "запуск"
         )
         val pulseOn = playing || busy
         val infinite = rememberInfiniteTransition(label = "playPulse")
@@ -1358,11 +1367,23 @@ fun StationScreen(
                 Box(
                     modifier = Modifier.size(40.dp).background(card, RoundedCornerShape(12.dp)).clickable { topThemeOpen = true },
                     contentAlignment = Alignment.Center
-                ) { Text("🌙") }
+                ) {
+                    Icon(
+                        Icons.Filled.Palette,
+                        contentDescription = "Тема оформлення",
+                        tint = Color.White
+                    )
+                }
                 Box(
                     modifier = Modifier.size(40.dp).background(card, RoundedCornerShape(12.dp)).clickable { openLeftSheet() },
                     contentAlignment = Alignment.Center
-                ) { Text("SD", color = Color.White, style = MaterialTheme.typography.labelLarge) }
+                ) {
+                    Icon(
+                        Icons.Filled.LibraryMusic,
+                        contentDescription = "Моя музика (локальні файли)",
+                        tint = Color.White
+                    )
+                }
             }
             Text("Radio S O", color = Color.White, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.align(Alignment.Center))
             Row(
@@ -1376,14 +1397,26 @@ fun StationScreen(
                         .background(card, RoundedCornerShape(12.dp))
                         .clickable { openRightSheet() },
                     contentAlignment = Alignment.Center
-                ) { Text("🔍", color = Color.White) }
+                ) {
+                    Icon(
+                        Icons.Filled.Search,
+                        contentDescription = "Пошук радіостанцій",
+                        tint = Color.White
+                    )
+                }
                 Box(
                     modifier = Modifier
                         .size(40.dp)
                         .background(card, RoundedCornerShape(12.dp))
                         .clickable { onMenu() },
                     contentAlignment = Alignment.Center
-                ) { Text("⋯", color = Color.White) }
+                ) {
+                    Icon(
+                        Icons.Filled.MoreVert,
+                        contentDescription = "Ще налаштування",
+                        tint = Color.White
+                    )
+                }
             }
         }
         // Інфо-панель: тап → Now Playing; свайп вниз → верхня картка; свайп вгору більше не відкриває

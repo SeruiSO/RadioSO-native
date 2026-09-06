@@ -1,57 +1,39 @@
 package com.seruiso.radio1.ui.theme
 
-import android.app.Activity
-import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
 
-private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
-)
-
-private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40
-
-    /* Other default colors to override
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
-    onPrimary = Color.White,
-    onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = Color(0xFF1C1B1F),
-    onSurface = Color(0xFF1C1B1F),
-    */
+// Застосунок завжди темний за дизайном (чорний фон, білий текст) —
+// тож використовуємо ОДНУ узгоджену кольорову схему без прив'язки
+// до системної теми чи Material You (dynamic color). Раніше стандартні
+// AlertDialog/Button/OutlinedTextField/Slider підхоплювали дефолтну
+// фіолетову (або системну динамічну) схему, що виглядало як стороннє
+// UI, а на світлій системній темі текст у діалогах міг бути майже
+// невидимим (темний текст на темному фоні діалогу).
+private val AppColorScheme = darkColorScheme(
+    primary = AppAccent,
+    onPrimary = AppOnAccent,
+    secondary = AppAccent,
+    onSecondary = AppOnAccent,
+    tertiary = AppAccent,
+    onTertiary = AppOnAccent,
+    background = AppBackground,
+    onBackground = AppText,
+    surface = AppSurface,
+    onSurface = AppText,
+    surfaceVariant = AppSurfaceVariant,
+    onSurfaceVariant = AppTextMuted,
+    error = AppError,
+    onError = AppOnAccent
 )
 
 @Composable
 fun RadioSOTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
-    dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
-    }
-
     MaterialTheme(
-        colorScheme = colorScheme,
+        colorScheme = AppColorScheme,
         typography = Typography,
         content = content
     )

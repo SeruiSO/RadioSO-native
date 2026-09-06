@@ -315,7 +315,7 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
                         if (isLocalMode()) return;
                         if (player != null && player.isPlaying()) {
                             reconnectAttempt = 0;
-                            notifyUiStatus("playing", 0);
+                            notifyUiStatus("відтворення", 0);
                             return;
                         }
                         // ще буферизує (не зупинився, не в помилці) — дати шанс
@@ -330,7 +330,7 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
                             reconnectHandler.postDelayed(() -> {
                                 if (player != null && player.isPlaying()) {
                                     reconnectAttempt = 0;
-                                    notifyUiStatus("playing", 0);
+                                    notifyUiStatus("відтворення", 0);
                                     return;
                                 }
                                 android.util.Log.i("RadioWatch", "still not playing after grace — forcing reconnect");
@@ -372,7 +372,7 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
     /** Форсований реконект: скидає лічильники і одразу пробує грати resolved URL. */
     private void forceNetworkReconnect() {
         android.util.Log.i("RadioWatch", "network available → reconnect");
-        notifyUiStatus("reconnecting", reconnectAttempt + 1);
+        notifyUiStatus("повторне підключення", reconnectAttempt + 1);
         reconnectAttempt = 0;
         reconnectWindowStart = 0L;
         if (reconnectHandler != null) {
@@ -409,7 +409,7 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
         if (player != null && player.isPlaying()) {
             reconnectAttempt = 0;
             reconnectWindowStart = 0L;
-            notifyUiStatus("playing", 0);
+            notifyUiStatus("відтворення", 0);
             return;
         }
         long now = System.currentTimeMillis();
@@ -819,7 +819,7 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
                             || st == Player.STATE_ENDED)) {
                         bufferingTicks++;
                         if (bufferingTicks == 1) {
-                            notifyUiStatus("buffering", reconnectAttempt);
+                            notifyUiStatus("буферизація", reconnectAttempt);
                         }
                         if (bufferingTicks >= 8) { // ~8 * 3s ≈ 24s
                             android.util.Log.w("RadioWatch", "silence/buffer timeout → reconnect");
@@ -830,7 +830,7 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
                             return;
                         }
                     } else if (playing) {
-                        if (bufferingTicks > 0) notifyUiStatus("playing", 0);
+                        if (bufferingTicks > 0) notifyUiStatus("відтворення", 0);
                         bufferingTicks = 0;
                     }
                 } catch (Exception e) {
@@ -1231,7 +1231,7 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
             if (isLocalMode()) armPositionTicker();
             // 0.9.51: reported playing тільки з onIsPlayingChanged — не раніше
             loadStationArtAsync();
-            notifyUiStatus("connecting", 0);
+            notifyUiStatus("підключення", 0);
             bufferingTicks = 0;
             notifyForeground();
         } catch (Exception e) {
@@ -1340,7 +1340,7 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
             if (player.isPlaying()) {
                 reconnectAttempt = 0;
                 reconnectWindowStart = 0L;
-                notifyUiStatus("playing", 0);
+                notifyUiStatus("відтворення", 0);
                 return;
             }
             if (!hasInternet()) {

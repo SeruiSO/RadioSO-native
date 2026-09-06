@@ -187,7 +187,7 @@ class MainActivity : ComponentActivity() {
                 .getBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, true)
             addedRev++
         } catch (e: Exception) {
-            statusText = "помилка імпорту"; flashBanner("Помилка імпорту")
+            holdStatus("помилка імпорту")
         }
     }
 
@@ -224,8 +224,6 @@ class MainActivity : ComponentActivity() {
     }
     private var trackTitle by mutableStateOf("")
     private var isPlaying by mutableStateOf(false)
-    private var bannerText by mutableStateOf<String?>(null)
-    private var bannerGen = 0
     private var statusText by mutableStateOf("готово")
     private var tabIndex by mutableIntStateOf(0)
     private var sourceTabs by mutableStateOf(listOf<String>())
@@ -275,7 +273,7 @@ class MainActivity : ComponentActivity() {
                     readPrefs()
         if (recentStations.isEmpty()) recentStations = loadRecentStations()
                     isPlaying = intent.getBooleanExtra("playing", false)
-                    if (isPlaying) statusText = "відтворення"
+                    if (isPlaying) softStatus( "відтворення")
                     else if (statusText == "відтворення") statusText = "пауза"
                     isLocalNow = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
                         .getString(LocalMusicPlugin.KEY_MODE, "radio") == "local"
@@ -382,7 +380,7 @@ class MainActivity : ComponentActivity() {
                                 statusText = "вкладка ${newTabName.lowercase()} створена"
                                 newTabName = ""
                                 newTabOpen = false
-                            } else statusText = err
+                            } else holdStatus(err)
                         },
                         onCancelNewTab = { newTabOpen = false },
                         customTabs = customTabs,
@@ -465,7 +463,6 @@ class MainActivity : ComponentActivity() {
                         track = trackTitle,
                         playing = isPlaying,
                         status = statusText,
-                        bannerText = bannerText,
                         favUrls = favUrls,
                         bestUris = bestUris,
                         onPlayPause = {
@@ -499,18 +496,18 @@ class MainActivity : ComponentActivity() {
                             val p = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
                             val v = !p.getBoolean(LocalMusicPlugin.KEY_LOCAL_SHUFFLE, false)
                             p.edit().putBoolean(LocalMusicPlugin.KEY_LOCAL_SHUFFLE, v).apply()
-                            statusText = if (v) "перемішування: увімк" else "перемішування: вимк"
+                            holdStatus(if (v) "перемішування: увімк" else "перемішування: вимк")
                         },
                         onRepeat = {
                             val p = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
                             val cur = p.getString(LocalMusicPlugin.KEY_LOCAL_REPEAT, "off")
                             val next = when (cur) { "off" -> "all"; "all" -> "one"; else -> "off" }
                             p.edit().putString(LocalMusicPlugin.KEY_LOCAL_REPEAT, next).apply()
-                            statusText = when (next) {
+                            holdStatus(when (next) {
                                 "all" -> "повтор: усі"
                                 "one" -> "повтор: один трек"
                                 else -> "повтор: вимкнено"
-                            }
+                            })
                         },
                         posMs = posMs,
                         durMs = durMs,
@@ -541,13 +538,17 @@ class MainActivity : ComponentActivity() {
         return (built + customTabs).distinct()
     }
 
-    private fun flashBanner(msg: String) {
-        val g = ++bannerGen
-        bannerText = msg
-        // сховається з LaunchedEffect у setContent
-        android.os.Handler(mainLooper).postDelayed({
-            if (bannerGen == g) bannerText = null
-        }, 2200L)
+    /** Повідомлення в інфо-панелі тримається holdMs, щоб «відтворення» його не змивало */
+    private var statusHoldUntil = 0L
+
+    private fun holdStatus(msg: String, holdMs: Long = 2200L) {
+        statusText = msg
+        statusHoldUntil = System.currentTimeMillis() + holdMs
+    }
+
+    private fun softStatus(msg: String) {
+        if (System.currentTimeMillis() < statusHoldUntil) return
+        statusText = msg
     }
 
     private fun runSearch(countryOverride: String? = null) {
@@ -563,7 +564,7 @@ class MainActivity : ComponentActivity() {
             SearchHints.savePast(this, past.take(5))
         }
         if (n.isBlank() && c.isBlank() && g.isBlank()) {
-            statusText = "введи назву, країну або жанр"
+            holdStatus("введи назву, країну або жанр")
             return
         }
         val gen = ++RadioBrowser.activeGen
@@ -578,7 +579,7 @@ class MainActivity : ComponentActivity() {
                 searchAll = result ?: emptyList()
                 searchShown = minOf(100, searchAll.size)
                 searchRows = searchAll.take(searchShown)
-                statusText = if (searchAll.isEmpty()) "нічого не знайдено" else "знайдено: ${searchAll.size}"
+                holdStatus(if (searchAll.isEmpty()) "нічого не знайдено" else "знайдено: ${searchAll.size}")
             }
         }.start()
     }
@@ -624,7 +625,7 @@ class MainActivity : ComponentActivity() {
         val r = Runnable {
             sendAction(RadioWatchService.ACTION_PAUSE)
             sleepLabel = "Таймер сну"
-            statusText = "таймер сну: пауза"
+            softStatus("таймер сну: пауза")
         }
         sleepRunnable = r
         sleepHandler.postDelayed(r, mins * 60_000L)
@@ -758,8 +759,7 @@ class MainActivity : ComponentActivity() {
         qGenre = ""
         qCountry = "" // поля порожні — зручно вводити свій запит
         if (first.isNotBlank()) {
-            statusText = "пошук: $first…"
-            flashBanner("Пошук: $first")
+            holdStatus("пошук: $first…")
             runSearch(countryOverride = first)
         } else {
             statusText = "визначаємо країну…"
@@ -772,7 +772,7 @@ class MainActivity : ComponentActivity() {
             if (refined.isBlank()) refined = countryFromLocation()
             if (refined.isBlank()) {
                 runOnUiThread {
-                    if (searchRows.isEmpty() && first.isBlank()) statusText = "не вдалося визначити країну"
+                    if (searchRows.isEmpty() && first.isBlank()) holdStatus("не вдалося визначити країну")
                 }
                 return@Thread
             }
@@ -780,8 +780,7 @@ class MainActivity : ComponentActivity() {
             // не пишемо refined у qCountry — лише перезапуск пошуку, якщо інша країна
             if (normalizeCountry(first) != refined) {
                 runOnUiThread {
-                    statusText = "пошук: $refined…"
-                    flashBanner("Пошук: $refined")
+                    holdStatus("пошук: $refined…")
                     runSearch(countryOverride = refined)
                 }
             } else if (cached.isBlank()) {
@@ -930,13 +929,13 @@ class MainActivity : ComponentActivity() {
     private fun reloadLocal() {
         if (!hasAudioPermission()) {
             localTracks = emptyList()
-            statusText = "немає дозволу на аудіо"; flashBanner("Немає дозволу на аудіо")
+            holdStatus("немає дозволу на аудіо")
             return
         }
         localTracks = try {
             LocalLibrary.list(this)
         } catch (e: Exception) {
-            statusText = "помилка сканування"; flashBanner("Помилка сканування")
+            holdStatus("помилка сканування")
             emptyList()
         }
         if (currentTab() == "local") {
@@ -1215,7 +1214,6 @@ fun StationScreen(
     track: String,
     playing: Boolean,
     status: String,
-    bannerText: String? = null,
     favUrls: Set<String>,
     bestUris: Set<String>,
     onPlayPause: () -> Unit,
@@ -1395,19 +1393,6 @@ fun StationScreen(
             .fillMaxSize()
             .padding(top = 28.dp, start = 12.dp, end = 12.dp, bottom = 16.dp)
     ) {
-        // Тост зверху (без BoxScope.align — просто перший елемент у колонці/зверху)
-        if (!bannerText.isNullOrBlank()) {
-            Text(
-                bannerText ?: "",
-                color = Color(0xFF0A0A0C),
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 8.dp)
-                    .background(acc, RoundedCornerShape(12.dp))
-                    .padding(horizontal = 14.dp, vertical = 12.dp)
-            )
-        }
 
         // Тост-банер зверху (~2 с)
 

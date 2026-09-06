@@ -2382,7 +2382,11 @@ fun StationScreen(
     }
     if (nowOpen || sheetShow) {
         Box(modifier = Modifier.fillMaxSize()) {
-            Box(modifier = Modifier.fillMaxSize().background(Color(0x88000000).copy(alpha = ((560f - pullA.value) / 560f * 0.55f).coerceIn(0f, 0.55f))).clickable {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    // без затемнення — інфо-панель зверху лишається читабельною
+                    .clickable {
                 sheetScope.launch {
                     pullA.animateTo(560f, tween(300))
                     sheetShow = false

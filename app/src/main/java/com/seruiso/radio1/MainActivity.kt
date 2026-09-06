@@ -1609,7 +1609,7 @@ fun StationScreen(
             }
         }
         if (showLocal) {
-            if (localRows.isEmpty()) Text("Немає треків. Scan.", color = muted)
+            if (localRows.isEmpty()) Text("Немає треків. Натисни «Сканувати».", color = muted)
             LazyColumn(modifier = Modifier.weight(1f), state = listState, userScrollEnabled = !dragging) {
                 itemsIndexed(localRows, key = { _, x -> x.uri }) { index, item ->
                     Row(
@@ -1812,7 +1812,7 @@ fun StationScreen(
                 Box(
                     modifier = Modifier.size(56.dp).background(Color(0xFF1A1A1E), RoundedCornerShape(12.dp)).clickable { onScan() },
                     contentAlignment = Alignment.Center
-                ) { Text("Scan", color = acc, style = MaterialTheme.typography.bodySmall) }
+                ) { Text("Сканувати", color = acc, style = MaterialTheme.typography.bodySmall) }
             }
         }
             Icon(Icons.Filled.KeyboardArrowUp, contentDescription = "Відкрити Now Playing", tint = muted, modifier = Modifier.align(Alignment.CenterEnd).clickable { onNow() }.padding(4.dp).size(28.dp))
@@ -2076,7 +2076,10 @@ fun StationScreen(
                             .padding(vertical = 12.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("◔ ${sleepLabel}", color = text, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Icon(Icons.Filled.Timer, contentDescription = null, tint = text, modifier = Modifier.size(18.dp))
+                            Text(sleepLabel, color = text, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
                     }
                     Box(
                         modifier = Modifier
@@ -2086,7 +2089,15 @@ fun StationScreen(
                             .padding(vertical = 12.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(if (btWatch) "◉ BT вкл" else "○ BT викл", color = if (btWatch) acc else text, style = MaterialTheme.typography.labelLarge)
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Icon(
+                                if (btWatch) Icons.Filled.Bluetooth else Icons.Filled.BluetoothDisabled,
+                                contentDescription = null,
+                                tint = if (btWatch) acc else text,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(if (btWatch) "BT: увімкнено" else "BT: вимкнено", color = if (btWatch) acc else text, style = MaterialTheme.typography.labelLarge)
+                        }
                     }
                     Box(
                         modifier = Modifier
@@ -3034,8 +3045,8 @@ private fun BoxScope.LeftLokalPanel(
                     Box(modifier = Modifier.width(40.dp).height(4.dp).background(muted, RoundedCornerShape(2.dp)))
                 }
                 Row(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Локальні SD", color = Color.White, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                    Text("Scan", color = acc, modifier = Modifier.clickable { onScan() }.padding(8.dp), style = MaterialTheme.typography.labelLarge)
+                    Text("Моя музика", color = Color.White, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                    Text("Сканувати", color = acc, modifier = Modifier.clickable { onScan() }.padding(8.dp), style = MaterialTheme.typography.labelLarge)
                 }
                 Text(
                     if (allLocal.isEmpty()) "Немає треків" else "треків: ${allLocal.size}",

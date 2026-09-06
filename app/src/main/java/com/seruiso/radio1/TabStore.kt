@@ -23,8 +23,9 @@ object TabStore {
     fun addTab(ctx: Context, rawName: String, builtInTabs: List<String> = emptyList()): String? {
         val name = rawName.trim().lowercase()
         if (name.isEmpty()) return "Введи назву"
-        if (name.length > 10 || !name.matches(Regex("^[a-z0-9_-]+$"))) {
-            return "Лише a-z 0-9 _ - до 10 символів"
+        // латиниця + українські літери (id у JSON/prefs — безпечно)
+        if (name.length > 10 || !name.matches(Regex("^[a-z0-9_а-яіїєґ-]+$"))) {
+            return "Літери (ua/en), цифри, _ - ; до 10 символів"
         }
         val cur = customTabs(ctx).toMutableList()
         val builtInLower = builtInTabs.map { it.lowercase() }

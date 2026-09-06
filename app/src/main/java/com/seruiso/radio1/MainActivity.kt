@@ -32,6 +32,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.layout.size
@@ -106,6 +107,10 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.SkipNext
+import kotlinx.coroutines.delay
+import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.BluetoothDisabled
+import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.MusicNote
@@ -182,7 +187,7 @@ class MainActivity : ComponentActivity() {
                 .getBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, true)
             addedRev++
         } catch (e: Exception) {
-            statusText = "помилка імпорту"
+            statusText = "помилка імпорту"; flashBanner("Помилка імпорту")
         }
     }
 
@@ -219,6 +224,8 @@ class MainActivity : ComponentActivity() {
     }
     private var trackTitle by mutableStateOf("")
     private var isPlaying by mutableStateOf(false)
+    private var bannerText by mutableStateOf<String?>(null)
+    private var bannerGen = 0
     private var statusText by mutableStateOf("готово")
     private var tabIndex by mutableIntStateOf(0)
     private var sourceTabs by mutableStateOf(listOf<String>())
@@ -458,6 +465,7 @@ class MainActivity : ComponentActivity() {
                         track = trackTitle,
                         playing = isPlaying,
                         status = statusText,
+                        bannerText = bannerText,
                         favUrls = favUrls,
                         bestUris = bestUris,
                         onPlayPause = {
@@ -533,10 +541,20 @@ class MainActivity : ComponentActivity() {
         return (built + customTabs).distinct()
     }
 
-    private fun runSearch() {
+    private fun flashBanner(msg: String) {
+        val g = ++bannerGen
+        bannerText = msg
+        // сховається з LaunchedEffect у setContent
+        android.os.Handler(mainLooper).postDelayed({
+            if (bannerGen == g) bannerText = null
+        }, 2200L)
+    }
+
+    private fun runSearch(countryOverride: String? = null) {
         val n = qName.trim()
-        val c = normalizeCountry(qCountry)
-        qCountry = c
+        val c = normalizeCountry(countryOverride ?: qCountry)
+        // не затираємо поле країни при гео-пошуку (override)
+        if (countryOverride == null) qCountry = c
         val g = qGenre.trim()
         if (n.isNotBlank()) {
             val past = SearchHints.past(this).toMutableList()
@@ -738,10 +756,11 @@ class MainActivity : ComponentActivity() {
         }
         qName = ""
         qGenre = ""
+        qCountry = "" // поля порожні — зручно вводити свій запит
         if (first.isNotBlank()) {
-            qCountry = first
             statusText = "пошук: $first…"
-            runSearch()
+            flashBanner("Пошук: $first")
+            runSearch(countryOverride = first)
         } else {
             statusText = "визначаємо країну…"
             searchAll = emptyList()
@@ -758,12 +777,12 @@ class MainActivity : ComponentActivity() {
                 return@Thread
             }
             saveGeoCountry(refined)
-            val cur = normalizeCountry(qCountry)
-            if (cur != refined) {
+            // не пишемо refined у qCountry — лише перезапуск пошуку, якщо інша країна
+            if (normalizeCountry(first) != refined) {
                 runOnUiThread {
-                    qCountry = refined
                     statusText = "пошук: $refined…"
-                    runSearch()
+                    flashBanner("Пошук: $refined")
+                    runSearch(countryOverride = refined)
                 }
             } else if (cached.isBlank()) {
                 // вже шукали по locale — просто зберегли IP-країну
@@ -911,13 +930,13 @@ class MainActivity : ComponentActivity() {
     private fun reloadLocal() {
         if (!hasAudioPermission()) {
             localTracks = emptyList()
-            statusText = "немає дозволу на аудіо"
+            statusText = "немає дозволу на аудіо"; flashBanner("Немає дозволу на аудіо")
             return
         }
         localTracks = try {
             LocalLibrary.list(this)
         } catch (e: Exception) {
-            statusText = "помилка сканування"
+            statusText = "помилка сканування"; flashBanner("Помилка сканування")
             emptyList()
         }
         if (currentTab() == "local") {
@@ -1196,6 +1215,7 @@ fun StationScreen(
     track: String,
     playing: Boolean,
     status: String,
+    bannerText: String? = null,
     favUrls: Set<String>,
     bestUris: Set<String>,
     onPlayPause: () -> Unit,
@@ -1375,6 +1395,23 @@ fun StationScreen(
             .fillMaxSize()
             .padding(top = 28.dp, start = 12.dp, end = 12.dp, bottom = 16.dp)
     ) {
+        // Тост зверху (без BoxScope.align — просто перший елемент у колонці/зверху)
+        if (!bannerText.isNullOrBlank()) {
+            Text(
+                bannerText ?: "",
+                color = Color(0xFF0A0A0C),
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp)
+                    .background(acc, RoundedCornerShape(12.dp))
+                    .padding(horizontal = 14.dp, vertical = 12.dp)
+            )
+        }
+
+        // Тост-банер зверху (~2 с)
+
+
         Box(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).height(48.dp)) {
             Row(
                 modifier = Modifier.align(Alignment.CenterStart),
@@ -1724,7 +1761,14 @@ fun StationScreen(
                             .padding(horizontal = 8.dp, vertical = 5.dp)
                     )
                 }
-                Text("+", color = acc, modifier = Modifier.padding(horizontal = 6.dp).clickable { onAddTab() })
+                Text(
+                    "+",
+                    color = acc,
+                    style = MaterialTheme.typography.headlineMedium,
+                    modifier = Modifier
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                        .clickable { onAddTab() }
+                )
             }
         }
         Box(
@@ -2243,8 +2287,27 @@ fun StationScreen(
                     .background(Color(0xFF16161A), RoundedCornerShape(12.dp))
                     .padding(8.dp)
             ) {
-                Text((if (btWatch) "◉ BT увімк" else "○ BT вимк"), color = text, modifier = Modifier.fillMaxWidth().clickable { onBt(); onCloseMenu() }.padding(8.dp))
-                Text("◔ $sleepLabel", color = text, modifier = Modifier.fillMaxWidth().clickable { onSleepMenu() }.padding(8.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth().clickable { onBt(); onCloseMenu() }.padding(8.dp)
+                ) {
+                    Icon(
+                        if (btWatch) Icons.Filled.Bluetooth else Icons.Filled.BluetoothDisabled,
+                        contentDescription = if (btWatch) "BT відстеження увімкнено" else "BT відстеження вимкнено",
+                        tint = text,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Text(if (btWatch) "BT увімк" else "BT вимк", color = text)
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth().clickable { onSleepMenu() }.padding(8.dp)
+                ) {
+                    Icon(Icons.Filled.Timer, contentDescription = "Таймер сну", tint = text, modifier = Modifier.size(20.dp))
+                    Text(sleepLabel, color = text)
+                }
                 if (sleepMenu) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         listOf(15, 30, 60, 0).forEach { m ->
@@ -2285,7 +2348,19 @@ fun StationScreen(
             containerColor = MaterialTheme.colorScheme.surfaceVariant,
             onDismissRequest = onCancelNewTab,
             title = { Text("Створити нову вкладку") },
-            text = { OutlinedTextField(value = newTabName, onValueChange = onNewTabName, singleLine = true) },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = newTabName,
+                        onValueChange = onNewTabName,
+                        singleLine = true,
+                        label = { Text("Назва") },
+                        supportingText = {
+                            Text("ua/en літери, цифри, _ - ; до 10 символів")
+                        }
+                    )
+                }
+            },
             confirmButton = { Button(onClick = onCreateTab) { Text("Створити") } },
             dismissButton = { Button(onClick = onCancelNewTab) { Text("Скасувати") } }
         )

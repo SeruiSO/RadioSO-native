@@ -61,14 +61,33 @@ public class BluetoothReceiver extends BroadcastReceiver {
         if (state == BluetoothProfile.STATE_CONNECTED) {
             markA2dp(app);
             // Гучність — незалежно від тумблера BT-watch, це окрема фіча.
+            BtVolumeStore.setActiveAddress(app, address);
             applyRememberedVolume(app, address);
+            if (address != null && !address.isEmpty()) {
+                // Магнітоли/навушники з підтримкою AVRCP absolute volume самі
+                // "нав'язують" телефону свій рівень одразу після конекту — іноді
+                // з невеликою затримкою. Ставимо наше значення ще раз трохи
+                // пізніше, щоб воно не було перезаписане цим авто-синком.
+                final String addr = address;
+                new Handler(Looper.getMainLooper()).postDelayed(
+                    () -> applyRememberedVolume(app, addr), 700);
+            }
             if (!watchOn(app)) return;
             // одразу FGS — без postDelayed у ресівері (процес інакше вбивають)
             startSvc(app, RadioWatchService.ACTION_BT);
             return;
         }
         if (state == BluetoothProfile.STATE_DISCONNECTED) {
-            saveCurrentVolume(app, address);
+            // Один фізичний пристрій шле ДВА broadcast'и (A2DP + HFP). Другий
+            // (дублюючий) дисконект іноді приходить вже ПІСЛЯ того, як
+            // підключився інший пристрій — без цієї перевірки ми б записали
+            // чужу поточну гучність під старою адресою. Зберігаємо, лише якщо
+            // адреса, що відключається, все ще та, яку ми вважаємо активною.
+            String active = BtVolumeStore.getActiveAddress(app);
+            if (address != null && address.equals(active)) {
+                saveCurrentVolume(app, address);
+                BtVolumeStore.setActiveAddress(app, null);
+            }
             if (!watchOn(app)) return;
             new Handler(Looper.getMainLooper()).postDelayed(() -> {
                 if (BtAudio.hasRoute(app)) return;

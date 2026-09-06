@@ -826,14 +826,14 @@ class MainActivity : ComponentActivity() {
 
     private fun allRadioStations(): List<Station> {
         addedRev
-        val deleted = TabStore.deleted(this)
+        val deletedMap = TabStore.deletedMap(this)
         val fav = (FavStore.stations(this) + stations.filter { favUrls.contains(it.url) })
         val fromTabs = customTabs.flatMap { tab ->
             stations.filter { it.tab == tab } + TabStore.extraStations(this, tab)
         }
         return (fav + fromTabs + searchRows + stations)
             .distinctBy { it.url }
-            .filter { it.url !in deleted }
+            .filter { it.url !in (deletedMap[it.tab] ?: emptySet()) }
     }
 
     private fun loadRecentStations(): List<Station> {
@@ -887,8 +887,8 @@ class MainActivity : ComponentActivity() {
 
     private fun visibleRadio(): List<Station> {
         addedRev // observe
-        val deleted = TabStore.deleted(this)
         val tab = currentTab()
+        val deleted = TabStore.deleted(this, tab)
         return when (tab) {
             "fav" -> TabStore.applyOrder(this, "fav", (FavStore.stations(this) + stations.filter { favUrls.contains(it.url) }).distinctBy { it.url }.filter { it.url !in deleted })
             "best", "local" -> emptyList()

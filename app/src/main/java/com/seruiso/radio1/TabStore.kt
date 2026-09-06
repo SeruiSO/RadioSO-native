@@ -40,7 +40,7 @@ object TabStore {
 
     fun addStation(ctx: Context, tab: String, s: Station): String? {
         if (reserved.contains(tab) || tab == "search") return "Сюди не можна"
-        unDelete(ctx, s.url)
+        unDelete(ctx, tab, s.url)
         val root = JSONObject(prefs(ctx).getString(KEY_ADDED, "{}") ?: "{}")
         val arr = root.optJSONArray(tab) ?: JSONArray()
         val next = JSONArray()
@@ -72,14 +72,24 @@ object TabStore {
         return null
     }
 
-    fun unDelete(ctx: Context, url: String) {
-        val arr = JSONArray(prefs(ctx).getString("deletedStations", "[]") ?: "[]")
+    /** Безпечно читає deletedStations як об'єкт {tab: [urls]}. Якщо у старій версії
+     *  застосунку там лежав плаский масив — просто починаємо з чистого об'єкта,
+     *  щоб не впасти при парсингу. */
+    private fun deletedRoot(ctx: Context): JSONObject {
+        val raw = prefs(ctx).getString("deletedStations", "{}") ?: "{}"
+        return try { JSONObject(raw) } catch (e: Exception) { JSONObject() }
+    }
+
+    fun unDelete(ctx: Context, tab: String, url: String) {
+        val root = deletedRoot(ctx)
+        val arr = root.optJSONArray(tab) ?: return
         val next = JSONArray()
         for (i in 0 until arr.length()) {
             val u = arr.optString(i)
             if (u != url) next.put(u)
         }
-        prefs(ctx).edit().putString("deletedStations", next.toString()).commit()
+        root.put(tab, next)
+        prefs(ctx).edit().putString("deletedStations", root.toString()).commit()
     }
 
     fun renameTab(ctx: Context, old: String, rawNew: String, builtInTabs: List<String> = emptyList()): String? {
@@ -104,6 +114,12 @@ object TabStore {
             root.remove(old)
             prefs(ctx).edit().putString(KEY_ADDED, root.toString()).commit()
         }
+        val delRoot = deletedRoot(ctx)
+        if (delRoot.has(old)) {
+            delRoot.put(name, delRoot.optJSONArray(old) ?: JSONArray())
+            delRoot.remove(old)
+            prefs(ctx).edit().putString("deletedStations", delRoot.toString()).commit()
+        }
         return null
     }
 
@@ -112,6 +128,9 @@ object TabStore {
         val root = JSONObject(prefs(ctx).getString(KEY_ADDED, "{}") ?: "{}")
         root.remove(tab)
         prefs(ctx).edit().putString(KEY_ADDED, root.toString()).commit()
+        val delRoot = deletedRoot(ctx)
+        delRoot.remove(tab)
+        prefs(ctx).edit().putString("deletedStations", delRoot.toString()).commit()
     }
 
     fun removeStation(ctx: Context, tab: String, url: String) {
@@ -124,9 +143,14 @@ object TabStore {
         }
         root.put(tab, next)
         prefs(ctx).edit().putString(KEY_ADDED, root.toString()).commit()
-        val del = JSONArray(prefs(ctx).getString("deletedStations", "[]") ?: "[]")
-        del.put(url)
-        prefs(ctx).edit().putString("deletedStations", del.toString()).apply()
+        // Позначаємо станцію видаленою САМЕ на цій вкладці — на інших вкладках,
+        // де є ця сама станція (той самий URL доданий окремо), вона й далі
+        // показуватиметься без змін.
+        val delRoot = deletedRoot(ctx)
+        val delArr = delRoot.optJSONArray(tab) ?: JSONArray()
+        delArr.put(url)
+        delRoot.put(tab, delArr)
+        prefs(ctx).edit().putString("deletedStations", delRoot.toString()).apply()
     }
 
     fun moveStation(ctx: Context, tab: String, url: String, dir: Int) {
@@ -164,11 +188,28 @@ object TabStore {
         return out
     }
 
-    fun deleted(ctx: Context): Set<String> {
-        val arr = JSONArray(prefs(ctx).getString("deletedStations", "[]") ?: "[]")
+    fun deleted(ctx: Context, tab: String): Set<String> {
+        val arr = deletedRoot(ctx).optJSONArray(tab) ?: JSONArray()
         val s = linkedSetOf<String>()
         for (i in 0 until arr.length()) s.add(arr.optString(i))
         return s
+    }
+
+    /** Мапа вкладка -> набір видалених URL. Для екранів, що показують станції
+     *  з кількох вкладок одразу (наприклад, загальний пошуковий індекс), де
+     *  видалення потрібно перевіряти саме по вкладці конкретної станції. */
+    fun deletedMap(ctx: Context): Map<String, Set<String>> {
+        val root = deletedRoot(ctx)
+        val out = mutableMapOf<String, Set<String>>()
+        val keys = root.keys()
+        while (keys.hasNext()) {
+            val k = keys.next()
+            val arr = root.optJSONArray(k) ?: continue
+            val s = linkedSetOf<String>()
+            for (i in 0 until arr.length()) s.add(arr.optString(i))
+            out[k] = s
+        }
+        return out
     }
 
     fun extraStations(ctx: Context, tab: String): List<Station> {

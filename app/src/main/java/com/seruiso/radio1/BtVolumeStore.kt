@@ -10,6 +10,7 @@ import org.json.JSONObject
  */
 object BtVolumeStore {
     private const val KEY = "bt_volume_by_device"
+    private const val KEY_ACTIVE = "bt_volume_active_address"
 
     private fun raw(context: Context): JSONObject {
         val s = context.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)
@@ -32,5 +33,23 @@ object BtVolumeStore {
         o.put(address, level)
         context.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)
             .edit().putString(KEY, o.toString()).commit()
+    }
+
+    /**
+     * MAC-адреса пристрою, який ЗАРАЗ реально підключений (з нашої точки зору).
+     * Потрібно, бо один фізичний девайс шле ДВА broadcast'и (A2DP + HFP), і другий
+     * (дублюючий) дисконект може прийти вже ПІСЛЯ того, як підключився інший пристрій —
+     * без цієї перевірки ми б записали чужу поточну гучність під старою адресою.
+     */
+    @JvmStatic
+    fun setActiveAddress(context: Context, address: String?) {
+        context.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)
+            .edit().putString(KEY_ACTIVE, address).apply()
+    }
+
+    @JvmStatic
+    fun getActiveAddress(context: Context): String? {
+        return context.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)
+            .getString(KEY_ACTIVE, null)
     }
 }

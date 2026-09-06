@@ -570,7 +570,6 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
                     .putString(BluetoothAutoPlayPlugin.KEY_URL, uri)
                     .putString(BluetoothAutoPlayPlugin.KEY_NAME, title)
                     .putString(BluetoothAutoPlayPlugin.KEY_TRACK, artist)
-                    .putString(BluetoothAutoPlayPlugin.KEY_GENRE, artist)
                     .putString(BluetoothAutoPlayPlugin.KEY_FAVICON, albumId)
                     .commit();
                 currentName = title;
@@ -1199,13 +1198,21 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
             lastPlayMs = now;
             lastPlayedUrl = url;
             currentPlayUrl = url;
-            lastTrackTitle = "";
+            boolean localMode = isLocalMode();
+            // Радіо: трек ще не відомий (прийде з ICY/onMediaMetadataChanged) — чистимо.
+            // Локальна музика: артист/назва вже відомі заздалегідь (playLocal/skip їх щойно
+            // записали) — не затирати тим самим стартом відтворення.
+            if (!localMode) {
+                lastTrackTitle = "";
+            }
             // Критично: те що граємо = source of truth для reconnect (skip/UI/BT)
-            getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+            SharedPreferences.Editor ed = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
                 .edit()
-                .putString(BluetoothAutoPlayPlugin.KEY_URL, url)
-                .putString(BluetoothAutoPlayPlugin.KEY_TRACK, "")
-                .commit();
+                .putString(BluetoothAutoPlayPlugin.KEY_URL, url);
+            if (!localMode) {
+                ed.putString(BluetoothAutoPlayPlugin.KEY_TRACK, "");
+            }
+            ed.commit();
             MediaItem item = new MediaItem.Builder()
                 .setUri(url)
                 .setMediaMetadata(new MediaMetadata.Builder()

@@ -334,7 +334,7 @@ class MainActivity : ComponentActivity() {
                         newTabName = newTabName,
                         onNewTabName = { newTabName = it },
                         onCreateTab = {
-                            val err = TabStore.addTab(this, newTabName)
+                            val err = TabStore.addTab(this, newTabName, sourceTabs)
                             if (err == null) {
                                 customTabs = TabStore.customTabs(this)
                                 statusText = "вкладка ${newTabName.lowercase()} створена"
@@ -357,7 +357,7 @@ class MainActivity : ComponentActivity() {
                         onEditName = { editName = it },
                         onRenameTab = {
                             val oldName = editTab ?: return@StationScreen
-                            val err = TabStore.renameTab(this, oldName, editName)
+                            val err = TabStore.renameTab(this, oldName, editName, sourceTabs)
                             if (err == null) {
                                 customTabs = TabStore.customTabs(this)
                                 addedRev++

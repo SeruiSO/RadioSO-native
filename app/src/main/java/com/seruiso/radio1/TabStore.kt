@@ -20,14 +20,17 @@ object TabStore {
         return out
     }
 
-    fun addTab(ctx: Context, rawName: String): String? {
+    fun addTab(ctx: Context, rawName: String, builtInTabs: List<String> = emptyList()): String? {
         val name = rawName.trim().lowercase()
         if (name.isEmpty()) return "Введи назву"
         if (name.length > 10 || !name.matches(Regex("^[a-z0-9_-]+$"))) {
             return "Лише a-z 0-9 _ - до 10 символів"
         }
         val cur = customTabs(ctx).toMutableList()
-        if (reserved.contains(name) || cur.contains(name)) return "Така вкладка вже є"
+        val builtInLower = builtInTabs.map { it.lowercase() }
+        if (reserved.contains(name) || cur.contains(name) || builtInLower.contains(name)) {
+            return "Така вкладка вже є"
+        }
         if (cur.size >= 7) return "Максимум 7 кастомних"
         cur.add(name)
         saveTabs(ctx, cur)
@@ -78,7 +81,7 @@ object TabStore {
         prefs(ctx).edit().putString("deletedStations", next.toString()).commit()
     }
 
-    fun renameTab(ctx: Context, old: String, rawNew: String): String? {
+    fun renameTab(ctx: Context, old: String, rawNew: String, builtInTabs: List<String> = emptyList()): String? {
         val name = rawNew.trim().lowercase()
         if (name.isEmpty()) return "Введи назву"
         if (name == old) return null
@@ -86,7 +89,8 @@ object TabStore {
             return "Лише a-z 0-9 _ - до 10 символів"
         }
         val cur = customTabs(ctx).toMutableList()
-        if (reserved.contains(name) || cur.contains(name) || name in listOf("techno","trance","ukraine","pop")) {
+        val builtInLower = builtInTabs.map { it.lowercase() }
+        if (reserved.contains(name) || cur.contains(name) || builtInLower.contains(name)) {
             return "Така вкладка вже є"
         }
         val idx = cur.indexOf(old)

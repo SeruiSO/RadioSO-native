@@ -14,6 +14,9 @@ object BackupStore {
         }
         val favRaw = p.getString(BluetoothAutoPlayPlugin.KEY_FAVORITES, "[]") ?: "[]"
         val added = try { JSONObject(p.getString("userAddedStations", "{}")) } catch (_: Exception) { JSONObject() }
+        // deletedStations тепер зберігається як {"вкладка": ["url", ...]}, а не пласким масивом —
+        // читаємо саме так, зі страхуванням про всяк випадок (стара версія формату).
+        val deletedRaw = try { JSONObject(p.getString("deletedStations", "{}") ?: "{}") } catch (_: Exception) { JSONObject() }
         return JSONObject()
             .put("selectedTheme", p.getString("selectedTheme", "shadow-pulse"))
             .put("customTabs", JSONArray(p.getString("customTabs", "[]")))
@@ -23,7 +26,7 @@ object BackupStore {
             .put("localBestUrls", JSONArray(p.getString(BluetoothAutoPlayPlugin.KEY_LOCAL_BEST, "[]")))
             .put("localFavorites", JSONArray(p.getString(BluetoothAutoPlayPlugin.KEY_LOCAL_BEST, "[]")))
             .put("pastSearches", JSONArray(p.getString("pastSearches", "[]")))
-            .put("deletedStations", JSONArray(p.getString("deletedStations", "[]")))
+            .put("deletedStations", deletedRaw)
             .put("currentTab", p.getString("currentTab", "fav"))
             .put("btWatchEnabled", p.getBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, true))
             .put("stationOrder", orders)

@@ -1575,7 +1575,7 @@ fun StationScreen(
                 contentAlignment = Alignment.Center
             ) {
                 if (artUrl(favicon).startsWith("http") || artUrl(favicon).startsWith("content:")) {
-                    AsyncImage(model = artUrl(favicon), contentDescription = null, modifier = Modifier.size(72.dp).clip(AppShapes.hero), contentScale = ContentScale.Crop)
+                    AsyncImage(model = artUrl(favicon), contentDescription = null, modifier = Modifier.size(72.dp).clip(AppShapes.card), contentScale = ContentScale.Crop)
                 } else {
                     Icon(Icons.Filled.MusicNote, contentDescription = "Немає обкладинки", tint = muted)
                 }

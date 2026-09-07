@@ -105,6 +105,8 @@ import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.SkipNext
 import kotlinx.coroutines.delay
@@ -151,7 +153,9 @@ import androidx.compose.animation.SizeTransform
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.style.TextOverflow
@@ -305,6 +309,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         askPermissions()
         maybeStartBtIfConnected()
+        Palette.init(this)
         val loaded = StationRepo.load(this)
         sourceTabs = loaded.first
         stations = loaded.second
@@ -1256,10 +1261,10 @@ fun StationScreen(
     }
 
     val acc = Color(accent)
-    val bg = Color(0xFF000000)
-    val card = Color(0xFF141418)
-    val text = Color(0xFFF2F2F5)
-    val muted = Color(0x9EF2F2F5)
+    val bg = Palette.bg
+    val card = Palette.card
+    val text = Palette.text
+    val muted = Palette.muted
 
     @Composable
     fun PlayBtn(
@@ -1502,7 +1507,7 @@ fun StationScreen(
             Box(
                 modifier = Modifier
                     .size(72.dp)
-                    .background(Color(0xFF222228), RoundedCornerShape(6.dp))
+                    .background(Color(0xFF222228), RoundedCornerShape(12.dp))
                     .clickable { onCloseMenu(); onNow() },
                 contentAlignment = Alignment.Center
             ) {
@@ -1591,7 +1596,7 @@ fun StationScreen(
                                 .fillMaxWidth()
                                 .heightIn(max = 200.dp)
                                 .verticalScroll(rememberScrollState())
-                                .background(card, RoundedCornerShape(6.dp))
+                                .background(card, RoundedCornerShape(12.dp))
                                 .padding(6.dp)
                         ) {
                             hints.distinct().take(24).forEach { h ->
@@ -1615,7 +1620,8 @@ fun StationScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(when { dropAt == index -> acc.copy(alpha = 0.40f); item.uri == currentUrl -> acc.copy(alpha = 0.18f); else -> Color.Transparent }, RoundedCornerShape(10.dp))
+                            .padding(horizontal = 6.dp, vertical = 3.dp)
+                            .background(when { dropAt == index -> acc.copy(alpha = 0.40f); item.uri == currentUrl -> acc.copy(alpha = 0.18f); else -> card }, RoundedCornerShape(12.dp))
                             .pointerInput(item.uri, index, tabs.getOrNull(tabIndex)) {
                                 if (tabs.getOrNull(tabIndex) != "best") return@pointerInput
                                 var acc = 0f
@@ -1663,7 +1669,8 @@ fun StationScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(when { dropAt == index -> acc.copy(alpha = 0.40f); s.url == currentUrl -> acc.copy(alpha = 0.18f); else -> Color.Transparent }, RoundedCornerShape(10.dp))
+                            .padding(horizontal = 6.dp, vertical = 3.dp)
+                            .background(when { dropAt == index -> acc.copy(alpha = 0.40f); s.url == currentUrl -> acc.copy(alpha = 0.18f); else -> card }, RoundedCornerShape(12.dp))
                             .pointerInput(s.url, index) {
                                 var acc = 0f
                                 detectDragGesturesAfterLongPress(
@@ -1734,8 +1741,8 @@ fun StationScreen(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier
-                            .background(if (i == tabIndex) acc else card, RoundedCornerShape(6.dp))
-                            .border(1.dp, if (i == tabIndex) acc else Color(0xFF3A3A42), RoundedCornerShape(6.dp))
+                            .background(if (i == tabIndex) acc else card, RoundedCornerShape(12.dp))
+                            .border(1.dp, if (i == tabIndex) acc else Color(0xFF3A3A42), RoundedCornerShape(12.dp))
                             .combinedClickable(onClick = {
                                 if (i == tabIndex) {
                                     val idx = if (showLocal) localRows.indexOfFirst { it.uri == currentUrl }
@@ -1810,7 +1817,7 @@ fun StationScreen(
             }
             if (tabs.getOrNull(tabIndex) == "local") {
                 Box(
-                    modifier = Modifier.size(56.dp).background(Color(0xFF1A1A1E), RoundedCornerShape(12.dp)).clickable { onScan() },
+                    modifier = Modifier.size(56.dp).background(Palette.panel, RoundedCornerShape(12.dp)).clickable { onScan() },
                     contentAlignment = Alignment.Center
                 ) { Text("Сканувати", color = acc, style = MaterialTheme.typography.bodySmall) }
             }
@@ -1879,7 +1886,7 @@ fun StationScreen(
                     Box(
                         modifier = Modifier
                             .size(72.dp)
-                            .background(Color(0xFF222228), RoundedCornerShape(8.dp)),
+                            .background(Color(0xFF222228), RoundedCornerShape(12.dp)),
                         contentAlignment = Alignment.Center
                     ) {
                         val u = artUrl(favicon)
@@ -1981,7 +1988,7 @@ fun StationScreen(
                                         Box(
                                             modifier = Modifier
                                                 .size(52.dp)
-                                                .background(Color(0xFF222228), RoundedCornerShape(8.dp)),
+                                                .background(Color(0xFF222228), RoundedCornerShape(12.dp)),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             if (iu.startsWith("content:")) {
@@ -2006,7 +2013,7 @@ fun StationScreen(
                                         Box(
                                             modifier = Modifier
                                                 .size(52.dp)
-                                                .background(Color(0xFF222228), RoundedCornerShape(8.dp)),
+                                                .background(Color(0xFF222228), RoundedCornerShape(12.dp)),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             if (s.favicon.startsWith("http") && !s.favicon.contains("example.com")) {
@@ -2047,7 +2054,7 @@ fun StationScreen(
                                     Box(
                                         modifier = Modifier
                                             .size(52.dp)
-                                            .background(Color(0xFF222228), RoundedCornerShape(8.dp)),
+                                            .background(Color(0xFF222228), RoundedCornerShape(12.dp)),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         if (s.favicon.startsWith("http") && !s.favicon.contains("example.com")) {
@@ -2071,7 +2078,7 @@ fun StationScreen(
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .background(Color(0xFF1A1A1E), RoundedCornerShape(12.dp))
+                            .background(Palette.panel, RoundedCornerShape(12.dp))
                             .clickable { topSleepOpen = true }
                             .padding(vertical = 12.dp),
                         contentAlignment = Alignment.Center
@@ -2084,7 +2091,7 @@ fun StationScreen(
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .background(if (btWatch) acc.copy(alpha = 0.25f) else Color(0xFF1A1A1E), RoundedCornerShape(12.dp))
+                            .background(if (btWatch) acc.copy(alpha = 0.25f) else Palette.panel, RoundedCornerShape(12.dp))
                             .clickable { onBt() }
                             .padding(vertical = 12.dp),
                         contentAlignment = Alignment.Center
@@ -2102,7 +2109,7 @@ fun StationScreen(
                     Box(
                         modifier = Modifier
                             .weight(0.75f)
-                            .background(Color(0xFF1A1A1E), RoundedCornerShape(12.dp))
+                            .background(Palette.panel, RoundedCornerShape(12.dp))
                             .clickable { topThemeOpen = true }
                             .padding(vertical = 12.dp),
                         contentAlignment = Alignment.Center
@@ -2119,7 +2126,7 @@ fun StationScreen(
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .background(Color(0xFF1A1A1E), RoundedCornerShape(12.dp))
+                            .background(Palette.panel, RoundedCornerShape(12.dp))
                             .clickable { onExport() }
                             .padding(vertical = 12.dp),
                         contentAlignment = Alignment.Center
@@ -2132,7 +2139,7 @@ fun StationScreen(
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .background(Color(0xFF1A1A1E), RoundedCornerShape(12.dp))
+                            .background(Palette.panel, RoundedCornerShape(12.dp))
                             .clickable { onImport() }
                             .padding(vertical = 12.dp),
                         contentAlignment = Alignment.Center
@@ -2207,14 +2214,14 @@ fun StationScreen(
                     listOf(15, 30, 60, 0).forEach { m ->
                         Box(
                             modifier = Modifier
-                                .background(Color(0xFF121214), RoundedCornerShape(10.dp))
+                                .background(Color(0xFF121214), RoundedCornerShape(12.dp))
                                 .clickable {
                                     onSleep(m)
                                     topSleepOpen = false
                                 }
                                 .padding(horizontal = 14.dp, vertical = 10.dp)
                         ) {
-                            Text(if (m == 0) "off" else "${m} хв", color = acc)
+                            Text(if (m == 0) "Вимкнено" else "${m} хв", color = acc)
                         }
                     }
                 }
@@ -2243,9 +2250,9 @@ fun StationScreen(
                                 Box(
                                     modifier = Modifier
                                         .size(44.dp)
-                                        .background(Color(th.accent), RoundedCornerShape(10.dp))
+                                        .background(Color(th.accent), RoundedCornerShape(12.dp))
                                         .then(
-                                            if (selected) Modifier.border(2.dp, Color.White, RoundedCornerShape(10.dp))
+                                            if (selected) Modifier.border(2.dp, Color.White, RoundedCornerShape(12.dp))
                                             else Modifier
                                         )
                                         .clickable {
@@ -2280,9 +2287,19 @@ fun StationScreen(
                     .align(Alignment.TopEnd)
                     .padding(top = 76.dp, end = 12.dp)
                     .width(200.dp)
-                    .background(Color(0xFF16161A), RoundedCornerShape(12.dp))
+                    .background(Palette.panel2, RoundedCornerShape(12.dp))
                     .padding(8.dp)
             ) {
+                val ctxForTheme = LocalContext.current
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth().clickable { Palette.toggle(ctxForTheme) }.padding(8.dp)) {
+                    Icon(
+                        if (Palette.isLight) Icons.Filled.LightMode else Icons.Filled.DarkMode,
+                        contentDescription = if (Palette.isLight) "Світла тема" else "Темна тема",
+                        tint = text,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Text(if (Palette.isLight) "Світла тема" else "Темна тема", color = text)
+                }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -2307,7 +2324,7 @@ fun StationScreen(
                 if (sleepMenu) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         listOf(15, 30, 60, 0).forEach { m ->
-                            Text(if (m == 0) "off" else "${m}хв", color = acc, modifier = Modifier.clickable { onSleep(m); onCloseMenu() }.padding(6.dp))
+                            Text(if (m == 0) "Вимкнено" else "${m}хв", color = acc, modifier = Modifier.clickable { onSleep(m); onCloseMenu() }.padding(6.dp))
                         }
                     }
                 }
@@ -2499,6 +2516,22 @@ fun StationScreen(
                         ) {
                             Box(
                                 modifier = Modifier
+                                    .size(280.dp)
+                                    .graphicsLayer {
+                                        scaleX = scale
+                                        scaleY = scale
+                                        this.alpha = alpha
+                                    }
+                                    .background(
+                                        Brush.radialGradient(
+                                            colors = listOf(acc.copy(alpha = 0.35f), Color.Transparent),
+                                            radius = 420f
+                                        )
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                            Box(
+                                modifier = Modifier
                                     .size(220.dp)
                                     .graphicsLayer {
                                         scaleX = scale
@@ -2512,12 +2545,13 @@ fun StationScreen(
                                     AsyncImage(
                                         model = u,
                                         contentDescription = null,
-                                        modifier = Modifier.size(220.dp),
+                                        modifier = Modifier.size(220.dp).clip(RoundedCornerShape(20.dp)),
                                         contentScale = ContentScale.Crop
                                     )
                                 } else {
                                     Icon(Icons.Filled.MusicNote, contentDescription = null, tint = muted, modifier = Modifier.size(72.dp))
                                 }
+                            }
                             }
                         }
                     }
@@ -2694,11 +2728,11 @@ fun StationScreen(
                     }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(top = 4.dp, bottom = 6.dp)) {
-                    Box(modifier = Modifier.size(80.dp).background(Color(0xFF1A1A1E), RoundedCornerShape(16.dp)).clickable { onPrev() }, contentAlignment = Alignment.Center) {
+                    Box(modifier = Modifier.size(80.dp).background(Palette.panel, RoundedCornerShape(16.dp)).clickable { onPrev() }, contentAlignment = Alignment.Center) {
                         Icon(Icons.Filled.SkipPrevious, contentDescription = "Попередня станція", tint = Color.White, modifier = Modifier.size(40.dp))
                     }
                     PlayBtn(playing = playing, status = status, sizeDp = 80.dp, onClick = onPlayPause)
-                    Box(modifier = Modifier.size(80.dp).background(Color(0xFF1A1A1E), RoundedCornerShape(16.dp)).clickable { onNext() }, contentAlignment = Alignment.Center) {
+                    Box(modifier = Modifier.size(80.dp).background(Palette.panel, RoundedCornerShape(16.dp)).clickable { onNext() }, contentAlignment = Alignment.Center) {
                         Icon(Icons.Filled.SkipNext, contentDescription = "Наступна станція", tint = Color.White, modifier = Modifier.size(40.dp))
                     }
                 }
@@ -2838,7 +2872,7 @@ private fun BoxScope.RightSearchPanel(
                         if (suggestFor == key) {
                             Column(
                                 modifier = Modifier.fillMaxWidth().heightIn(max = 160.dp).verticalScroll(rememberScrollState())
-                                    .background(card, RoundedCornerShape(6.dp)).padding(6.dp)
+                                    .background(card, RoundedCornerShape(12.dp)).padding(6.dp)
                             ) {
                                 hints.distinct().take(24).forEach { h ->
                                     Text(h, color = text, modifier = Modifier.fillMaxWidth().clickable { set(h); onSuggestFor("") }.padding(6.dp))
@@ -2864,12 +2898,12 @@ private fun BoxScope.RightSearchPanel(
                     itemsIndexed(rightRows, key = { i, s -> "r-" + s.url + i }) { _, s ->
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
-                                .background(if (s.url == currentUrl) acc.copy(alpha = 0.18f) else Color.Transparent, RoundedCornerShape(10.dp))
+                                .background(if (s.url == currentUrl) acc.copy(alpha = 0.18f) else Color.Transparent, RoundedCornerShape(12.dp))
                                 .clickable { onPickRadio(rightRows, rightRows.indexOfFirst { it.url == s.url }.coerceAtLeast(0)) }
                                 .padding(6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Box(modifier = Modifier.size(42.dp).background(Color(0xFF222228), RoundedCornerShape(6.dp)), contentAlignment = Alignment.Center) {
+                            Box(modifier = Modifier.size(42.dp).background(Color(0xFF222228), RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
                                 if (s.favicon.startsWith("http") && !s.favicon.contains("example.com")) {
                                     AsyncImage(model = s.favicon, contentDescription = null, modifier = Modifier.size(42.dp), contentScale = ContentScale.Crop)
                                 } else Icon(Icons.Filled.MusicNote, contentDescription = "Немає обкладинки", tint = muted)
@@ -3056,12 +3090,12 @@ private fun BoxScope.LeftLokalPanel(
                     itemsIndexed(allLocal, key = { i, x -> "l-" + x.uri + i }) { index, item ->
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
-                                .background(if (item.uri == currentUrl) acc.copy(alpha = 0.18f) else Color.Transparent, RoundedCornerShape(10.dp))
+                                .background(if (item.uri == currentUrl) acc.copy(alpha = 0.18f) else Color.Transparent, RoundedCornerShape(12.dp))
                                 .clickable { onPickLocal(allLocal, index) }
                                 .padding(6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Box(modifier = Modifier.size(42.dp).background(Color(0xFF222228), RoundedCornerShape(6.dp)), contentAlignment = Alignment.Center) {
+                            Box(modifier = Modifier.size(42.dp).background(Color(0xFF222228), RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
                                 val a = if (item.albumId.isNotBlank() && item.albumId != "0")
                                     "content://media/external/audio/albumart/${item.albumId}" else ""
                                 if (a.isNotEmpty()) AsyncImage(model = a, contentDescription = null, modifier = Modifier.size(42.dp), contentScale = ContentScale.Crop)
@@ -3144,7 +3178,7 @@ private fun BoxScope.LeftLokalPanel(
                                     clip = true
                                     shape = RoundedCornerShape(12.dp)
                                 }
-                                .background(Color(0xFF1A1A1E), RoundedCornerShape(12.dp)),
+                                .background(Palette.panel, RoundedCornerShape(12.dp)),
                             contentAlignment = Alignment.Center
                         ) {
                             if (au.isNotBlank()) {
@@ -3162,14 +3196,14 @@ private fun BoxScope.LeftLokalPanel(
                     Box(
                         modifier = Modifier
                             .size(48.dp)
-                            .background(Color(0xFF1A1A1E), RoundedCornerShape(12.dp))
+                            .background(Palette.panel, RoundedCornerShape(12.dp))
                             .clickable { onPrev() },
                         contentAlignment = Alignment.Center
                     ) { Icon(Icons.Filled.SkipPrevious, contentDescription = "Попередня", tint = text, modifier = Modifier.size(26.dp)) }
                     Box(
                         modifier = Modifier
                             .size(56.dp)
-                            .background(acc, RoundedCornerShape(14.dp))
+                            .background(acc, RoundedCornerShape(16.dp))
                             .clickable { onPlayPause() },
                         contentAlignment = Alignment.Center
                     ) {
@@ -3183,7 +3217,7 @@ private fun BoxScope.LeftLokalPanel(
                     Box(
                         modifier = Modifier
                             .size(48.dp)
-                            .background(Color(0xFF1A1A1E), RoundedCornerShape(12.dp))
+                            .background(Palette.panel, RoundedCornerShape(12.dp))
                             .clickable { onNext() },
                         contentAlignment = Alignment.Center
                     ) { Icon(Icons.Filled.SkipNext, contentDescription = "Наступна", tint = text, modifier = Modifier.size(26.dp)) }

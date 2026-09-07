@@ -110,6 +110,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.SkipNext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.BluetoothDisabled
 import androidx.compose.material.icons.filled.Bluetooth
@@ -162,6 +164,15 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.core.content.ContextCompat
 import com.seruiso.radio1.ui.theme.RadioSOTheme
 import org.json.JSONArray
+import android.graphics.drawable.BitmapDrawable
+import coil.imageLoader
+import coil.request.ImageRequest
+import androidx.palette.graphics.Palette as SwatchPalette
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.BlurredEdgeTreatment
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.Spring
 
 
 /** Підписи вкладок (UA) — top-level, щоб StationScreen теж бачив */
@@ -1290,7 +1301,11 @@ fun StationScreen(
         )
         val interaction = androidx.compose.runtime.remember { MutableInteractionSource() }
         val pressed by interaction.collectIsPressedAsState()
-        val pressSc by animateFloatAsState(if (pressed) 0.88f else 1f, label = "playPress")
+        val pressSc by animateFloatAsState(
+            if (pressed) 0.86f else 1f,
+            animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+            label = "playPress"
+        )
         val sc = (if (pulseOn) pulse else 1f) * pressSc
         Box(
             modifier = Modifier
@@ -1313,6 +1328,22 @@ fun StationScreen(
                 else -> Icon(Icons.Filled.PlayArrow, contentDescription = "Відтворити", tint = Color(0xFF0A0A0C), modifier = Modifier.size(sizeDp * 0.42f))
             }
         }
+    }
+
+    // Спружинена мікроанімація натискання — легкий "bounce" замість плаского tween,
+    // перевикористовується на кнопках Попередня/Наступна, Перемішати/Повторити, Обране.
+    @Composable
+    fun Modifier.springPress(pressedScale: Float = 0.88f, onClick: () -> Unit): Modifier {
+        val interaction = androidx.compose.runtime.remember { MutableInteractionSource() }
+        val pressed by interaction.collectIsPressedAsState()
+        val sc by animateFloatAsState(
+            if (pressed) pressedScale else 1f,
+            animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+            label = "springPress"
+        )
+        return this
+            .graphicsLayer { scaleX = sc; scaleY = sc }
+            .clickable(interactionSource = interaction, indication = null, onClick = onClick)
     }
     var dropAt by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(-1) }
     var dragging by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
@@ -2426,6 +2457,34 @@ fun StationScreen(
             } else radioRows.map { it.favicon }
             val curI0 = if (showLocal) localRows.indexOfFirst { it.uri == currentUrl } else radioRows.indexOfFirst { it.url == currentUrl }
             val curI = if (curI0 >= 0) curI0 else 0
+            // Динамічний колір з поточної обкладинки (як у Spotify) — для розмитого фону картки Now Playing
+            val artCtx = LocalContext.current
+            val currentArt = arts.getOrNull(curI) ?: ""
+            var dynamicArtColor by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<Color?>(null) }
+            LaunchedEffect(currentArt) {
+                if (currentArt.startsWith("http") || currentArt.startsWith("content:")) {
+                    try {
+                        val extracted = withContext(Dispatchers.IO) {
+                            val req = ImageRequest.Builder(artCtx).data(currentArt).allowHardware(false).size(120, 120).build()
+                            val result = artCtx.imageLoader.execute(req)
+                            val bmp = (result.drawable as? BitmapDrawable)?.bitmap
+                            if (bmp != null) {
+                                val sw = SwatchPalette.from(bmp).generate()
+                                val c = sw.vibrantSwatch?.rgb ?: sw.dominantSwatch?.rgb ?: sw.mutedSwatch?.rgb
+                                if (c != null) Color(c) else null
+                            } else null
+                        }
+                        dynamicArtColor = extracted
+                    } catch (e: Exception) {
+                        dynamicArtColor = null
+                    }
+                } else dynamicArtColor = null
+            }
+            val dynamicBg by animateColorAsState(
+                targetValue = dynamicArtColor ?: acc,
+                animationSpec = tween(650),
+                label = "dynamicBg"
+            )
             val stripState = rememberLazyListState()
             val pageCount = arts.size.coerceAtLeast(1)
             val pagerState = rememberPagerState(
@@ -2457,7 +2516,7 @@ fun StationScreen(
             LaunchedEffect(curI) {
                 if (arts.isNotEmpty()) stripState.animateScrollToItem((curI - 3).coerceAtLeast(0))
             }
-            Column(
+            Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
@@ -2468,24 +2527,45 @@ fun StationScreen(
                         scaleX = sc; scaleY = sc
                         transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 1f)
                     }
-                    .background(Palette.card, RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp))
-                    .navigationBarsPadding()
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
-                    .pointerInput(Unit) {
-                        detectVerticalDragGestures(
-                            onDragEnd = {
-                                sheetScope.launch {
-                                    if (pullA.value > 140f) {
-                                        pullA.animateTo(560f, tween(280))
-                                        sheetShow = false
-                                        onNowClose()
-                                    } else pullA.animateTo(0f, tween(280))
-                                }
-                            }
-                        ) { _, drag -> sheetScope.launch { pullA.snapTo((pullA.value + drag).coerceIn(0f, 560f)) } }
-                    },
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .clip(RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp))
+                    .background(Palette.card)
             ) {
+                // Розмитий кольоровий фон з поточної обкладинки (dynamic color, ефект як у Spotify)
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.radialGradient(
+                                colors = listOf(
+                                    dynamicBg.copy(alpha = 0.55f),
+                                    dynamicBg.copy(alpha = 0.20f),
+                                    Color.Transparent
+                                ),
+                                radius = 1100f
+                            )
+                        )
+                        .blur(80.dp, BlurredEdgeTreatment.Unbounded)
+                )
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .navigationBarsPadding()
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                        .pointerInput(Unit) {
+                            detectVerticalDragGestures(
+                                onDragEnd = {
+                                    sheetScope.launch {
+                                        if (pullA.value > 140f) {
+                                            pullA.animateTo(560f, tween(280))
+                                            sheetShow = false
+                                            onNowClose()
+                                        } else pullA.animateTo(0f, tween(280))
+                                    }
+                                }
+                            ) { _, drag -> sheetScope.launch { pullA.snapTo((pullA.value + drag).coerceIn(0f, 560f)) } }
+                        },
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
                 Box(modifier = Modifier.padding(bottom = 8.dp).width(40.dp).height(4.dp).background(muted, RoundedCornerShape(2.dp)))
                 // Page-style: сусідні обкладинки видно, свайп як ViewPager
                 Column(
@@ -2619,7 +2699,7 @@ fun StationScreen(
                                 modifier = Modifier
                                     .padding(start = 8.dp)
                                     .size(28.dp)
-                                    .clickable {
+                                    .springPress(0.75f) {
                                         val t = localRows.firstOrNull { it.uri == currentUrl }
                                         if (t != null) onToggleBest(t)
                                     }
@@ -2633,7 +2713,7 @@ fun StationScreen(
                                 modifier = Modifier
                                     .padding(start = 8.dp)
                                     .size(28.dp)
-                                    .clickable {
+                                    .springPress(0.75f) {
                                         onToggleFav(
                                             Station(
                                                 currentUrl,
@@ -2660,8 +2740,8 @@ fun StationScreen(
                 }
                 if (isLocalNow || currentUrl.startsWith("content:")) {
                     Row(horizontalArrangement = Arrangement.spacedBy(28.dp), modifier = Modifier.padding(6.dp)) {
-                        Icon(Icons.Filled.Shuffle, contentDescription = "Перемішати", tint = text, modifier = Modifier.size(30.dp).clickable { onShuffle() })
-                        Icon(Icons.Filled.Repeat, contentDescription = "Повторити", tint = text, modifier = Modifier.size(30.dp).clickable { onRepeat() })
+                        Icon(Icons.Filled.Shuffle, contentDescription = "Перемішати", tint = text, modifier = Modifier.size(30.dp).springPress(0.8f) { onShuffle() })
+                        Icon(Icons.Filled.Repeat, contentDescription = "Повторити", tint = text, modifier = Modifier.size(30.dp).springPress(0.8f) { onRepeat() })
                     }
                     val d = if (durMs > 0) durMs else 1L
                     var slide by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(-1f) }
@@ -2729,13 +2809,26 @@ fun StationScreen(
                     }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(top = 4.dp, bottom = 6.dp)) {
-                    Box(modifier = Modifier.size(80.dp).background(Palette.panel, RoundedCornerShape(16.dp)).clickable { onPrev() }, contentAlignment = Alignment.Center) {
+                    Box(
+                        modifier = Modifier
+                            .size(80.dp)
+                            .background(Palette.panel, RoundedCornerShape(16.dp))
+                            .springPress { onPrev() },
+                        contentAlignment = Alignment.Center
+                    ) {
                         Icon(Icons.Filled.SkipPrevious, contentDescription = "Попередня станція", tint = text, modifier = Modifier.size(40.dp))
                     }
                     PlayBtn(playing = playing, status = status, sizeDp = 80.dp, onClick = onPlayPause)
-                    Box(modifier = Modifier.size(80.dp).background(Palette.panel, RoundedCornerShape(16.dp)).clickable { onNext() }, contentAlignment = Alignment.Center) {
+                    Box(
+                        modifier = Modifier
+                            .size(80.dp)
+                            .background(Palette.panel, RoundedCornerShape(16.dp))
+                            .springPress { onNext() },
+                        contentAlignment = Alignment.Center
+                    ) {
                         Icon(Icons.Filled.SkipNext, contentDescription = "Наступна станція", tint = text, modifier = Modifier.size(40.dp))
                     }
+                }
                 }
             }
         }

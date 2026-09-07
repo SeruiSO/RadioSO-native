@@ -42,6 +42,7 @@ import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -173,6 +174,9 @@ import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.Spring
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 
 
 /** Підписи вкладок (UA) — top-level, щоб StationScreen теж бачив */
@@ -1161,6 +1165,60 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@Composable
+private fun MiniProgressBar(
+    posMs: Long,
+    durMs: Long,
+    accent: Color,
+    muted: Color,
+    onSeek: (Long) -> Unit,
+) {
+    val d = if (durMs > 0) durMs else 1L
+    var slide by remember { mutableStateOf(-1f) }
+    val frac = (if (slide >= 0f) slide else posMs.toFloat() / d).coerceIn(0f, 1f)
+    fun fmt(ms: Long): String {
+        val sec = (ms / 1000).coerceAtLeast(0)
+        return "%d:%02d".format(sec / 60, sec % 60)
+    }
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp)) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(44.dp)
+                .pointerInput(d) {
+                detectTapGestures { off ->
+                    if (d > 0L) {
+                        val f = (off.x / size.width.toFloat()).coerceIn(0f, 1f)
+                        onSeek((d * f).toLong())
+                    }
+                }
+            }
+            .pointerInput(d) {
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            if (durMs > 0 && slide >= 0f) onSeek((slide * durMs).toLong())
+                            slide = -1f
+                        },
+                        onDragCancel = { slide = -1f },
+                        onHorizontalDrag = { change, _ ->
+                            change.consume()
+                            val w = size.width.toFloat().coerceAtLeast(1f)
+                            slide = change.position.x.coerceIn(0f, w) / w
+                        }
+                    )
+                },
+            contentAlignment = Alignment.CenterStart
+        ) {
+            Box(modifier = Modifier.fillMaxWidth().height(10.dp).background(muted.copy(alpha = 0.28f), RoundedCornerShape(5.dp)))
+            Box(modifier = Modifier.fillMaxWidth(frac).height(10.dp).background(accent, RoundedCornerShape(5.dp)))
+        }
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(fmt(posMs), color = muted, style = MaterialTheme.typography.labelSmall)
+            Text(fmt(durMs), color = muted, style = MaterialTheme.typography.labelSmall)
+        }
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun StationScreen(
@@ -1276,6 +1334,7 @@ fun StationScreen(
     val card = Palette.card
     val text = Palette.text
     val muted = Palette.muted
+    val logoFont = FontFamily(Font(R.font.space_grotesk_bold, FontWeight.Bold))
 
     @Composable
     fun PlayBtn(
@@ -1311,7 +1370,7 @@ fun StationScreen(
             modifier = Modifier
                 .size(sizeDp)
                 .graphicsLayer { scaleX = sc; scaleY = sc }
-                .background(acc, RoundedCornerShape(16.dp))
+                .background(acc, AppShapes.hero)
                 .clickable(
                     interactionSource = interaction,
                     indication = null
@@ -1440,58 +1499,31 @@ fun StationScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
-                    modifier = Modifier.size(40.dp).background(card, RoundedCornerShape(12.dp)).clickable { topThemeOpen = true },
+                    modifier = Modifier.size(40.dp).background(card, AppShapes.chip).springPress(0.9f) { topThemeOpen = true },
                     contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Filled.Palette,
-                        contentDescription = "Тема оформлення",
-                        tint = text
-                    )
-                }
+                ) { Icon(Icons.Filled.Palette, contentDescription = "Тема оформлення", tint = text) }
                 Box(
-                    modifier = Modifier.size(40.dp).background(card, RoundedCornerShape(12.dp)).clickable { openLeftSheet() },
+                    modifier = Modifier.size(40.dp).background(card, AppShapes.chip).springPress(0.9f) { openLeftSheet() },
                     contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Filled.LibraryMusic,
-                        contentDescription = "Моя музика (локальні файли)",
-                        tint = text
-                    )
-                }
+                ) { Icon(Icons.Filled.LibraryMusic, contentDescription = "Моя музика (локальні файли)", tint = text) }
             }
-            Text("Radio S O", color = text, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.align(Alignment.Center))
+            Row(modifier = Modifier.align(Alignment.Center), verticalAlignment = Alignment.CenterVertically) {
+                Text("Radio ", color = text, style = MaterialTheme.typography.headlineSmall.copy(fontFamily = logoFont, fontWeight = FontWeight.Bold))
+                Text("S O", color = acc, style = MaterialTheme.typography.headlineSmall.copy(fontFamily = logoFont, fontWeight = FontWeight.Bold))
+            }
             Row(
                 modifier = Modifier.align(Alignment.CenterEnd),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .background(card, RoundedCornerShape(12.dp))
-                        .clickable { openRightSheet() },
+                    modifier = Modifier.size(40.dp).background(card, AppShapes.chip).springPress(0.9f) { openRightSheet() },
                     contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Filled.Search,
-                        contentDescription = "Пошук радіостанцій",
-                        tint = text
-                    )
-                }
+                ) { Icon(Icons.Filled.Search, contentDescription = "Пошук радіостанцій", tint = text) }
                 Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .background(card, RoundedCornerShape(12.dp))
-                        .clickable { onMenu() },
+                    modifier = Modifier.size(40.dp).background(card, AppShapes.chip).springPress(0.9f) { onMenu() },
                     contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Filled.MoreVert,
-                        contentDescription = "Ще налаштування",
-                        tint = text
-                    )
-                }
+                ) { Icon(Icons.Filled.MoreVert, contentDescription = "Ще налаштування", tint = text) }
             }
         }
         // Інфо-панель: тап → Now Playing; свайп вниз → верхня картка; свайп вгору більше не відкриває
@@ -1538,12 +1570,12 @@ fun StationScreen(
             Box(
                 modifier = Modifier
                     .size(72.dp)
-                    .background(Palette.panel2, RoundedCornerShape(12.dp))
+                    .background(Palette.panel2, AppShapes.hero)
                     .clickable { onCloseMenu(); onNow() },
                 contentAlignment = Alignment.Center
             ) {
                 if (artUrl(favicon).startsWith("http") || artUrl(favicon).startsWith("content:")) {
-                    AsyncImage(model = artUrl(favicon), contentDescription = null, modifier = Modifier.size(72.dp).clip(RoundedCornerShape(12.dp)), contentScale = ContentScale.Crop)
+                    AsyncImage(model = artUrl(favicon), contentDescription = null, modifier = Modifier.size(72.dp).clip(AppShapes.hero), contentScale = ContentScale.Crop)
                 } else {
                     Icon(Icons.Filled.MusicNote, contentDescription = "Немає обкладинки", tint = muted)
                 }
@@ -1675,10 +1707,10 @@ fun StationScreen(
                             .padding(10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Box(modifier = Modifier.size(42.dp), contentAlignment = Alignment.Center) {
+                        Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
                             val a = if (item.albumId.isNotBlank() && item.albumId != "0")
                                 "content://media/external/audio/albumart/${item.albumId}" else ""
-                            if (a.isNotEmpty()) AsyncImage(model = a, contentDescription = null, modifier = Modifier.size(42.dp).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop)
+                            if (a.isNotEmpty()) AsyncImage(model = a, contentDescription = null, modifier = Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop)
                             else Icon(Icons.Filled.MusicNote, contentDescription = "Немає обкладинки", tint = muted)
                         }
                         Column(modifier = Modifier.weight(1f).padding(start = 8.dp)) {
@@ -1723,9 +1755,9 @@ fun StationScreen(
                             .padding(10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Box(modifier = Modifier.size(42.dp), contentAlignment = Alignment.Center) {
+                        Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
                             if (s.favicon.startsWith("http") && !s.favicon.contains("example.com")) {
-                                AsyncImage(model = s.favicon, contentDescription = null, modifier = Modifier.size(42.dp).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop)
+                                AsyncImage(model = s.favicon, contentDescription = null, modifier = Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop)
                             } else Icon(Icons.Filled.MusicNote, contentDescription = "Немає обкладинки", tint = muted)
                         }
                         Column(modifier = Modifier.padding(start = 8.dp).weight(1f)) {
@@ -1772,13 +1804,25 @@ fun StationScreen(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier
-                            .background(if (i == tabIndex) acc else card, RoundedCornerShape(12.dp))
-                            .border(1.dp, if (i == tabIndex) acc else muted.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
+                            .background(if (i == tabIndex) acc else card, AppShapes.chip)
+                            .border(1.dp, if (i == tabIndex) acc else muted.copy(alpha = 0.35f), AppShapes.chip)
                             .combinedClickable(onClick = {
                                 if (i == tabIndex) {
                                     val idx = if (showLocal) localRows.indexOfFirst { it.uri == currentUrl }
                                     else radioRows.indexOfFirst { it.url == currentUrl }
-                                    if (idx >= 0) scope.launch { listState.scrollToItem(idx) }
+                                    if (idx >= 0) scope.launch {
+                                        val itemH = 64
+                                        val li = listState.layoutInfo
+                                        val vh = (li.viewportEndOffset - li.viewportStartOffset).coerceAtLeast(1)
+                                        val off = -((vh / 2) - (itemH / 2))
+                                        val from = listState.firstVisibleItemIndex
+                                        val dist = kotlin.math.abs(idx - from)
+                                        val dur = (420 + dist * 18).coerceIn(420, 900)
+                                        listState.animateScrollToItem(
+                                            idx,
+                                            scrollOffset = off
+                                        )
+                                    }
                                 } else onTab(i)
                             }, onLongClick = { onLongTab(tab) })
                             .padding(horizontal = 8.dp, vertical = 5.dp)
@@ -2018,12 +2062,12 @@ fun StationScreen(
                                     ) {
                                         Box(
                                             modifier = Modifier
-                                                .size(52.dp)
+                                                .size(56.dp)
                                                 .background(Palette.panel2, RoundedCornerShape(12.dp)),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             if (iu.startsWith("content:")) {
-                                                AsyncImage(model = iu, contentDescription = null, modifier = Modifier.size(52.dp).clip(RoundedCornerShape(12.dp)), contentScale = ContentScale.Crop)
+                                                AsyncImage(model = iu, contentDescription = null, modifier = Modifier.size(56.dp).clip(AppShapes.card), contentScale = ContentScale.Crop)
                                             } else Icon(Icons.Filled.MusicNote, contentDescription = "Немає обкладинки", tint = muted)
                                         }
                                         Text(tr.title, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 3.dp))
@@ -2043,12 +2087,12 @@ fun StationScreen(
                                     ) {
                                         Box(
                                             modifier = Modifier
-                                                .size(52.dp)
+                                                .size(56.dp)
                                                 .background(Palette.panel2, RoundedCornerShape(12.dp)),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             if (s.favicon.startsWith("http") && !s.favicon.contains("example.com")) {
-                                                AsyncImage(model = s.favicon, contentDescription = null, modifier = Modifier.size(52.dp).clip(RoundedCornerShape(12.dp)), contentScale = ContentScale.Crop)
+                                                AsyncImage(model = s.favicon, contentDescription = null, modifier = Modifier.size(56.dp).clip(AppShapes.card), contentScale = ContentScale.Crop)
                                             } else Icon(Icons.Filled.MusicNote, contentDescription = "Немає обкладинки", tint = muted)
                                         }
                                         Text(s.name, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 3.dp))
@@ -2084,12 +2128,12 @@ fun StationScreen(
                                 ) {
                                     Box(
                                         modifier = Modifier
-                                            .size(52.dp)
+                                            .size(56.dp)
                                             .background(Palette.panel2, RoundedCornerShape(12.dp)),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         if (s.favicon.startsWith("http") && !s.favicon.contains("example.com")) {
-                                            AsyncImage(model = s.favicon, contentDescription = null, modifier = Modifier.size(52.dp).clip(RoundedCornerShape(12.dp)), contentScale = ContentScale.Crop)
+                                            AsyncImage(model = s.favicon, contentDescription = null, modifier = Modifier.size(56.dp).clip(AppShapes.card), contentScale = ContentScale.Crop)
                                         } else Icon(Icons.Filled.MusicNote, contentDescription = "Немає обкладинки", tint = muted)
                                     }
                                     Text(s.name, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 3.dp))
@@ -2625,7 +2669,7 @@ fun StationScreen(
                                     AsyncImage(
                                         model = u,
                                         contentDescription = null,
-                                        modifier = Modifier.size(220.dp).clip(RoundedCornerShape(20.dp)),
+                                        modifier = Modifier.size(220.dp).clip(AppShapes.card),
                                         contentScale = ContentScale.Crop
                                     )
                                 } else {
@@ -2743,23 +2787,7 @@ fun StationScreen(
                         Icon(Icons.Filled.Shuffle, contentDescription = "Перемішати", tint = text, modifier = Modifier.size(30.dp).springPress(0.8f) { onShuffle() })
                         Icon(Icons.Filled.Repeat, contentDescription = "Повторити", tint = text, modifier = Modifier.size(30.dp).springPress(0.8f) { onRepeat() })
                     }
-                    val d = if (durMs > 0) durMs else 1L
-                    var slide by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(-1f) }
-                    androidx.compose.material3.Slider(
-                        value = if (slide >= 0f) slide else (posMs.toFloat() / d.toFloat()).coerceIn(0f, 1f),
-                        onValueChange = { slide = it },
-                        onValueChangeFinished = {
-                            if (durMs > 0 && slide >= 0f) onSeek((slide * durMs).toLong())
-                            slide = -1f
-                        }
-                    )
-                    fun fmt(ms: Long): String {
-                        val s = (ms / 1000).coerceAtLeast(0)
-                        return "%d:%02d".format(s / 60, s % 60)
-                    }
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(fmt(posMs), color = muted); Text(fmt(durMs), color = muted)
-                    }
+                    MiniProgressBar(posMs, durMs, acc, muted, onSeek)
                 }
                 Box(modifier = Modifier.fillMaxWidth().height(78.dp), contentAlignment = Alignment.Center) {
                     if (arts.isNotEmpty()) {
@@ -2997,9 +3025,9 @@ private fun BoxScope.RightSearchPanel(
                                 .padding(6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Box(modifier = Modifier.size(42.dp).background(Palette.panel2, RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
+                            Box(modifier = Modifier.size(48.dp).background(Palette.panel2, RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
                                 if (s.favicon.startsWith("http") && !s.favicon.contains("example.com")) {
-                                    AsyncImage(model = s.favicon, contentDescription = null, modifier = Modifier.size(42.dp).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop)
+                                    AsyncImage(model = s.favicon, contentDescription = null, modifier = Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop)
                                 } else Icon(Icons.Filled.MusicNote, contentDescription = "Немає обкладинки", tint = muted)
                             }
                             Column(modifier = Modifier.weight(1f).padding(start = 8.dp)) {
@@ -3189,10 +3217,10 @@ private fun BoxScope.LeftLokalPanel(
                                 .padding(6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Box(modifier = Modifier.size(42.dp).background(Palette.panel2, RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
+                            Box(modifier = Modifier.size(48.dp).background(Palette.panel2, RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
                                 val a = if (item.albumId.isNotBlank() && item.albumId != "0")
                                     "content://media/external/audio/albumart/${item.albumId}" else ""
-                                if (a.isNotEmpty()) AsyncImage(model = a, contentDescription = null, modifier = Modifier.size(42.dp).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop)
+                                if (a.isNotEmpty()) AsyncImage(model = a, contentDescription = null, modifier = Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop)
                                 else Icon(Icons.Filled.MusicNote, contentDescription = "Немає обкладинки", tint = muted)
                             }
                             Column(modifier = Modifier.weight(1f).padding(start = 8.dp)) {
@@ -3223,23 +3251,7 @@ private fun BoxScope.LeftLokalPanel(
                     )
                 }
                 if (localPlaying) {
-                    val d = if (durMs > 0) durMs else 1L
-                    var slide by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(-1f) }
-                    androidx.compose.material3.Slider(
-                        value = if (slide >= 0f) slide else (posMs.toFloat() / d.toFloat()).coerceIn(0f, 1f),
-                        onValueChange = { slide = it },
-                        onValueChangeFinished = {
-                            if (durMs > 0 && slide >= 0f) onSeek((slide * durMs).toLong())
-                            slide = -1f
-                        }
-                    )
-                    fun fmt(ms: Long): String {
-                        val s = (ms / 1000).coerceAtLeast(0)
-                        return "%d:%02d".format(s / 60, s % 60)
-                    }
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(fmt(posMs), color = muted); Text(fmt(durMs), color = muted)
-                    }
+                    MiniProgressBar(posMs, durMs, acc, muted, onSeek)
                 }
                 Row(
                     modifier = Modifier

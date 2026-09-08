@@ -192,6 +192,35 @@ private fun tabLabel(tab: String): String = when (tab.lowercase()) {
     else -> tab.replaceFirstChar { it.uppercase() }
 }
 
+
+/** Злити два знімки станції: непорожній favicon/genre/country ніколи не затирається порожнім. */
+private fun preferRichStation(a: Station, b: Station): Station {
+    val favicon = when {
+        a.favicon.isNotBlank() && b.favicon.isNotBlank() ->
+            // обидва є — лишаємо довший/http (часто краща якість)
+            if (b.favicon.startsWith("http") && !a.favicon.startsWith("http")) b.favicon
+            else if (b.favicon.length > a.favicon.length) b.favicon
+            else a.favicon
+        a.favicon.isNotBlank() -> a.favicon
+        else -> b.favicon
+    }
+    val name = if (b.name.length > a.name.length) b.name else a.name
+    val genre = a.genre.ifBlank { b.genre }
+    val country = a.country.ifBlank { b.country }
+    return Station(a.url, name, genre.ifBlank { b.genre }, country.ifBlank { b.country }, favicon, a.tab)
+}
+
+/** distinctBy збагаченням meta замість «перший виграв». Порядок першої появи зберігається. */
+private fun mergeStationsRich(list: List<Station>): List<Station> {
+    val map = linkedMapOf<String, Station>()
+    for (s in list) {
+        val prev = map[s.url]
+        map[s.url] = if (prev == null) s else preferRichStation(prev, s)
+    }
+    return map.values.toList()
+}
+
+
 class MainActivity : ComponentActivity() {
 
     private val importLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
@@ -867,22 +896,18 @@ class MainActivity : ComponentActivity() {
     private fun allRadioStations(): List<Station> {
         addedRev
         val deletedMap = TabStore.deletedMap(this)
-        // Свіжі (catalog/search) ПЕРЕД FavStore: distinctBy лишає першу знахідку —
-        // інакше в «Обраному» лишаються старі genre/favicon зі знімка на момент ★.
-        val fav = (
-            stations.filter { favUrls.contains(it.url) } +
-            searchRows.filter { favUrls.contains(it.url) } +
-            FavStore.stations(this)
-        )
         val tabIds = (sourceTabs + customTabs)
             .filter { it !in listOf("fav", "best", "local", "search") }
             .distinct()
         val fromTabs = tabIds.flatMap { tab ->
             TabStore.extraStations(this, tab) + stations.filter { it.tab == tab }
         }
-        return (fav + fromTabs + searchRows + stations)
-            .distinctBy { it.url }
-            .filter { it.url !in (deletedMap[it.tab] ?: emptySet()) }
+        return mergeStationsRich(
+            FavStore.stations(this) +
+                searchRows +
+                fromTabs +
+                stations
+        ).filter { it.url !in (deletedMap[it.tab] ?: emptySet()) }
     }
 
     private fun loadRecentStations(): List<Station> {
@@ -939,30 +964,44 @@ class MainActivity : ComponentActivity() {
         val tab = currentTab()
         val deleted = TabStore.deleted(this, tab)
         return when (tab) {
-            // Свіжі meta: search + extra вкладок + catalog, потім знімок FavStore
             "fav" -> {
-                val fromExtra = customTabs.flatMap { t -> TabStore.extraStations(this, t) }
+                // 1) FavStore = джерело членства в ★
+                // 2) збагачуємо search/extra/catalog БЕЗ затирання favicon
+                val fromExtra = (sourceTabs + customTabs)
+                    .filter { it !in listOf("fav", "best", "local", "search") }
+                    .distinct()
+                    .flatMap { t -> TabStore.extraStations(this, t) }
                     .filter { favUrls.contains(it.url) }
-                TabStore.applyOrder(
-                    this, "fav",
-                    (
+                val merged = mergeStationsRich(
+                    FavStore.stations(this) +
                         searchRows.filter { favUrls.contains(it.url) } +
                         fromExtra +
-                        stations.filter { favUrls.contains(it.url) } +
-                        FavStore.stations(this)
-                    ).distinctBy { it.url }.filter { it.url !in deleted }
-                )
+                        stations.filter { favUrls.contains(it.url) }
+                ).filter { it.url !in deleted }
+                // якщо з’явилась краща іконка — зберегти в FavStore (щоб не відкочувалось)
+                val saved = FavStore.stations(this).associateBy { it.url }
+                var dirty = false
+                val fixed = merged.map { s ->
+                    val old = saved[s.url]
+                    if (old != null && old.favicon.isBlank() && s.favicon.isNotBlank()) {
+                        dirty = true
+                    }
+                    s
+                }
+                if (dirty) {
+                    FavStore.saveStations(this, fixed.map { it.copy(tab = "fav") })
+                }
+                TabStore.applyOrder(this, "fav", fixed)
             }
             "best", "local" -> emptyList()
             "search" -> searchRows
             else -> {
                 val base = stations.filter { it.tab == tab }
                 val extra = TabStore.extraStations(this, tab)
-                // extra ПЕРЕД base: після add з пошуку distinctBy бере свіжі name/favicon,
-                // а не старий знімок з stations.json (часто без іконки).
+                // mergeRich: extra meta + catalog, без втрати favicon
                 TabStore.applyOrder(
                     this, tab,
-                    (extra + base).distinctBy { it.url }.filter { it.url !in deleted }
+                    mergeStationsRich(extra + base).filter { it.url !in deleted }
                 )
             }
         }

@@ -873,8 +873,11 @@ class MainActivity : ComponentActivity() {
             searchRows.filter { favUrls.contains(it.url) } +
             FavStore.stations(this)
         )
-        val fromTabs = customTabs.flatMap { tab ->
-            stations.filter { it.tab == tab } + TabStore.extraStations(this, tab)
+        val tabIds = (sourceTabs + customTabs)
+            .filter { it !in listOf("fav", "best", "local", "search") }
+            .distinct()
+        val fromTabs = tabIds.flatMap { tab ->
+            TabStore.extraStations(this, tab) + stations.filter { it.tab == tab }
         }
         return (fav + fromTabs + searchRows + stations)
             .distinctBy { it.url }
@@ -954,7 +957,12 @@ class MainActivity : ComponentActivity() {
             else -> {
                 val base = stations.filter { it.tab == tab }
                 val extra = TabStore.extraStations(this, tab)
-                TabStore.applyOrder(this, tab, (base + extra).distinctBy { it.url }.filter { it.url !in deleted })
+                // extra ПЕРЕД base: після add з пошуку distinctBy бере свіжі name/favicon,
+                // а не старий знімок з stations.json (часто без іконки).
+                TabStore.applyOrder(
+                    this, tab,
+                    (extra + base).distinctBy { it.url }.filter { it.url !in deleted }
+                )
             }
         }
     }

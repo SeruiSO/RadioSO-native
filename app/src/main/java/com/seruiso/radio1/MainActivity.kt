@@ -383,9 +383,17 @@ class MainActivity : ComponentActivity() {
                         onPickTabForStation = { tab ->
                             val s = pickStation
                             if (s != null) {
-                                val err = TabStore.addStation(this, tab, s)
-                                statusText = err ?: "додано в $tab"
-                                if (err == null) addedRev++
+                                // Перевірка "вже додана" -- саме на ЦІЙ вкладці, а не глобально:
+                                // одну станцію й далі можна додати на кілька різних вкладок.
+                                val already = stations.any { it.url == s.url && it.tab == tab } ||
+                                    TabStore.extraStations(this, tab).any { it.url == s.url }
+                                if (already) {
+                                    statusText = "вже є в $tab"
+                                } else {
+                                    val err = TabStore.addStation(this, tab, s)
+                                    statusText = err ?: "додано в $tab"
+                                    if (err == null) addedRev++
+                                }
                             }
                             pickStation = null
                         },
@@ -476,6 +484,11 @@ class MainActivity : ComponentActivity() {
                                 TabStore.removeStation(this, tab, s.url)
                                 val rest = visibleRadio().map { it.url }.filter { it != s.url }
                                 TabStore.saveOrder(this, tab, rest)
+                                // Видалення станції з будь-якої вкладки прибирає її і з
+                                // обраного (якщо вона там була) -- інакше вона "зависає" на
+                                // вкладці "Обране", хоч сама станція вже нізвідки не додана.
+                                // Повторно додати на вкладку і/або в обране можна як завжди.
+                                if (favUrls.contains(s.url)) toggleFav(s)
                             }
                             addedRev++
                             statusText = "видалено"
@@ -847,7 +860,13 @@ class MainActivity : ComponentActivity() {
     private fun allRadioStations(): List<Station> {
         addedRev
         val deletedMap = TabStore.deletedMap(this)
-        val fav = (FavStore.stations(this) + stations.filter { favUrls.contains(it.url) })
+        // Свіжі (catalog/search) ПЕРЕД FavStore: distinctBy лишає першу знахідку —
+        // інакше в «Обраному» лишаються старі genre/favicon зі знімка на момент ★.
+        val fav = (
+            stations.filter { favUrls.contains(it.url) } +
+            searchRows.filter { favUrls.contains(it.url) } +
+            FavStore.stations(this)
+        )
         val fromTabs = customTabs.flatMap { tab ->
             stations.filter { it.tab == tab } + TabStore.extraStations(this, tab)
         }
@@ -910,7 +929,15 @@ class MainActivity : ComponentActivity() {
         val tab = currentTab()
         val deleted = TabStore.deleted(this, tab)
         return when (tab) {
-            "fav" -> TabStore.applyOrder(this, "fav", (FavStore.stations(this) + stations.filter { favUrls.contains(it.url) }).distinctBy { it.url }.filter { it.url !in deleted })
+            // catalog + search спочатку, FavStore — fallback (старі метадані)
+            "fav" -> TabStore.applyOrder(
+                this, "fav",
+                (
+                    stations.filter { favUrls.contains(it.url) } +
+                    searchRows.filter { favUrls.contains(it.url) } +
+                    FavStore.stations(this)
+                ).distinctBy { it.url }.filter { it.url !in deleted }
+            )
             "best", "local" -> emptyList()
             "search" -> searchRows
             else -> {

@@ -40,15 +40,67 @@ object FavStore {
 
     fun toggleStation(context: Context, s: Station): Boolean {
         val cur = stations(context).toMutableList()
-        val exists = cur.any { it.url == s.url }
-        val next = if (exists) cur.filter { it.url != s.url } else listOf(s) + cur
-        val arr = JSONArray()
-        next.forEach {
-            arr.put(JSONObject().put("value", it.url).put("name", it.name).put("genre", it.genre).put("country", it.country).put("favicon", it.favicon))
+        val idx = cur.indexOfFirst { it.url == s.url }
+        val prefs = context.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)
+        val next: List<Station>
+        val nowFav: Boolean
+        if (idx >= 0) {
+            // Вже в обраному → зняти ★ і прибрати з order_fav
+            next = cur.filter { it.url != s.url }
+            nowFav = false
+            val rawOrd = prefs.getString("order_fav", "[]") ?: "[]"
+            val oa = JSONArray(rawOrd)
+            val order = JSONArray()
+            for (i in 0 until oa.length()) {
+                val u = oa.optString(i)
+                if (u.isNotBlank() && u != s.url) order.put(u)
+            }
+            prefs.edit()
+                .putString(BluetoothAutoPlayPlugin.KEY_FAVORITES, stationsToJson(next).toString())
+                .putString("order_fav", order.toString())
+                .commit()
+        } else {
+            // Нова ★ → свіжі метадані на початок + order_fav на початок
+            next = listOf(s) + cur
+            nowFav = true
+            val rawOrd = prefs.getString("order_fav", "[]") ?: "[]"
+            val oa = JSONArray(rawOrd)
+            val order = JSONArray()
+            order.put(s.url)
+            for (i in 0 until oa.length()) {
+                val u = oa.optString(i)
+                if (u.isNotBlank() && u != s.url) order.put(u)
+            }
+            prefs.edit()
+                .putString(BluetoothAutoPlayPlugin.KEY_FAVORITES, stationsToJson(next).toString())
+                .putString("order_fav", order.toString())
+                .commit()
         }
+        return nowFav
+    }
+
+    /** Оновити знімок в обраному свіжими name/genre/country/favicon (без зміни ★). */
+    fun refreshStation(context: Context, s: Station) {
+        val cur = stations(context)
+        if (cur.none { it.url == s.url }) return
+        val next = cur.map { if (it.url == s.url) s.copy(tab = "fav") else it }
         context.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)
-            .edit().putString(BluetoothAutoPlayPlugin.KEY_FAVORITES, arr.toString()).commit()
-        return !exists
+            .edit().putString(BluetoothAutoPlayPlugin.KEY_FAVORITES, stationsToJson(next).toString()).commit()
+    }
+
+    private fun stationsToJson(list: List<Station>): JSONArray {
+        val arr = JSONArray()
+        list.forEach {
+            arr.put(
+                JSONObject()
+                    .put("value", it.url)
+                    .put("name", it.name)
+                    .put("genre", it.genre)
+                    .put("country", it.country)
+                    .put("favicon", it.favicon)
+            )
+        }
+        return arr
     }
 
     fun saveStations(context: Context, list: List<Station>) {

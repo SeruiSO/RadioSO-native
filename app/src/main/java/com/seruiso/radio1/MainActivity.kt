@@ -488,13 +488,14 @@ class MainActivity : ComponentActivity() {
                         onDeleteStation = { s ->
                             val tab = currentTab()
                             if (tab == "fav") {
-                                // З «Обраного» — лише зняти ★ (вкладки не чіпаємо)
+                                // З «Обраного» — лише зняти ★
                                 toggleFav(s)
                             } else {
-                                // З вкладки — лише вкладка. ★ лишається незалежним.
                                 TabStore.removeStation(this, tab, s.url)
                                 val rest = visibleRadio().map { it.url }.filter { it != s.url }
                                 TabStore.saveOrder(this, tab, rest)
+                                // Видалення з основної вкладки також прибирає з «Обраного»
+                                if (favUrls.contains(s.url)) toggleFav(s)
                             }
                             addedRev++
                             statusText = "видалено"

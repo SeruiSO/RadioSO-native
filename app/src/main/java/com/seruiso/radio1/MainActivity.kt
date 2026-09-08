@@ -1267,6 +1267,9 @@ private fun MiniProgressBar(
     accent: Color,
     muted: Color,
     onSeek: (Long) -> Unit,
+    onShuffle: (() -> Unit)? = null,
+    onRepeat: (() -> Unit)? = null,
+    controlsTint: Color = muted,
 ) {
     val d = if (durMs > 0) durMs else 1L
     var slide by remember { mutableStateOf(-1f) }
@@ -1275,20 +1278,44 @@ private fun MiniProgressBar(
         val sec = (ms / 1000).coerceAtLeast(0)
         return "%d:%02d".format(sec / 60, sec % 60)
     }
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp)) {
+    // Один ряд: [shuffle] час |——прогрес——| час [repeat]
+    // Кнопки лише якщо передані (локальний Now Playing); в інших місцях — як раніше без них.
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 2.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (onShuffle != null) {
+            Icon(
+                Icons.Filled.Shuffle,
+                contentDescription = "Перемішати",
+                tint = controlsTint,
+                modifier = Modifier
+                    .padding(end = 6.dp)
+                    .size(20.dp)
+                    .clickable { onShuffle() }
+            )
+        }
+        Text(
+            fmt(posMs),
+            color = muted,
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.padding(end = 6.dp)
+        )
         Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(44.dp)
+                .weight(1f)
+                .height(40.dp)
                 .pointerInput(d) {
-                detectTapGestures { off ->
-                    if (d > 0L) {
-                        val f = (off.x / size.width.toFloat()).coerceIn(0f, 1f)
-                        onSeek((d * f).toLong())
+                    detectTapGestures { off ->
+                        if (d > 0L) {
+                            val f = (off.x / size.width.toFloat()).coerceIn(0f, 1f)
+                            onSeek((d * f).toLong())
+                        }
                     }
                 }
-            }
-            .pointerInput(d) {
+                .pointerInput(d) {
                     detectHorizontalDragGestures(
                         onDragEnd = {
                             if (durMs > 0 && slide >= 0f) onSeek((slide * durMs).toLong())
@@ -1304,12 +1331,35 @@ private fun MiniProgressBar(
                 },
             contentAlignment = Alignment.CenterStart
         ) {
-            Box(modifier = Modifier.fillMaxWidth().height(10.dp).background(muted.copy(alpha = 0.28f), RoundedCornerShape(5.dp)))
-            Box(modifier = Modifier.fillMaxWidth(frac).height(10.dp).background(accent, RoundedCornerShape(5.dp)))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp)
+                    .background(muted.copy(alpha = 0.28f), RoundedCornerShape(4.dp))
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(frac)
+                    .height(8.dp)
+                    .background(accent, RoundedCornerShape(4.dp))
+            )
         }
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(fmt(posMs), color = muted, style = MaterialTheme.typography.labelSmall)
-            Text(fmt(durMs), color = muted, style = MaterialTheme.typography.labelSmall)
+        Text(
+            fmt(durMs),
+            color = muted,
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.padding(start = 6.dp)
+        )
+        if (onRepeat != null) {
+            Icon(
+                Icons.Filled.Repeat,
+                contentDescription = "Повторити",
+                tint = controlsTint,
+                modifier = Modifier
+                    .padding(start = 6.dp)
+                    .size(20.dp)
+                    .clickable { onRepeat() }
+            )
         }
     }
 }
@@ -2745,7 +2795,7 @@ fun StationScreen(
                         pageSpacing = 12.dp,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(236.dp),
+                            .height(318.dp),
                         key = { page ->
                             if (showLocal) localRows.getOrNull(page)?.uri ?: "p$page"
                             else radioRows.getOrNull(page)?.url ?: "p$page"
@@ -2761,7 +2811,7 @@ fun StationScreen(
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(280.dp)
+                                    .size(300.dp)
                                     .graphicsLayer {
                                         scaleX = scale
                                         scaleY = scale
@@ -2777,7 +2827,7 @@ fun StationScreen(
                             ) {
                             Box(
                                 modifier = Modifier
-                                    .size(220.dp)
+                                    .size(300.dp)
                                     .graphicsLayer {
                                         scaleX = scale
                                         scaleY = scale
@@ -2804,16 +2854,16 @@ fun StationScreen(
                                     photo != null -> AsyncImage(
                                         model = photo,
                                         contentDescription = null,
-                                        modifier = Modifier.size(220.dp).clip(AppShapes.card),
+                                        modifier = Modifier.size(300.dp).clip(AppShapes.card),
                                         contentScale = ContentScale.Crop
                                     )
                                     fallbackArt.startsWith("http") || fallbackArt.startsWith("content:") -> AsyncImage(
                                         model = fallbackArt,
                                         contentDescription = null,
-                                        modifier = Modifier.size(220.dp).clip(AppShapes.card),
+                                        modifier = Modifier.size(300.dp).clip(AppShapes.card),
                                         contentScale = ContentScale.Crop
                                     )
-                                    else -> Icon(Icons.Filled.MusicNote, contentDescription = null, tint = muted, modifier = Modifier.size(72.dp))
+                                    else -> Icon(Icons.Filled.MusicNote, contentDescription = null, tint = muted, modifier = Modifier.size(96.dp))
                                 }
                             }
                             }
@@ -2861,7 +2911,7 @@ fun StationScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 8.dp)
+                            .padding(top = 4.dp)
                             .then(pagerDragModifier),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -2919,33 +2969,18 @@ fun StationScreen(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier
                             .fillMaxWidth()
+                            .padding(top = 2.dp, bottom = 2.dp)
                             .then(pagerDragModifier)
                     )
                 }
                 if (isLocalNow || currentUrl.startsWith("content:")) {
-                    // спочатку seek — назва треку вище більше не обрізається панеллю кнопок
-                    MiniProgressBar(posMs, durMs, acc, muted, onSeek)
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 2.dp, bottom = 2.dp),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            Icons.Filled.Shuffle,
-                            contentDescription = "Перемішати",
-                            tint = text,
-                            modifier = Modifier.size(22.dp).springPress(0.8f) { onShuffle() }
-                        )
-                        androidx.compose.foundation.layout.Spacer(modifier = Modifier.width(20.dp))
-                        Icon(
-                            Icons.Filled.Repeat,
-                            contentDescription = "Повторити",
-                            tint = text,
-                            modifier = Modifier.size(22.dp).springPress(0.8f) { onRepeat() }
-                        )
-                    }
+                    // shuffle | час | прогрес | тривалість | repeat — один ряд, без зайвої вертикалі
+                    MiniProgressBar(
+                        posMs, durMs, acc, muted, onSeek,
+                        onShuffle = onShuffle,
+                        onRepeat = onRepeat,
+                        controlsTint = text,
+                    )
                 }
                 Box(modifier = Modifier.fillMaxWidth().height(78.dp), contentAlignment = Alignment.Center) {
                     if (arts.isNotEmpty()) {

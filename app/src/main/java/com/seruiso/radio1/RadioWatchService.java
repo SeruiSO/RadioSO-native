@@ -36,8 +36,14 @@ import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.Player;
 import androidx.media3.extractor.metadata.icy.IcyInfo;
+import androidx.media3.common.C;
+import androidx.media3.datasource.DefaultDataSource;
+import androidx.media3.datasource.DefaultHttpDataSource;
 import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
+import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy;
+import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import androidx.media3.session.MediaSession;
 import org.json.JSONArray;
 
@@ -80,6 +86,8 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
     private Bitmap stationArt = null;
     private String stationArtUrl = "";
     private int artGen = 0;
+    /** Поточне HTTP-з'єднання завантаження обкладинки — щоб можна було скасувати. */
+    private volatile java.net.HttpURLConnection artConn = null;
     private final java.util.Map<String, Bitmap> artCache = new java.util.LinkedHashMap<String, Bitmap>(16, 0.75f, true) {
         @Override protected boolean removeEldestEntry(java.util.Map.Entry<String, Bitmap> e) {
             return size() > 24;
@@ -141,16 +149,43 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
         super.onCreate();
         createChannel();
         audioManager = (AudioManager) getSystemService(AUDIO_SERVICE);
+        // Живий радіопотік: менший minBuffer — менше «затягувати» 320 kbps на старті.
+        // bufferForPlaybackAfterRebufferMs=1000 — швидке повернення звуку після короткого збою.
         DefaultLoadControl loadControl = new DefaultLoadControl.Builder()
                 .setBufferDurationsMs(
-                    30_000,  /* minBufferMs — запас при коротких обривах */
-                    120_000, /* maxBufferMs */
+                    12_000,  /* minBufferMs — було 30с, для 320kbps це зайве навантаження */
+                    60_000,  /* maxBufferMs — достатньо для live, без гігантського запасу */
                     2_500,   /* bufferForPlaybackMs */
-                    5_000    /* bufferForPlaybackAfterRebufferMs */
+                    1_000    /* bufferForPlaybackAfterRebufferMs */
                 )
                 .build();
+
+        // М'якші HTTP-таймаути + User-Agent (деякі IPFM/ICY чутливі до дефолтного UA).
+        // HTTP для радіо + DefaultDataSource зверху — щоб локальні content:// і file:// теж грали.
+        DefaultHttpDataSource.Factory httpFactory = new DefaultHttpDataSource.Factory()
+                .setUserAgent("RadioSO/0.12.21 (Android)")
+                .setConnectTimeoutMs(12_000)
+                .setReadTimeoutMs(20_000)
+                .setAllowCrossProtocolRedirects(true);
+        DefaultDataSource.Factory dataSourceFactory = new DefaultDataSource.Factory(this, httpFactory);
+
+        // Не здаємось з першого короткого збою: до 8 спроб, backoff 1..5с.
+        LoadErrorHandlingPolicy softErrors = new DefaultLoadErrorHandlingPolicy(/* minRetry */ 6) {
+            @Override
+            public long getRetryDelayMsFor(LoadErrorHandlingPolicy.LoadErrorInfo loadErrorInfo) {
+                int n = loadErrorInfo.errorCount;
+                if (n > 8) return C.TIME_UNSET; // далі — onPlayerError / наш reconnect
+                return Math.min(1000L * n, 5000L);
+            }
+        };
+
+        DefaultMediaSourceFactory mediaSourceFactory = new DefaultMediaSourceFactory(this)
+                .setDataSourceFactory(dataSourceFactory)
+                .setLoadErrorHandlingPolicy(softErrors);
+
         player = new ExoPlayer.Builder(this)
                 .setLoadControl(loadControl)
+                .setMediaSourceFactory(mediaSourceFactory)
                 .build();
 
         Player sessionPlayer = new ForwardingPlayer(player) {
@@ -686,7 +721,17 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
                 return;
             }
         }
+        // Уже завантажено і є bitmap — нічого не робимо.
         if (fav.equals(stationArtUrl) && stationArt != null) return;
+        // Той самий URL уже качається — не стартуємо другий потік.
+        if (fav.equals(stationArtUrl) && artConn != null) return;
+
+        // Скасувати попереднє завантаження (інший URL або застаріле).
+        java.net.HttpURLConnection prev = artConn;
+        artConn = null;
+        if (prev != null) {
+            try { prev.disconnect(); } catch (Exception ignored) {}
+        }
 
         final int gen = ++artGen;
         stationArtUrl = fav;
@@ -699,6 +744,7 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
                 conn.setConnectTimeout(4000);
                 conn.setReadTimeout(4000);
                 conn.setInstanceFollowRedirects(true);
+                artConn = conn;
                 conn.connect();
                 int code = conn.getResponseCode();
                 if (code == 200) {
@@ -739,6 +785,7 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
             } catch (Exception e) {
                 android.util.Log.w("RadioWatch", "art load fail: " + e.getMessage());
             } finally {
+                if (artConn == conn) artConn = null;
                 if (conn != null) try { conn.disconnect(); } catch (Exception ignored) {}
             }
             final Bitmap result = bmp;
@@ -1113,8 +1160,20 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
                     return;
                 }
                 if (System.currentTimeMillis() >= deadline) {
+                    // Не здаємося: пробуємо грати навіть без 10 стабільних тіків
+                    // (повільні магнітоли часто піднімають A2DP пізніше 15с),
+                    // і запускаємо новий цикл очікування.
+                    android.util.Log.w("RadioWatch", "BT ready timeout — fallback playLast + retry wait");
                     btReadyTick = null;
-                    android.util.Log.w("RadioWatch", "BT ready timeout — no speaker play");
+                    try {
+                        if (player != null) player.setVolume(1f);
+                        BtAudio.preferA2dp(RadioWatchService.this, player);
+                        playLast();
+                    } catch (Exception e) {
+                        android.util.Log.w("RadioWatch", "BT timeout fallback", e);
+                    }
+                    // новий цикл (ще 15с) — якщо маршрут з'явиться пізніше
+                    h.postDelayed(() -> playLastWhenBtReady(), 1500);
                     return;
                 }
                 h.postDelayed(this, 200);
@@ -1240,6 +1299,7 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
             loadStationArtAsync();
             notifyUiStatus("підключення", 0);
             bufferingTicks = 0;
+            if (!isLocalMode()) armSilenceWatch(); // лише для радіо-потоків
             notifyForeground();
         } catch (Exception e) {
             android.util.Log.e("RadioWatch", "playUrl failed: " + url, e);

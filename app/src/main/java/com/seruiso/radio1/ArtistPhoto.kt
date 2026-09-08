@@ -27,10 +27,35 @@ fun artistFromTrackTitle(title: String): String {
         val idx = t.indexOf(sep)
         if (idx > 0) {
             val a = t.substring(0, idx).trim()
-            if (a.length in 2..60) return a
+            if (a.length in 2..80) return a
         }
     }
     return ""
+}
+
+/**
+ * Розбиває рядок на окремих виконавців.
+ * "A & B", "A feat. B", "A, B", "A x B" → ["A", "B"].
+ * Один виконавець лишається списком з одного елемента.
+ */
+fun splitArtists(raw: String): List<String> {
+    var s = raw.trim()
+    if (s.isEmpty()) return emptyList()
+    // прибрати типові хвости в дужках: (feat. X), [Official Video] тощо — лише на кінці
+    s = s.replace(Regex("""\s*[\(\[][^)\]]*[\)\]]\s*$"""), "").trim()
+    if (s.isEmpty()) return emptyList()
+
+    // Порядок важливий: довші маркери спочатку (feat. перед ft.)
+    val parts = s.split(
+        Regex(
+            """\s*(?:&| and | та | и | feat\.? | ft\.? | featuring | vs\.? | x | × |,)\s*""",
+            RegexOption.IGNORE_CASE
+        )
+    )
+        .map { it.trim() }
+        .filter { it.length in 2..60 }
+
+    return parts.distinct()
 }
 
 private const val UA = "RadioSO/1.0 (+https://github.com/SeruiSO/RadioSO-native)"
@@ -47,7 +72,7 @@ private fun httpGetJson(urlStr: String, accept: String): String {
     return body
 }
 
-/** Deezer — швидко і без ключа, але слабко покриває менш "мейнстрімних" українських виконавців. */
+/** Deezer — швидко і без ключа. */
 private fun deezerArtistPhoto(artist: String): String? = try {
     val q = URLEncoder.encode(artist, "UTF-8")
     val body = httpGetJson("https://api.deezer.com/search/artist?q=$q&limit=1", "application/json")
@@ -61,7 +86,7 @@ private fun deezerArtistPhoto(artist: String): String? = try {
     null
 }
 
-/** MusicBrainz — відкрита база даних виконавців (без ключа), значно ширше охоплення регіональних імен. */
+/** MusicBrainz — ширше охоплення, зокрема українських імен. */
 private fun musicBrainzMbid(artist: String): String? = try {
     val q = URLEncoder.encode("artist:$artist", "UTF-8")
     val body = httpGetJson("https://musicbrainz.org/ws/2/artist/?query=$q&fmt=json&limit=1", "application/json")
@@ -71,7 +96,7 @@ private fun musicBrainzMbid(artist: String): String? = try {
     null
 }
 
-/** Фото за MusicBrainz ID через Wikidata (P434 -> P18): працює для будь-кого зі статтею у Вікіпедії/Вікідані. */
+/** Фото за MusicBrainz ID через Wikidata (P434 -> P18). */
 private fun wikidataPhotoByMbid(mbid: String): String? = try {
     val sparql = """
         SELECT ?image WHERE {
@@ -92,11 +117,17 @@ private fun wikidataPhotoByMbid(mbid: String): String? = try {
     null
 }
 
+/** Один виконавець: Deezer → MusicBrainz+Wikidata. */
+private fun photoForSingleArtist(artist: String): String? {
+    if (artist.isBlank()) return null
+    return deezerArtistPhoto(artist)
+        ?: musicBrainzMbid(artist)?.let { wikidataPhotoByMbid(it) }
+}
+
 /**
- * Фото виконавця: спершу швидкий Deezer, і якщо там нічого не знайшлось —
- * MusicBrainz + Wikidata (ширше покриття, зокрема для українських
- * виконавців, яких немає в каталозі Deezer). null — якщо не знайдено ніде
- * або якщо всі запити не вдались; тоді в UI лишається фавікон/іконка.
+ * Фото виконавця.
+ * Якщо в рядку кілька імен ("A & B", "A feat. B") — спочатку перший,
+ * якщо не знайшлось — другий. Інакше фавікон станції в UI.
  */
 @Composable
 fun rememberArtistPhotoUrl(artist: String): State<String?> {
@@ -104,10 +135,17 @@ fun rememberArtistPhotoUrl(artist: String): State<String?> {
     LaunchedEffect(artist) {
         result.value = null
         if (artist.isBlank()) return@LaunchedEffect
-        delay(250) // невеликий дебаунс, щоб не бомбити API під час свайпу пейджера
+        delay(250) // дебаунс під час свайпу пейджера
         result.value = withContext(Dispatchers.IO) {
-            deezerArtistPhoto(artist)
-                ?: musicBrainzMbid(artist)?.let { wikidataPhotoByMbid(it) }
+            val candidates = splitArtists(artist)
+            // якщо спліт нічого не дав — пробуємо сирий рядок (рідкісні імена з "/")
+            val list = if (candidates.isNotEmpty()) candidates else listOf(artist.trim())
+            // максимум перші два — щоб не бомбити API на довгих "A, B, C, D"
+            for (name in list.take(2)) {
+                val photo = photoForSingleArtist(name)
+                if (photo != null) return@withContext photo
+            }
+            null
         }
     }
     return result

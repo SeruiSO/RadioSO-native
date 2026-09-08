@@ -1759,17 +1759,29 @@ fun StationScreen(
                                     dropAt = (index + (acc / 168f).toInt()).coerceIn(0, localRows.lastIndex)
                                 }
                             }
-                            .clickable { onPickLocal(localRows, index) }
                             .padding(10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clickable {
+                                    onPickLocal(localRows, index)
+                                    onNow()
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
                             val a = if (item.albumId.isNotBlank() && item.albumId != "0")
                                 "content://media/external/audio/albumart/${item.albumId}" else ""
                             if (a.isNotEmpty()) AsyncImage(model = a, contentDescription = null, modifier = Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop)
                             else Icon(Icons.Filled.MusicNote, contentDescription = "Немає обкладинки", tint = muted)
                         }
-                        Column(modifier = Modifier.weight(1f).padding(start = 8.dp)) {
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(start = 8.dp)
+                                .clickable { onPickLocal(localRows, index) }
+                        ) {
                             Text(item.title, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text(item.artist, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
                         }
@@ -1807,16 +1819,30 @@ fun StationScreen(
                                     dropAt = (index + (acc / 168f).toInt()).coerceIn(0, radioRows.lastIndex)
                                 }
                             }
-                            .clickable { onPickRadio(radioRows, index) }
                             .padding(10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                        // іконка → відтворення + відкрити нижню картку
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clickable {
+                                    onPickRadio(radioRows, index)
+                                    onNow()
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
                             if (s.favicon.startsWith("http") && !s.favicon.contains("example.com")) {
                                 AsyncImage(model = s.favicon, contentDescription = null, modifier = Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop)
                             } else Icon(Icons.Filled.MusicNote, contentDescription = "Немає обкладинки", tint = muted)
                         }
-                        Column(modifier = Modifier.padding(start = 8.dp).weight(1f)) {
+                        // рядок (назва) → лише відтворення, без нижньої картки
+                        Column(
+                            modifier = Modifier
+                                .padding(start = 8.dp)
+                                .weight(1f)
+                                .clickable { onPickRadio(radioRows, index) }
+                        ) {
                             Text(s.name, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text("${s.genre} · ${s.country}", color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
                         }
@@ -2858,11 +2884,29 @@ fun StationScreen(
                     )
                 }
                 if (isLocalNow || currentUrl.startsWith("content:")) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(28.dp), modifier = Modifier.padding(6.dp)) {
-                        Icon(Icons.Filled.Shuffle, contentDescription = "Перемішати", tint = text, modifier = Modifier.size(30.dp).springPress(0.8f) { onShuffle() })
-                        Icon(Icons.Filled.Repeat, contentDescription = "Повторити", tint = text, modifier = Modifier.size(30.dp).springPress(0.8f) { onRepeat() })
-                    }
+                    // спочатку seek — назва треку вище більше не обрізається панеллю кнопок
                     MiniProgressBar(posMs, durMs, acc, muted, onSeek)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 2.dp, bottom = 2.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Filled.Shuffle,
+                            contentDescription = "Перемішати",
+                            tint = text,
+                            modifier = Modifier.size(22.dp).springPress(0.8f) { onShuffle() }
+                        )
+                        androidx.compose.foundation.layout.Spacer(modifier = Modifier.width(20.dp))
+                        Icon(
+                            Icons.Filled.Repeat,
+                            contentDescription = "Повторити",
+                            tint = text,
+                            modifier = Modifier.size(22.dp).springPress(0.8f) { onRepeat() }
+                        )
+                    }
                 }
                 Box(modifier = Modifier.fillMaxWidth().height(78.dp), contentAlignment = Alignment.Center) {
                     if (arts.isNotEmpty()) {

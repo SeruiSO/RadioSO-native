@@ -2664,16 +2664,35 @@ fun StationScreen(
                                     },
                                 contentAlignment = Alignment.Center
                             ) {
-                                val u = arts.getOrNull(page) ?: ""
-                                if (u.startsWith("http") || u.startsWith("content:")) {
-                                    AsyncImage(
-                                        model = u,
+                                // Спочатку — звичайна іконка. Якщо відомий виконавець (для
+                                // локального треку — з тегів, для радіо — з ICY на сторінці, що
+                                // зараз грає), підміняємо іконку на його фото з відкритого API.
+                                // Фавікон станції у великій обкладинці більше не показуємо.
+                                // Спочатку -- іконка/фавікон станції. Якщо відомий виконавець (для
+                                // локального треку -- з тегів, для радіо -- з ICY на сторінці, що
+                                // зараз грає), підміняємо на його фото з відкритого API.
+                                val pageArtist = if (showLocal) {
+                                    localRows.getOrNull(page)?.artist ?: ""
+                                } else if (page == curI) {
+                                    artistFromTrackTitle(track)
+                                } else ""
+                                val artistPhoto by rememberArtistPhotoUrl(pageArtist)
+                                val photo = artistPhoto
+                                val fallbackArt = arts.getOrNull(page) ?: ""
+                                when {
+                                    photo != null -> AsyncImage(
+                                        model = photo,
                                         contentDescription = null,
                                         modifier = Modifier.size(220.dp).clip(AppShapes.card),
                                         contentScale = ContentScale.Crop
                                     )
-                                } else {
-                                    Icon(Icons.Filled.MusicNote, contentDescription = null, tint = muted, modifier = Modifier.size(72.dp))
+                                    fallbackArt.startsWith("http") || fallbackArt.startsWith("content:") -> AsyncImage(
+                                        model = fallbackArt,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(220.dp).clip(AppShapes.card),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                    else -> Icon(Icons.Filled.MusicNote, contentDescription = null, tint = muted, modifier = Modifier.size(72.dp))
                                 }
                             }
                             }

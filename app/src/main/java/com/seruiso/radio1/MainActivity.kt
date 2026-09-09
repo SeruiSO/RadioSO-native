@@ -98,6 +98,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
@@ -277,7 +278,7 @@ class MainActivity : ComponentActivity() {
     private var isPlaying by mutableStateOf(false)
     private var statusText by mutableStateOf("готово")
     private var tabIndex by mutableIntStateOf(0)
-    // Нижні вкладки: "home" | "library" | "search"
+    // Нижні вкладки: "home" | "stations"(★) | "heart"(♥) | "music" | "search"
     private var bottomTab by mutableStateOf("home")
     private var sourceTabs by mutableStateOf(listOf<String>())
     private var stations by mutableStateOf(listOf<Station>())
@@ -370,6 +371,12 @@ class MainActivity : ComponentActivity() {
         val lastTab = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE).getString("currentTab", "fav")
         val idx = uiTabs.indexOf(lastTab)
         if (idx >= 0) tabIndex = idx
+        val lastBottom = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+            .getString("bottomTab", "home") ?: "home"
+        if (lastBottom in listOf("home", "stations", "heart", "music", "tabs", "search", "library")) {
+            bottomTab = if (lastBottom == "library") "stations" else lastBottom
+        }
+
         setContent {
             RadioSOTheme(accent = Color(accent)) {
                 Surface(modifier = Modifier.fillMaxSize()) {
@@ -907,9 +914,15 @@ class MainActivity : ComponentActivity() {
     // зарезервованою вкладкою, щоб перевикористати вже готову логіку списків.
     private fun selectBottomTab(t: String) {
         bottomTab = t
+        getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+            .edit().putString("bottomTab", t).apply()
         val wantTab = when (t) {
-            "library" -> "fav"
+            "stations" -> "fav"
+            "heart" -> "best"
+            "music" -> "local"
             "search" -> "search"
+            "tabs" -> null          // лише відкрити праву картку (у StationScreen)
+            "library" -> "fav"
             else -> null
         }
         if (wantTab != null) {
@@ -1404,6 +1417,8 @@ private fun LocalTrackRow(
     acc: Color,
     muted: Color,
     text: Color,
+    isBest: Boolean = false,
+    onToggleBest: (() -> Unit)? = null,
     onClick: () -> Unit,
 ) {
     Row(
@@ -1425,6 +1440,17 @@ private fun LocalTrackRow(
             Text(item.title, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(item.artist, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
         }
+        if (onToggleBest != null) {
+            Icon(
+                if (isBest) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                contentDescription = if (isBest) "Прибрати з обраних локальних" else "В обрані локальні",
+                tint = acc,
+                modifier = Modifier
+                    .clickable { onToggleBest() }
+                    .padding(start = 8.dp, end = 2.dp)
+                    .size(24.dp)
+            )
+        }
     }
 }
 
@@ -1439,7 +1465,10 @@ private fun BottomNavBar(
 ) {
     val items = listOf(
         Triple("home", "Дім", Icons.Filled.Home),
-        Triple("library", "Обрані", Icons.Filled.Favorite),
+        Triple("stations", "Станції", Icons.Filled.Star),
+        Triple("heart", "Обрані", Icons.Filled.Favorite),
+        Triple("music", "Музика", Icons.Filled.LibraryMusic),
+        Triple("tabs", "Вкладки", Icons.Filled.Category),
         Triple("search", "Пошук", Icons.Filled.Search),
     )
     Row(
@@ -1456,7 +1485,7 @@ private fun BottomNavBar(
             Column(
                 modifier = Modifier
                     .clickable { onSelect(key) }
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                    .padding(horizontal = 4.dp, vertical = 4.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Icon(icon, contentDescription = label, tint = if (selected) acc else muted, modifier = Modifier.size(24.dp))
@@ -1680,6 +1709,19 @@ fun StationScreen(
             rightA.animateTo(0f, tween(300))
         }
     }
+    // Відкривати шторку лише при тапі «Вкладки» внизу, не після вибору жанру в шторці.
+    var skipTabsSheetOnce by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    LaunchedEffect(bottomTab) {
+        if (bottomTab != "tabs") {
+            skipTabsSheetOnce = false
+            return@LaunchedEffect
+        }
+        if (skipTabsSheetOnce) {
+            skipTabsSheetOnce = false
+            return@LaunchedEffect
+        }
+        openRightSheet()
+    }
     fun closeRightSheet() {
         sheetScope.launch {
             rightA.stop()
@@ -1744,10 +1786,7 @@ fun StationScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(
-                    modifier = Modifier.size(40.dp).background(card, AppShapes.chip).springPress(0.9f) { openRightSheet() },
-                    contentAlignment = Alignment.Center
-                ) { Icon(Icons.Filled.Category, contentDescription = "Жанри та вкладки", tint = text) }
+                
                 Box(
                     modifier = Modifier.size(40.dp).background(card, AppShapes.chip).springPress(0.9f) { onMenu() },
                     contentAlignment = Alignment.Center
@@ -1966,8 +2005,8 @@ fun StationScreen(
                             Text(item.artist, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
                         }
                         Icon(
-                            if (bestUris.contains(item.uri)) Icons.Filled.Star else Icons.Filled.StarBorder,
-                            contentDescription = if (bestUris.contains(item.uri)) "Прибрати з топ локальних" else "Додати в топ локальні",
+                            if (bestUris.contains(item.uri)) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                            contentDescription = if (bestUris.contains(item.uri)) "Прибрати з обраних локальних" else "В обрані локальні",
                             tint = acc,
                             modifier = Modifier.clickable { onToggleBest(item) }.padding(start = 10.dp, end = 2.dp).size(24.dp)
                         )
@@ -2050,7 +2089,8 @@ fun StationScreen(
                     item { Button(onClick = onMore, modifier = Modifier.fillMaxWidth().padding(8.dp)) { Text("Ще 100") } }
                 }
                 // ===== Вкладка "Обрані": далі йдуть обрані локальні треки та вся локальна музика =====
-                if (bottomTab == "library") {
+                // Серце (heart): лише обрані локальні (best). Станції — на зірці (stations).
+                if (bottomTab == "heart" || bottomTab == "library") {
                     item {
                         Text(
                             "Обрані локальні",
@@ -2060,28 +2100,26 @@ fun StationScreen(
                         )
                     }
                     if (bestRows.isEmpty()) {
-                        item { Text("Немає обраних локальних треків", color = muted, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(bottom = 6.dp)) }
+                        item {
+                            Text(
+                                "Немає обраних локальних. Додай ♥ у «Музика».",
+                                color = muted,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(bottom = 6.dp)
+                            )
+                        }
                     }
                     itemsIndexed(bestRows, key = { i, x -> "best-" + x.uri + i }) { _, item ->
-                        LocalTrackRow(item, item.uri == currentUrl, acc, muted, text) {
-                            onPickLocal(bestRows, bestRows.indexOfFirst { it.uri == item.uri }.coerceAtLeast(0)); onNow()
-                        }
-                    }
-                    item {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                        LocalTrackRow(
+                            item,
+                            item.uri == currentUrl,
+                            acc,
+                            muted,
+                            text,
+                            isBest = true,
+                            onToggleBest = { onToggleBest(item) },
                         ) {
-                            Text("Локальна музика", color = muted, style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
-                            Text("Сканувати", color = acc, modifier = Modifier.clickable { onScan() }.padding(6.dp), style = MaterialTheme.typography.labelLarge)
-                        }
-                    }
-                    if (allLocal.isEmpty()) {
-                        item { Text("Немає треків. Натисни «Сканувати».", color = muted, style = MaterialTheme.typography.bodySmall) }
-                    }
-                    itemsIndexed(allLocal, key = { i, x -> "lib-" + x.uri + i }) { _, item ->
-                        LocalTrackRow(item, item.uri == currentUrl, acc, muted, text) {
-                            onPickLocal(allLocal, allLocal.indexOfFirst { it.uri == item.uri }.coerceAtLeast(0)); onNow()
+                            onPickLocal(bestRows, bestRows.indexOfFirst { it.uri == item.uri }.coerceAtLeast(0)); onNow()
                         }
                     }
                 }
@@ -2494,7 +2532,13 @@ fun StationScreen(
         onRightOpen = onRightOpen,
         tabs = tabs,
         tabIndex = tabIndex,
-        onTab = onTab,
+        onTab = { i ->
+            onTab(i)
+            // підсвітити «Вкладки» внизу; не відкривати шторку знову після close
+            skipTabsSheetOnce = true
+            if (bottomTab != "tabs") onBottomTab("tabs")
+            else skipTabsSheetOnce = false // вже на tabs — прапор не потрібен
+        },
         onAddTab = onAddTab,
         onLongTab = onLongTab,
         acc = acc, muted = muted, text = text, card = card,
@@ -3133,7 +3177,7 @@ private fun BoxScope.RightTabsPanel(
     if (rightShow || rightA.value < 0.999f) {
         val cfg = LocalConfiguration.current
         val density = LocalDensity.current
-        val sheetW = (cfg.screenWidthDp * 0.80f).dp
+        val sheetW = (cfg.screenWidthDp * 0.58f).dp
         val sheetWpx = with(density) { sheetW.toPx() }
         Box(modifier = Modifier.fillMaxSize()) {
             Box(
@@ -3211,51 +3255,82 @@ private fun BoxScope.RightTabsPanel(
                 ) {
                     Box(modifier = Modifier.width(40.dp).height(4.dp).background(muted, RoundedCornerShape(2.dp)))
                 }
-                Text("Жанри та вкладки", color = text, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 10.dp))
+                Text(
+                    "Вкладки",
+                    color = text,
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(bottom = 6.dp)
+                )
+                Text(
+                    "Тап — відкрити · утримання — змінити",
+                    color = muted,
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.padding(bottom = 10.dp)
+                )
                 val genreTabs = tabs.withIndex().filter { it.value !in listOf("fav", "best", "local", "search") }
                 if (genreTabs.isEmpty()) {
-                    Text("Поки немає жанрових вкладок", color = muted, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(bottom = 8.dp))
+                    Text(
+                        "Поки немає жанрових вкладок",
+                        color = muted,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
                 }
-                LazyColumn(modifier = Modifier.weight(1f)) {
+                // reverseLayout: перший item знизу — список росте вгору
+                LazyColumn(modifier = Modifier.weight(1f), reverseLayout = true) {
+                    // «+» першим у коді → візуально внизу картки
+                    item {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 6.dp)
+                                .background(acc.copy(alpha = 0.12f), RoundedCornerShape(14.dp))
+                                .clickable { onAddTab() }
+                                .padding(horizontal = 12.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("+", color = acc, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(end = 10.dp))
+                            Text("Додати вкладку", color = acc, style = MaterialTheme.typography.bodyLarge)
+                        }
+                    }
                     itemsIndexed(genreTabs, key = { _, iv -> "tab-" + iv.value }) { _, iv ->
                         val (i, tab) = iv
                         val selected = i == tabIndex
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 4.dp)
-                                .background(if (selected) acc.copy(alpha = 0.20f) else Color.Transparent, RoundedCornerShape(12.dp))
+                                .padding(vertical = 5.dp)
+                                .background(
+                                    if (selected) acc.copy(alpha = 0.22f) else card.copy(alpha = 0.55f),
+                                    RoundedCornerShape(14.dp)
+                                )
                                 .combinedClickable(
                                     onClick = { onTab(i); closeRightSheet() },
                                     onLongClick = { onLongTab(tab) }
                                 )
-                                .padding(horizontal = 10.dp, vertical = 12.dp),
+                                .padding(horizontal = 12.dp, vertical = 14.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            Icon(
+                                Icons.Filled.Category,
+                                contentDescription = null,
+                                tint = if (selected) acc else muted,
+                                modifier = Modifier.size(20.dp).padding(end = 2.dp)
+                            )
                             Text(
                                 tabLabel(tab),
                                 color = if (selected) acc else text,
-                                style = MaterialTheme.typography.bodyLarge,
+                                style = MaterialTheme.typography.titleSmall,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f).padding(start = 10.dp)
                             )
+                            if (selected) {
+                                Text("●", color = acc, style = MaterialTheme.typography.labelLarge)
+                            }
                         }
                     }
-                    item {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 6.dp)
-                                .clickable { onAddTab() }
-                                .padding(horizontal = 10.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("+", color = acc, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(end = 8.dp))
-                            Text("Додати вкладку", color = acc, style = MaterialTheme.typography.bodyLarge)
-                        }
-                    }
-                    item { androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(16.dp)) }
+                    item { androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(12.dp)) }
                 }
             }
         }
@@ -3263,7 +3338,7 @@ private fun BoxScope.RightTabsPanel(
     if (showRightEdge) {
         val dens = LocalDensity.current
         val cfg = LocalConfiguration.current
-        val sheetWpxEdge = with(dens) { (cfg.screenWidthDp * 0.80f).dp.toPx() }
+        val sheetWpxEdge = with(dens) { (cfg.screenWidthDp * 0.58f).dp.toPx() }
         Box(
             modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(22.dp).pointerInput(sheetWpxEdge) {
                 var dragged = false

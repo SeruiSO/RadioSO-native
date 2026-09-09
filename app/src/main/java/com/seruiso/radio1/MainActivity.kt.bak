@@ -95,9 +95,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Category
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
@@ -277,8 +274,6 @@ class MainActivity : ComponentActivity() {
     private var isPlaying by mutableStateOf(false)
     private var statusText by mutableStateOf("готово")
     private var tabIndex by mutableIntStateOf(0)
-    // Нижні вкладки: "home" | "library" | "search"
-    private var bottomTab by mutableStateOf("home")
     private var sourceTabs by mutableStateOf(listOf<String>())
     private var stations by mutableStateOf(listOf<Station>())
     private var localTracks by mutableStateOf(listOf<LocalTrack>())
@@ -383,9 +378,6 @@ class MainActivity : ComponentActivity() {
                     val localRowsMemo = remember(tabIndex, customTabs, localTracks, bestUris, addedRev) {
                         visibleLocal()
                     }
-                    val bestRowsMemo = remember(customTabs, localTracks, bestUris, addedRev) {
-                        visibleLocal("best")
-                    }
                     StationScreen(
                         tabs = uiTabs,
                         tabIndex = tabIndex,
@@ -394,9 +386,6 @@ class MainActivity : ComponentActivity() {
                             getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
                                 .edit().putString("currentTab", uiTabs.getOrNull(it) ?: "fav").apply()
                         },
-                        bottomTab = bottomTab,
-                        onBottomTab = { selectBottomTab(it) },
-                        bestRows = bestRowsMemo,
                         
                         qName = qName, onName = { qName = it },
                         qCountry = qCountry, onCountry = { qCountry = it },
@@ -903,26 +892,6 @@ class MainActivity : ComponentActivity() {
 
     private fun currentTab(): String = uiTabs.getOrNull(tabIndex) ?: ""
 
-    // Перемикання нижньої навігації: синхронізує tabIndex з потрібною
-    // зарезервованою вкладкою, щоб перевикористати вже готову логіку списків.
-    private fun selectBottomTab(t: String) {
-        bottomTab = t
-        val wantTab = when (t) {
-            "library" -> "fav"
-            "search" -> "search"
-            else -> null
-        }
-        if (wantTab != null) {
-            val i = uiTabs.indexOf(wantTab)
-            if (i >= 0) {
-                tabIndex = i
-                getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-                    .edit().putString("currentTab", wantTab).apply()
-            }
-        }
-        if (t == "search") autoSearchByGeo()
-    }
-
 
     private fun allRadioStations(): List<Station> {
         addedRev
@@ -1038,8 +1007,8 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun visibleLocal(tabOverride: String? = null): List<LocalTrack> {
-        val tab = tabOverride ?: currentTab()
+    private fun visibleLocal(): List<LocalTrack> {
+        val tab = currentTab()
         return when (tab) {
             "local" -> localTracks
             "best" -> {
@@ -1395,86 +1364,12 @@ private fun MiniProgressBar(
     }
 }
 
-// Рядок локального треку — перевикористовується у вкладці "Обрані"
-// для секцій "Обрані локальні" та "Локальна музика".
-@Composable
-private fun LocalTrackRow(
-    item: LocalTrack,
-    isCurrent: Boolean,
-    acc: Color,
-    muted: Color,
-    text: Color,
-    onClick: () -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 6.dp, vertical = 3.dp)
-            .background(if (isCurrent) acc.copy(alpha = 0.18f) else Palette.card, RoundedCornerShape(12.dp))
-            .clickable { onClick() }
-            .padding(10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
-            val a = if (item.albumId.isNotBlank() && item.albumId != "0")
-                "content://media/external/audio/albumart/${item.albumId}" else ""
-            if (a.isNotEmpty()) AsyncImage(model = a, contentDescription = null, modifier = Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop)
-            else Icon(Icons.Filled.MusicNote, contentDescription = "Немає обкладинки", tint = muted)
-        }
-        Column(modifier = Modifier.weight(1f).padding(start = 8.dp)) {
-            Text(item.title, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(item.artist, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
-        }
-    }
-}
-
-// Нижня навігація: Дім / Обрані / Пошук
-@Composable
-private fun BottomNavBar(
-    current: String,
-    onSelect: (String) -> Unit,
-    acc: Color,
-    muted: Color,
-    card: Color,
-) {
-    val items = listOf(
-        Triple("home", "Дім", Icons.Filled.Home),
-        Triple("library", "Обрані", Icons.Filled.Favorite),
-        Triple("search", "Пошук", Icons.Filled.Search),
-    )
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 8.dp)
-            .background(card, RoundedCornerShape(20.dp))
-            .padding(vertical = 6.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        items.forEach { (key, label, icon) ->
-            val selected = current == key
-            Column(
-                modifier = Modifier
-                    .clickable { onSelect(key) }
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Icon(icon, contentDescription = label, tint = if (selected) acc else muted, modifier = Modifier.size(24.dp))
-                Text(label, color = if (selected) acc else muted, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 2.dp))
-            }
-        }
-    }
-}
-
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun StationScreen(
     tabs: List<String>,
     tabIndex: Int,
     onTab: (Int) -> Unit,
-    bottomTab: String = "home",
-    onBottomTab: (String) -> Unit = {},
-    bestRows: List<LocalTrack> = emptyList(),
     onRevealCurrent: () -> Unit = {},
     qName: String, onName: (String) -> Unit,
     qCountry: String, onCountry: (String) -> Unit,
@@ -1687,8 +1582,26 @@ fun StationScreen(
             rightShow = false
         }
     }
-    // Ліва картка з локальною музикою видалена — весь її функціонал
-    // перенесено у вкладку "Обрані" нижньої навігації.
+    // Ліва картка Lokal (свайп з лівого краю / SD)
+    val leftA = androidx.compose.runtime.remember { Animatable(1f) } // 1=закрито, 0=відкрито
+    var leftShow by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    fun openLeftSheet() {
+        if (rightShow) closeRightSheet()
+        onScan()
+        leftShow = true
+        sheetScope.launch {
+            leftA.stop()
+            leftA.snapTo(1f)
+            leftA.animateTo(0f, tween(300))
+        }
+    }
+    fun closeLeftSheet() {
+        sheetScope.launch {
+            leftA.stop()
+            leftA.animateTo(1f, tween(280))
+            leftShow = false
+        }
+    }
     fun openTopSheet() {
         topShow = true
         sheetScope.launch {
@@ -1734,6 +1647,10 @@ fun StationScreen(
                     modifier = Modifier.size(40.dp).background(card, AppShapes.chip).springPress(0.9f) { topThemeOpen = true },
                     contentAlignment = Alignment.Center
                 ) { Icon(Icons.Filled.Palette, contentDescription = "Тема оформлення", tint = text) }
+                Box(
+                    modifier = Modifier.size(40.dp).background(card, AppShapes.chip).springPress(0.9f) { openLeftSheet() },
+                    contentAlignment = Alignment.Center
+                ) { Icon(Icons.Filled.LibraryMusic, contentDescription = "Моя музика (локальні файли)", tint = text) }
             }
             Row(modifier = Modifier.align(Alignment.Center), verticalAlignment = Alignment.CenterVertically) {
                 Text("Radio ", color = text, style = MaterialTheme.typography.headlineSmall.copy(fontFamily = logoFont, fontWeight = FontWeight.Bold))
@@ -1747,7 +1664,7 @@ fun StationScreen(
                 Box(
                     modifier = Modifier.size(40.dp).background(card, AppShapes.chip).springPress(0.9f) { openRightSheet() },
                     contentAlignment = Alignment.Center
-                ) { Icon(Icons.Filled.Category, contentDescription = "Жанри та вкладки", tint = text) }
+                ) { Icon(Icons.Filled.Search, contentDescription = "Пошук радіостанцій", tint = text) }
                 Box(
                     modifier = Modifier.size(40.dp).background(card, AppShapes.chip).springPress(0.9f) { onMenu() },
                     contentAlignment = Alignment.Center
@@ -1859,14 +1776,6 @@ fun StationScreen(
             } // end info Box overlay
         } // end info Column
         androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(8.dp))
-        if (bottomTab == "home") {
-            Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Filled.Home, contentDescription = null, tint = muted, modifier = Modifier.size(56.dp))
-                    Text("Скоро тут щось з'явиться", color = muted, modifier = Modifier.padding(top = 10.dp), style = MaterialTheme.typography.bodyMedium)
-                }
-            }
-        } else {
         if (tabs.getOrNull(tabIndex) == "search") {
             Column(modifier = Modifier.padding(vertical = 4.dp).background(card, RoundedCornerShape(16.dp)).padding(10.dp)) {
                 Row(
@@ -2049,46 +1958,57 @@ fun StationScreen(
                 if (canMore) {
                     item { Button(onClick = onMore, modifier = Modifier.fillMaxWidth().padding(8.dp)) { Text("Ще 100") } }
                 }
-                // ===== Вкладка "Обрані": далі йдуть обрані локальні треки та вся локальна музика =====
-                if (bottomTab == "library") {
-                    item {
-                        Text(
-                            "Обрані локальні",
-                            color = muted,
-                            style = MaterialTheme.typography.labelLarge,
-                            modifier = Modifier.padding(top = 16.dp, bottom = 4.dp)
-                        )
-                    }
-                    if (bestRows.isEmpty()) {
-                        item { Text("Немає обраних локальних треків", color = muted, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(bottom = 6.dp)) }
-                    }
-                    itemsIndexed(bestRows, key = { i, x -> "best-" + x.uri + i }) { _, item ->
-                        LocalTrackRow(item, item.uri == currentUrl, acc, muted, text) {
-                            onPickLocal(bestRows, bestRows.indexOfFirst { it.uri == item.uri }.coerceAtLeast(0)); onNow()
-                        }
-                    }
-                    item {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("Локальна музика", color = muted, style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
-                            Text("Сканувати", color = acc, modifier = Modifier.clickable { onScan() }.padding(6.dp), style = MaterialTheme.typography.labelLarge)
-                        }
-                    }
-                    if (allLocal.isEmpty()) {
-                        item { Text("Немає треків. Натисни «Сканувати».", color = muted, style = MaterialTheme.typography.bodySmall) }
-                    }
-                    itemsIndexed(allLocal, key = { i, x -> "lib-" + x.uri + i }) { _, item ->
-                        LocalTrackRow(item, item.uri == currentUrl, acc, muted, text) {
-                            onPickLocal(allLocal, allLocal.indexOfFirst { it.uri == item.uri }.coerceAtLeast(0)); onNow()
-                        }
-                    }
-                }
             }
         }
+        if (tabs.isNotEmpty()) {
+            Row(
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 4.dp, bottom = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(11.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                tabs.forEachIndexed { i, tab ->
+                    val lab = tabLabel(tab)
+                    Text(
+                        lab,
+                        color = if (i == tabIndex) Color(0xFF0A0A0C) else muted,
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier
+                            .background(if (i == tabIndex) acc else card, AppShapes.chip)
+                            .border(1.dp, if (i == tabIndex) acc else muted.copy(alpha = 0.35f), AppShapes.chip)
+                            .combinedClickable(onClick = {
+                                if (i == tabIndex) {
+                                    val idx = if (showLocal) localRows.indexOfFirst { it.uri == currentUrl }
+                                    else radioRows.indexOfFirst { it.url == currentUrl }
+                                    if (idx >= 0) scope.launch {
+                                        val itemH = 64
+                                        val li = listState.layoutInfo
+                                        val vh = (li.viewportEndOffset - li.viewportStartOffset).coerceAtLeast(1)
+                                        val off = -((vh / 2) - (itemH / 2))
+                                        val from = listState.firstVisibleItemIndex
+                                        val dist = kotlin.math.abs(idx - from)
+                                        val dur = (420 + dist * 18).coerceIn(420, 900)
+                                        listState.animateScrollToItem(
+                                            idx,
+                                            scrollOffset = off
+                                        )
+                                    }
+                                } else onTab(i)
+                            }, onLongClick = { onLongTab(tab) })
+                            .padding(horizontal = 8.dp, vertical = 5.dp)
+                    )
+                }
+                Text(
+                    "+",
+                    color = acc,
+                    style = MaterialTheme.typography.headlineMedium,
+                    modifier = Modifier
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                        .clickable { onAddTab() }
+                )
+            }
         }
-        // Рядок жанрових вкладок перенесено у праву панель (RightTabsPanel).
         Box(
             modifier = Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 8.dp).pointerInput(Unit) {
                 detectVerticalDragGestures(
@@ -2150,7 +2070,6 @@ fun StationScreen(
         }
             Icon(Icons.Filled.KeyboardArrowUp, contentDescription = "Відкрити Now Playing", tint = muted, modifier = Modifier.align(Alignment.CenterEnd).clickable { onNow() }.padding(4.dp).size(28.dp))
         }
-        BottomNavBar(current = bottomTab, onSelect = onBottomTab, acc = acc, muted = muted, card = card)
     }
     // ===== Верхня картка (свайп вниз) =====
     if (topShow) {
@@ -2480,26 +2399,56 @@ fun StationScreen(
             }
         }
     }
-    // ===== Права картка: жанрові та кастомні вкладки =====
+    // ===== Права картка пошуку =====
     // Край поверх картки під час відкриття. Повністю відкриту — край вимкнено
     // (повторний свайп вліво більше не закриває).
     val rightFullyOpen = rightShow && rightA.value <= 0.05f
-    val showRightEdge = !topShow && !nowOpen && !sheetShow && !rightFullyOpen
+    val leftFullyOpen = leftShow && leftA.value <= 0.05f
+    val leftBusy = leftShow || leftA.value < 0.999f
+    val rightBusy = rightShow || rightA.value < 0.999f
+    val showRightEdge = !topShow && !nowOpen && !sheetShow && !rightFullyOpen && !leftBusy
+    val showLeftEdge = !topShow && !nowOpen && !sheetShow && !leftFullyOpen && !rightBusy
 
-    RightTabsPanel(
+    RightSearchPanel(
         rightA = rightA,
         rightShow = rightShow,
         onRightShow = { rightShow = it },
         showRightEdge = showRightEdge,
+        rightSearchOpen = rightSearchOpen,
+        onRightSearchOpen = { rightSearchOpen = it },
         onRightOpen = onRightOpen,
-        tabs = tabs,
-        tabIndex = tabIndex,
-        onTab = onTab,
-        onAddTab = onAddTab,
-        onLongTab = onLongTab,
+        qName = qName, onName = onName,
+        qCountry = qCountry, onCountry = onCountry,
+        qGenre = qGenre, onGenre = onGenre,
+        suggestFor = suggestFor, onSuggestFor = onSuggestFor,
+        nameHints = nameHints, countryHints = countryHints, genreHints = genreHints,
+        onSearch = onSearch, onMore = onMore, canMoreSearch = canMoreSearch,
+        searchRows = searchRows, currentUrl = currentUrl, status = status,
         acc = acc, muted = muted, text = text, card = card,
+        onPickRadio = onPickRadio, onAddToTab = onAddToTab
     )
-
+    LeftLokalPanel(
+        leftA = leftA,
+        leftShow = leftShow,
+        onLeftShow = { leftShow = it },
+        showLeftEdge = showLeftEdge,
+        allLocal = allLocal,
+        currentUrl = currentUrl,
+        bestUris = bestUris,
+        acc = acc, muted = muted, text = text,
+        onPickLocal = onPickLocal,
+        onToggleBest = onToggleBest,
+        onScan = onScan,
+        posMs = posMs,
+        durMs = durMs,
+        isLocalNow = isLocalNow,
+        playing = playing,
+        status = status,
+        onSeek = onSeek,
+        onPlayPause = onPlayPause,
+        onPrev = onPrev,
+        onNext = onNext
+    )
 
     if (topSleepOpen) {
         AlertDialog(
@@ -3109,18 +3058,24 @@ fun StationScreen(
 }
 
 @Composable
-private fun BoxScope.RightTabsPanel(
+private fun BoxScope.RightSearchPanel(
     rightA: Animatable<Float, *>,
     rightShow: Boolean,
     onRightShow: (Boolean) -> Unit,
     showRightEdge: Boolean,
+    rightSearchOpen: Boolean,
+    onRightSearchOpen: (Boolean) -> Unit,
     onRightOpen: () -> Unit,
-    tabs: List<String>,
-    tabIndex: Int,
-    onTab: (Int) -> Unit,
-    onAddTab: () -> Unit,
-    onLongTab: (String) -> Unit,
+    qName: String, onName: (String) -> Unit,
+    qCountry: String, onCountry: (String) -> Unit,
+    qGenre: String, onGenre: (String) -> Unit,
+    suggestFor: String, onSuggestFor: (String) -> Unit,
+    nameHints: List<String>, countryHints: List<String>, genreHints: List<String>,
+    onSearch: () -> Unit, onMore: () -> Unit, canMoreSearch: Boolean,
+    searchRows: List<Station>, currentUrl: String, status: String,
     acc: Color, muted: Color, text: Color, card: Color,
+    onPickRadio: (List<Station>, Int) -> Unit,
+    onAddToTab: (Station) -> Unit,
 ) {
     val sheetScope = rememberCoroutineScope()
     fun closeRightSheet() {
@@ -3211,48 +3166,77 @@ private fun BoxScope.RightTabsPanel(
                 ) {
                     Box(modifier = Modifier.width(40.dp).height(4.dp).background(muted, RoundedCornerShape(2.dp)))
                 }
-                Text("Жанри та вкладки", color = text, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 10.dp))
-                val genreTabs = tabs.withIndex().filter { it.value !in listOf("fav", "best", "local", "search") }
-                if (genreTabs.isEmpty()) {
-                    Text("Поки немає жанрових вкладок", color = muted, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(bottom = 8.dp))
+                Text("Пошук", color = text, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth().clickable { onRightSearchOpen(!rightSearchOpen) }.padding(bottom = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Поля пошуку", color = text, modifier = Modifier.weight(1f))
+                    Text(if (rightSearchOpen) "▴" else "▾", color = muted)
                 }
-                LazyColumn(modifier = Modifier.weight(1f)) {
-                    itemsIndexed(genreTabs, key = { _, iv -> "tab-" + iv.value }) { _, iv ->
-                        val (i, tab) = iv
-                        val selected = i == tabIndex
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp)
-                                .background(if (selected) acc.copy(alpha = 0.20f) else Color.Transparent, RoundedCornerShape(12.dp))
-                                .combinedClickable(
-                                    onClick = { onTab(i); closeRightSheet() },
-                                    onLongClick = { onLongTab(tab) }
-                                )
-                                .padding(horizontal = 10.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                tabLabel(tab),
-                                color = if (selected) acc else text,
-                                style = MaterialTheme.typography.bodyLarge,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f)
-                            )
+                if (rightSearchOpen) {
+                    @Composable
+                    fun rField(v: String, set: (String) -> Unit, lab: String, key: String, hints: List<String>) {
+                        OutlinedTextField(
+                            value = v, onValueChange = set, singleLine = true, label = { Text(lab) },
+                            modifier = Modifier.fillMaxWidth(),
+                            trailingIcon = {
+                                Text("▾", color = acc, modifier = Modifier.clickable { onSuggestFor(if (suggestFor == key) "" else key) }.padding(8.dp))
+                            }
+                        )
+                        if (suggestFor == key) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth().heightIn(max = 160.dp).verticalScroll(rememberScrollState())
+                                    .background(card, RoundedCornerShape(12.dp)).padding(6.dp)
+                            ) {
+                                hints.distinct().take(24).forEach { h ->
+                                    Text(h, color = text, modifier = Modifier.fillMaxWidth().clickable { set(h); onSuggestFor("") }.padding(6.dp))
+                                }
+                            }
                         }
                     }
-                    item {
+                    rField(qName, onName, "Назва", "name", nameHints)
+                    rField(qCountry, onCountry, "Країна", "country", countryHints)
+                    rField(qGenre, onGenre, "Жанр", "genre", genreHints)
+                    Button(
+                        onClick = { onSearch(); onRightSearchOpen(false) },
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp).height(44.dp),
+                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = acc, contentColor = Color(0xFF0A0A0C))
+                    ) { Text("Знайти") }
+                }
+                Text(status, color = muted, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 8.dp, bottom = 4.dp), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                val rightRows = searchRows
+                if (rightRows.isEmpty()) {
+                    Text("Введіть запит і натисніть «Знайти»", color = muted, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 12.dp))
+                }
+                LazyColumn(modifier = Modifier.weight(1f)) {
+                    itemsIndexed(rightRows, key = { i, s -> "r-" + s.url + i }) { _, s ->
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 6.dp)
-                                .clickable { onAddTab() }
-                                .padding(horizontal = 10.dp, vertical = 12.dp),
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                                .background(if (s.url == currentUrl) acc.copy(alpha = 0.18f) else Color.Transparent, RoundedCornerShape(12.dp))
+                                .clickable { onPickRadio(rightRows, rightRows.indexOfFirst { it.url == s.url }.coerceAtLeast(0)) }
+                                .padding(6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("+", color = acc, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(end = 8.dp))
-                            Text("Додати вкладку", color = acc, style = MaterialTheme.typography.bodyLarge)
+                            Box(modifier = Modifier.size(48.dp).background(Palette.panel2, RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
+                                if (s.favicon.startsWith("http") && !s.favicon.contains("example.com")) {
+                                    AsyncImage(model = s.favicon, contentDescription = null, modifier = Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop)
+                                } else Icon(Icons.Filled.MusicNote, contentDescription = "Немає обкладинки", tint = muted)
+                            }
+                            Column(modifier = Modifier.weight(1f).padding(start = 8.dp)) {
+                                Text(s.name, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text("${s.genre} · ${s.country}", color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
+                            }
+                            Text("+", color = acc, modifier = Modifier.clickable { onAddToTab(s) }.padding(start = 8.dp, end = 4.dp), style = MaterialTheme.typography.headlineSmall)
+                        }
+                    }
+                    if (canMoreSearch && rightRows.isNotEmpty()) {
+                        item {
+                            Button(
+                                onClick = onMore,
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp).height(44.dp),
+                                colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = acc, contentColor = Color(0xFF0A0A0C))
+                            ) { Text("Ще 100") }
                         }
                     }
                     item { androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(16.dp)) }
@@ -3275,7 +3259,7 @@ private fun BoxScope.RightTabsPanel(
                         sheetScope.launch {
                             rightA.stop()
                             if (rightA.value <= 0.93f) {
-                                onRightShow(true)
+                                onRightShow(true); onRightSearchOpen(true)
                                 rightA.animateTo(0f, tween(280)); rightA.snapTo(0f)
                             } else {
                                 rightA.animateTo(1f, tween(260)); rightA.snapTo(1f); onRightShow(false)
@@ -3289,7 +3273,7 @@ private fun BoxScope.RightTabsPanel(
                         sheetScope.launch {
                             rightA.stop()
                             if (rightA.value <= 0.93f) {
-                                onRightShow(true)
+                                onRightShow(true); onRightSearchOpen(true)
                                 rightA.animateTo(0f, tween(280)); rightA.snapTo(0f)
                             } else {
                                 rightA.animateTo(1f, tween(240)); rightA.snapTo(1f); onRightShow(false)
@@ -3300,10 +3284,289 @@ private fun BoxScope.RightTabsPanel(
                     if (!dragged) {
                         if (drag >= -0.5f) return@detectHorizontalDragGestures
                         dragged = true
-                        onRightShow(true); onRightOpen()
+                        onRightShow(true); onRightSearchOpen(true); onRightOpen()
                     }
                     val next = (rightA.value + drag / sheetWpxEdge).coerceIn(0f, 1f)
                     sheetScope.launch { rightA.snapTo(next) }
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun BoxScope.LeftLokalPanel(
+    leftA: Animatable<Float, *>,
+    leftShow: Boolean,
+    onLeftShow: (Boolean) -> Unit,
+    showLeftEdge: Boolean,
+    allLocal: List<LocalTrack>,
+    currentUrl: String,
+    bestUris: Set<String>,
+    acc: Color, muted: Color, text: Color,
+    onPickLocal: (List<LocalTrack>, Int) -> Unit,
+    onToggleBest: (LocalTrack) -> Unit,
+    onScan: () -> Unit,
+    posMs: Long,
+    durMs: Long,
+    isLocalNow: Boolean,
+    playing: Boolean,
+    status: String,
+    onSeek: (Long) -> Unit,
+    onPlayPause: () -> Unit,
+    onPrev: () -> Unit,
+    onNext: () -> Unit,
+) {
+    val sheetScope = rememberCoroutineScope()
+    fun closeLeftSheet() {
+        sheetScope.launch {
+            leftA.stop()
+            leftA.animateTo(1f, tween(280))
+            onLeftShow(false)
+        }
+    }
+    if (leftShow || leftA.value < 0.999f) {
+        val cfgL = LocalConfiguration.current
+        val densL = LocalDensity.current
+        val sheetWL = (cfgL.screenWidthDp * 0.80f).dp
+        val sheetWpxL = with(densL) { sheetWL.toPx() }
+        Box(modifier = Modifier.fillMaxSize()) {
+            Box(
+                modifier = Modifier.fillMaxSize()
+                    .background(Color(0x88000000).copy(alpha = ((1f - leftA.value) * 0.5f).coerceIn(0f, 0.5f)))
+                    .clickable { closeLeftSheet() }
+            )
+            Column(
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .fillMaxHeight()
+                    .width(sheetWL)
+                    .graphicsLayer { translationX = -leftA.value * sheetWpxL }
+                    .background(Palette.card, RoundedCornerShape(topEnd = 22.dp, bottomEnd = 22.dp))
+                    .statusBarsPadding()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 12.dp, vertical = 10.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .pointerInput(sheetWpxL) {
+                            val slop = viewConfiguration.touchSlop
+                            awaitEachGesture {
+                                awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                                var locked = false
+                                var accX = 0f
+                                var accY = 0f
+                                var finished = false
+                                while (!finished) {
+                                    val ev = awaitPointerEvent(PointerEventPass.Initial)
+                                    val ch = ev.changes.firstOrNull() ?: break
+                                    if (!ch.pressed) { finished = true; break }
+                                    val dx = ch.positionChange().x
+                                    val dy = ch.positionChange().y
+                                    accX += dx; accY += dy
+                                    if (!locked) {
+                                        if (kotlin.math.abs(accX) > slop || kotlin.math.abs(accY) > slop) {
+                                            if (kotlin.math.abs(accX) > kotlin.math.abs(accY) && accX < 0f) locked = true
+                                            else break
+                                        }
+                                    }
+                                    if (locked) {
+                                        ch.consume()
+                                        val next = (leftA.value - dx / sheetWpxL).coerceIn(0f, 1f)
+                                        sheetScope.launch { leftA.snapTo(next) }
+                                    }
+                                }
+                                if (locked) {
+                                    sheetScope.launch {
+                                        leftA.stop()
+                                        if (leftA.value >= 0.07f) {
+                                            leftA.animateTo(1f, tween(280)); onLeftShow(false)
+                                        } else {
+                                            leftA.animateTo(0f, tween(280)); onLeftShow(true)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                ) {
+                Box(modifier = Modifier.fillMaxWidth().height(28.dp), contentAlignment = Alignment.Center) {
+                    Box(modifier = Modifier.width(40.dp).height(4.dp).background(muted, RoundedCornerShape(2.dp)))
+                }
+                Row(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Моя музика", color = text, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                    Text("Сканувати", color = acc, modifier = Modifier.clickable { onScan() }.padding(8.dp), style = MaterialTheme.typography.labelLarge)
+                }
+                Text(
+                    if (allLocal.isEmpty()) "Немає треків" else "треків: ${allLocal.size}",
+                    color = muted, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(bottom = 6.dp)
+                )
+                LazyColumn(modifier = Modifier.weight(1f)) {
+                    itemsIndexed(allLocal, key = { i, x -> "l-" + x.uri + i }) { index, item ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                                .background(if (item.uri == currentUrl) acc.copy(alpha = 0.18f) else Color.Transparent, RoundedCornerShape(12.dp))
+                                .clickable { onPickLocal(allLocal, index) }
+                                .padding(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(modifier = Modifier.size(48.dp).background(Palette.panel2, RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
+                                val a = if (item.albumId.isNotBlank() && item.albumId != "0")
+                                    "content://media/external/audio/albumart/${item.albumId}" else ""
+                                if (a.isNotEmpty()) AsyncImage(model = a, contentDescription = null, modifier = Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop)
+                                else Icon(Icons.Filled.MusicNote, contentDescription = "Немає обкладинки", tint = muted)
+                            }
+                            Column(modifier = Modifier.weight(1f).padding(start = 8.dp)) {
+                                Text(item.title, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(item.artist, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
+                            }
+                            Icon(
+                                if (bestUris.contains(item.uri)) Icons.Filled.Star else Icons.Filled.StarBorder,
+                                contentDescription = if (bestUris.contains(item.uri)) "Прибрати з топ локальних" else "Додати в топ локальні",
+                                tint = acc,
+                                modifier = Modifier.clickable { onToggleBest(item) }.padding(start = 10.dp, end = 2.dp).size(24.dp)
+                            )
+                        }
+                    }
+                    item { androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(8.dp)) }
+                }
+                }
+                val localPlaying = isLocalNow || currentUrl.startsWith("content:")
+                val nowTitle = allLocal.firstOrNull { it.uri == currentUrl }?.title.orEmpty()
+                if (nowTitle.isNotBlank()) {
+                    Text(
+                        nowTitle,
+                        color = text,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.labelLarge,
+                        modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
+                    )
+                }
+                if (localPlaying) {
+                    MiniProgressBar(posMs, durMs, acc, muted, onSeek)
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 6.dp, bottom = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // іконка вибраного треку — пульсує коли play
+                    run {
+                        val infinite = rememberInfiniteTransition(label = "leftArtPulse")
+                        val pulse by infinite.animateFloat(
+                            initialValue = 1f,
+                            targetValue = if (playing) 1.08f else 1f,
+                            animationSpec = infiniteRepeatable(
+                                animation = tween(if (playing) 900 else 1, easing = FastOutSlowInEasing),
+                                repeatMode = RepeatMode.Reverse
+                            ),
+                            label = "leftArtPulseSc"
+                        )
+                        val cur = allLocal.firstOrNull { it.uri == currentUrl }
+                        val au = if (cur != null && cur.albumId.isNotBlank() && cur.albumId != "0")
+                            "content://media/external/audio/albumart/${cur.albumId}" else ""
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .graphicsLayer {
+                                    scaleX = pulse
+                                    scaleY = pulse
+                                    clip = true
+                                    shape = RoundedCornerShape(12.dp)
+                                }
+                                .background(Palette.panel, RoundedCornerShape(12.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (au.isNotBlank()) {
+                                AsyncImage(
+                                    model = au,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(48.dp),
+                                    contentScale = ContentScale.Crop
+                                )
+                            } else {
+                                Icon(Icons.Filled.MusicNote, contentDescription = null, tint = muted, modifier = Modifier.size(24.dp))
+                            }
+                        }
+                    }
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .background(Palette.panel, RoundedCornerShape(12.dp))
+                            .clickable { onPrev() },
+                        contentAlignment = Alignment.Center
+                    ) { Icon(Icons.Filled.SkipPrevious, contentDescription = "Попередня", tint = text, modifier = Modifier.size(26.dp)) }
+                    Box(
+                        modifier = Modifier
+                            .size(56.dp)
+                            .background(acc, RoundedCornerShape(16.dp))
+                            .clickable { onPlayPause() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                            contentDescription = if (playing) "Пауза" else "Відтворити",
+                            tint = Color(0xFF0A0A0C),
+                            modifier = Modifier.size(26.dp)
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .background(Palette.panel, RoundedCornerShape(12.dp))
+                            .clickable { onNext() },
+                        contentAlignment = Alignment.Center
+                    ) { Icon(Icons.Filled.SkipNext, contentDescription = "Наступна", tint = text, modifier = Modifier.size(26.dp)) }
+                }
+            }
+        }
+    }
+    if (showLeftEdge) {
+        val densL = LocalDensity.current
+        val cfgL = LocalConfiguration.current
+        val sheetWpxEdgeL = with(densL) { (cfgL.screenWidthDp * 0.80f).dp.toPx() }
+        Box(
+            modifier = Modifier.align(Alignment.CenterStart).fillMaxHeight().width(22.dp).pointerInput(sheetWpxEdgeL) {
+                var dragged = false
+                detectHorizontalDragGestures(
+                    onDragEnd = {
+                        val was = dragged
+                        dragged = false
+                        if (!was) return@detectHorizontalDragGestures
+                        sheetScope.launch {
+                            leftA.stop()
+                            if (leftA.value <= 0.93f) {
+                                onLeftShow(true); leftA.animateTo(0f, tween(280)); leftA.snapTo(0f)
+                            } else {
+                                leftA.animateTo(1f, tween(260)); leftA.snapTo(1f); onLeftShow(false)
+                            }
+                        }
+                    },
+                    onDragCancel = {
+                        val was = dragged
+                        dragged = false
+                        if (!was) return@detectHorizontalDragGestures
+                        sheetScope.launch {
+                            leftA.stop()
+                            if (leftA.value <= 0.93f) {
+                                onLeftShow(true); leftA.animateTo(0f, tween(280)); leftA.snapTo(0f)
+                            } else {
+                                leftA.animateTo(1f, tween(240)); leftA.snapTo(1f); onLeftShow(false)
+                            }
+                        }
+                    }
+                ) { _, drag ->
+                    if (!dragged) {
+                        if (drag <= 0.5f) return@detectHorizontalDragGestures
+                        dragged = true
+                        onLeftShow(true)
+                        onScan()
+                    }
+                    val next = (leftA.value - drag / sheetWpxEdgeL).coerceIn(0f, 1f)
+                    sheetScope.launch { leftA.snapTo(next) }
                 }
             }
         )

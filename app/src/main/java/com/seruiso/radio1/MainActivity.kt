@@ -1463,6 +1463,8 @@ private fun BottomNavBar(
     muted: Color,
     card: Color,
     onSwipeUp: () -> Unit = {},
+    onPull: (Float) -> Unit = {},
+    onPullEnd: () -> Unit = {},
 ) {
     val items = listOf(
         Triple("home", "Дім", Icons.Filled.Home),
@@ -1472,7 +1474,6 @@ private fun BottomNavBar(
         Triple("tabs", "Вкладки", Icons.Filled.Category),
         Triple("search", "Пошук", Icons.Filled.Search),
     )
-    var swipeAcc by androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1480,13 +1481,11 @@ private fun BottomNavBar(
             .background(card, RoundedCornerShape(20.dp))
             .pointerInput(Unit) {
                 detectVerticalDragGestures(
-                    onDragEnd = {
-                        if (swipeAcc < -48f) onSwipeUp()
-                        swipeAcc = 0f
-                    },
-                    onDragCancel = { swipeAcc = 0f }
+                    onDragEnd = { onPullEnd() },
+                    onDragCancel = { onPullEnd() }
                 ) { _, drag ->
-                    swipeAcc += drag
+                    if (drag < 0) onPull(drag)
+                    else onPull(drag)
                 }
             }
             .padding(vertical = 3.dp),
@@ -1841,10 +1840,41 @@ fun StationScreen(
                 }
         ) {
             Box(modifier = Modifier.fillMaxWidth()) {
+            val glowInf = rememberInfiniteTransition(label = "vizGlow")
+            val glowSc = glowInf.animateFloat(
+                0.94f, 1.14f,
+                infiniteRepeatable(tween(900, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+                "vizGlowSc"
+            ).value
+            val glowA = glowInf.animateFloat(
+                0.55f, 0.92f,
+                infiniteRepeatable(tween(900, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+                "vizGlowA"
+            ).value
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(end = 6.dp)
+                    .size(64.dp, 56.dp)
+                    .graphicsLayer {
+                        val sc = if (playing) glowSc else 1f
+                        scaleX = sc; scaleY = sc
+                        alpha = 1f
+                    }
+                    .background(
+                        Brush.radialGradient(
+                            colors = listOf(
+                                acc.copy(alpha = if (playing) 0.58f else 0.28f),
+                                acc.copy(alpha = if (playing) (glowA * 0.58f) else 0.14f),
+                                acc.copy(alpha = 0f)
+                            )
+                        )
+                    )
+            )
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 6.dp, end = 6.dp, top = 6.dp, bottom = 4.dp),
+                    .padding(start = 6.dp, end = 62.dp, top = 6.dp, bottom = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
             // іконка → нижня картка
@@ -1874,30 +1904,7 @@ fun StationScreen(
                 Text(if (track.isBlank()) "Трек: невідомо" else track, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
                 Text(status, color = acc, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            Column(
-                modifier = Modifier
-                    .padding(start = 4.dp, end = 4.dp, bottom = 1.dp)
-                    .clickable { onCloseMenu(); openTopSheet() },
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                val inf = rememberInfiniteTransition(label = "viz")
-                val pulseA = inf.animateFloat(0.25f, 1f, infiniteRepeatable(tween(420), RepeatMode.Reverse), "a").value
-                val pulseB = inf.animateFloat(0.35f, 1f, infiniteRepeatable(tween(680), RepeatMode.Reverse), "b").value
-                val pulseC = inf.animateFloat(0.2f, 1f, infiniteRepeatable(tween(520), RepeatMode.Reverse), "c").value
-                Row(
-                    verticalAlignment = Alignment.Bottom,
-                    modifier = Modifier.height(32.dp)
-                ) {
-                    listOf(0.35f, 0.7f, 0.5f, 1f, 0.45f, 0.85f, 0.4f, 0.65f, 0.55f).forEachIndexed { i, base ->
-                        val p = when (i % 3) { 0 -> pulseA; 1 -> pulseB; else -> pulseC }
-                        Box(
-                            modifier = Modifier.padding(horizontal = 1.2.dp).width(3.5.dp)
-                                .height((if (playing) 8f + 24f * base * p else 6f).dp)
-                                .background(acc.copy(alpha = if (playing) 0.55f + 0.45f * p else 0.35f), RoundedCornerShape(50))
-                        )
-                    }
-                }
-            }
+            // vis replaced by glow overlay
             } // end info Row
             // ⌄ у правому верхньому куті інфо-панелі (розмір як ⌃ знизу)
             Text(
@@ -2142,7 +2149,12 @@ fun StationScreen(
         }
         // Рядок жанрових вкладок перенесено у праву панель (RightTabsPanel).
         Box(
-            modifier = Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 4.dp).pointerInput(Unit) {
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 6.dp, bottom = 4.dp)
+                .background(card, RoundedCornerShape(20.dp))
+                .clip(RoundedCornerShape(20.dp))
+                .pointerInput(Unit) {
                 detectVerticalDragGestures(
                     onDragEnd = {
                         if (!nowOpen) {
@@ -2170,7 +2182,8 @@ fun StationScreen(
                 .align(Alignment.Center)
                 .fillMaxWidth()
                 .padding(horizontal = 8.dp, vertical = 4.dp)
-                .height(68.dp),
+                .height(68.dp)
+                .background(card, RoundedCornerShape(20.dp)),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -2187,7 +2200,7 @@ fun StationScreen(
             }
             PlayBtn(playing = playing, status = status, sizeDp = 60.dp, onClick = onPlayPause, shape = RoundedCornerShape(14.dp))
             Box(
-                modifier = Modifier.fillMaxHeight().width(52.dp).background(card.copy(alpha = 0.90f), RoundedCornerShape(12.dp)).clickable { onNext() },
+                modifier = Modifier.fillMaxHeight().width(52.dp).background(card, RoundedCornerShape(20.dp)).clickable { onNext() },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -2206,7 +2219,32 @@ fun StationScreen(
         }
             Icon(Icons.Filled.KeyboardArrowUp, contentDescription = "Відкрити Now Playing", tint = muted, modifier = Modifier.align(Alignment.CenterEnd).clickable { onNow() }.padding(4.dp).size(28.dp))
         }
-        BottomNavBar(current = bottomTab, onSelect = onBottomTab, acc = acc, muted = muted, card = card, onSwipeUp = { if (!nowOpen) onNow() })
+        BottomNavBar(
+            current = bottomTab,
+            onSelect = onBottomTab,
+            acc = acc,
+            muted = muted,
+            card = card,
+            onPull = { drag ->
+                if (drag < 0 || sheetShow) {
+                    sheetShow = true
+                    sheetScope.launch { pullA.snapTo((pullA.value + drag).coerceIn(0f, 560f)) }
+                }
+            },
+            onPullEnd = {
+                if (!nowOpen) {
+                    sheetScope.launch {
+                        if (pullA.value < 300f) {
+                            pullA.animateTo(0f, tween(280))
+                            onNow()
+                        } else {
+                            pullA.animateTo(560f, tween(280))
+                            sheetShow = false
+                        }
+                    }
+                }
+            }
+        )
     }
     // ===== Верхня картка (свайп вниз) =====
     if (topShow) {

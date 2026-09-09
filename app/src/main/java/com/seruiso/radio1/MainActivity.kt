@@ -400,6 +400,7 @@ class MainActivity : ComponentActivity() {
                             tabIndex = it
                             getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
                                 .edit().putString("currentTab", uiTabs.getOrNull(it) ?: "fav").apply()
+                            persistVisibleQueue()
                         },
                         bottomTab = bottomTab,
                         onBottomTab = { selectBottomTab(it) },
@@ -932,6 +933,7 @@ class MainActivity : ComponentActivity() {
             }
         }
         if (t == "search") autoSearchByGeo()
+        persistVisibleQueue()
     }
 
 
@@ -1213,6 +1215,54 @@ class MainActivity : ComponentActivity() {
         }
         val radios = visibleRadio()
         if (radios.isNotEmpty()) playRadio(radios, 0)
+    }
+
+
+    /** Черга Auto/skip = видимий список вкладки. Без старту відтворення. */
+    private fun persistVisibleQueue() {
+        val tab = currentTab()
+        if (tab == "home" || bottomTab == "home" || bottomTab == "tabs") return
+        val p = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+        if (tab == "local" || tab == "best") {
+            val list = visibleLocal()
+            if (list.isEmpty()) return
+            val uris = JSONArray(); val titles = JSONArray()
+            val artists = JSONArray(); val albumIds = JSONArray()
+            list.forEach {
+                uris.put(it.uri); titles.put(it.title)
+                artists.put(it.artist); albumIds.put(it.albumId)
+            }
+            val cur = p.getString(BluetoothAutoPlayPlugin.KEY_URL, "") ?: ""
+            val idx = list.indexOfFirst { it.uri == cur }.let { if (it >= 0) it else 0 }
+            p.edit()
+                .putString(LocalMusicPlugin.KEY_MODE, "local")
+                .putString(LocalMusicPlugin.KEY_LOCAL_URIS, uris.toString())
+                .putString(LocalMusicPlugin.KEY_LOCAL_TITLES, titles.toString())
+                .putString(LocalMusicPlugin.KEY_LOCAL_ARTISTS, artists.toString())
+                .putString(LocalMusicPlugin.KEY_LOCAL_ALBUM_IDS, albumIds.toString())
+                .putInt(LocalMusicPlugin.KEY_LOCAL_INDEX, idx)
+                .apply()
+        } else {
+            val list = visibleRadio()
+            if (list.isEmpty()) return
+            val urls = JSONArray(); val names = JSONArray(); val favs = JSONArray()
+            val genres = JSONArray(); val countries = JSONArray()
+            list.forEach {
+                urls.put(it.url); names.put(it.name); favs.put(it.favicon)
+                genres.put(it.genre); countries.put(it.country)
+            }
+            val cur = p.getString(BluetoothAutoPlayPlugin.KEY_URL, "") ?: ""
+            val idx = list.indexOfFirst { it.url == cur }.let { if (it >= 0) it else 0 }
+            p.edit()
+                .putString(LocalMusicPlugin.KEY_MODE, "radio")
+                .putString(BluetoothAutoPlayPlugin.KEY_QUEUE_URLS, urls.toString())
+                .putString(BluetoothAutoPlayPlugin.KEY_QUEUE_NAMES, names.toString())
+                .putString(BluetoothAutoPlayPlugin.KEY_QUEUE_FAVICONS, favs.toString())
+                .putString(BluetoothAutoPlayPlugin.KEY_QUEUE_GENRES, genres.toString())
+                .putString(BluetoothAutoPlayPlugin.KEY_QUEUE_COUNTRIES, countries.toString())
+                .putInt(BluetoothAutoPlayPlugin.KEY_QUEUE_INDEX, idx)
+                .apply()
+        }
     }
 
     private fun playRadio(list: List<Station>, index: Int) {

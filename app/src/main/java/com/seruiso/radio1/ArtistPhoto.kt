@@ -130,9 +130,9 @@ private fun photoForSingleArtist(artist: String): String? {
  * якщо не знайшлось — другий. Інакше фавікон станції в UI.
  */
 @Composable
-fun rememberArtistPhotoUrl(artist: String): State<String?> {
-    val result = remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(artist) {
+fun rememberArtistPhotoUrl(artist: String, bust: String = ""): State<String?> {
+    val result = remember(artist, bust) { mutableStateOf<String?>(null) }
+    LaunchedEffect(artist, bust) {
         result.value = null
         if (artist.isBlank()) return@LaunchedEffect
         delay(250) // дебаунс під час свайпу пейджера

@@ -571,8 +571,44 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
         lastSkipMs = now;
 
         SharedPreferences p = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE);
+        String skipMode = p.getString(BluetoothAutoPlayPlugin.KEY_SKIP_MODE, "radio");
+        if ("off".equals(skipMode)) return;
 
-        if (isLocalMode()) {
+        if ("temp".equals(skipMode)) {
+            try {
+                JSONArray urls = new JSONArray(p.getString(BluetoothAutoPlayPlugin.KEY_TEMP_URLS, "[]"));
+                JSONArray names = new JSONArray(p.getString(BluetoothAutoPlayPlugin.KEY_TEMP_NAMES, "[]"));
+                JSONArray favs = new JSONArray(p.getString(BluetoothAutoPlayPlugin.KEY_TEMP_FAVICONS, "[]"));
+                JSONArray genres = new JSONArray(p.getString(BluetoothAutoPlayPlugin.KEY_TEMP_GENRES, "[]"));
+                JSONArray countries = new JSONArray(p.getString(BluetoothAutoPlayPlugin.KEY_TEMP_COUNTRIES, "[]"));
+                int index = p.getInt(BluetoothAutoPlayPlugin.KEY_TEMP_INDEX, 0);
+                if (urls.length() == 0) { notifyUiSkip(next); return; }
+                if (next) index = (index + 1) % urls.length();
+                else index = (index - 1 + urls.length()) % urls.length();
+                String url = urls.optString(index, "");
+                if (url.isEmpty()) return;
+                String name = names.optString(index, "Radio S O");
+                p.edit()
+                    .putInt(BluetoothAutoPlayPlugin.KEY_TEMP_INDEX, index)
+                    .putString(BluetoothAutoPlayPlugin.KEY_URL, url)
+                    .putString(BluetoothAutoPlayPlugin.KEY_NAME, name)
+                    .putString(BluetoothAutoPlayPlugin.KEY_FAVICON, favs.optString(index, ""))
+                    .putString(BluetoothAutoPlayPlugin.KEY_GENRE, genres.optString(index, ""))
+                    .putString(BluetoothAutoPlayPlugin.KEY_COUNTRY, countries.optString(index, ""))
+                    .putString(BluetoothAutoPlayPlugin.KEY_TRACK, "")
+                    .putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, true)
+                    .commit();
+                currentName = name;
+                lastTrackTitle = "";
+                stationArt = null; stationArtUrl = ""; artGen++;
+                playUrl(url);
+                loadStationArtAsync();
+                notifyUiSkip(next);
+            } catch (Exception e) { notifyUiSkip(next); }
+            return;
+        }
+
+        if ("local".equals(skipMode) || isLocalMode()) {
             try {
                 org.json.JSONArray uris = new org.json.JSONArray(p.getString(LocalMusicPlugin.KEY_LOCAL_URIS, "[]"));
                 org.json.JSONArray titles = new org.json.JSONArray(p.getString(LocalMusicPlugin.KEY_LOCAL_TITLES, "[]"));

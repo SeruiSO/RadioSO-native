@@ -23,4 +23,12 @@ public class BluetoothAutoPlayPlugin {
     public static final String KEY_COUNTRY = "lastStationCountry";
     public static final String KEY_FAVORITES = "favoriteUrls";
     public static final String KEY_LOCAL_BEST = "localBestUrls";
+    /** radio | local | off — off = жанр/історія, без next/prev */
+    public static final String KEY_SKIP_MODE = "skipMode";
+    public static final String KEY_TEMP_URLS = "tempQueueUrls";
+    public static final String KEY_TEMP_NAMES = "tempQueueNames";
+    public static final String KEY_TEMP_FAVICONS = "tempQueueFavicons";
+    public static final String KEY_TEMP_GENRES = "tempQueueGenres";
+    public static final String KEY_TEMP_COUNTRIES = "tempQueueCountries";
+    public static final String KEY_TEMP_INDEX = "tempQueueIndex";
 }

@@ -264,6 +264,8 @@ class MainActivity : ComponentActivity() {
     private var posMs by mutableStateOf(0L)
     private var durMs by mutableStateOf(0L)
     private var isLocalNow by mutableStateOf(false)
+    private var skipMode by mutableStateOf("radio")
+    private var tempStations by mutableStateOf<List<Station>>(emptyList())
     private val posHandler = Handler(Looper.getMainLooper())
     private val posTick = object : Runnable {
         override fun run() {
@@ -368,6 +370,7 @@ class MainActivity : ComponentActivity() {
         customTabs = TabStore.customTabs(this)
         reloadLocal()
         readPrefs()
+        recentStations = loadRecentStations()
         val lastTab = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE).getString("currentTab", "fav")
         val idx = uiTabs.indexOf(lastTab)
         if (idx >= 0) tabIndex = idx
@@ -383,6 +386,9 @@ class MainActivity : ComponentActivity() {
                     val tab = uiTabs.getOrNull(tabIndex) ?: ""
                     val radioRowsMemo = remember(addedRev, tabIndex, customTabs, favUrls, searchRows) {
                         visibleRadio()
+                    }
+                    val favRowsMemo = remember(addedRev, customTabs, favUrls, searchRows) {
+                        visibleRadio("fav")
                     }
                     val allRadioMemo = remember(addedRev, customTabs, favUrls, searchRows) {
                         allRadioStations()
@@ -405,6 +411,7 @@ class MainActivity : ComponentActivity() {
                         bottomTab = bottomTab,
                         onBottomTab = { selectBottomTab(it) },
                         bestRows = bestRowsMemo,
+                        favRows = favRowsMemo,
                         
                         qName = qName, onName = { qName = it },
                         qCountry = qCountry, onCountry = { qCountry = it },
@@ -557,7 +564,8 @@ class MainActivity : ComponentActivity() {
                         },
                         onNext = { sendAction(RadioWatchService.ACTION_NOTIF_NEXT) },
                         onPrev = { sendAction(RadioWatchService.ACTION_NOTIF_PREV) },
-                        onPickRadio = { list, index -> menuOpen = false; playRadio(list, index) },
+                        onPickRadio = { list, index -> menuOpen = false; playRadio(list, index, asQueue = true) },
+                        onPickOneRadio = { list, i -> menuOpen = false; playRadio(list, i, asQueue = false) },
                         onPickLocal = { list, index -> menuOpen = false; playLocal(list, index) },
                         onToggleFav = { s -> toggleFav(s.url) },
                         onAddToTab = { s -> pickStation = s },
@@ -598,6 +606,9 @@ class MainActivity : ComponentActivity() {
                         posMs = posMs,
                         durMs = durMs,
                         isLocalNow = isLocalNow,
+                        canSkip = skipMode != "off",
+                        skipMode = skipMode,
+                        tempRows = tempStations,
 
                         onToggleBest = { toggleBest(it.uri) },
                         onScan = { reloadLocal() },
@@ -975,7 +986,7 @@ class MainActivity : ComponentActivity() {
                     )
                 )
             }
-            out.take(8)
+            out.take(10)
         } catch (_: Exception) {
             emptyList()
         }
@@ -987,7 +998,7 @@ class MainActivity : ComponentActivity() {
             val cur = loadRecentStations().filter { it.url != s.url }.toMutableList()
             cur.add(0, s)
             val arr = JSONArray()
-            cur.take(8).forEach { x ->
+            cur.take(10).forEach { x ->
                 arr.put(
                     org.json.JSONObject()
                         .put("url", x.url)
@@ -998,14 +1009,14 @@ class MainActivity : ComponentActivity() {
                 )
             }
             getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-                .edit().putString("recentStations", arr.toString()).apply()
-            recentStations = cur.take(8)
+                .edit().putString("recentStations", arr.toString()).commit()
+            recentStations = cur.take(10)
         } catch (_: Exception) {}
     }
 
-    private fun visibleRadio(): List<Station> {
+    private fun visibleRadio(tabOverride: String? = null): List<Station> {
         addedRev // observe
-        val tab = currentTab()
+        val tab = tabOverride ?: currentTab()
         val deleted = TabStore.deleted(this, tab)
         return when (tab) {
             "fav" -> {
@@ -1124,6 +1135,7 @@ class MainActivity : ComponentActivity() {
         currentCountry = p.getString(BluetoothAutoPlayPlugin.KEY_COUNTRY, "-") ?: "-"
         currentFavicon = p.getString(BluetoothAutoPlayPlugin.KEY_FAVICON, "") ?: ""
         currentUrl = p.getString(BluetoothAutoPlayPlugin.KEY_URL, "") ?: ""
+        skipMode = p.getString(BluetoothAutoPlayPlugin.KEY_SKIP_MODE, "radio") ?: "radio"
         // Reported only (KEY_IS_PLAYING). Never KEY_PLAY for UI chrome.
         isPlaying = p.getBoolean(BluetoothAutoPlayPlugin.KEY_IS_PLAYING, false)
         val th = ThemeStore.get(this)
@@ -1265,33 +1277,51 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun playRadio(list: List<Station>, index: Int) {
+    private fun playRadio(list: List<Station>, index: Int, asQueue: Boolean = true) {
         if (index !in list.indices) return
         val s = list[index]
         pushRecentStation(s)
         stationName = s.name
         trackTitle = ""
+        currentFavicon = s.favicon
+        currentUrl = s.url
+        currentGenre = s.genre
+        currentCountry = s.country
+        isLocalNow = false
+        skipMode = if (asQueue) "radio" else "temp"
+        if (!asQueue) tempStations = list
+        val ed = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE).edit()
+            .putString(LocalMusicPlugin.KEY_MODE, "radio")
+            .putString(BluetoothAutoPlayPlugin.KEY_SKIP_MODE, skipMode)
+            .putString(BluetoothAutoPlayPlugin.KEY_URL, s.url)
+            .putString(BluetoothAutoPlayPlugin.KEY_NAME, s.name)
+            .putString(BluetoothAutoPlayPlugin.KEY_TRACK, "")
+            .putString(BluetoothAutoPlayPlugin.KEY_FAVICON, s.favicon)
+            .putString(BluetoothAutoPlayPlugin.KEY_GENRE, s.genre)
+            .putString(BluetoothAutoPlayPlugin.KEY_COUNTRY, s.country)
+            .putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, true)
         val urls = JSONArray(); val names = JSONArray(); val favs = JSONArray()
         val genres = JSONArray(); val countries = JSONArray()
         list.forEach {
             urls.put(it.url); names.put(it.name); favs.put(it.favicon)
             genres.put(it.genre); countries.put(it.country)
         }
-        getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE).edit()
-            .putString(LocalMusicPlugin.KEY_MODE, "radio")
-            .putString(BluetoothAutoPlayPlugin.KEY_URL, s.url)
-            .putString(BluetoothAutoPlayPlugin.KEY_NAME, s.name)
-            .putString(BluetoothAutoPlayPlugin.KEY_FAVICON, s.favicon)
-            .putString(BluetoothAutoPlayPlugin.KEY_GENRE, s.genre)
-            .putString(BluetoothAutoPlayPlugin.KEY_COUNTRY, s.country)
-            .putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, true)
-            .putString(BluetoothAutoPlayPlugin.KEY_QUEUE_URLS, urls.toString())
-            .putString(BluetoothAutoPlayPlugin.KEY_QUEUE_NAMES, names.toString())
-            .putString(BluetoothAutoPlayPlugin.KEY_QUEUE_FAVICONS, favs.toString())
-            .putString(BluetoothAutoPlayPlugin.KEY_QUEUE_GENRES, genres.toString())
-            .putString(BluetoothAutoPlayPlugin.KEY_QUEUE_COUNTRIES, countries.toString())
-            .putInt(BluetoothAutoPlayPlugin.KEY_QUEUE_INDEX, index)
-            .apply()
+        if (asQueue) {
+            ed.putString(BluetoothAutoPlayPlugin.KEY_QUEUE_URLS, urls.toString())
+                .putString(BluetoothAutoPlayPlugin.KEY_QUEUE_NAMES, names.toString())
+                .putString(BluetoothAutoPlayPlugin.KEY_QUEUE_FAVICONS, favs.toString())
+                .putString(BluetoothAutoPlayPlugin.KEY_QUEUE_GENRES, genres.toString())
+                .putString(BluetoothAutoPlayPlugin.KEY_QUEUE_COUNTRIES, countries.toString())
+                .putInt(BluetoothAutoPlayPlugin.KEY_QUEUE_INDEX, index)
+        } else {
+            ed.putString(BluetoothAutoPlayPlugin.KEY_TEMP_URLS, urls.toString())
+                .putString(BluetoothAutoPlayPlugin.KEY_TEMP_NAMES, names.toString())
+                .putString(BluetoothAutoPlayPlugin.KEY_TEMP_FAVICONS, favs.toString())
+                .putString(BluetoothAutoPlayPlugin.KEY_TEMP_GENRES, genres.toString())
+                .putString(BluetoothAutoPlayPlugin.KEY_TEMP_COUNTRIES, countries.toString())
+                .putInt(BluetoothAutoPlayPlugin.KEY_TEMP_INDEX, index)
+        }
+        ed.apply()
         startPlay(s.url, s.name)
     }
 
@@ -1306,8 +1336,13 @@ class MainActivity : ComponentActivity() {
             uris.put(it.uri); titles.put(it.title)
             artists.put(it.artist); albumIds.put(it.albumId)
         }
+        currentFavicon = t.albumId
+        currentUrl = t.uri
+        isLocalNow = true
+        skipMode = "local"
         getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE).edit()
             .putString(LocalMusicPlugin.KEY_MODE, "local")
+            .putString(BluetoothAutoPlayPlugin.KEY_SKIP_MODE, "local")
             .putString(LocalMusicPlugin.KEY_LOCAL_URIS, uris.toString())
             .putString(LocalMusicPlugin.KEY_LOCAL_TITLES, titles.toString())
             .putString(LocalMusicPlugin.KEY_LOCAL_ARTISTS, artists.toString())
@@ -1564,6 +1599,7 @@ fun StationScreen(
     bottomTab: String = "home",
     onBottomTab: (String) -> Unit = {},
     bestRows: List<LocalTrack> = emptyList(),
+    favRows: List<Station> = emptyList(),
     onRevealCurrent: () -> Unit = {},
     qName: String, onName: (String) -> Unit,
     qCountry: String, onCountry: (String) -> Unit,
@@ -1633,6 +1669,7 @@ fun StationScreen(
     onNext: () -> Unit,
     onPrev: () -> Unit,
     onPickRadio: (List<Station>, Int) -> Unit,
+    onPickOneRadio: (List<Station>, Int) -> Unit = { _, _ -> },
     onPickLocal: (List<LocalTrack>, Int) -> Unit,
     onToggleFav: (Station) -> Unit,
     onAddToTab: (Station) -> Unit,
@@ -1646,6 +1683,9 @@ fun StationScreen(
     posMs: Long,
     durMs: Long,
     isLocalNow: Boolean,
+    canSkip: Boolean = true,
+    skipMode: String = "radio",
+    tempRows: List<Station> = emptyList(),
     onToggleBest: (LocalTrack) -> Unit,
     onScan: () -> Unit,
     menuOpen: Boolean,
@@ -1854,38 +1894,11 @@ fun StationScreen(
                 ) { Icon(Icons.Filled.MoreVert, contentDescription = "Ще налаштування", tint = text) }
             }
         }
-        // Інфо-панель: тап → Now Playing; свайп вниз → верхня картка; свайп вгору більше не відкриває
+        // Інфо-панель: тап → Now Playing (верхню картку прибрано)
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(card, RoundedCornerShape(12.dp))
-                .pointerInput(Unit) {
-                    detectVerticalDragGestures(
-                        onDragEnd = {
-                            sheetScope.launch {
-                                // як низ: відкрити якщо пройшли ~половину шляху, інакше закрити
-                                if (topA.value > -420f) {
-                                    topShow = true
-                                    topA.animateTo(0f, tween(280))
-                                } else {
-                                    topA.animateTo(-780f, tween(260))
-                                    topShow = false
-                                }
-                            }
-                            infoDy = 0f
-                        },
-                        onDragCancel = { infoDy = 0f }
-                    ) { _, drag ->
-                        infoDy += drag
-                        if (drag > 0 || topShow || infoDy > 8f) {
-                            topShow = true
-                            sheetScope.launch {
-                                // relative як pullA у нижній картці
-                                topA.snapTo((topA.value + drag).coerceIn(-780f, 0f))
-                            }
-                        }
-                    }
-                }
         ) {
             Box(modifier = Modifier.fillMaxWidth()) {
             val glowInf = rememberInfiniteTransition(label = "vizGlow")
@@ -1944,7 +1957,7 @@ fun StationScreen(
                 modifier = Modifier
                     .padding(start = 10.dp)
                     .weight(1f)
-                    .clickable { onCloseMenu(); openTopSheet() }
+                    .clickable { onCloseMenu(); onNow() }
             ) {
                 Text(name, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
                 Text("жанр: $genre", color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
@@ -1962,17 +1975,44 @@ fun StationScreen(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(top = 2.dp, end = 4.dp)
-                    .clickable { onCloseMenu(); openTopSheet() }
+                    .clickable { onCloseMenu(); onNow() }
             )
             } // end info Box overlay
         } // end info Column
         androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(8.dp))
         if (bottomTab == "home") {
-            Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Filled.Home, contentDescription = null, tint = muted, modifier = Modifier.size(56.dp))
-                    Text("Скоро тут щось з'явиться", color = muted, modifier = Modifier.padding(top = 10.dp), style = MaterialTheme.typography.bodyMedium)
-                }
+            val poolAll = (if (allRadio.isNotEmpty()) allRadio else radioRows).filter { it.url != currentUrl }
+            val similarHome: List<Station> = run {
+                val same = if (genre.isNotBlank())
+                    poolAll.filter {
+                        it.genre.contains(genre, ignoreCase = true) ||
+                            (it.genre.isNotBlank() && genre.contains(it.genre, ignoreCase = true))
+                    }
+                else emptyList()
+                (same + poolAll.filter { st -> same.none { it.url == st.url } })
+            }
+            Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
+                HomeTabContent(
+                    favRows = favRows,
+                    heartRows = bestRows,
+                    similar = similarHome,
+                    similarTitle = if (genre.isNotBlank()) "Близьке за жанром: $genre" else "Близьке за жанром",
+                    recent = recentStations,
+                    acc = acc, muted = muted, text = text,
+                    onAllStations = { onBottomTab("stations") },
+                    onAllHeart = { onBottomTab("heart") },
+                    onPickRadio = onPickRadio,
+                    onPickLocal = onPickLocal,
+                    onPickOneRadio = onPickOneRadio,
+                    onPlayNow = { onCloseMenu(); onNow() },
+                    sleepLabel = sleepLabel,
+                    btWatch = btWatch,
+                    onSleep = { topSleepOpen = true },
+                    onBt = onBt,
+                    onTheme = { topThemeOpen = true },
+                    onExport = onExport,
+                    onImport = onImport,
+                )
             }
         } else {
         if (tabs.getOrNull(tabIndex) == "search") {
@@ -2235,6 +2275,7 @@ fun StationScreen(
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            if (canSkip) {
             Box(
                 modifier = Modifier.fillMaxHeight().width(52.dp).background(card, RoundedCornerShape(20.dp)).clickable { onPrev() },
                 contentAlignment = Alignment.Center
@@ -2246,7 +2287,9 @@ fun StationScreen(
                     modifier = Modifier.size(30.dp)
                 )
             }
+            }
             PlayBtn(playing = playing, status = status, sizeDp = 60.dp, onClick = onPlayPause, shape = RoundedCornerShape(14.dp))
+            if (canSkip) {
             Box(
                 modifier = Modifier.fillMaxHeight().width(52.dp).background(card, RoundedCornerShape(20.dp)).clickable { onNext() },
                 contentAlignment = Alignment.Center
@@ -2257,6 +2300,7 @@ fun StationScreen(
                     tint = text,
                     modifier = Modifier.size(30.dp)
                 )
+            }
             }
             if (tabs.getOrNull(tabIndex) == "local") {
                 Box(
@@ -2293,334 +2337,6 @@ fun StationScreen(
                 }
             }
         )
-    }
-    // ===== Верхня картка (свайп вниз) =====
-    if (topShow) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color(0x88000000).copy(alpha = ((780f + topA.value) / 780f * 0.5f).coerceIn(0f, 0.5f)))
-                    // закриття лише свайпом вгору
-            )
-            Column(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .fillMaxWidth()
-                    .fillMaxHeight(0.82f)
-                    .graphicsLayer {
-                        translationY = topA.value
-                        // дзеркало низу: closed(-780)≈0.45, open(0)=1
-                        val sc = (1f + topA.value / 1400f).coerceIn(0.45f, 1f)
-                        scaleX = sc; scaleY = sc
-                        transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 0f)
-                    }
-                    .background(Palette.card, RoundedCornerShape(bottomStart = 22.dp, bottomEnd = 22.dp))
-                    .statusBarsPadding()
-                    .pointerInput(Unit) {
-                        detectVerticalDragGestures(
-                            onDragEnd = {
-                                sheetScope.launch {
-                                    if (topA.value < -140f) {
-                                        topA.animateTo(-780f, tween(280))
-                                        topShow = false
-                                        topSleepOpen = false
-                                        topThemeOpen = false
-                                    } else {
-                                        topA.animateTo(0f, tween(280))
-                                        topShow = true
-                                    }
-                                }
-                            }
-                        ) { _, drag ->
-                            sheetScope.launch { topA.snapTo((topA.value + drag).coerceIn(-780f, 0f)) }
-                        }
-                    }
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
-                    .padding(top = 4.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .padding(bottom = 8.dp)
-                        .width(40.dp)
-                        .height(4.dp)
-                        .background(muted, RoundedCornerShape(2.dp))
-                        .align(Alignment.CenterHorizontally)
-                )
-                // Досьє (більше + маленький viz)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(72.dp)
-                            .background(Palette.panel2, RoundedCornerShape(12.dp)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        val u = artUrl(favicon)
-                        if (u.startsWith("http") || u.startsWith("content:")) {
-                            AsyncImage(model = u, contentDescription = null, modifier = Modifier.size(72.dp).clip(RoundedCornerShape(12.dp)), contentScale = ContentScale.Crop)
-                        } else Icon(Icons.Filled.MusicNote, contentDescription = "Немає обкладинки", tint = muted)
-                    }
-                    Column(modifier = Modifier.padding(start = 10.dp).weight(1f)) {
-                        Text(name, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            if (track.isBlank()) "Трек: невідомо" else track,
-                            color = muted,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                        Text(status, color = acc, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall)
-                        val topInf = rememberInfiniteTransition(label = "topDossierViz")
-                        val pulseA = topInf.animateFloat(0.35f, 1f, infiniteRepeatable(tween(420), RepeatMode.Reverse), "pa").value
-                        val pulseB = topInf.animateFloat(0.45f, 1f, infiniteRepeatable(tween(560), RepeatMode.Reverse), "pb").value
-                        val pulseC = topInf.animateFloat(0.3f, 1f, infiniteRepeatable(tween(480), RepeatMode.Reverse), "pc").value
-                        Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.height(18.dp).padding(top = 4.dp)) {
-                            listOf(0.35f, 0.7f, 0.5f, 1f, 0.45f, 0.85f, 0.4f, 0.65f).forEachIndexed { i, base ->
-                                val p = when (i % 3) { 0 -> pulseA; 1 -> pulseB; else -> pulseC }
-                                Box(
-                                    modifier = Modifier.padding(horizontal = 1.dp).width(3.dp)
-                                        .height((if (playing) 4f + 12f * base * p else 3f).dp)
-                                        .background(acc.copy(alpha = if (playing) 0.55f + 0.45f * p else 0.35f), RoundedCornerShape(50))
-                                )
-                            }
-                        }
-                    }
-                    val isLocalCard = showLocal || currentUrl.startsWith("content:")
-                    Icon(
-                        if (if (isLocalCard) bestUris.contains(currentUrl) else favUrls.contains(currentUrl))
-                            Icons.Filled.Star else Icons.Filled.StarBorder,
-                        contentDescription = if (if (isLocalCard) bestUris.contains(currentUrl) else favUrls.contains(currentUrl))
-                            "Прибрати з улюблених" else "Додати в улюблені",
-                        tint = acc,
-                        modifier = Modifier
-                            .padding(start = 6.dp)
-                            .size(32.dp)
-                            .clickable {
-                                if (isLocalCard) {
-                                    localRows.firstOrNull { it.uri == currentUrl }?.let { onToggleBest(it) }
-                                } else {
-                                    onToggleFav(Station(currentUrl, name, genre, country, favicon, "fav"))
-                                }
-                            }
-                    )
-                }
-                // Схожі з усіх вкладок (той самий жанр), 8 шт, по 4 в ряд
-                val poolAll = (if (allRadio.isNotEmpty()) allRadio else radioRows).filter { it.url != currentUrl }
-                val similarRadio: List<Station> = if (!showLocal) {
-                    val same = if (genre.isNotBlank())
-                        poolAll.filter {
-                            it.genre.contains(genre, ignoreCase = true) ||
-                                (genre.isNotBlank() && it.genre.isNotBlank() && genre.contains(it.genre, ignoreCase = true))
-                        }
-                    else emptyList()
-                    (same + poolAll.filter { s -> same.none { it.url == s.url } }).take(8)
-                } else emptyList()
-                val similarLocal: List<LocalTrack> = if (showLocal) {
-                    localRows.filter { it.uri != currentUrl }.take(8)
-                } else emptyList()
-                val simCount = if (showLocal) similarLocal.size else similarRadio.size
-                if (simCount > 0) {
-                    Text(
-                        if (showLocal) "Ще з local"
-                        else if (genre.isNotBlank()) "Жанр: $genre"
-                        else "Схожі станції",
-                        color = muted,
-                        style = MaterialTheme.typography.labelMedium,
-                        modifier = Modifier.padding(top = 8.dp, bottom = 6.dp)
-                    )
-                    val rows: List<List<Int>> = (0 until simCount).toList().chunked(4)
-                    rows.forEach { idxs ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(bottom = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceEvenly
-                        ) {
-                            idxs.forEach { i ->
-                                if (showLocal) {
-                                    val tr = similarLocal[i]
-                                    val iu = if (tr.albumId.isNotBlank() && tr.albumId != "0")
-                                        "content://media/external/audio/albumart/${tr.albumId}" else ""
-                                    Column(
-                                        horizontalAlignment = Alignment.CenterHorizontally,
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .clickable {
-                                                val idx = localRows.indexOfFirst { it.uri == tr.uri }
-                                                if (idx >= 0) onPickLocal(localRows, idx)
-                                            }
-                                            .padding(horizontal = 2.dp)
-                                    ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(56.dp)
-                                                .background(Palette.panel2, RoundedCornerShape(12.dp)),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            if (iu.startsWith("content:")) {
-                                                AsyncImage(model = iu, contentDescription = null, modifier = Modifier.size(56.dp).clip(AppShapes.card), contentScale = ContentScale.Crop)
-                                            } else Icon(Icons.Filled.MusicNote, contentDescription = "Немає обкладинки", tint = muted)
-                                        }
-                                        Text(tr.title, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 3.dp))
-                                    }
-                                } else {
-                                    val s = similarRadio[i]
-                                    Column(
-                                        horizontalAlignment = Alignment.CenterHorizontally,
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .clickable {
-                                                val idx = radioRows.indexOfFirst { it.url == s.url }
-                                                if (idx >= 0) onPickRadio(radioRows, idx)
-                                                else onPickRadio(listOf(s), 0)
-                                            }
-                                            .padding(horizontal = 2.dp)
-                                    ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(56.dp)
-                                                .background(Palette.panel2, RoundedCornerShape(12.dp)),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            if (s.favicon.startsWith("http") && !s.favicon.contains("example.com")) {
-                                                AsyncImage(model = s.favicon, contentDescription = null, modifier = Modifier.size(56.dp).clip(AppShapes.card), contentScale = ContentScale.Crop)
-                                            } else Icon(Icons.Filled.MusicNote, contentDescription = "Немає обкладинки", tint = muted)
-                                        }
-                                        Text(s.name, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 3.dp))
-                                    }
-                                }
-                            }
-                            repeat(4 - idxs.size) { Box(modifier = Modifier.weight(1f)) }
-                        }
-                    }
-                }
-                // Історія — 8 (4×2)
-                if (!showLocal && recentStations.isNotEmpty()) {
-                    Text(
-                        "Історія",
-                        color = muted,
-                        style = MaterialTheme.typography.labelMedium,
-                        modifier = Modifier.padding(top = 6.dp, bottom = 4.dp)
-                    )
-                    // не ховаємо всю історію, якщо поточна = остання
-                    val hist = recentStations.take(8)
-                    hist.chunked(4).forEach { chunk ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceEvenly
-                        ) {
-                            chunk.forEach { s ->
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clickable { onPickRadio(listOf(s), 0) }
-                                        .padding(horizontal = 2.dp)
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(56.dp)
-                                            .background(Palette.panel2, RoundedCornerShape(12.dp)),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        if (s.favicon.startsWith("http") && !s.favicon.contains("example.com")) {
-                                            AsyncImage(model = s.favicon, contentDescription = null, modifier = Modifier.size(56.dp).clip(AppShapes.card), contentScale = ContentScale.Crop)
-                                        } else Icon(Icons.Filled.MusicNote, contentDescription = "Немає обкладинки", tint = muted)
-                                    }
-                                    Text(s.name, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 3.dp))
-                                }
-                            }
-                            repeat(4 - chunk.size) { Box(modifier = Modifier.weight(1f)) }
-                        }
-                    }
-                }
-                // Дії: ряд1 сон/BT/тема, ряд2 експорт/імпорт
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 10.dp, bottom = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .background(Palette.panel, RoundedCornerShape(12.dp))
-                            .clickable { topSleepOpen = true }
-                            .padding(vertical = 12.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Icon(Icons.Filled.Timer, contentDescription = null, tint = text, modifier = Modifier.size(18.dp))
-                            Text(sleepLabel, color = text, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
-                    }
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .background(if (btWatch) acc.copy(alpha = 0.25f) else Palette.panel, RoundedCornerShape(12.dp))
-                            .clickable { onBt() }
-                            .padding(vertical = 12.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Icon(
-                                if (btWatch) Icons.Filled.Bluetooth else Icons.Filled.BluetoothDisabled,
-                                contentDescription = null,
-                                tint = if (btWatch) acc else text,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Text(if (btWatch) "BT: увімкнено" else "BT: вимкнено", color = if (btWatch) acc else text, style = MaterialTheme.typography.labelLarge)
-                        }
-                    }
-                    Box(
-                        modifier = Modifier
-                            .weight(0.75f)
-                            .background(Palette.panel, RoundedCornerShape(12.dp))
-                            .clickable { topThemeOpen = true }
-                            .padding(vertical = 12.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Filled.DarkMode, contentDescription = "Обрати тему оформлення", tint = acc)
-                    }
-                }
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .background(Palette.panel, RoundedCornerShape(12.dp))
-                            .clickable { onExport() }
-                            .padding(vertical = 12.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Icon(Icons.Filled.FileUpload, contentDescription = "Експорт налаштувань", tint = text, modifier = Modifier.size(18.dp))
-                            Text("Експорт", color = text, style = MaterialTheme.typography.labelLarge)
-                        }
-                    }
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .background(Palette.panel, RoundedCornerShape(12.dp))
-                            .clickable { onImport() }
-                            .padding(vertical = 12.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Icon(Icons.Filled.FileDownload, contentDescription = "Імпорт налаштувань", tint = text, modifier = Modifier.size(18.dp))
-                            Text("Імпорт", color = text, style = MaterialTheme.typography.labelLarge)
-                        }
-                    }
-                }
-            }
-        }
     }
     // ===== Права картка: жанрові та кастомні вкладки =====
     // Край поверх картки під час відкриття. Повністю відкриту — край вимкнено
@@ -2866,10 +2582,22 @@ fun StationScreen(
                     onNowClose()
                 }
             })
-            val arts: List<String> = if (showLocal) {
-                localRows.map { if (it.albumId.isNotBlank() && it.albumId != "0") "content://media/external/audio/albumart/${it.albumId}" else "" }
-            } else radioRows.map { it.favicon }
-            val curI0 = if (showLocal) localRows.indexOfFirst { it.uri == currentUrl } else radioRows.indexOfFirst { it.url == currentUrl }
+            val nowLocal = isLocalNow || currentUrl.startsWith("content:")
+            val nowLocalRows = when {
+                showLocal -> localRows
+                nowLocal && bestRows.isNotEmpty() -> bestRows
+                else -> localRows
+            }
+            val nowRadioRows = when {
+                skipMode == "temp" && tempRows.isNotEmpty() -> tempRows
+                skipMode == "radio" && favRows.any { it.url == currentUrl } -> favRows
+                else -> radioRows
+            }
+            val arts: List<String> = if (nowLocal) {
+                nowLocalRows.map { if (it.albumId.isNotBlank() && it.albumId != "0") "content://media/external/audio/albumart/${it.albumId}" else "" }
+            } else nowRadioRows.map { it.favicon }
+            val curI0 = if (nowLocal) nowLocalRows.indexOfFirst { it.uri == currentUrl }
+                        else nowRadioRows.indexOfFirst { it.url == currentUrl }
             val curI = if (curI0 >= 0) curI0 else 0
             // Динамічний колір з поточної обкладинки (як у Spotify) — для розмитого фону картки Now Playing
             val artCtx = LocalContext.current
@@ -2917,14 +2645,13 @@ fun StationScreen(
                 if (pagerUserDrag) return@LaunchedEffect
                 val i = pagerState.settledPage
                 if (arts.isEmpty()) return@LaunchedEffect
-                if (showLocal) {
-                    if (i in localRows.indices && localRows[i].uri != currentUrl) {
-                        onPickLocal(localRows, i)
+                if (nowLocal) {
+                    if (i in nowLocalRows.indices && nowLocalRows[i].uri != currentUrl) {
+                        onPickLocal(nowLocalRows, i)
                     }
-                } else {
-                    if (i in radioRows.indices && radioRows[i].url != currentUrl) {
-                        onPickRadio(radioRows, i)
-                    }
+                } else if (i in nowRadioRows.indices && nowRadioRows[i].url != currentUrl) {
+                    if (skipMode == "temp") onPickOneRadio(nowRadioRows, i)
+                    else onPickRadio(nowRadioRows, i)
                 }
             }
             LaunchedEffect(curI) {
@@ -2996,8 +2723,8 @@ fun StationScreen(
                             .fillMaxWidth()
                             .height(318.dp),
                         key = { page ->
-                            if (showLocal) localRows.getOrNull(page)?.uri ?: "p$page"
-                            else radioRows.getOrNull(page)?.url ?: "p$page"
+                            if (nowLocal) nowLocalRows.getOrNull(page)?.uri ?: "L$page"
+                            else nowRadioRows.getOrNull(page)?.url ?: "R$page"
                         }
                     ) { page ->
                         val dist = (pagerState.currentPage - page) + pagerState.currentPageOffsetFraction
@@ -3041,12 +2768,15 @@ fun StationScreen(
                                 // Спочатку -- іконка/фавікон станції. Якщо відомий виконавець (для
                                 // локального треку -- з тегів, для радіо -- з ICY на сторінці, що
                                 // зараз грає), підміняємо на його фото з відкритого API.
-                                val pageArtist = if (showLocal) {
-                                    localRows.getOrNull(page)?.artist ?: ""
+                                val pageArtist = if (nowLocal) {
+                                    nowLocalRows.getOrNull(page)?.artist ?: ""
                                 } else if (page == curI) {
                                     artistFromTrackTitle(track)
                                 } else ""
-                                val artistPhoto by rememberArtistPhotoUrl(pageArtist)
+                                val artistPhoto by rememberArtistPhotoUrl(
+                                    pageArtist,
+                                    (if (nowLocal) "L" else "R") + currentUrl + page
+                                )
                                 val photo = artistPhoto
                                 val fallbackArt = arts.getOrNull(page) ?: ""
                                 when {
@@ -3069,7 +2799,7 @@ fun StationScreen(
                         }
                     }
                     val pagerDragModifier: Modifier =
-                        if (!showLocal && !isLocalNow && !currentUrl.startsWith("content:") && arts.isNotEmpty()) {
+                        if (!nowLocal && arts.isNotEmpty()) {
                             Modifier.pointerInput(currentUrl, pageCount) {
                                 detectHorizontalDragGestures(
                                     onDragStart = { pagerUserDrag = true },
@@ -3085,12 +2815,12 @@ fun StationScreen(
                                             pagerState.animateScrollToPage(target)
                                             pagerUserDrag = false
                                             // зміна станції лише після відпускання
-                                            if (showLocal) {
-                                                if (target in localRows.indices && localRows[target].uri != currentUrl)
-                                                    onPickLocal(localRows, target)
-                                            } else {
-                                                if (target in radioRows.indices && radioRows[target].url != currentUrl)
-                                                    onPickRadio(radioRows, target)
+                                            if (nowLocal) {
+                                                if (target in nowLocalRows.indices && nowLocalRows[target].uri != currentUrl)
+                                                    onPickLocal(nowLocalRows, target)
+                                            } else if (target in nowRadioRows.indices && nowRadioRows[target].url != currentUrl) {
+                                                if (skipMode == "temp") onPickOneRadio(nowRadioRows, target)
+                                                else onPickRadio(nowRadioRows, target)
                                             }
                                         }
                                     },
@@ -3186,7 +2916,8 @@ fun StationScreen(
                         LazyRow(state = stripState, modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             itemsIndexed(arts) { i, u ->
                                 val label = when {
-                                    showLocal && i in localRows.indices -> localRows[i].title
+                                    nowLocal && i in nowLocalRows.indices -> nowLocalRows[i].title
+                                    i in nowRadioRows.indices -> nowRadioRows[i].name
                                     i in radioRows.indices -> radioRows[i].name
                                     else -> ""
                                 }
@@ -3195,8 +2926,11 @@ fun StationScreen(
                                     modifier = Modifier
                                         .width(64.dp)
                                         .clickable {
-                                            if (showLocal && i in localRows.indices) onPickLocal(localRows, i)
-                                            else if (i in radioRows.indices) onPickRadio(radioRows, i)
+                                            if (nowLocal && i in nowLocalRows.indices) onPickLocal(nowLocalRows, i)
+                                            else if (i in nowRadioRows.indices) {
+                                                if (skipMode == "temp") onPickOneRadio(nowRadioRows, i)
+                                                else onPickRadio(nowRadioRows, i)
+                                            }
                                         }
                                 ) {
                                     Box(modifier = Modifier.size(56.dp), contentAlignment = Alignment.Center) {
@@ -3229,6 +2963,7 @@ fun StationScreen(
                     }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(top = 4.dp, bottom = 6.dp)) {
+                    if (canSkip) {
                     Box(
                         modifier = Modifier
                             .size(80.dp)
@@ -3238,7 +2973,9 @@ fun StationScreen(
                     ) {
                         Icon(Icons.Filled.SkipPrevious, contentDescription = "Попередня станція", tint = text, modifier = Modifier.size(40.dp))
                     }
+                    }
                     PlayBtn(playing = playing, status = status, sizeDp = 80.dp, onClick = onPlayPause)
+                    if (canSkip) {
                     Box(
                         modifier = Modifier
                             .size(80.dp)
@@ -3247,6 +2984,7 @@ fun StationScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(Icons.Filled.SkipNext, contentDescription = "Наступна станція", tint = text, modifier = Modifier.size(40.dp))
+                    }
                     }
                 }
                 }

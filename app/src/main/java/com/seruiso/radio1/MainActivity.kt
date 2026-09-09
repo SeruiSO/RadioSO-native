@@ -1462,6 +1462,7 @@ private fun BottomNavBar(
     acc: Color,
     muted: Color,
     card: Color,
+    onSwipeUp: () -> Unit = {},
 ) {
     val items = listOf(
         Triple("home", "Дім", Icons.Filled.Home),
@@ -1471,12 +1472,24 @@ private fun BottomNavBar(
         Triple("tabs", "Вкладки", Icons.Filled.Category),
         Triple("search", "Пошук", Icons.Filled.Search),
     )
+    var swipeAcc by androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 8.dp)
+            .padding(top = 4.dp)
             .background(card, RoundedCornerShape(20.dp))
-            .padding(vertical = 6.dp),
+            .pointerInput(Unit) {
+                detectVerticalDragGestures(
+                    onDragEnd = {
+                        if (swipeAcc < -48f) onSwipeUp()
+                        swipeAcc = 0f
+                    },
+                    onDragCancel = { swipeAcc = 0f }
+                ) { _, drag ->
+                    swipeAcc += drag
+                }
+            }
+            .padding(vertical = 3.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -1485,11 +1498,11 @@ private fun BottomNavBar(
             Column(
                 modifier = Modifier
                     .clickable { onSelect(key) }
-                    .padding(horizontal = 4.dp, vertical = 4.dp),
+                    .padding(horizontal = 2.dp, vertical = 2.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Icon(icon, contentDescription = label, tint = if (selected) acc else muted, modifier = Modifier.size(24.dp))
-                Text(label, color = if (selected) acc else muted, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 2.dp))
+                Icon(icon, contentDescription = label, tint = if (selected) acc else muted, modifier = Modifier.size(28.dp))
+                Text(label, color = if (selected) acc else muted, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 0.dp))
             }
         }
     }
@@ -1621,6 +1634,7 @@ fun StationScreen(
         status: String,
         sizeDp: androidx.compose.ui.unit.Dp,
         onClick: () -> Unit,
+        shape: androidx.compose.ui.graphics.Shape = AppShapes.hero,
     ) {
         val st = status.lowercase()
         val busy = !playing && (
@@ -1649,7 +1663,7 @@ fun StationScreen(
             modifier = Modifier
                 .size(sizeDp)
                 .graphicsLayer { scaleX = sc; scaleY = sc }
-                .background(acc, AppShapes.hero)
+                .background(acc, shape)
                 .clickable(
                     interactionSource = interaction,
                     indication = null
@@ -2128,7 +2142,7 @@ fun StationScreen(
         }
         // Рядок жанрових вкладок перенесено у праву панель (RightTabsPanel).
         Box(
-            modifier = Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 8.dp).pointerInput(Unit) {
+            modifier = Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 4.dp).pointerInput(Unit) {
                 detectVerticalDragGestures(
                     onDragEnd = {
                         if (!nowOpen) {
@@ -2152,43 +2166,47 @@ fun StationScreen(
             }
         ) {
         Row(
-            modifier = Modifier.align(Alignment.Center).fillMaxWidth(),
+            modifier = Modifier
+                .align(Alignment.Center)
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 4.dp)
+                .height(68.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
-                modifier = Modifier.size(78.dp).background(card, RoundedCornerShape(16.dp)).clickable { onPrev() },
+                modifier = Modifier.fillMaxHeight().width(52.dp).background(card, RoundedCornerShape(20.dp)).clickable { onPrev() },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     Icons.Filled.SkipPrevious,
                     contentDescription = "Попередня станція",
                     tint = text,
-                    modifier = Modifier.size(36.dp)
+                    modifier = Modifier.size(30.dp)
                 )
             }
-            PlayBtn(playing = playing, status = status, sizeDp = 78.dp, onClick = onPlayPause)
+            PlayBtn(playing = playing, status = status, sizeDp = 60.dp, onClick = onPlayPause, shape = RoundedCornerShape(14.dp))
             Box(
-                modifier = Modifier.size(78.dp).background(card, RoundedCornerShape(16.dp)).clickable { onNext() },
+                modifier = Modifier.fillMaxHeight().width(52.dp).background(card.copy(alpha = 0.90f), RoundedCornerShape(12.dp)).clickable { onNext() },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     Icons.Filled.SkipNext,
                     contentDescription = "Наступна станція",
                     tint = text,
-                    modifier = Modifier.size(36.dp)
+                    modifier = Modifier.size(30.dp)
                 )
             }
             if (tabs.getOrNull(tabIndex) == "local") {
                 Box(
-                    modifier = Modifier.size(56.dp).background(Palette.panel, RoundedCornerShape(12.dp)).clickable { onScan() },
+                    modifier = Modifier.size(40.dp).background(Palette.panel.copy(alpha = 0.90f), RoundedCornerShape(12.dp)).clickable { onScan() },
                     contentAlignment = Alignment.Center
-                ) { Text("Сканувати", color = acc, style = MaterialTheme.typography.bodySmall) }
+                ) { Text("Скан", color = acc, style = MaterialTheme.typography.labelSmall) }
             }
         }
             Icon(Icons.Filled.KeyboardArrowUp, contentDescription = "Відкрити Now Playing", tint = muted, modifier = Modifier.align(Alignment.CenterEnd).clickable { onNow() }.padding(4.dp).size(28.dp))
         }
-        BottomNavBar(current = bottomTab, onSelect = onBottomTab, acc = acc, muted = muted, card = card)
+        BottomNavBar(current = bottomTab, onSelect = onBottomTab, acc = acc, muted = muted, card = card, onSwipeUp = { if (!nowOpen) onNow() })
     }
     // ===== Верхня картка (свайп вниз) =====
     if (topShow) {

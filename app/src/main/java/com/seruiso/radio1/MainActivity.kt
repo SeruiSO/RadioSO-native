@@ -411,9 +411,7 @@ class MainActivity : ComponentActivity() {
                         searchOpen = searchOpen,
                         onSearchOpen = { searchOpen = !searchOpen },
                         onSearch = { runSearch(); searchOpen = false },
-                        onRightOpen = {
-                            autoSearchByGeo()
-                        },
+                        onRightOpen = { },
                         suggestFor = suggestFor,
                         onSuggestFor = { suggestFor = it },
                         nameHints = SearchHints.past(this) + SearchHints.names,

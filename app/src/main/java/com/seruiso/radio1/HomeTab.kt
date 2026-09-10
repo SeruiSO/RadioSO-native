@@ -123,12 +123,18 @@ private fun HomeSectionHeader(title: String, acc: Color, text: Color, onAll: (()
 private fun HomeEmpty(hint: String, muted: Color, icon: ImageVector? = null) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.padding(bottom = 10.dp, start = 2.dp, end = 8.dp),
+        horizontalArrangement = Arrangement.Center,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp)
+            .padding(bottom = 10.dp)
+            .background(Palette.panel.copy(alpha = 0.55f), RoundedCornerShape(12.dp))
+            .padding(horizontal = 12.dp),
     ) {
-        Text(hint, color = muted, style = MaterialTheme.typography.bodySmall)
         if (icon != null) {
-            Icon(icon, contentDescription = null, tint = muted, modifier = Modifier.padding(start = 6.dp).size(14.dp))
+            Icon(icon, contentDescription = null, tint = muted, modifier = Modifier.size(16.dp).padding(end = 8.dp))
         }
+        Text(hint, color = muted, style = MaterialTheme.typography.bodySmall)
     }
 }
 

@@ -85,6 +85,8 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.OutlinedTextField
@@ -192,6 +194,22 @@ private fun tabLabel(tab: String): String = when (tab.lowercase()) {
     "trance" -> "Trance"
     "pop" -> "Pop"
     else -> tab.replaceFirstChar { it.uppercase() }
+}
+
+/** Статус ефіру для інфо-панелі; решта йде в тост. */
+private fun playbackInfoText(status: String): String? {
+    val x = status.trim().lowercase()
+    if (x.isEmpty() || x == "готово") return null
+    return when {
+        x.startsWith("відтвор") -> "Відтворення"
+        x == "пауза" || x.contains("таймер сну: пауза") -> "Пауза"
+        x.startsWith("стоп") -> "Стоп"
+        x.contains("буфер") -> "Буфер"
+        x.startsWith("підключ") -> "Підключення"
+        x == "запуск" -> "Запуск"
+        x.contains("#") -> status.trim()
+        else -> null
+    }
 }
 
 
@@ -1862,15 +1880,23 @@ fun StationScreen(
         }
     }
     val scope = rememberCoroutineScope()
+    var toastOn by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    var toastTxt by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
+    LaunchedEffect(status) {
+        if (playbackInfoText(status) != null || status.isBlank() || status == "готово") {
+            return@LaunchedEffect
+        }
+        toastTxt = status
+        toastOn = true
+        kotlinx.coroutines.delay(2000)
+        toastOn = false
+    }
     Box(modifier = Modifier.fillMaxSize().background(bg).navigationBarsPadding()) {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(top = 28.dp, start = 12.dp, end = 12.dp, bottom = 16.dp)
     ) {
-
-        // Тост-банер зверху (~2 с)
-
 
         Box(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).height(48.dp)) {
             Row(
@@ -1965,10 +1991,56 @@ fun StationScreen(
                     .clickable { onCloseMenu(); onNow() }
             ) {
                 Text(name, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
-                Text("жанр: $genre", color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
-                Text("країна: $country", color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
-                Text(if (track.isBlank()) "Трек: невідомо" else track, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
-                Text(status, color = acc, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (genre.isNotBlank() || country.isNotBlank()) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.padding(top = 3.dp)
+                    ) {
+                        if (genre.isNotBlank()) {
+                            Text(
+                                genre,
+                                color = muted,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                style = MaterialTheme.typography.labelSmall,
+                                modifier = Modifier
+                                    .background(Palette.panel2, RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                            )
+                        }
+                        if (country.isNotBlank()) {
+                            Text(
+                                country,
+                                color = muted,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                style = MaterialTheme.typography.labelSmall,
+                                modifier = Modifier
+                                    .background(Palette.panel2, RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                }
+                Text(
+                    if (track.isBlank()) "Трек невідомий" else track,
+                    color = text,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+                val playInfo = playbackInfoText(status)
+                if (playInfo != null) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.padding(top = 4.dp)
+                    ) {
+                        Box(modifier = Modifier.size(6.dp).background(acc, CircleShape))
+                        Text(playInfo, color = acc, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
             }
             // vis replaced by glow overlay
             } // end info Row
@@ -2056,7 +2128,7 @@ fun StationScreen(
             }
         }
         if (showLocal) {
-            if (localRows.isEmpty()) Text("Немає треків. Натисни «Сканувати».", color = muted)
+            if (localRows.isEmpty()) EmptySlot("Немає треків. Натисни «Сканувати».", muted)
             LazyColumn(modifier = Modifier.weight(1f), state = listState, userScrollEnabled = !dragging) {
                 itemsIndexed(localRows, key = { _, x -> x.uri }) { index, item ->
                     Row(
@@ -2119,6 +2191,18 @@ fun StationScreen(
             }
         } else {
             LazyColumn(modifier = Modifier.weight(1f), state = listState, userScrollEnabled = !dragging) {
+                if (radioRows.isEmpty()) {
+                    item {
+                        EmptySlot(
+                            when {
+                                tabs.getOrNull(tabIndex) == "search" || bottomTab == "search" -> "нічого не знайдено"
+                                tabs.getOrNull(tabIndex) == "fav" || bottomTab == "stations" -> "додайте станції до улюблених"
+                                else -> "поки порожньо"
+                            },
+                            muted
+                        )
+                    }
+                }
                 itemsIndexed(radioRows, key = { i, s -> s.tab + s.url + i }) { index, s ->
                     Row(
                         modifier = Modifier
@@ -2205,12 +2289,7 @@ fun StationScreen(
                     }
                     if (bestRows.isEmpty()) {
                         item {
-                            Text(
-                                "Немає обраних локальних. Додай ♥ у «Музика».",
-                                color = muted,
-                                style = MaterialTheme.typography.bodySmall,
-                                modifier = Modifier.padding(bottom = 6.dp)
-                            )
+                            EmptySlot("Немає обраних локальних. Додай ♥ у «Музика».", muted)
                         }
                     }
                     itemsIndexed(bestRows, key = { i, x -> "best-" + x.uri + i }) { _, item ->
@@ -2364,38 +2443,69 @@ fun StationScreen(
         acc = acc, muted = muted, text = text, card = card,
     )
 
+        androidx.compose.animation.AnimatedVisibility(
+            visible = toastOn,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .zIndex(40f),
+            enter = slideInVertically { -it } + fadeIn(),
+            exit = slideOutVertically { -it } + fadeOut()
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+            ) {
+                Text(
+                    toastTxt,
+                    color = text,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Palette.panel2, RoundedCornerShape(14.dp))
+                        .border(1.dp, acc.copy(alpha = 0.40f), RoundedCornerShape(14.dp))
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                )
+            }
+        }
 
     if (topSleepOpen) {
         AlertDialog(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            containerColor = card,
             onDismissRequest = { topSleepOpen = false },
             title = { Text("Таймер сну", color = text) },
             text = {
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    listOf(15, 30, 60, 0).forEach { m ->
-                        Box(
-                            modifier = Modifier
-                                .background(Palette.panel2, RoundedCornerShape(12.dp))
-                                .clickable {
-                                    onSleep(m)
-                                    topSleepOpen = false
-                                }
-                                .padding(horizontal = 14.dp, vertical = 10.dp)
-                        ) {
-                            Text(if (m == 0) "Вимкнено" else "${m} хв", color = acc)
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(15 to 30, 60 to 0).forEach { (a, b) ->
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf(a, b).forEach { m ->
+                                val lab = if (m == 0) "Вимкнути" else "${m} хв"
+                                val selected = if (m == 0) sleepLabel == "Таймер сну" else sleepLabel.contains("${m} хв")
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(44.dp)
+                                        .background(if (selected) acc.copy(alpha = 0.28f) else Palette.panel, RoundedCornerShape(12.dp))
+                                        .border(1.dp, if (selected) acc else muted.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
+                                        .clickable { onSleep(m); topSleepOpen = false },
+                                    contentAlignment = Alignment.Center
+                                ) { Text(lab, color = if (selected) acc else text) }
+                            }
                         }
                     }
                 }
             },
             confirmButton = {},
             dismissButton = {
-                Button(onClick = { topSleepOpen = false }) { Text("Закрити") }
+                TextButton(onClick = { topSleepOpen = false }) { Text("Закрити", color = muted) }
             }
         )
     }
     if (topThemeOpen) {
         AlertDialog(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            containerColor = card,
             onDismissRequest = { topThemeOpen = false },
             title = { Text("Тема", color = text) },
             text = {
@@ -2428,7 +2538,7 @@ fun StationScreen(
             },
             confirmButton = {},
             dismissButton = {
-                Button(onClick = { topThemeOpen = false }) { Text("Закрити") }
+                TextButton(onClick = { topThemeOpen = false }) { Text("Закрити", color = muted) }
             }
         )
     }
@@ -2447,7 +2557,7 @@ fun StationScreen(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(top = 76.dp, end = 12.dp)
-                    .width(200.dp)
+                    .width(220.dp)
                     .background(Palette.panel2, RoundedCornerShape(12.dp))
                     .padding(8.dp)
             ) {
@@ -2483,9 +2593,20 @@ fun StationScreen(
                     Text(sleepLabel, color = text)
                 }
                 if (sleepMenu) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf(15, 30, 60, 0).forEach { m ->
-                            Text(if (m == 0) "Вимкнено" else "${m}хв", color = acc, modifier = Modifier.clickable { onSleep(m); onCloseMenu() }.padding(6.dp))
+                    Column(modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf(15 to 30, 60 to 0).forEach { (a, b) ->
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                listOf(a, b).forEach { m ->
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(36.dp)
+                                            .background(Palette.panel, RoundedCornerShape(10.dp))
+                                            .clickable { onSleep(m); onCloseMenu() },
+                                        contentAlignment = Alignment.Center
+                                    ) { Text(if (m == 0) "Вимк." else "${m} хв", color = acc, style = MaterialTheme.typography.labelSmall) }
+                                }
+                            }
                         }
                     }
                 }
@@ -2503,25 +2624,34 @@ fun StationScreen(
     }
     if (pickStation != null) {
         AlertDialog(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            containerColor = card,
             onDismissRequest = onCancelPick,
-            title = { Text("Виберіть вкладку") },
+            title = { Text("Виберіть вкладку", color = text) },
             text = {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                     targetTabs.forEach { tab ->
-                        Text(tabLabel(tab), modifier = Modifier.fillMaxWidth().clickable { onPickTabForStation(tab) }.padding(12.dp))
+                        Text(
+                            tabLabel(tab),
+                            color = text,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp)
+                                .background(Palette.panel, RoundedCornerShape(12.dp))
+                                .clickable { onPickTabForStation(tab) }
+                                .padding(horizontal = 14.dp, vertical = 12.dp)
+                        )
                     }
                 }
             },
             confirmButton = {},
-            dismissButton = { Button(onClick = onCancelPick) { Text("Скасувати") } }
+            dismissButton = { TextButton(onClick = onCancelPick) { Text("Скасувати", color = muted) } }
         )
     }
     if (newTabOpen) {
         AlertDialog(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            containerColor = card,
             onDismissRequest = onCancelNewTab,
-            title = { Text("Створити нову вкладку") },
+            title = { Text("Створити нову вкладку", color = text) },
             text = {
                 Column {
                     OutlinedTextField(
@@ -2535,38 +2665,59 @@ fun StationScreen(
                     )
                 }
             },
-            confirmButton = { Button(onClick = onCreateTab) { Text("Створити") } },
-            dismissButton = { Button(onClick = onCancelNewTab) { Text("Скасувати") } }
+            confirmButton = {
+                Button(
+                    onClick = onCreateTab,
+                    colors = ButtonDefaults.buttonColors(containerColor = acc, contentColor = Color(0xFF0A0A0C))
+                ) { Text("Створити") }
+            },
+            dismissButton = { TextButton(onClick = onCancelNewTab) { Text("Скасувати", color = muted) } }
         )
     }
     if (editTab != null) {
         AlertDialog(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            containerColor = card,
             onDismissRequest = onCancelEdit,
-            title = { Text("Вкладка $editTab") },
-            text = { OutlinedTextField(value = editName, onValueChange = onEditName, singleLine = true) },
-            confirmButton = { Button(onClick = onRenameTab) { Text("Перейменувати") } },
-            dismissButton = {
-                Row {
-                    Button(onClick = onDeleteTab) { Text(if (deleteArmed) "Точно видалити?" else "Видалити") }
-                    Button(onClick = onCancelEdit) { Text("Скасувати") }
+            title = { Text("Вкладка $editTab", color = text) },
+            text = {
+                Column {
+                    OutlinedTextField(value = editName, onValueChange = onEditName, singleLine = true)
+                    androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(10.dp))
+                    Button(
+                        onClick = onRenameTab,
+                        modifier = Modifier.fillMaxWidth().height(44.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = acc, contentColor = Color(0xFF0A0A0C))
+                    ) { Text("Перейменувати") }
                 }
-            }
+            },
+            confirmButton = {
+                if (deleteArmed)
+                    Button(
+                        onClick = onDeleteTab,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC62828), contentColor = Color.White)
+                    ) { Text("Точно видалити?") }
+                else
+                    TextButton(onClick = onDeleteTab) { Text("Видалити", color = Color(0xFFE53935)) }
+            },
+            dismissButton = { TextButton(onClick = onCancelEdit) { Text("Скасувати", color = muted) } }
         )
     }
     if (pendingDelete != null) {
         AlertDialog(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            containerColor = card,
             onDismissRequest = onCancelDelete,
-            title = { Text("Видалити станцію?") },
-            text = { Text(pendingDelete?.name ?: "") },
+            title = { Text("Видалити станцію?", color = text) },
+            text = { Text(pendingDelete?.name ?: "", color = muted) },
             confirmButton = {
-                Button(onClick = {
-                    pendingDelete?.let { onDeleteStation(it) }
-                    onCancelDelete()
-                }) { Text("Так") }
+                Button(
+                    onClick = {
+                        pendingDelete?.let { onDeleteStation(it) }
+                        onCancelDelete()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC62828), contentColor = Color.White)
+                ) { Text("Видалити") }
             },
-            dismissButton = { Button(onClick = onCancelDelete) { Text("Ні") } }
+            dismissButton = { TextButton(onClick = onCancelDelete) { Text("Скасувати", color = muted) } }
         )
     }
     if (nowOpen || sheetShow) {
@@ -3005,6 +3156,24 @@ fun StationScreen(
 
 }
 
+
+@Composable
+private fun EmptySlot(hint: String, muted: Color) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp)
+            .padding(bottom = 8.dp)
+            .background(Palette.panel.copy(alpha = 0.55f), RoundedCornerShape(12.dp))
+            .border(1.dp, muted.copy(alpha = 0.28f), RoundedCornerShape(12.dp))
+            .padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center
+    ) {
+        Text(hint, color = muted, style = MaterialTheme.typography.bodySmall)
+    }
+}
+
 @Composable
 private fun BoxScope.RightTabsPanel(
     rightA: Animatable<Float, *>,
@@ -3122,12 +3291,7 @@ private fun BoxScope.RightTabsPanel(
                 )
                 val genreTabs = tabs.withIndex().filter { it.value !in listOf("fav", "best", "local", "search") }
                 if (genreTabs.isEmpty()) {
-                    Text(
-                        "Поки немає жанрових вкладок",
-                        color = muted,
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
+                    EmptySlot("Поки немає жанрових вкладок", muted)
                 }
                 // reverseLayout: перший item знизу — список росте вгору
                 LazyColumn(modifier = Modifier.weight(1f), reverseLayout = true) {
@@ -3152,16 +3316,21 @@ private fun BoxScope.RightTabsPanel(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 5.dp)
+                                .padding(vertical = 4.dp)
                                 .background(
-                                    if (selected) acc.copy(alpha = 0.22f) else card.copy(alpha = 0.55f),
+                                    if (selected) acc.copy(alpha = 0.20f) else Palette.panel,
                                     RoundedCornerShape(14.dp)
+                                )
+                                .border(
+                                    width = if (selected) 1.5.dp else 1.dp,
+                                    color = if (selected) acc else muted.copy(alpha = 0.28f),
+                                    shape = RoundedCornerShape(14.dp)
                                 )
                                 .combinedClickable(
                                     onClick = { onTab(i); closeRightSheet() },
                                     onLongClick = { onLongTab(tab) }
                                 )
-                                .padding(horizontal = 12.dp, vertical = 14.dp),
+                                .padding(horizontal = 12.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(

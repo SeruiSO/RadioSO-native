@@ -103,6 +103,8 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
     private AudioFocusRequest focusRequest;
     private boolean noisyRegistered = false;
     private long ignoreNoisyUntilMs = 0L;
+    private boolean sawA2dpAfterBtStart = false;
+    private Runnable routeWatchTick;
     private ConnectivityManager connectivityManager;
     private ConnectivityManager.NetworkCallback networkCallback;
     private boolean networkCallbackRegistered = false;
@@ -127,31 +129,21 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                     android.util.Log.i("RadioWatch", "NOISY ignored — Android Auto");
                     return;
                 }
-                // Втрачено аудіо-маршрут (навушники/BT). Якщо A2DP ще є — ігнор.
-                if (BtAudio.hasRoute(RadioWatchService.this)) {
-                    android.util.Log.i("RadioWatch", "NOISY ignored — BT route present");
-                    return;
-                }
                 SharedPreferences spNoisy = getSharedPreferences(
                     BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE);
                 boolean watch = spNoisy.getBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, true);
-                // Вікно handoff лише коли увімкнено BT-відстеження (автостарт у машині).
-                // Якщо watch вимкнено — завжди зупиняємо (не лишаємо гру на динаміку телефону).
                 if (watch) {
-                    long lastBt = spNoisy.getLong("lastA2dpConnectMs", 0L);
-                    if (System.currentTimeMillis() - lastBt < BT_HANDOFF_WINDOW_MS) {
-                        android.util.Log.i("RadioWatch", "NOISY ignored — within BT handoff window");
-                        return;
+                    if (player != null && (player.isPlaying() || player.getPlayWhenReady())) {
+                        forceStopPlayback("NOISY classic watch");
                     }
+                    return;
+                }
+                if (BtAudio.hasRoute(RadioWatchService.this)) {
+                    android.util.Log.i("RadioWatch", "NOISY ignored — route present, watch off");
+                    return;
                 }
                 if (player != null && (player.isPlaying() || player.getPlayWhenReady())) {
-                    pausedByFocusLoss = false;
-                    clearPlaybackIntent();
-                    player.pause();
-                    writeActuallyPlaying(false);
-                    notifyForeground();
-                    notifyUiPlayback(false);
-                    android.util.Log.i("RadioWatch", "NOISY → pause (watch=" + watch + ")");
+                    forceStopPlayback("NOISY watch-off");
                 }
             }
         }
@@ -1051,20 +1043,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         }
 
         if (ACTION_PAUSE.equals(action) || ACTION_NOTIF_PAUSE.equals(action)) {
-            pausedByFocusLoss = false;
-            ignoreNoisyUntilMs = 0L;
-            clearPlaybackIntent();
-            try {
-                getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-                    .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, false).apply();
-            } catch (Exception ignored) {}
-            if (player != null) {
-                player.setPlayWhenReady(false);
-                player.pause();
-            }
-            notifyForeground();
-            notifyUiPlayback(false);
-            android.util.Log.i("RadioWatch", "ACTION_PAUSE — BT gone / user");
+            forceStopPlayback("ACTION_PAUSE");
             return START_STICKY;
         }
 
@@ -1089,7 +1068,12 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                 if (player != null) BtAudio.clearPreferred(player);
                 playLast();
             } else {
+                try {
+                    getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                        .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_AA_ACTIVE, false).apply();
+                } catch (Exception ignored) {}
                 playLastWhenBtReady();
+                armA2dpRouteWatch();
             }
             return START_STICKY;
         }
@@ -1242,6 +1226,86 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         } catch (Exception e) {
             return false;
         }
+    }
+
+    private void cancelBtTicks() {
+        try {
+            if (btReadyTick != null) {
+                mainHandler.removeCallbacks(btReadyTick);
+                btReadyTick = null;
+            }
+        } catch (Exception ignored) {}
+        try {
+            if (routeWatchTick != null) {
+                mainHandler.removeCallbacks(routeWatchTick);
+                routeWatchTick = null;
+            }
+        } catch (Exception ignored) {}
+    }
+
+    private void forceStopPlayback(String reason) {
+        android.util.Log.i("RadioWatch", "forceStopPlayback: " + reason);
+        pausedByFocusLoss = false;
+        ignoreNoisyUntilMs = 0L;
+        sawA2dpAfterBtStart = false;
+        cancelBtTicks();
+        clearPlaybackIntent();
+        try {
+            getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, false).apply();
+        } catch (Exception ignored) {}
+        if (player != null) {
+            try {
+                player.setPlayWhenReady(false);
+                player.pause();
+            } catch (Exception e) {
+                android.util.Log.w("RadioWatch", "forceStop player", e);
+            }
+        }
+        writeActuallyPlaying(false);
+        notifyForeground();
+        notifyUiPlayback(false);
+    }
+
+    private void armA2dpRouteWatch() {
+        if (routeWatchTick != null) {
+            mainHandler.removeCallbacks(routeWatchTick);
+            routeWatchTick = null;
+        }
+        sawA2dpAfterBtStart = BtAudio.hasA2dpOutput(this);
+        routeWatchTick = new Runnable() {
+            @Override public void run() {
+                try {
+                    SharedPreferences sp = getSharedPreferences(
+                        BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE);
+                    if (!sp.getBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, true)) {
+                        routeWatchTick = null;
+                        return;
+                    }
+                    if (BtAudio.isAndroidAutoActive(RadioWatchService.this)) {
+                        mainHandler.postDelayed(this, 2000);
+                        return;
+                    }
+                    if (!sp.getBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, false)) {
+                        routeWatchTick = null;
+                        return;
+                    }
+                    boolean a2dp = BtAudio.hasA2dpOutput(RadioWatchService.this);
+                    if (a2dp) sawA2dpAfterBtStart = true;
+                    else if (sawA2dpAfterBtStart) {
+                        forceStopPlayback("a2dp-route-lost");
+                        routeWatchTick = null;
+                        return;
+                    }
+                    mainHandler.postDelayed(this, 1500);
+                } catch (Exception e) {
+                    android.util.Log.w("RadioWatch", "routeWatch", e);
+                    try { mainHandler.postDelayed(this, 2000); } catch (Exception ignored) {}
+                }
+            }
+        };
+        mainHandler.postDelayed(routeWatchTick, 5000);
+        android.util.Log.i("RadioWatch", "A2DP route watch armed");
     }
 
     private void playLastWhenBtReady() {
@@ -1701,5 +1765,12 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
     public IBinder onBind(Intent intent) {
         IBinder b = super.onBind(intent);
         return b;
+    }
+
+    @Override
+    public boolean onUnbind(Intent intent) {
+        setAaActive(false);
+        android.util.Log.i("RadioWatch", "onUnbind — AA flag cleared");
+        return super.onUnbind(intent);
     }
 }

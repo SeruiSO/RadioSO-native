@@ -12,53 +12,64 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
+import java.util.concurrent.ConcurrentHashMap
+
+private val TITLE_SEPS = listOf(
+    " - ", " – ", " — ", " | ",
+    " / ", " \\ ", " // ",
+    " • ", " ~ ",
+)
+
+private fun looksLikeJunk(t: String): Boolean {
+    val x = t.trim().lowercase()
+    if (x.length < 2) return true
+    if (x in setOf("unknown", "n/a", "null", "-", "--", "---", "advert",
+            "advertisement", "commercial", "promo", "jingle", "id")) return true
+    if (x.startsWith("http") || x.contains("www.")) return true
+    return false
+}
 
 /**
- * Виконавця з ICY-метаданих радіопотоку намагаємось витягти за конвенцією
- * "Виконавець - Назва" (найпоширеніший формат StreamTitle). Це евристика,
- * а не гарантія: не всі станції її дотримуються, тож у сумнівних випадках
- * (немає роздільника, задовгий/закороткий кандидат) краще повернути "",
- * ніж показати фото не того виконавця.
+ * Виконавець з ICY StreamTitle: ліва частина до першого роздільника з пробілами.
+ * Голий / і \ не чіпаємо (AC/DC). Лише " / " і " \ ".
  */
 fun artistFromTrackTitle(title: String): String {
     val t = title.trim()
-    if (t.isEmpty()) return ""
-    for (sep in listOf(" - ", " – ", " — ", " | ")) {
+    if (t.isEmpty() || looksLikeJunk(t)) return ""
+    for (sep in TITLE_SEPS) {
         val idx = t.indexOf(sep)
         if (idx > 0) {
             val a = t.substring(0, idx).trim()
-            if (a.length in 2..80) return a
+            if (a.length in 2..80 && !looksLikeJunk(a)) return a
         }
     }
     return ""
 }
 
 /**
- * Розбиває рядок на окремих виконавців.
- * "A & B", "A feat. B", "A, B", "A x B" → ["A", "B"].
- * Один виконавець лишається списком з одного елемента.
+ * "A & B", "A feat. B", "A / B" (з пробілами) → ["A", "B"].
+ * Голий слеш не сплітить.
  */
 fun splitArtists(raw: String): List<String> {
     var s = raw.trim()
     if (s.isEmpty()) return emptyList()
-    // прибрати типові хвости в дужках: (feat. X), [Official Video] тощо — лише на кінці
     s = s.replace(Regex("""\s*[\(\[][^)\]]*[\)\]]\s*$"""), "").trim()
     if (s.isEmpty()) return emptyList()
-
-    // Порядок важливий: довші маркери спочатку (feat. перед ft.)
     val parts = s.split(
         Regex(
-            """\s*(?:&| and | та | и | feat\.? | ft\.? | featuring | vs\.? | x | × |,)\s*""",
+            """\s*(?:&| and | та | и | feat\.? | ft\.? | featuring | vs\.? | x | × | with |\s+/\s+|\s+\\\s+|;|\+)\s*|,\s*""",
             RegexOption.IGNORE_CASE
         )
     )
         .map { it.trim() }
-        .filter { it.length in 2..60 }
-
+        .filter { it.length in 2..60 && !looksLikeJunk(it) }
     return parts.distinct()
 }
 
 private const val UA = "RadioSO/1.0 (+https://github.com/SeruiSO/RadioSO-native)"
+private val photoCache = ConcurrentHashMap<String, String>()
+
+private fun cacheKey(artist: String) = artist.trim().lowercase()
 
 private fun httpGetJson(urlStr: String, accept: String): String {
     val conn = URL(urlStr).openConnection() as HttpURLConnection
@@ -72,7 +83,6 @@ private fun httpGetJson(urlStr: String, accept: String): String {
     return body
 }
 
-/** Deezer — швидко і без ключа. */
 private fun deezerArtistPhoto(artist: String): String? = try {
     val q = URLEncoder.encode(artist, "UTF-8")
     val body = httpGetJson("https://api.deezer.com/search/artist?q=$q&limit=1", "application/json")
@@ -82,21 +92,36 @@ private fun deezerArtistPhoto(artist: String): String? = try {
         listOf(obj.optString("picture_big"), obj.optString("picture_medium"), obj.optString("picture"))
             .firstOrNull { it.isNotBlank() }
     } else null
-} catch (e: Exception) {
+} catch (_: Exception) {
     null
 }
 
-/** MusicBrainz — ширше охоплення, зокрема українських імен. */
+/** iTunes Search — без ключа, часто є те, чого немає в Deezer. */
+private fun itunesArtistPhoto(artist: String): String? = try {
+    val q = URLEncoder.encode(artist, "UTF-8")
+    val body = httpGetJson(
+        "https://itunes.apple.com/search?term=$q&entity=musicArtist&limit=1",
+        "application/json"
+    )
+    val arr = JSONObject(body).optJSONArray("results")
+    if (arr != null && arr.length() > 0) {
+        val raw = arr.getJSONObject(0).optString("artworkUrl100")
+        if (raw.isNotBlank()) raw.replace("100x100bb", "600x600bb").replace("100x100", "600x600")
+        else null
+    } else null
+} catch (_: Exception) {
+    null
+}
+
 private fun musicBrainzMbid(artist: String): String? = try {
     val q = URLEncoder.encode("artist:$artist", "UTF-8")
     val body = httpGetJson("https://musicbrainz.org/ws/2/artist/?query=$q&fmt=json&limit=1", "application/json")
     val arr = JSONObject(body).optJSONArray("artists")
     if (arr != null && arr.length() > 0) arr.getJSONObject(0).optString("id").ifBlank { null } else null
-} catch (e: Exception) {
+} catch (_: Exception) {
     null
 }
 
-/** Фото за MusicBrainz ID через Wikidata (P434 -> P18). */
 private fun wikidataPhotoByMbid(mbid: String): String? = try {
     val sparql = """
         SELECT ?image WHERE {
@@ -113,35 +138,36 @@ private fun wikidataPhotoByMbid(mbid: String): String? = try {
     if (bindings != null && bindings.length() > 0) {
         bindings.getJSONObject(0).optJSONObject("image")?.optString("value")?.ifBlank { null }
     } else null
-} catch (e: Exception) {
+} catch (_: Exception) {
     null
 }
 
-/** Один виконавець: Deezer → MusicBrainz+Wikidata. */
 private fun photoForSingleArtist(artist: String): String? {
-    if (artist.isBlank()) return null
-    return deezerArtistPhoto(artist)
+    if (artist.isBlank() || looksLikeJunk(artist)) return null
+    val key = cacheKey(artist)
+    photoCache[key]?.let { return it.ifBlank { null } }
+    val photo = deezerArtistPhoto(artist)
+        ?: itunesArtistPhoto(artist)
         ?: musicBrainzMbid(artist)?.let { wikidataPhotoByMbid(it) }
+    photoCache[key] = photo ?: ""
+    return photo
 }
 
-/**
- * Фото виконавця.
- * Якщо в рядку кілька імен ("A & B", "A feat. B") — спочатку перший,
- * якщо не знайшлось — другий. Інакше фавікон станції в UI.
- */
 @Composable
 fun rememberArtistPhotoUrl(artist: String, bust: String = ""): State<String?> {
     val result = remember(artist, bust) { mutableStateOf<String?>(null) }
     LaunchedEffect(artist, bust) {
         result.value = null
-        if (artist.isBlank()) return@LaunchedEffect
-        delay(250) // дебаунс під час свайпу пейджера
+        if (artist.isBlank() || looksLikeJunk(artist)) return@LaunchedEffect
+        delay(250)
         result.value = withContext(Dispatchers.IO) {
-            val candidates = splitArtists(artist)
-            // якщо спліт нічого не дав — пробуємо сирий рядок (рідкісні імена з "/")
-            val list = if (candidates.isNotEmpty()) candidates else listOf(artist.trim())
-            // максимум перші два — щоб не бомбити API на довгих "A, B, C, D"
-            for (name in list.take(2)) {
+            val split = splitArtists(artist)
+            val list = buildList {
+                if (split.size >= 2) add(artist.trim())
+                addAll(split)
+                if (isEmpty()) add(artist.trim())
+            }.distinct().take(3)
+            for (name in list) {
                 val photo = photoForSingleArtist(name)
                 if (photo != null) return@withContext photo
             }

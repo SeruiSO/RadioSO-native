@@ -52,6 +52,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -1784,15 +1785,38 @@ fun StationScreen(
     var dropAt by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(-1) }
     var dragging by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     val listState = rememberLazyListState()
+    val nowLocalUi = isLocalNow || currentUrl.startsWith("content:")
+    val nowLocalRowsUi = when {
+        showLocal -> localRows
+        nowLocalUi && bestRows.isNotEmpty() -> bestRows
+        else -> localRows
+    }
+    val nowRadioRowsUi = when {
+        skipMode == "temp" && tempRows.isNotEmpty() -> tempRows
+        skipMode == "radio" && favRows.any { it.url == currentUrl } -> favRows
+        else -> radioRows
+    }
+    fun skipUi(next: Boolean) {
+        if (nowLocalUi) {
+            val n = nowLocalRowsUi.size
+            if (n == 0) { if (next) onNext() else onPrev(); return }
+            val i0 = nowLocalRowsUi.indexOfFirst { it.uri == currentUrl }.let { if (it < 0) 0 else it }
+            val i = if (next) (i0 + 1) % n else (i0 - 1 + n) % n
+            onPickLocal(nowLocalRowsUi, i)
+        } else {
+            val n = nowRadioRowsUi.size
+            if (n == 0) { if (next) onNext() else onPrev(); return }
+            val i0 = nowRadioRowsUi.indexOfFirst { it.url == currentUrl }.let { if (it < 0) 0 else it }
+            val i = if (next) (i0 + 1) % n else (i0 - 1 + n) % n
+            if (skipMode == "temp") onPickOneRadio(nowRadioRowsUi, i) else onPickRadio(nowRadioRowsUi, i)
+        }
+    }
     val pullA = androidx.compose.runtime.remember { Animatable(560f) }
     var sheetShow by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     val sheetScope = rememberCoroutineScope()
     // Верхня картка (свайп вниз по інфо-панелі)
-    val topA = androidx.compose.runtime.remember { Animatable(-780f) }
-    var topShow by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     var topSleepOpen by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     var topThemeOpen by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
-    var infoDy by androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
     // Права картка пошуку (свайп з правого краю / 🔍)
     val rightA = androidx.compose.runtime.remember { Animatable(1f) } // 1=закрито, 0=відкрито
     var rightShow by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
@@ -1829,22 +1853,6 @@ fun StationScreen(
     }
     // Ліва картка з локальною музикою видалена — весь її функціонал
     // перенесено у вкладку "Обрані" нижньої навігації.
-    fun openTopSheet() {
-        topShow = true
-        sheetScope.launch {
-            topA.snapTo(topA.value.coerceIn(-780f, 0f))
-            topA.animateTo(0f, tween(320))
-            topShow = true
-        }
-    }
-    fun closeTopSheet() {
-        sheetScope.launch {
-            topA.animateTo(-780f, tween(280))
-            topShow = false
-            topSleepOpen = false
-            topThemeOpen = false
-        }
-    }
     LaunchedEffect(nowOpen) {
         if (nowOpen) {
             sheetShow = true
@@ -2264,7 +2272,7 @@ fun StationScreen(
         ) {
             if (canSkip) {
             Box(
-                modifier = Modifier.fillMaxHeight().width(52.dp).background(card, RoundedCornerShape(20.dp)).clickable { onPrev() },
+                modifier = Modifier.fillMaxHeight().width(52.dp).background(card, RoundedCornerShape(20.dp)).clickable { skipUi(false) },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -2278,7 +2286,7 @@ fun StationScreen(
             PlayBtn(playing = playing, status = status, sizeDp = 60.dp, onClick = onPlayPause, shape = RoundedCornerShape(14.dp))
             if (canSkip) {
             Box(
-                modifier = Modifier.fillMaxHeight().width(52.dp).background(card, RoundedCornerShape(20.dp)).clickable { onNext() },
+                modifier = Modifier.fillMaxHeight().width(52.dp).background(card, RoundedCornerShape(20.dp)).clickable { skipUi(true) },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -2334,7 +2342,7 @@ fun StationScreen(
     // Край поверх картки під час відкриття. Повністю відкриту — край вимкнено
     // (повторний свайп вліво більше не закриває).
     val rightFullyOpen = rightShow && rightA.value <= 0.05f
-    val showRightEdge = !topShow && !nowOpen && !sheetShow && !rightFullyOpen
+    val showRightEdge = !nowOpen && !sheetShow && !rightFullyOpen
 
     RightTabsPanel(
         rightA = rightA,
@@ -2625,17 +2633,21 @@ fun StationScreen(
                 initialPage = curI.coerceIn(0, pageCount - 1)
             ) { pageCount }
             var pagerUserDrag by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
-            // Зовнішня зміна станції (⏮⏭ / список) → підкрутити pager
+            var pagerIgnorePick by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(true) }
+            // Зовнішня зміна / перше відкриття — snap БЕЗ play
             LaunchedEffect(curI, pageCount) {
-                val target = curI.coerceIn(0, pageCount - 1)
-                if (!pagerState.isScrollInProgress && pagerState.settledPage != target) {
-                    pagerState.animateScrollToPage(target)
+                pagerIgnorePick = true
+                val target = curI.coerceIn(0, (pageCount - 1).coerceAtLeast(0))
+                if (pagerState.settledPage != target) {
+                    pagerState.scrollToPage(target)
                 }
+                pagerIgnorePick = false
             }
-            // Користувач доскролив сторінку → реально змінити станцію
+            // Лише жест користувача по пейджеру змінює станцію
             LaunchedEffect(pagerState.settledPage) {
-                if (pagerUserDrag) return@LaunchedEffect
+                if (pagerIgnorePick) return@LaunchedEffect
                 val i = pagerState.settledPage
+                if (i == curI) return@LaunchedEffect
                 if (arts.isEmpty()) return@LaunchedEffect
                 if (nowLocal) {
                     if (i in nowLocalRows.indices && nowLocalRows[i].uri != currentUrl) {
@@ -2646,8 +2658,8 @@ fun StationScreen(
                     else onPickRadio(nowRadioRows, i)
                 }
             }
-            LaunchedEffect(curI) {
-                if (arts.isNotEmpty()) stripState.animateScrollToItem((curI - 3).coerceAtLeast(0))
+            LaunchedEffect(curI, arts.size) {
+                if (arts.isNotEmpty()) stripState.animateScrollToItem(curI)
             }
             Box(
                 modifier = Modifier
@@ -2760,11 +2772,12 @@ fun StationScreen(
                                 // Спочатку -- іконка/фавікон станції. Якщо відомий виконавець (для
                                 // локального треку -- з тегів, для радіо -- з ICY на сторінці, що
                                 // зараз грає), підміняємо на його фото з відкритого API.
-                                val pageArtist = if (nowLocal) {
+                                val pageArtist = if (page != pagerState.currentPage) ""
+                                else if (nowLocal) {
                                     nowLocalRows.getOrNull(page)?.artist ?: ""
-                                } else if (page == curI) {
+                                } else {
                                     artistFromTrackTitle(track)
-                                } else ""
+                                }
                                 val artistPhoto by rememberArtistPhotoUrl(
                                     pageArtist,
                                     (if (nowLocal) "L" else "R") + currentUrl + page
@@ -2903,9 +2916,15 @@ fun StationScreen(
                         controlsTint = text,
                     )
                 }
-                Box(modifier = Modifier.fillMaxWidth().height(78.dp), contentAlignment = Alignment.Center) {
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth().height(78.dp), contentAlignment = Alignment.Center) {
                     if (arts.isNotEmpty()) {
-                        LazyRow(state = stripState, modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        val hPad = ((maxWidth - 64.dp) / 2).coerceAtLeast(0.dp)
+                        LazyRow(
+                            state = stripState,
+                            modifier = Modifier.fillMaxWidth(),
+                            contentPadding = PaddingValues(horizontal = hPad),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
                             itemsIndexed(arts) { i, u ->
                                 val label = when {
                                     nowLocal && i in nowLocalRows.indices -> nowLocalRows[i].title
@@ -2960,7 +2979,7 @@ fun StationScreen(
                         modifier = Modifier
                             .size(80.dp)
                             .background(Palette.panel, RoundedCornerShape(16.dp))
-                            .springPress { onPrev() },
+                            .springPress { skipUi(false) },
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(Icons.Filled.SkipPrevious, contentDescription = "Попередня станція", tint = text, modifier = Modifier.size(40.dp))
@@ -2972,7 +2991,7 @@ fun StationScreen(
                         modifier = Modifier
                             .size(80.dp)
                             .background(Palette.panel, RoundedCornerShape(16.dp))
-                            .springPress { onNext() },
+                            .springPress { skipUi(true) },
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(Icons.Filled.SkipNext, contentDescription = "Наступна станція", tint = text, modifier = Modifier.size(40.dp))

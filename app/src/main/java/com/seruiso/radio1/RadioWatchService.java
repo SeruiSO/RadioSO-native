@@ -11,6 +11,10 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.content.res.Configuration;
+import android.support.v4.media.MediaBrowserCompat;
+import android.support.v4.media.MediaDescriptionCompat;
+import androidx.media.MediaBrowserServiceCompat;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -45,7 +49,7 @@ import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import androidx.media3.session.MediaSession;
 import org.json.JSONArray;
 
-public class RadioWatchService extends Service implements AudioManager.OnAudioFocusChangeListener {
+public class RadioWatchService extends MediaBrowserServiceCompat implements AudioManager.OnAudioFocusChangeListener {
     public static final String ACTION_BT = "com.seruiso.radio1.BT_CONNECTED";
     public static final String ACTION_START = "com.seruiso.radio1.START_WATCH";
     public static final String ACTION_AA_ROUTE = "com.seruiso.radio1.AA_ROUTE";
@@ -269,10 +273,24 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
             }
 
             @Override
-            public void seekToNext() { skip(true); }
+            public void seekToNext() {
+                if (!isLocalMode() && player != null
+                        && player.getPlaybackState() == Player.STATE_ENDED) {
+                    attemptReconnect("session-ended", true);
+                    return;
+                }
+                skip(true);
+            }
 
             @Override
-            public void seekToNextMediaItem() { skip(true); }
+            public void seekToNextMediaItem() {
+                if (!isLocalMode() && player != null
+                        && player.getPlaybackState() == Player.STATE_ENDED) {
+                    attemptReconnect("session-ended", true);
+                    return;
+                }
+                skip(true);
+            }
 
             @Override
             public void seekToPrevious() { skip(false); }
@@ -282,6 +300,14 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
         };
 
         mediaSession = new MediaSession.Builder(this, sessionPlayer).build();
+        try { player.setPauseAtEndOfMediaItems(true); } catch (Throwable ignored) {}
+        android.support.v4.media.session.MediaSessionCompat.Token tok = compatToken();
+        if (tok != null) {
+            setSessionToken(tok);
+            android.util.Log.i("RadioWatch", "MediaBrowser token = ExoPlayer session");
+        } else {
+            android.util.Log.e("RadioWatch", "compatToken null — Auto will have no player session");
+        }
         player.addListener(new Player.Listener() {
             @Override
             public void onIsPlayingChanged(boolean isPlaying) {
@@ -346,6 +372,7 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
         });
         registerNoisy();
         registerNetworkCallback();
+        notifyForeground();
     }
 
     private void registerNetworkCallback() {
@@ -1527,9 +1554,92 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
         super.onDestroy();
     }
 
+
+    private static boolean isCarClient(String pkg) {
+        if (pkg == null) return false;
+        String p = pkg.toLowerCase();
+        return p.contains("gearhead") || p.contains("projection")
+                || p.contains("android.car") || p.contains("gms.car");
+    }
+
+    private void setAaActive(boolean active) {
+        try {
+            getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                    .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_AA_ACTIVE, active).apply();
+        } catch (Exception ignored) {}
+        if (active && player != null) BtAudio.clearPreferred(player);
+    }
+
+    @Override
+    public BrowserRoot onGetRoot(@androidx.annotation.NonNull String clientPackageName, int clientUid,
+                                 @androidx.annotation.Nullable android.os.Bundle rootHints) {
+        if (isCarClient(clientPackageName)) {
+            setAaActive(true);
+            android.util.Log.i("RadioWatch", "AA client: " + clientPackageName);
+        }
+        return new BrowserRoot("root", null);
+    }
+
+    @Override
+    public void onLoadChildren(@androidx.annotation.NonNull String parentId,
+                               @androidx.annotation.NonNull Result<java.util.List<MediaBrowserCompat.MediaItem>> result) {
+        java.util.List<MediaBrowserCompat.MediaItem> out = new java.util.ArrayList<>();
+        if (!"root".equals(parentId)) { result.sendResult(out); return; }
+        SharedPreferences p = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE);
+        try {
+            if (isLocalMode()) {
+                org.json.JSONArray uris = new org.json.JSONArray(p.getString(LocalMusicPlugin.KEY_LOCAL_URIS, "[]"));
+                org.json.JSONArray titles = new org.json.JSONArray(p.getString(LocalMusicPlugin.KEY_LOCAL_TITLES, "[]"));
+                org.json.JSONArray artists = new org.json.JSONArray(p.getString(LocalMusicPlugin.KEY_LOCAL_ARTISTS, "[]"));
+                for (int i = 0; i < uris.length(); i++) {
+                    String uri = uris.optString(i);
+                    if (uri == null || uri.isEmpty()) continue;
+                    String title = i < titles.length() ? titles.optString(i, "Local") : "Local";
+                    String artist = i < artists.length() ? artists.optString(i, "") : "";
+                    out.add(browseItem(uri, title, artist));
+                }
+            } else if ("temp".equals(p.getString(BluetoothAutoPlayPlugin.KEY_SKIP_MODE, "radio"))) {
+                org.json.JSONArray urls = new org.json.JSONArray(p.getString(BluetoothAutoPlayPlugin.KEY_TEMP_URLS, "[]"));
+                org.json.JSONArray names = new org.json.JSONArray(p.getString(BluetoothAutoPlayPlugin.KEY_TEMP_NAMES, "[]"));
+                for (int i = 0; i < urls.length(); i++) {
+                    String url = urls.optString(i);
+                    if (url == null || url.isEmpty()) continue;
+                    String name = i < names.length() ? names.optString(i, "Station") : "Station";
+                    out.add(browseItem(url, name, ""));
+                }
+            } else {
+                org.json.JSONArray urls = new org.json.JSONArray(p.getString(BluetoothAutoPlayPlugin.KEY_QUEUE_URLS, "[]"));
+                org.json.JSONArray names = new org.json.JSONArray(p.getString(BluetoothAutoPlayPlugin.KEY_QUEUE_NAMES, "[]"));
+                org.json.JSONArray genres = new org.json.JSONArray(p.getString(BluetoothAutoPlayPlugin.KEY_QUEUE_GENRES, "[]"));
+                org.json.JSONArray countries = new org.json.JSONArray(p.getString(BluetoothAutoPlayPlugin.KEY_QUEUE_COUNTRIES, "[]"));
+                for (int i = 0; i < urls.length(); i++) {
+                    String url = urls.optString(i);
+                    if (url == null || url.isEmpty()) continue;
+                    String name = i < names.length() ? names.optString(i, "Station") : "Station";
+                    String g = i < genres.length() ? genres.optString(i, "") : "";
+                    String c = i < countries.length() ? countries.optString(i, "") : "";
+                    out.add(browseItem(url, name, (g + " · " + c).trim()));
+                }
+            }
+        } catch (Exception e) {
+            android.util.Log.w("RadioWatch", "children", e);
+        }
+        result.sendResult(out);
+    }
+
+    private static MediaBrowserCompat.MediaItem browseItem(String id, String title, String subtitle) {
+        MediaDescriptionCompat d = new MediaDescriptionCompat.Builder()
+                .setMediaId(id)
+                .setTitle(title)
+                .setSubtitle(subtitle)
+                .build();
+        return new MediaBrowserCompat.MediaItem(d, MediaBrowserCompat.MediaItem.FLAG_PLAYABLE);
+    }
+
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
-        return null;
+        IBinder b = super.onBind(intent);
+        return b;
     }
 }

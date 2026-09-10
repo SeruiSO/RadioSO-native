@@ -60,11 +60,15 @@ public final class BtAudio {
     /** true, якщо зараз активна сесія Android Auto (RadioAutoService підключений браузером). */
     public static boolean isAndroidAutoActive(Context ctx) {
         try {
-            return ctx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)
-                    .getBoolean(BluetoothAutoPlayPlugin.KEY_AA_ACTIVE, false);
-        } catch (Exception ignored) {
-            return false;
-        }
+            if (ctx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)
+                    .getBoolean(BluetoothAutoPlayPlugin.KEY_AA_ACTIVE, false)) return true;
+        } catch (Exception ignored) {}
+        try {
+            int ui = ctx.getResources().getConfiguration().uiMode
+                    & android.content.res.Configuration.UI_MODE_TYPE_MASK;
+            if (ui == android.content.res.Configuration.UI_MODE_TYPE_CAR) return true;
+        } catch (Exception ignored) {}
+        return false;
     }
 
     public static void preferA2dp(Context ctx, Object player) {

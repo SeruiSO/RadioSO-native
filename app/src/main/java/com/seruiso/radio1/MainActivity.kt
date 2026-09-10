@@ -76,6 +76,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -1518,6 +1519,7 @@ private fun LocalTrackRow(
     text: Color,
     isBest: Boolean = false,
     onToggleBest: (() -> Unit)? = null,
+    onArt: () -> Unit = {},
     onClick: () -> Unit,
 ) {
     Row(
@@ -1525,17 +1527,19 @@ private fun LocalTrackRow(
             .fillMaxWidth()
             .padding(horizontal = 6.dp, vertical = 3.dp)
             .background(if (isCurrent) acc.copy(alpha = 0.18f) else Palette.card, RoundedCornerShape(12.dp))
-            .clickable { onClick() }
             .padding(10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+        Box(
+            modifier = Modifier.size(48.dp).clickable { onArt() },
+            contentAlignment = Alignment.Center
+        ) {
             val a = if (item.albumId.isNotBlank() && item.albumId != "0")
                 "content://media/external/audio/albumart/${item.albumId}" else ""
             if (a.isNotEmpty()) AsyncImage(model = a, contentDescription = null, modifier = Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop)
             else Icon(Icons.Filled.MusicNote, contentDescription = "Немає обкладинки", tint = muted)
         }
-        Column(modifier = Modifier.weight(1f).padding(start = 8.dp)) {
+        Column(modifier = Modifier.weight(1f).padding(start = 8.dp).clickable { onClick() }) {
             Text(item.title, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(item.artist, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
         }
@@ -2161,7 +2165,7 @@ fun StationScreen(
                             modifier = Modifier
                                 .size(48.dp)
                                 .clickable {
-                                    onPickLocal(localRows, index)
+                                    if (item.uri != currentUrl) onPickLocal(localRows, index)
                                     onNow()
                                 },
                             contentAlignment = Alignment.Center
@@ -2234,7 +2238,7 @@ fun StationScreen(
                             modifier = Modifier
                                 .size(48.dp)
                                 .clickable {
-                                    onPickRadio(radioRows, index)
+                                    if (s.url != currentUrl) onPickRadio(radioRows, index)
                                     onNow()
                                 },
                             contentAlignment = Alignment.Center
@@ -2301,8 +2305,13 @@ fun StationScreen(
                             text,
                             isBest = true,
                             onToggleBest = { onToggleBest(item) },
+                            onArt = {
+                                val i = bestRows.indexOfFirst { it.uri == item.uri }.coerceAtLeast(0)
+                                if (item.uri != currentUrl) onPickLocal(bestRows, i)
+                                onNow()
+                            },
                         ) {
-                            onPickLocal(bestRows, bestRows.indexOfFirst { it.uri == item.uri }.coerceAtLeast(0)); onNow()
+                            onPickLocal(bestRows, bestRows.indexOfFirst { it.uri == item.uri }.coerceAtLeast(0))
                         }
                     }
                 }
@@ -2447,28 +2456,22 @@ fun StationScreen(
             visible = toastOn,
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .fillMaxWidth()
                 .statusBarsPadding()
                 .zIndex(40f),
             enter = slideInVertically { -it } + fadeIn(),
             exit = slideOutVertically { -it } + fadeOut()
         ) {
-            Box(
+            Text(
+                toastTxt,
+                color = text,
+                style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
-            ) {
-                Text(
-                    toastTxt,
-                    color = text,
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Palette.panel2, RoundedCornerShape(14.dp))
-                        .border(1.dp, acc.copy(alpha = 0.40f), RoundedCornerShape(14.dp))
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
-                )
-            }
+                    .padding(top = 8.dp)
+                    .wrapContentWidth()
+                    .background(Palette.panel2, RoundedCornerShape(12.dp))
+                    .border(1.dp, acc.copy(alpha = 0.40f), RoundedCornerShape(12.dp))
+                    .padding(horizontal = 16.dp, vertical = 10.dp)
+            )
         }
 
     if (topSleepOpen) {

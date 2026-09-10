@@ -54,6 +54,7 @@ fun HomeTabContent(
     onTheme: () -> Unit,
     onExport: () -> Unit,
     onImport: () -> Unit,
+    currentUrl: String = "",
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxWidth().fillMaxHeight(),
@@ -63,7 +64,7 @@ fun HomeTabContent(
             HomeSectionHeader("Станції додані до улюблених", acc, text, onAll = onAllStations, icon = Icons.Filled.Star)
             if (favRows.isEmpty()) HomeEmpty("додайте станції до улюблених", muted, Icons.Filled.Star) else HomeStationGrid(favRows, muted, text) { s ->
                 val i = favRows.indexOfFirst { it.url == s.url }
-                onPickRadio(favRows, if (i >= 0) i else 0)
+                if (s.url != currentUrl) onPickRadio(favRows, if (i >= 0) i else 0)
                 onPlayNow()
             }
         }
@@ -71,7 +72,7 @@ fun HomeTabContent(
             HomeSectionHeader("Обрана локальна музика", acc, text, onAll = onAllHeart, icon = Icons.Filled.Favorite)
             if (heartRows.isEmpty()) HomeEmpty("додайте локальну музику до улюблених", muted, Icons.Filled.Favorite) else HomeLocalGrid(heartRows, muted, text) { t ->
                 val i = heartRows.indexOfFirst { it.uri == t.uri }
-                onPickLocal(heartRows, if (i >= 0) i else 0)
+                if (t.uri != currentUrl) onPickLocal(heartRows, if (i >= 0) i else 0)
                 onPlayNow()
             }
         }
@@ -79,7 +80,7 @@ fun HomeTabContent(
             HomeSectionHeader(similarTitle, acc, text, onAll = null)
             val similar10 = similar.take(10)
             if (similar10.isEmpty()) HomeEmpty("поки порожньо", muted) else HomeStationGrid(similar10, muted, text) { s ->
-                onPickOneRadio(similar10, similar10.indexOfFirst { it.url == s.url }.coerceAtLeast(0))
+                if (s.url != currentUrl) onPickOneRadio(similar10, similar10.indexOfFirst { it.url == s.url }.coerceAtLeast(0))
                 onPlayNow()
             }
         }
@@ -87,7 +88,7 @@ fun HomeTabContent(
             HomeSectionHeader("Історія", acc, text, onAll = null)
             val recent10 = recent.take(10)
             if (recent10.isEmpty()) HomeEmpty("поки порожньо", muted) else HomeStationGrid(recent10, muted, text) { s ->
-                onPickOneRadio(recent10, recent10.indexOfFirst { it.url == s.url }.coerceAtLeast(0))
+                if (s.url != currentUrl) onPickOneRadio(recent10, recent10.indexOfFirst { it.url == s.url }.coerceAtLeast(0))
                 onPlayNow()
             }
         }

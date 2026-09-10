@@ -1,0 +1,58 @@
+--- a/MainActivity.kt
++++ b/MainActivity.kt
+@@ -1210,10 +1210,14 @@
+         favUrls = FavStore.urls(this, BluetoothAutoPlayPlugin.KEY_FAVORITES)
+     }
+     private fun toggleFav(url: String) {
+-        // Пріоритет: search → extra поточної вкладки → catalog → FavStore → поточне відтворення.
+-        // Інакше ★ зберігає старий знімок без favicon з stations.json.
+-        val candidates = (
++        // Пріоритет: поточне відтворення → search → extra → catalog → FavStore.
++        // На Home currentTab() може бути «порожнім»/чужим — завжди дозволяємо ★ з картки Now Playing.
++        val currentSnap = if (url == currentUrl && currentUrl.isNotBlank())
++            Station(url, stationName, currentGenre, currentCountry, currentFavicon, "fav")
++        else null
++        val candidates = listOfNotNull(currentSnap) + (
+             searchRows.filter { it.url == url } +
++            recentStations.filter { it.url == url } +
+             TabStore.extraStations(this, currentTab()).filter { it.url == url } +
+             stations.filter { it.url == url } +
+             FavStore.stations(this).filter { it.url == url }
+@@ -1814,8 +1818,8 @@
+         else -> localRows
+     }
+     val nowRadioRowsUi = when {
++        // temp = ізольована черга (історія / схожі на Home тощо) — не підміняти на ★
+         skipMode == "temp" && tempRows.isNotEmpty() -> tempRows
+-        skipMode == "radio" && favRows.any { it.url == currentUrl } -> favRows
+         else -> radioRows
+     }
+     fun skipUi(next: Boolean) {
+@@ -2399,7 +2403,16 @@
+         }
+         BottomNavBar(
+             current = bottomTab,
+-            onSelect = onBottomTab,
++            onSelect = { key ->
++                if (key == "tabs") {
++                    // Кожен тап «Вкладки» знову відкриває панель (навіть якщо вже на жанрі)
++                    skipTabsSheetOnce = false
++                    onBottomTab("tabs")
++                    openRightSheet()
++                } else {
++                    onBottomTab(key)
++                }
++            },
+             acc = acc,
+             muted = muted,
+             card = card,
+@@ -2741,8 +2754,8 @@
+                 else -> localRows
+             }
+             val nowRadioRows = when {
++                // temp = ізольована черга (історія / схожі на Home) — skip лише по ній
+                 skipMode == "temp" && tempRows.isNotEmpty() -> tempRows
+-                skipMode == "radio" && favRows.any { it.url == currentUrl } -> favRows
+                 else -> radioRows
+             }
+             val arts: List<String> = if (nowLocal) {

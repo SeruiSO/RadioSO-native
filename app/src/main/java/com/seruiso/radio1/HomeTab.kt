@@ -61,23 +61,7 @@ fun HomeTabContent(
         modifier = Modifier.fillMaxWidth().fillMaxHeight(),
         contentPadding = PaddingValues(bottom = 16.dp),
     ) {
-        if (currentUrl.isNotBlank() && nowName.isNotBlank()) {
-            item {
-                HomeHero(
-                    name = nowName,
-                    genre = nowGenre,
-                    art = nowArt,
-                    url = currentUrl,
-                    playing = nowPlaying,
-                    acc = acc,
-                    muted = muted,
-                    text = text,
-                    onOpen = onPlayNow,
-                    onPlayPause = onPlayPause,
-                )
-            }
-        }
-
+        // «Продовжити» прибрано — додаток і так пам'ятає стан і позицію
         if (emptyAll && currentUrl.isBlank()) {
             item {
                 HomeWelcome(muted, text, acc, onAllStations)

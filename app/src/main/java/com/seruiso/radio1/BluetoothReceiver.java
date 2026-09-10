@@ -39,10 +39,11 @@ public class BluetoothReceiver extends BroadcastReceiver {
         }
         if (BluetoothDevice.ACTION_ACL_DISCONNECTED.equals(action)) {
             if (!watchOn(app)) return;
+            // Не перевіряємо hasRoute: годинник/SCO лишають «маршрут» і стоп не стається.
             new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                if (BtAudio.hasRoute(app)) return;
+                if (BtAudio.isAndroidAutoActive(app)) return;
                 startSvc(app, RadioWatchService.ACTION_PAUSE);
-            }, 2000);
+            }, 800);
             return;
         }
 
@@ -61,9 +62,9 @@ public class BluetoothReceiver extends BroadcastReceiver {
         if (state == BluetoothProfile.STATE_DISCONNECTED) {
             if (!watchOn(app)) return;
             new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                if (BtAudio.hasRoute(app)) return;
+                if (BtAudio.isAndroidAutoActive(app)) return;
                 startSvc(app, RadioWatchService.ACTION_PAUSE);
-            }, 2000);
+            }, 800);
         }
     }
 }

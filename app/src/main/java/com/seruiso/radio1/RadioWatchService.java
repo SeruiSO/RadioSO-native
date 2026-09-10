@@ -102,6 +102,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
     private AudioManager audioManager;
     private AudioFocusRequest focusRequest;
     private boolean noisyRegistered = false;
+    private long ignoreNoisyUntilMs = 0L;
     private ConnectivityManager connectivityManager;
     private ConnectivityManager.NetworkCallback networkCallback;
     private boolean networkCallbackRegistered = false;
@@ -117,6 +118,15 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         @Override
         public void onReceive(Context context, Intent intent) {
             if (AudioManager.ACTION_AUDIO_BECOMING_NOISY.equals(intent.getAction())) {
+                long nowN = System.currentTimeMillis();
+                if (nowN < ignoreNoisyUntilMs) {
+                    android.util.Log.i("RadioWatch", "NOISY ignored — BT/AA settle window");
+                    return;
+                }
+                if (BtAudio.isAndroidAutoActive(RadioWatchService.this)) {
+                    android.util.Log.i("RadioWatch", "NOISY ignored — Android Auto");
+                    return;
+                }
                 // Втрачено аудіо-маршрут (навушники/BT). Якщо A2DP ще є — ігнор.
                 if (BtAudio.hasRoute(RadioWatchService.this)) {
                     android.util.Log.i("RadioWatch", "NOISY ignored — BT route present");
@@ -236,40 +246,49 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                         .build();
             }
 
-            private boolean allowSessionPlay() {
-                SharedPreferences sp = getSharedPreferences(
-                    BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE);
-                boolean want = sp.getBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, false);
-                if (want) return true;
-                boolean watch = sp.getBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, true);
-                long lastBt = sp.getLong("lastA2dpConnectMs", 0L);
+            private boolean withinBtSettle() {
+                if (System.currentTimeMillis() < ignoreNoisyUntilMs) return true;
+                long lastBt = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                        .getLong("lastA2dpConnectMs", 0L);
                 long ago = System.currentTimeMillis() - lastBt;
-                // Авто-resume від системи одразу після BT — блокуємо, якщо не intended
-                if (ago >= 0 && ago < 4000) {
-                    android.util.Log.i("RadioWatch", "session play blocked after A2DP (watch="+watch+" want="+want+")");
-                    return false;
-                }
-                // поза вікном підключення — play з керма/шторки OK
-                return true;
+                return ago >= 0 && ago < 4000;
             }
 
             @Override
             public void play() {
-                if (!allowSessionPlay()) return;
                 setIntendedPlaying(true);
+                try {
+                    getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                        .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, true).apply();
+                } catch (Exception ignored) {}
                 super.play();
             }
 
             @Override
-            public void setPlayWhenReady(boolean playWhenReady) {
-                if (playWhenReady && !allowSessionPlay()) {
-                    super.setPlayWhenReady(false);
+            public void pause() {
+                if (withinBtSettle()) {
+                    android.util.Log.i("RadioWatch", "session pause ignored — BT settle");
                     return;
                 }
+                super.pause();
+            }
+
+            @Override
+            public void setPlayWhenReady(boolean playWhenReady) {
                 if (playWhenReady) {
                     setIntendedPlaying(true);
+                    try {
+                        getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                            .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, true).apply();
+                    } catch (Exception ignored) {}
+                    super.setPlayWhenReady(true);
+                    return;
                 }
-                super.setPlayWhenReady(playWhenReady);
+                if (withinBtSettle()) {
+                    android.util.Log.i("RadioWatch", "session pause(pwr) ignored — BT settle");
+                    return;
+                }
+                super.setPlayWhenReady(false);
             }
 
             @Override
@@ -1032,11 +1051,20 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         }
 
         if (ACTION_PAUSE.equals(action) || ACTION_NOTIF_PAUSE.equals(action)) {
-            pausedByFocusLoss = false; // пауза від користувача — не resume
+            pausedByFocusLoss = false;
+            ignoreNoisyUntilMs = 0L;
             clearPlaybackIntent();
-            if (player != null) player.pause();
+            try {
+                getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                    .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, false).apply();
+            } catch (Exception ignored) {}
+            if (player != null) {
+                player.setPlayWhenReady(false);
+                player.pause();
+            }
             notifyForeground();
             notifyUiPlayback(false);
+            android.util.Log.i("RadioWatch", "ACTION_PAUSE — BT gone / user");
             return START_STICKY;
         }
 
@@ -1048,6 +1076,15 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                 return START_STICKY;
             }
             setIntendedPlaying(true);
+            ignoreNoisyUntilMs = System.currentTimeMillis() + 4000L;
+            try {
+                getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                    .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, true).apply();
+            } catch (Exception ignored) {}
+            try {
+                getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                    .edit().putLong("lastA2dpConnectMs", System.currentTimeMillis()).apply();
+            } catch (Exception ignored) {}
             if (BtAudio.isAndroidAutoActive(this)) {
                 if (player != null) BtAudio.clearPreferred(player);
                 playLast();
@@ -1192,67 +1229,53 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
 
     private Runnable btReadyTick;
 
+    private boolean alreadyPlayingLastUrl() {
+        if (player == null) return false;
+        if (!player.isPlaying() && !player.getPlayWhenReady()) return false;
+        try {
+            String want = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                    .getString(BluetoothAutoPlayPlugin.KEY_URL, "");
+            if (want == null || want.isEmpty()) return false;
+            if (player.getCurrentMediaItem() == null
+                    || player.getCurrentMediaItem().localConfiguration == null) return false;
+            return want.equals(player.getCurrentMediaItem().localConfiguration.uri.toString());
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     private void playLastWhenBtReady() {
         final android.os.Handler h = mainHandler;
         if (btReadyTick != null) {
             h.removeCallbacks(btReadyTick);
             btReadyTick = null;
         }
-        final long deadline = System.currentTimeMillis() + 15000L;
-        btReadyTick = new Runnable() {
-            int stableTicks = 0;
-            @Override public void run() {
-                SharedPreferences sp = getSharedPreferences(
-                    BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE);
-                if (!sp.getBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, false)
-                        && !PlaybackPrefs.isIntended(RadioWatchService.this)) {
-                    btReadyTick = null;
-                    return;
+        ignoreNoisyUntilMs = System.currentTimeMillis() + 4000L;
+        try {
+            getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, true).apply();
+        } catch (Exception ignored) {}
+        if (alreadyPlayingLastUrl()) {
+            android.util.Log.i("RadioWatch", "BT ready skip — already playing last");
+            try {
+                if (player != null) {
+                    player.setVolume(1f);
+                    player.setPlayWhenReady(true);
                 }
-                boolean has = BtAudio.hasRoute(RadioWatchService.this);
-                if (has) stableTicks++;
-                else stableTicks = 0;
-                if (stableTicks >= 10) {
-                    btReadyTick = null;
-                    if (player != null) player.setVolume(1f);
-                    BtAudio.preferA2dp(RadioWatchService.this, player);
-                    playLast();
-                    h.postDelayed(() -> {
-                        try {
-                            if (player == null) return;
-                            if (!sp.getBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, false)) return;
-                            BtAudio.preferA2dp(RadioWatchService.this, player);
-                            if (player != null) {
-                                player.setVolume(1f);
-                                player.setPlayWhenReady(true);
-                            }
-                        } catch (Exception e) {
-                            android.util.Log.w("RadioWatch", "BT re-kick", e);
-                        }
-                    }, 800);
-                    return;
-                }
-                if (System.currentTimeMillis() >= deadline) {
-                    // Не здаємося: пробуємо грати навіть без 10 стабільних тіків
-                    // (повільні магнітоли часто піднімають A2DP пізніше 15с),
-                    // і запускаємо новий цикл очікування.
-                    android.util.Log.w("RadioWatch", "BT ready timeout — fallback playLast + retry wait");
-                    btReadyTick = null;
-                    try {
-                        if (player != null) player.setVolume(1f);
-                        BtAudio.preferA2dp(RadioWatchService.this, player);
-                        playLast();
-                    } catch (Exception e) {
-                        android.util.Log.w("RadioWatch", "BT timeout fallback", e);
-                    }
-                    // новий цикл (ще 15с) — якщо маршрут з'явиться пізніше
-                    h.postDelayed(() -> playLastWhenBtReady(), 1500);
-                    return;
-                }
-                h.postDelayed(this, 200);
+            } catch (Exception ignored) {}
+            return;
+        }
+        // Не чекаємо TYPE_A2DP: частина магнітол — HFP/BLE/ACL only. Один старт.
+        btReadyTick = () -> {
+            btReadyTick = null;
+            if (alreadyPlayingLastUrl()) {
+                try { if (player != null) { player.setVolume(1f); player.setPlayWhenReady(true); } } catch (Exception ignored) {}
+                return;
             }
+            try { if (player != null) player.setVolume(1f); } catch (Exception ignored) {}
+            playLast();
         };
-        h.post(btReadyTick);
+        h.postDelayed(btReadyTick, 500);
     }
 
     private void scheduleWatchProbe() {
@@ -1314,7 +1337,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             boolean sameAsCurrent = currentUri != null && url.equals(currentUri);
             if (sameAsCurrent
                     && (player.isPlaying() || player.getPlayWhenReady())
-                    && (now - lastPlayMs < 500)) {
+                    && (now - lastPlayMs < 4000)) {
                 android.util.Log.d("RadioWatch", "playUrl skip duplicate: " + url);
                 currentPlayUrl = url;
                 try {
@@ -1337,6 +1360,10 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             lastPlayMs = now;
             lastPlayedUrl = url;
             currentPlayUrl = url;
+            try {
+                getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                    .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, true).apply();
+            } catch (Exception ignored) {}
             boolean localMode = isLocalMode();
             // Радіо: трек ще не відомий (прийде з ICY/onMediaMetadataChanged) — чистимо.
             // Локальна музика: артист/назва вже відомі заздалегідь (playLocal/skip їх щойно

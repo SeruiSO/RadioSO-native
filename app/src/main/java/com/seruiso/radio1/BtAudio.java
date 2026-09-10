@@ -3,6 +3,7 @@ package com.seruiso.radio1;
 import android.content.Context;
 import android.media.AudioDeviceInfo;
 import android.media.AudioManager;
+import android.media.AudioPlaybackConfiguration;
 import android.os.Build;
 
 /**
@@ -15,6 +16,37 @@ public final class BtAudio {
     public static boolean hasRoute(Context ctx) {
         return findA2dpDevice(ctx) != null
             || isLegacyBtOn(ctx);
+    }
+
+    /** True only if a classic A2DP output is listed (not SCO-only). */
+    public static boolean hasA2dpOutput(Context ctx) {
+        AudioDeviceInfo d = findA2dpDevice(ctx);
+        return d != null && d.getType() == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP;
+    }
+
+    /** True if current playback configs already sit on BT/USB/car (API 28+). */
+    public static boolean isPlaybackOnBtOrCar(Context ctx) {
+        if (isAndroidAutoActive(ctx)) return true;
+        if (Build.VERSION.SDK_INT < 28) return hasA2dpOutput(ctx);
+        try {
+            AudioManager am = (AudioManager) ctx.getSystemService(Context.AUDIO_SERVICE);
+            if (am == null) return hasA2dpOutput(ctx);
+            java.util.List<AudioPlaybackConfiguration> list = am.getActivePlaybackConfigurations();
+            if (list == null || list.isEmpty()) return false;
+            for (AudioPlaybackConfiguration c : list) {
+                AudioDeviceInfo d = c.getAudioDeviceInfo();
+                if (d == null) continue;
+                int t = d.getType();
+                if (t == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP
+                        || t == AudioDeviceInfo.TYPE_BLUETOOTH_SCO
+                        || t == AudioDeviceInfo.TYPE_USB_DEVICE
+                        || t == AudioDeviceInfo.TYPE_USB_HEADSET
+                        || t == AudioDeviceInfo.TYPE_USB_ACCESSORY
+                        || t == AudioDeviceInfo.TYPE_BUS
+                        || t == 26 || t == 27) return true;
+            }
+        } catch (Exception ignored) {}
+        return false;
     }
 
     private static boolean isLegacyBtOn(Context ctx) {

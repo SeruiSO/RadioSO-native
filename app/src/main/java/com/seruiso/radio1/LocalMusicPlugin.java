@@ -9,5 +9,4 @@ public class LocalMusicPlugin {
     public static final String KEY_LOCAL_INDEX = "localQueueIndex";
     public static final String KEY_LOCAL_SHUFFLE = "localShuffle";
     public static final String KEY_LOCAL_REPEAT = "localRepeat";
-    public static final String KEY_LOCAL_FAVS = "localFavorites";
 }

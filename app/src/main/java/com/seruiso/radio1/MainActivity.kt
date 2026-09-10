@@ -85,9 +85,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.Icon
@@ -120,8 +118,6 @@ import kotlinx.coroutines.withContext
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.BluetoothDisabled
 import androidx.compose.material.icons.filled.Bluetooth
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
@@ -2309,7 +2305,6 @@ fun StationScreen(
                 ) { Text("Скан", color = acc, style = MaterialTheme.typography.labelSmall) }
             }
         }
-            Icon(Icons.Filled.KeyboardArrowUp, contentDescription = "Відкрити Now Playing", tint = muted, modifier = Modifier.align(Alignment.CenterEnd).clickable { onNow() }.padding(4.dp).size(28.dp))
         }
         BottomNavBar(
             current = bottomTab,

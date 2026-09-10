@@ -57,8 +57,25 @@ public final class BtAudio {
      * Ask player to prefer BT output when API allows (Media3 / ExoPlayer).
      * No-op on failure — system routing still applies.
      */
+    /** true, якщо зараз активна сесія Android Auto (RadioAutoService підключений браузером). */
+    public static boolean isAndroidAutoActive(Context ctx) {
+        try {
+            return ctx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)
+                    .getBoolean(BluetoothAutoPlayPlugin.KEY_AA_ACTIVE, false);
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
     public static void preferA2dp(Context ctx, Object player) {
         if (player == null || Build.VERSION.SDK_INT < 23) return;
+        if (isAndroidAutoActive(ctx)) {
+            // AA/Automotive сам коректно веде аудіо-маршрут — не форсуємо
+            // конкретний BT-пристрій (це ламає звук у проекції), лише
+            // знімаємо будь-який раніше застряглий preferred device.
+            clearPreferred(player);
+            return;
+        }
         AudioDeviceInfo dev = findA2dpDevice(ctx);
         if (dev == null) return;
         try {

@@ -153,21 +153,6 @@ object TabStore {
         prefs(ctx).edit().putString("deletedStations", delRoot.toString()).apply()
     }
 
-    fun moveStation(ctx: Context, tab: String, url: String, dir: Int) {
-        val list = extraStations(ctx, tab).toMutableList()
-        val i = list.indexOfFirst { it.url == url }
-        val j = i + dir
-        if (i < 0 || j !in list.indices) return
-        val a = list[i]; list[i] = list[j]; list[j] = a
-        val arr = JSONArray()
-        list.forEach { s ->
-            arr.put(JSONObject().put("value", s.url).put("name", s.name).put("genre", s.genre).put("country", s.country).put("favicon", s.favicon))
-        }
-        val root = JSONObject(prefs(ctx).getString(KEY_ADDED, "{}") ?: "{}")
-        root.put(tab, arr)
-        prefs(ctx).edit().putString(KEY_ADDED, root.toString()).commit()
-    }
-
     fun saveOrder(ctx: Context, tab: String, urls: List<String>) {
         val arr = JSONArray()
         urls.forEach { arr.put(it) }

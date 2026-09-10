@@ -114,9 +114,16 @@ public class RadioAutoService extends MediaBrowserServiceCompat {
         notifyChildrenChanged(ROOT);
     }
 
+    private void setAaActive(boolean active) {
+        try {
+            prefs().edit().putBoolean(BluetoothAutoPlayPlugin.KEY_AA_ACTIVE, active).apply();
+        } catch (Exception ignored) {}
+    }
+
     @Nullable
     @Override
     public BrowserRoot onGetRoot(@NonNull String clientPackageName, int clientUid, @Nullable Bundle rootHints) {
+        setAaActive(true);
         return new BrowserRoot(ROOT, null);
     }
 
@@ -178,6 +185,7 @@ public class RadioAutoService extends MediaBrowserServiceCompat {
                         .unregisterOnSharedPreferenceChangeListener(prefListener);
             }
         } catch (Exception ignored) {}
+        setAaActive(false);
         if (session != null) {
             session.setActive(false);
             session.release();

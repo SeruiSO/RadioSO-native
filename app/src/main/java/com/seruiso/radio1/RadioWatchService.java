@@ -94,7 +94,6 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
         }
     };
     private static final int ART_MAX_BYTES = 512 * 1024;
-    private Runnable widgetUpdateRunnable;
     private final android.os.Handler mainHandler = new android.os.Handler(android.os.Looper.getMainLooper());
     private AudioManager audioManager;
     private AudioFocusRequest focusRequest;
@@ -187,6 +186,10 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
                 .setLoadControl(loadControl)
                 .setMediaSourceFactory(mediaSourceFactory)
                 .build();
+        // Фокус тримаємо вручну (requestFocus/abandonFocus) — вимикаємо
+        // вбудоване керування фокусом ExoPlayer, щоб не було подвійного
+        // requestAudioFocus() і конфліктів саме в момент BT/AA-хендоверу.
+        player.setAudioAttributes(androidx.media3.common.AudioAttributes.DEFAULT, /* handleAudioFocus= */ false);
 
         Player sessionPlayer = new ForwardingPlayer(player) {
             @Override
@@ -267,7 +270,6 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
                 writeLocalPosition();
                 notifyForeground();
                 notifyUiPlayback(isPlaying);
-                try { scheduleWidgetUpdate(); } catch (Exception ignored) {}
             }
 
             @Override
@@ -656,7 +658,6 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
                 playUrl(uri);
                 notifyUiSkip(next);
                 notifyForeground();
-                try { scheduleWidgetUpdate(); } catch (Exception ignored) {}
             } catch (Exception e) {
                 android.util.Log.w("RadioWatch", "local skip", e);
             }
@@ -723,19 +724,6 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
 
 
 
-    private void scheduleWidgetUpdate() {
-        if (widgetUpdateRunnable != null) {
-            mainHandler.removeCallbacks(widgetUpdateRunnable);
-        }
-        widgetUpdateRunnable = () -> {
-            try {
-                RadioAppWidget.updateAll(RadioWatchService.this, stationArt);
-            } catch (Exception ignored) {}
-            widgetUpdateRunnable = null;
-        };
-        mainHandler.postDelayed(widgetUpdateRunnable, 180);
-    }
-
     private void loadStationArtAsync() {
         SharedPreferences sp = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE);
         final String fav = sp.getString(BluetoothAutoPlayPlugin.KEY_FAVICON, "");
@@ -753,7 +741,6 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
                 stationArtUrl = fav;
                 applySessionMetadata(currentName, lastTrackTitle);
                 notifyForeground();
-                scheduleWidgetUpdate();
                 return;
             }
         }
@@ -841,7 +828,6 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
                 stationArt = result;
                 applySessionMetadata(currentName, lastTrackTitle);
                 notifyForeground();
-                scheduleWidgetUpdate();
             });
         }).start();
     }
@@ -939,10 +925,6 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
         PlaybackPrefs.reportPlaying(this, playing);
     }
 
-    private void writePlayingFlag(boolean playing) {
-        reportPlaying(playing);
-    }
-
     private void writeActuallyPlaying(boolean playing) {
         reportPlaying(playing);
     }
@@ -959,8 +941,6 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
         Intent i = new Intent(ACTION_PLAYBACK_UI);
         i.setPackage(getPackageName());
         i.putExtra("playing", playing);
-        i.putExtra("state", PlaybackState.fromPlayer(player).name());
-        i.putExtra("intended", PlaybackPrefs.isIntended(this));
         sendBroadcast(i);
     }
 
@@ -1004,7 +984,6 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
             if (player != null) player.pause();
             notifyForeground();
             notifyUiPlayback(false);
-            try { scheduleWidgetUpdate(); } catch (Exception ignored) {}
             return START_STICKY;
         }
 
@@ -1480,7 +1459,6 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
         } else {
             startForeground(NOTIF_ID, n);
         }
-        try { scheduleWidgetUpdate(); } catch (Exception ignored) {}
     }
 
     private Notification buildNotification() {

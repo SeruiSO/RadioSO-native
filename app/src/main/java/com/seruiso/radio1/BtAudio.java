@@ -72,24 +72,11 @@ public final class BtAudio {
     }
 
     public static void preferA2dp(Context ctx, Object player) {
-        if (player == null || Build.VERSION.SDK_INT < 23) return;
-        if (isAndroidAutoActive(ctx)) {
-            // AA/Automotive сам коректно веде аудіо-маршрут — не форсуємо
-            // конкретний BT-пристрій (це ламає звук у проекції), лише
-            // знімаємо будь-який раніше застряглий preferred device.
-            clearPreferred(player);
-            return;
-        }
-        AudioDeviceInfo dev = findA2dpDevice(ctx);
-        if (dev == null) return;
-        try {
-            java.lang.reflect.Method m = player.getClass()
-                .getMethod("setPreferredAudioDevice", AudioDeviceInfo.class);
-            m.invoke(player, dev);
-            android.util.Log.i("BtAudio", "preferred A2DP device set type=" + dev.getType());
-        } catch (Exception e) {
-            android.util.Log.d("BtAudio", "setPreferredAudioDevice n/a: " + e.getMessage());
-        }
+        // Ніколи не setPreferredAudioDevice(A2DP).
+        // Google: AA сам веде USAGE_MEDIA у колонки авто. Пінінг A2DP до
+        // onGetRoot() залишає AudioTrack на класичному BT — UI «грає», звуку немає.
+        if (player == null) return;
+        clearPreferred(player);
     }
 
     /** Clear preferred device so later phone speaker play works normally. */

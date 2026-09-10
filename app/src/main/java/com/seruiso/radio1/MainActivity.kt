@@ -1976,13 +1976,13 @@ fun StationScreen(
             // іконка → нижня картка
             Box(
                 modifier = Modifier
-                    .size(72.dp)
+                    .size(80.dp)
                     .background(Palette.panel2, AppShapes.hero)
                     .clickable { onCloseMenu(); onNow() },
                 contentAlignment = Alignment.Center
             ) {
                 if (artUrl(favicon).startsWith("http") || artUrl(favicon).startsWith("content:")) {
-                    AsyncImage(model = artUrl(favicon), contentDescription = null, modifier = Modifier.size(72.dp).clip(AppShapes.card), contentScale = ContentScale.Crop)
+                    AsyncImage(model = artUrl(favicon), contentDescription = null, modifier = Modifier.size(80.dp).clip(AppShapes.card), contentScale = ContentScale.Crop)
                 } else {
                     Icon(Icons.Filled.MusicNote, contentDescription = "Немає обкладинки", tint = muted)
                 }
@@ -1990,41 +1990,40 @@ fun StationScreen(
             // текст інфо → верхня картка
             Column(
                 modifier = Modifier
-                    .padding(start = 10.dp)
+                    .padding(start = 10.dp, end = 4.dp)
                     .weight(1f)
-                    .clickable { onCloseMenu(); onNow() }
+                    .height(80.dp)
+                    .clipToBounds()
+                    .clickable { onCloseMenu(); onNow() },
+                verticalArrangement = Arrangement.spacedBy(0.dp)
             ) {
-                Text(name, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
-                if (genre.isNotBlank() || country.isNotBlank()) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        modifier = Modifier.padding(top = 3.dp)
-                    ) {
-                        if (genre.isNotBlank()) {
-                            Text(
-                                genre,
-                                color = muted,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                style = MaterialTheme.typography.labelSmall,
-                                modifier = Modifier
-                                    .background(Palette.panel2, RoundedCornerShape(8.dp))
-                                    .padding(horizontal = 8.dp, vertical = 2.dp)
-                            )
-                        }
-                        if (country.isNotBlank()) {
-                            Text(
-                                country,
-                                color = muted,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                style = MaterialTheme.typography.labelSmall,
-                                modifier = Modifier
-                                    .background(Palette.panel2, RoundedCornerShape(8.dp))
-                                    .padding(horizontal = 8.dp, vertical = 2.dp)
-                            )
-                        }
-                    }
+                Text(
+                    name,
+                    color = text,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (genre.isNotBlank()) {
+                    Text(
+                        genre,
+                        color = muted,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                if (country.isNotBlank()) {
+                    Text(
+                        country,
+                        color = muted,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
                 Text(
                     if (track.isBlank()) "Трек невідомий" else track,
@@ -2032,17 +2031,17 @@ fun StationScreen(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(top = 4.dp)
+                    modifier = Modifier.fillMaxWidth()
                 )
                 val playInfo = playbackInfoText(status)
                 if (playInfo != null) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        modifier = Modifier.padding(top = 4.dp)
+                        horizontalArrangement = Arrangement.spacedBy(5.dp),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Box(modifier = Modifier.size(6.dp).background(acc, CircleShape))
-                        Text(playInfo, color = acc, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Box(modifier = Modifier.size(5.dp).background(acc, CircleShape))
+                        Text(playInfo, color = acc, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                     }
                 }
             }
@@ -2076,13 +2075,12 @@ fun StationScreen(
                     onPickLocal = onPickLocal,
                     onPickOneRadio = onPickOneRadio,
                     onPlayNow = { onCloseMenu(); onNow() },
-                    sleepLabel = sleepLabel,
-                    btWatch = btWatch,
-                    onSleep = { topSleepOpen = true },
-                    onBt = onBt,
-                    onTheme = { topThemeOpen = true },
-                    onExport = onExport,
-                    onImport = onImport,
+                    currentUrl = currentUrl,
+                    nowName = name,
+                    nowGenre = genre,
+                    nowArt = favicon,
+                    nowPlaying = playing,
+                    onPlayPause = onPlayPause,
                 )
             }
         } else {

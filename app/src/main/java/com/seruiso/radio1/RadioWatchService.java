@@ -1563,11 +1563,44 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
     }
 
     private void setAaActive(boolean active) {
+        boolean was = false;
         try {
+            was = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                    .getBoolean(BluetoothAutoPlayPlugin.KEY_AA_ACTIVE, false);
             getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
                     .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_AA_ACTIVE, active).apply();
         } catch (Exception ignored) {}
         if (active && player != null) BtAudio.clearPreferred(player);
+        // Перший bind Gearhead — перестворити AudioTrack (аналог тумблера «медіа»).
+        if (active && !was) forceAudioRouteRefresh();
+    }
+
+    /** Recreate audio sink so a stuck A2DP preferred-device is dropped. */
+    private void forceAudioRouteRefresh() {
+        if (player == null) return;
+        final boolean want = player.getPlayWhenReady()
+                || player.isPlaying()
+                || PlaybackPrefs.isIntended(this);
+        mainHandler.post(() -> {
+            try {
+                if (player == null) return;
+                BtAudio.clearPreferred(player);
+                player.setAudioAttributes(
+                    new androidx.media3.common.AudioAttributes.Builder()
+                        .setUsage(androidx.media3.common.C.USAGE_MEDIA)
+                        .setContentType(androidx.media3.common.C.AUDIO_CONTENT_TYPE_MUSIC)
+                        .build(),
+                    false);
+                if (want && player.getMediaItemCount() > 0) {
+                    player.prepare();
+                    player.setPlayWhenReady(true);
+                    player.setVolume(1f);
+                }
+                android.util.Log.i("RadioWatch", "AA audio route refresh want=" + want);
+            } catch (Exception e) {
+                android.util.Log.w("RadioWatch", "forceAudioRouteRefresh", e);
+            }
+        });
     }
 
     @Override

@@ -23,29 +23,55 @@ public class RadioAutoService extends MediaBrowserServiceCompat {
     @Override
     public void onCreate() {
         super.onCreate();
-        session = new MediaSessionCompat(this, "radio_so_auto");
-        session.setFlags(
-                MediaSessionCompat.FLAG_HANDLES_MEDIA_BUTTONS
-                        | MediaSessionCompat.FLAG_HANDLES_TRANSPORT_CONTROLS);
-        session.setCallback(new MediaSessionCompat.Callback() {
-            @Override public void onPlay() { send(RadioWatchService.ACTION_PLAY); }
-            @Override public void onPause() { send(RadioWatchService.ACTION_PAUSE); }
-            @Override public void onSkipToNext() { send(RadioWatchService.ACTION_NOTIF_NEXT); }
-            @Override public void onSkipToPrevious() { send(RadioWatchService.ACTION_NOTIF_PREV); }
-            @Override public void onPlayFromMediaId(String mediaId, Bundle extras) {
-                if (mediaId == null || mediaId.isEmpty()) return;
-                Intent i = new Intent(RadioAutoService.this, RadioWatchService.class);
-                i.setAction(RadioWatchService.ACTION_PLAY_URL);
-                i.putExtra(RadioWatchService.EXTRA_URL, mediaId);
-                String name = nameFor(mediaId);
-                if (name != null) i.putExtra(RadioWatchService.EXTRA_NAME, name);
-                startForegroundService(i);
-            }
-        });
-        session.setActive(true);
-        setSessionToken(session.getSessionToken());
+        setAaActive(true);
+        try {
+            Intent start = new Intent(this, RadioWatchService.class);
+            start.setAction(RadioWatchService.ACTION_START);
+            startForegroundService(start);
+            Intent route = new Intent(this, RadioWatchService.class);
+            route.setAction(RadioWatchService.ACTION_AA_ROUTE);
+            startForegroundService(route);
+        } catch (Exception ignored) {}
+        android.support.v4.media.session.MediaSessionCompat.Token watchTok = RadioWatchService.compatToken();
+        if (watchTok != null) {
+            setSessionToken(watchTok);
+            session = null;
+        } else {
+            session = new MediaSessionCompat(this, "radio_so_auto");
+            session.setFlags(
+                    MediaSessionCompat.FLAG_HANDLES_MEDIA_BUTTONS
+                            | MediaSessionCompat.FLAG_HANDLES_TRANSPORT_CONTROLS);
+            session.setCallback(new MediaSessionCompat.Callback() {
+                @Override public void onPlay() { send(RadioWatchService.ACTION_PLAY); }
+                @Override public void onPause() { send(RadioWatchService.ACTION_PAUSE); }
+                @Override public void onSkipToNext() { send(RadioWatchService.ACTION_NOTIF_NEXT); }
+                @Override public void onSkipToPrevious() { send(RadioWatchService.ACTION_NOTIF_PREV); }
+                @Override public void onPlayFromMediaId(String mediaId, Bundle extras) {
+                    if (mediaId == null || mediaId.isEmpty()) return;
+                    Intent i = new Intent(RadioAutoService.this, RadioWatchService.class);
+                    i.setAction(RadioWatchService.ACTION_PLAY_URL);
+                    i.putExtra(RadioWatchService.EXTRA_URL, mediaId);
+                    String name = nameFor(mediaId);
+                    if (name != null) i.putExtra(RadioWatchService.EXTRA_NAME, name);
+                    startForegroundService(i);
+                }
+            });
+            session.setActive(true);
+            setSessionToken(session.getSessionToken());
+        }
         refresh();
-        prefListener = (p, key) -> refresh();
+        prefListener = (p, key) -> {
+            if (key == null) return;
+            if (BluetoothAutoPlayPlugin.KEY_IS_PLAYING.equals(key)
+                    || BluetoothAutoPlayPlugin.KEY_ACTUALLY_PLAYING.equals(key)
+                    || BluetoothAutoPlayPlugin.KEY_NAME.equals(key)
+                    || BluetoothAutoPlayPlugin.KEY_TRACK.equals(key)
+                    || BluetoothAutoPlayPlugin.KEY_QUEUE_URLS.equals(key)
+                    || LocalMusicPlugin.KEY_LOCAL_URIS.equals(key)
+                    || LocalMusicPlugin.KEY_MODE.equals(key)) {
+                refresh();
+            }
+        };
         getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
                 .registerOnSharedPreferenceChangeListener(prefListener);
     }
@@ -189,6 +215,7 @@ public class RadioAutoService extends MediaBrowserServiceCompat {
         if (session != null) {
             session.setActive(false);
             session.release();
+            session = null;
         }
         super.onDestroy();
     }

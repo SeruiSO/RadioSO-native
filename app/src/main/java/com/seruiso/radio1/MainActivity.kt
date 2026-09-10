@@ -112,6 +112,7 @@ import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -1963,16 +1964,6 @@ fun StationScreen(
             }
             // vis replaced by glow overlay
             } // end info Row
-            // ⌄ у правому верхньому куті інфо-панелі (розмір як ⌃ знизу)
-            Text(
-                "⌄",
-                color = muted,
-                style = MaterialTheme.typography.headlineMedium,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = 2.dp, end = 4.dp)
-                    .clickable { onCloseMenu(); onNow() }
-            )
             } // end info Box overlay
         } // end info Column
         androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(8.dp))
@@ -2305,6 +2296,12 @@ fun StationScreen(
                 ) { Text("Скан", color = acc, style = MaterialTheme.typography.labelSmall) }
             }
         }
+            Icon(
+                Icons.Filled.KeyboardArrowUp,
+                contentDescription = "Відкрити Now Playing",
+                tint = muted,
+                modifier = Modifier.align(Alignment.CenterEnd).clickable { onNow() }.padding(4.dp).size(28.dp)
+            )
         }
         BottomNavBar(
             current = bottomTab,

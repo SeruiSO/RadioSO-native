@@ -2,8 +2,6 @@ package com.seruiso.radio1;
 
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.appwidget.AppWidgetManager;
-import android.content.ComponentName;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
@@ -50,6 +48,7 @@ import org.json.JSONArray;
 public class RadioWatchService extends Service implements AudioManager.OnAudioFocusChangeListener {
     public static final String ACTION_BT = "com.seruiso.radio1.BT_CONNECTED";
     public static final String ACTION_START = "com.seruiso.radio1.START_WATCH";
+    public static final String ACTION_AA_ROUTE = "com.seruiso.radio1.AA_ROUTE";
     public static final String ACTION_STOP = "com.seruiso.radio1.STOP";
     public static final String ACTION_PLAY = "com.seruiso.radio1.PLAY";
     public static final String ACTION_PAUSE = "com.seruiso.radio1.PAUSE";
@@ -73,6 +72,7 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
     private static final String CHANNEL = "radio_playback";
     private static final int NOTIF_ID = 42;
 
+    private static volatile RadioWatchService INSTANCE;
     private ExoPlayer player;
     private MediaSession mediaSession;
     private String currentName = "Radio S O";
@@ -143,9 +143,23 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
         }
     };
 
+    /** Токен Media3-сесії для Android Auto (той самий плеєр, що грає звук). */
+    public static android.support.v4.media.session.MediaSessionCompat.Token compatToken() {
+        RadioWatchService s = INSTANCE;
+        if (s == null || s.mediaSession == null) return null;
+        try {
+            java.lang.reflect.Method m = s.mediaSession.getClass().getMethod("getSessionCompatToken");
+            Object t = m.invoke(s.mediaSession);
+            if (t instanceof android.support.v4.media.session.MediaSessionCompat.Token)
+                return (android.support.v4.media.session.MediaSessionCompat.Token) t;
+        } catch (Throwable ignored) {}
+        return null;
+    }
+
     @Override
     public void onCreate() {
         super.onCreate();
+        INSTANCE = this;
         createChannel();
         audioManager = (AudioManager) getSystemService(AUDIO_SERVICE);
         // Живий радіопотік: менший minBuffer — менше «затягувати» 320 kbps на старті.
@@ -189,7 +203,12 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
         // Фокус тримаємо вручну (requestFocus/abandonFocus) — вимикаємо
         // вбудоване керування фокусом ExoPlayer, щоб не було подвійного
         // requestAudioFocus() і конфліктів саме в момент BT/AA-хендоверу.
-        player.setAudioAttributes(androidx.media3.common.AudioAttributes.DEFAULT, /* handleAudioFocus= */ false);
+        androidx.media3.common.AudioAttributes media3Attrs =
+                new androidx.media3.common.AudioAttributes.Builder()
+                        .setUsage(C.USAGE_MEDIA)
+                        .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+                        .build();
+        player.setAudioAttributes(media3Attrs, /* handleAudioFocus= */ false);
 
         Player sessionPlayer = new ForwardingPlayer(player) {
             @Override
@@ -516,9 +535,8 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
                 // не паузимо в цьому вікні (інакше «тиша після перемикання на BT»).
                 long lastBtFocus = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
                     .getLong("lastA2dpConnectMs", 0L);
-                if (focusChange != AudioManager.AUDIOFOCUS_LOSS
-                        && System.currentTimeMillis() - lastBtFocus < BT_HANDOFF_WINDOW_MS) {
-                    android.util.Log.i("RadioWatch", "focus transient ignored — BT handoff window");
+                if (System.currentTimeMillis() - lastBtFocus < BT_HANDOFF_WINDOW_MS) {
+                    android.util.Log.i("RadioWatch", "focus loss ignored — BT/AA handoff window");
                     break;
                 }
                 // відео / дзвінок / інший плеєр — пауза; resume на GAIN якщо intendedPlaying
@@ -964,6 +982,14 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
             return START_STICKY;
         }
 
+        if (ACTION_AA_ROUTE.equals(action)) {
+            if (player != null) {
+                BtAudio.clearPreferred(player);
+                player.setVolume(1f);
+            }
+            return START_STICKY;
+        }
+
         if (ACTION_STOP.equals(action)) {
             pausedByFocusLoss = false;
             clearPlaybackIntent();
@@ -995,7 +1021,12 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
                 return START_STICKY;
             }
             setIntendedPlaying(true);
-            playLastWhenBtReady();
+            if (BtAudio.isAndroidAutoActive(this)) {
+                if (player != null) BtAudio.clearPreferred(player);
+                playLast();
+            } else {
+                playLastWhenBtReady();
+            }
             return START_STICKY;
         }
 
@@ -1483,6 +1514,7 @@ public class RadioWatchService extends Service implements AudioManager.OnAudioFo
         if (reconnectHandler != null) {
             reconnectHandler.removeCallbacksAndMessages(null);
         }
+        if (INSTANCE == this) INSTANCE = null;
         abandonFocus();
         if (mediaSession != null) {
             mediaSession.release();

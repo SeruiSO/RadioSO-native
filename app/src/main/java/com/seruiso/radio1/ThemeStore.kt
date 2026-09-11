@@ -20,20 +20,20 @@ object ThemeStore {
     )
     fun get(ctx: Context): Theme {
         val id = ctx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)
-            .getString("selectedTheme", "shadow-pulse")
+            .getString(BluetoothAutoPlayPlugin.KEY_SELECTED_THEME, "shadow-pulse")
         return all.firstOrNull { it.id == id } ?: all.first()
     }
     fun next(ctx: Context): Theme {
         val cur = get(ctx)
         val n = all[(all.indexOf(cur) + 1) % all.size]
         ctx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)
-            .edit().putString("selectedTheme", n.id).apply()
+            .edit().putString(BluetoothAutoPlayPlugin.KEY_SELECTED_THEME, n.id).apply()
         return n
     }
     fun set(ctx: Context, id: String): Theme {
         val n = all.firstOrNull { it.id == id } ?: all.first()
         ctx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)
-            .edit().putString("selectedTheme", n.id).apply()
+            .edit().putString(BluetoothAutoPlayPlugin.KEY_SELECTED_THEME, n.id).apply()
         return n
     }
     fun color(t: Theme) = Color(t.accent)

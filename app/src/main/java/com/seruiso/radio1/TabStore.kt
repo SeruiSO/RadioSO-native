@@ -5,9 +5,9 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 object TabStore {
-    private const val KEY_CUSTOM = "customTabs"
-    private const val KEY_ADDED = "userAddedStations"
-    private const val KEY_HIDDEN = "hiddenTabs"
+    private val KEY_CUSTOM = BluetoothAutoPlayPlugin.KEY_CUSTOM_TABS
+    private val KEY_ADDED = BluetoothAutoPlayPlugin.KEY_USER_ADDED
+    private val KEY_HIDDEN = BluetoothAutoPlayPlugin.KEY_HIDDEN_TABS
     val reserved = setOf("fav", "best", "local", "search", "localbest")
 
     fun customTabs(ctx: Context): List<String> {
@@ -78,7 +78,7 @@ object TabStore {
         }
         root.put(tab, next)
         val order = mutableListOf(s.url)
-        val rawOrd = prefs(ctx).getString("order_$tab", "[]") ?: "[]"
+        val rawOrd = prefs(ctx).getString("${BluetoothAutoPlayPlugin.KEY_ORDER_PREFIX}$tab", "[]") ?: "[]"
         val oa = JSONArray(rawOrd)
         for (i in 0 until oa.length()) {
             val u = oa.optString(i)
@@ -86,7 +86,7 @@ object TabStore {
         }
         prefs(ctx).edit()
             .putString(KEY_ADDED, root.toString())
-            .putString("order_$tab", JSONArray(order).toString())
+            .putString("${BluetoothAutoPlayPlugin.KEY_ORDER_PREFIX}$tab", JSONArray(order).toString())
             .apply()
         return null
     }
@@ -95,7 +95,7 @@ object TabStore {
      *  застосунку там лежав плаский масив — просто починаємо з чистого об'єкта,
      *  щоб не впасти при парсингу. */
     private fun deletedRoot(ctx: Context): JSONObject {
-        val raw = prefs(ctx).getString("deletedStations", "{}") ?: "{}"
+        val raw = prefs(ctx).getString(BluetoothAutoPlayPlugin.KEY_DELETED_STATIONS, "{}") ?: "{}"
         return try { JSONObject(raw) } catch (e: Exception) { JSONObject() }
     }
 
@@ -108,7 +108,7 @@ object TabStore {
             if (u != url) next.put(u)
         }
         root.put(tab, next)
-        prefs(ctx).edit().putString("deletedStations", root.toString()).apply()
+        prefs(ctx).edit().putString(BluetoothAutoPlayPlugin.KEY_DELETED_STATIONS, root.toString()).apply()
     }
 
     fun renameTab(ctx: Context, old: String, rawNew: String, builtInTabs: List<String> = emptyList()): String? {
@@ -137,7 +137,7 @@ object TabStore {
         if (delRoot.has(old)) {
             delRoot.put(name, delRoot.optJSONArray(old) ?: JSONArray())
             delRoot.remove(old)
-            prefs(ctx).edit().putString("deletedStations", delRoot.toString()).apply()
+            prefs(ctx).edit().putString(BluetoothAutoPlayPlugin.KEY_DELETED_STATIONS, delRoot.toString()).apply()
         }
         return null
     }
@@ -158,7 +158,7 @@ object TabStore {
         prefs(ctx).edit().putString(KEY_ADDED, root.toString()).apply()
         val delRoot = deletedRoot(ctx)
         delRoot.remove(tab)
-        prefs(ctx).edit().putString("deletedStations", delRoot.toString()).apply()
+        prefs(ctx).edit().putString(BluetoothAutoPlayPlugin.KEY_DELETED_STATIONS, delRoot.toString()).apply()
     }
 
     fun removeStation(ctx: Context, tab: String, url: String) {
@@ -178,17 +178,17 @@ object TabStore {
         val delArr = delRoot.optJSONArray(tab) ?: JSONArray()
         delArr.put(url)
         delRoot.put(tab, delArr)
-        prefs(ctx).edit().putString("deletedStations", delRoot.toString()).apply()
+        prefs(ctx).edit().putString(BluetoothAutoPlayPlugin.KEY_DELETED_STATIONS, delRoot.toString()).apply()
     }
 
     fun saveOrder(ctx: Context, tab: String, urls: List<String>) {
         val arr = JSONArray()
         urls.forEach { arr.put(it) }
-        prefs(ctx).edit().putString("order_" + tab, arr.toString()).apply()
+        prefs(ctx).edit().putString(BluetoothAutoPlayPlugin.KEY_ORDER_PREFIX + tab, arr.toString()).apply()
     }
 
     fun applyOrder(ctx: Context, tab: String, list: List<Station>): List<Station> {
-        val raw = prefs(ctx).getString("order_" + tab, null) ?: return list
+        val raw = prefs(ctx).getString(BluetoothAutoPlayPlugin.KEY_ORDER_PREFIX + tab, null) ?: return list
         val arr = JSONArray(raw)
         val map = list.associateBy { it.url }.toMutableMap()
         val out = mutableListOf<Station>()

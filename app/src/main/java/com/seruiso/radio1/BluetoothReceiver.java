@@ -24,7 +24,7 @@ public class BluetoothReceiver extends BroadcastReceiver {
 
     private void markA2dp(Context c) {
         c.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)
-            .edit().putLong("lastA2dpConnectMs", System.currentTimeMillis()).apply();
+            .edit().putLong(BluetoothAutoPlayPlugin.KEY_LAST_A2DP_MS, System.currentTimeMillis()).apply();
     }
 
     private void startSvc(Context c, String action) {

@@ -13,16 +13,23 @@ android {
         applicationId = "com.seruiso.radioso.nativeapp"
         minSdk = 26
         targetSdk = 37
-        versionCode = 208
-        versionName = "0.13.58"
+        versionCode = 209
+        versionName = "0.13.59"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
         release {
+            // R8: minify + shrink resources (кеп-правила в src/main/keepRules)
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
             optimization {
-                enable = false
+                enable = true
             }
         }
     }

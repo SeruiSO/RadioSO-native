@@ -112,9 +112,9 @@ public final class BtAudio {
     public static void clearPreferred(Object player) {
         if (player == null || Build.VERSION.SDK_INT < 23) return;
         try {
-            java.lang.reflect.Method m = player.getClass()
-                .getMethod("setPreferredAudioDevice", AudioDeviceInfo.class);
-            m.invoke(player, new Object[]{null});
+            if (player instanceof androidx.media3.exoplayer.ExoPlayer) {
+                ((androidx.media3.exoplayer.ExoPlayer) player).setPreferredAudioDevice(null);
+            }
         } catch (Exception ignored) {}
     }
 }

@@ -33,4 +33,21 @@ public class BluetoothAutoPlayPlugin {
     public static final String KEY_TEMP_GENRES = "tempQueueGenres";
     public static final String KEY_TEMP_COUNTRIES = "tempQueueCountries";
     public static final String KEY_TEMP_INDEX = "tempQueueIndex";
+
+    // --- UI / order / misc (були магічними рядками) ---
+    public static final String KEY_SELECTED_THEME = "selectedTheme";
+    public static final String KEY_CUSTOM_TABS = "customTabs";
+    public static final String KEY_USER_ADDED = "userAddedStations";
+    public static final String KEY_HIDDEN_TABS = "hiddenTabs";
+    public static final String KEY_DELETED_STATIONS = "deletedStations";
+    public static final String KEY_ORDER_PREFIX = "order_";
+    public static final String KEY_ORDER_FAV = "order_fav";
+    public static final String KEY_ORDER_BEST_URIS = "order_best_uris";
+    public static final String KEY_LAST_A2DP_MS = "lastA2dpConnectMs";
+    public static final String KEY_CURRENT_TAB = "currentTab";
+    public static final String KEY_BOTTOM_TAB = "bottomTab";
+    public static final String KEY_UI_LIGHT = "uiLightTheme";
+    public static final String KEY_RECENT = "recentStations";
+    public static final String KEY_LOCAL_POS_MS = "localPositionMs";
+    public static final String KEY_PAST_SEARCHES = "pastSearches";
 }

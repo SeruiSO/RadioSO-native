@@ -48,7 +48,7 @@ object FavStore {
             // Вже в обраному → зняти ★ і прибрати з order_fav
             next = cur.filter { it.url != s.url }
             nowFav = false
-            val rawOrd = prefs.getString("order_fav", "[]") ?: "[]"
+            val rawOrd = prefs.getString(BluetoothAutoPlayPlugin.KEY_ORDER_FAV, "[]") ?: "[]"
             val oa = JSONArray(rawOrd)
             val order = JSONArray()
             for (i in 0 until oa.length()) {
@@ -57,13 +57,13 @@ object FavStore {
             }
             prefs.edit()
                 .putString(BluetoothAutoPlayPlugin.KEY_FAVORITES, stationsToJson(next).toString())
-                .putString("order_fav", order.toString())
+                .putString(BluetoothAutoPlayPlugin.KEY_ORDER_FAV, order.toString())
                 .apply()
         } else {
             // Нова ★ → свіжі метадані на початок + order_fav на початок
             next = listOf(s) + cur
             nowFav = true
-            val rawOrd = prefs.getString("order_fav", "[]") ?: "[]"
+            val rawOrd = prefs.getString(BluetoothAutoPlayPlugin.KEY_ORDER_FAV, "[]") ?: "[]"
             val oa = JSONArray(rawOrd)
             val order = JSONArray()
             order.put(s.url)
@@ -73,7 +73,7 @@ object FavStore {
             }
             prefs.edit()
                 .putString(BluetoothAutoPlayPlugin.KEY_FAVORITES, stationsToJson(next).toString())
-                .putString("order_fav", order.toString())
+                .putString(BluetoothAutoPlayPlugin.KEY_ORDER_FAV, order.toString())
                 .apply()
         }
         return nowFav

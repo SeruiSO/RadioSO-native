@@ -2299,7 +2299,7 @@ fun StationScreen(
                     }
                     if (bestRows.isEmpty()) {
                         item {
-                            EmptySlot("Тут з’являться обрані треки. Відкрийте «Музика» і позначте треки серцем.", muted)
+                            EmptySlot("Перейдіть у «Музика» і додайте улюблені треки з пристрою — позначте їх серцем.", muted)
                         }
                     }
                     itemsIndexed(bestRows, key = { i, x -> "best-" + x.uri + i }) { _, item ->
@@ -3026,7 +3026,7 @@ fun StationScreen(
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f)
                         )
-                        val isLocalCard = showLocal || currentUrl.startsWith("content:")
+                        val isLocalCard = currentUrl.startsWith("content:")
                         if (isLocalCard) {
                             val on = bestUris.contains(currentUrl)
                             Icon(

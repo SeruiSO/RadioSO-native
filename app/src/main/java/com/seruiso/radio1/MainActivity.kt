@@ -1984,13 +1984,13 @@ fun StationScreen(
             // іконка → нижня картка
             Box(
                 modifier = Modifier
-                    .size(80.dp)
+                    .size(88.dp)
                     .background(Palette.panel2, AppShapes.hero)
                     .clickable { onCloseMenu(); onNow() },
                 contentAlignment = Alignment.Center
             ) {
                 if (artUrl(favicon).startsWith("http") || artUrl(favicon).startsWith("content:")) {
-                    AsyncImage(model = artUrl(favicon), contentDescription = null, modifier = Modifier.size(80.dp).clip(AppShapes.card), contentScale = ContentScale.Crop)
+                    AsyncImage(model = artUrl(favicon), contentDescription = null, modifier = Modifier.size(88.dp).clip(AppShapes.card), contentScale = ContentScale.Crop)
                 } else {
                     Icon(Icons.Filled.MusicNote, contentDescription = "Немає обкладинки", tint = muted)
                 }
@@ -2000,7 +2000,7 @@ fun StationScreen(
                 modifier = Modifier
                     .padding(start = 10.dp, end = 4.dp)
                     .weight(1f)
-                    .height(80.dp)
+                    .height(88.dp)
                     .clipToBounds()
                     .clickable { onCloseMenu(); onNow() },
                 verticalArrangement = Arrangement.spacedBy(0.dp)
@@ -2206,7 +2206,7 @@ fun StationScreen(
                         EmptySlot(
                             when {
                                 tabs.getOrNull(tabIndex) == "search" || bottomTab == "search" -> "нічого не знайдено"
-                                tabs.getOrNull(tabIndex) == "fav" || bottomTab == "stations" -> "додайте станції до улюблених"
+                                tabs.getOrNull(tabIndex) == "fav" || bottomTab == "stations" -> "Додайте улюблені станції зіркою на вкладках. Немає потрібної — знайдіть у пошуку й додайте на існуючу вкладку або створіть свою."
                                 else -> "поки порожньо"
                             },
                             muted
@@ -2299,7 +2299,7 @@ fun StationScreen(
                     }
                     if (bestRows.isEmpty()) {
                         item {
-                            EmptySlot("Немає обраних локальних. Додай ♥ у «Музика».", muted)
+                            EmptySlot("Тут з’являться обрані треки. Відкрийте «Музика» і позначте треки серцем.", muted)
                         }
                     }
                     itemsIndexed(bestRows, key = { i, x -> "best-" + x.uri + i }) { _, item ->
@@ -3030,14 +3030,15 @@ fun StationScreen(
                         if (isLocalCard) {
                             val on = bestUris.contains(currentUrl)
                             Icon(
-                                if (on) Icons.Filled.Star else Icons.Filled.StarBorder,
-                                contentDescription = if (on) "Прибрати з топ локальних" else "Додати в топ локальні",
+                                if (on) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                                contentDescription = if (on) "Прибрати з обраних локальних" else "Додати в обрані локальні",
                                 tint = acc,
                                 modifier = Modifier
                                     .padding(start = 8.dp)
                                     .size(28.dp)
                                     .springPress(0.75f) {
                                         val t = localRows.firstOrNull { it.uri == currentUrl }
+                                            ?: bestRows.firstOrNull { it.uri == currentUrl }
                                         if (t != null) onToggleBest(t)
                                     }
                             )
@@ -3177,18 +3178,21 @@ fun StationScreen(
 
 @Composable
 private fun EmptySlot(hint: String, muted: Color) {
-    Row(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(56.dp)
             .padding(bottom = 8.dp)
             .background(Palette.panel.copy(alpha = 0.55f), RoundedCornerShape(12.dp))
             .border(1.dp, muted.copy(alpha = 0.28f), RoundedCornerShape(12.dp))
-            .padding(horizontal = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center
+            .padding(horizontal = 14.dp, vertical = 14.dp),
+        contentAlignment = Alignment.Center
     ) {
-        Text(hint, color = muted, style = MaterialTheme.typography.bodySmall)
+        Text(
+            hint,
+            color = muted,
+            style = MaterialTheme.typography.bodySmall,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+        )
     }
 }
 

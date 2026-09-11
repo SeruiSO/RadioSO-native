@@ -58,7 +58,7 @@ object FavStore {
             prefs.edit()
                 .putString(BluetoothAutoPlayPlugin.KEY_FAVORITES, stationsToJson(next).toString())
                 .putString("order_fav", order.toString())
-                .commit()
+                .apply()
         } else {
             // Нова ★ → свіжі метадані на початок + order_fav на початок
             next = listOf(s) + cur
@@ -74,7 +74,7 @@ object FavStore {
             prefs.edit()
                 .putString(BluetoothAutoPlayPlugin.KEY_FAVORITES, stationsToJson(next).toString())
                 .putString("order_fav", order.toString())
-                .commit()
+                .apply()
         }
         return nowFav
     }
@@ -85,7 +85,7 @@ object FavStore {
         if (cur.none { it.url == s.url }) return
         val next = cur.map { if (it.url == s.url) s.copy(tab = "fav") else it }
         context.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)
-            .edit().putString(BluetoothAutoPlayPlugin.KEY_FAVORITES, stationsToJson(next).toString()).commit()
+            .edit().putString(BluetoothAutoPlayPlugin.KEY_FAVORITES, stationsToJson(next).toString()).apply()
     }
 
     private fun stationsToJson(list: List<Station>): JSONArray {
@@ -109,14 +109,14 @@ object FavStore {
             arr.put(JSONObject().put("value", it.url).put("name", it.name).put("genre", it.genre).put("country", it.country).put("favicon", it.favicon))
         }
         context.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)
-            .edit().putString(BluetoothAutoPlayPlugin.KEY_FAVORITES, arr.toString()).commit()
+            .edit().putString(BluetoothAutoPlayPlugin.KEY_FAVORITES, arr.toString()).apply()
     }
 
     fun save(context: Context, key: String, urls: Set<String>) {
         val arr = JSONArray()
         urls.forEach { arr.put(it) }
         context.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)
-            .edit().putString(key, arr.toString()).commit()
+            .edit().putString(key, arr.toString()).apply()
     }
 
     fun toggle(context: Context, key: String, url: String): Boolean {

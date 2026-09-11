@@ -36,7 +36,7 @@ object TabStore {
     private fun saveHidden(ctx: Context, tabs: Collection<String>) {
         val arr = JSONArray()
         tabs.forEach { arr.put(it) }
-        prefs(ctx).edit().putString(KEY_HIDDEN, arr.toString()).commit()
+        prefs(ctx).edit().putString(KEY_HIDDEN, arr.toString()).apply()
     }
 
     fun addTab(ctx: Context, rawName: String, builtInTabs: List<String> = emptyList()): String? {
@@ -87,7 +87,7 @@ object TabStore {
         prefs(ctx).edit()
             .putString(KEY_ADDED, root.toString())
             .putString("order_$tab", JSONArray(order).toString())
-            .commit()
+            .apply()
         return null
     }
 
@@ -108,7 +108,7 @@ object TabStore {
             if (u != url) next.put(u)
         }
         root.put(tab, next)
-        prefs(ctx).edit().putString("deletedStations", root.toString()).commit()
+        prefs(ctx).edit().putString("deletedStations", root.toString()).apply()
     }
 
     fun renameTab(ctx: Context, old: String, rawNew: String, builtInTabs: List<String> = emptyList()): String? {
@@ -131,13 +131,13 @@ object TabStore {
         if (root.has(old)) {
             root.put(name, root.optJSONArray(old) ?: JSONArray())
             root.remove(old)
-            prefs(ctx).edit().putString(KEY_ADDED, root.toString()).commit()
+            prefs(ctx).edit().putString(KEY_ADDED, root.toString()).apply()
         }
         val delRoot = deletedRoot(ctx)
         if (delRoot.has(old)) {
             delRoot.put(name, delRoot.optJSONArray(old) ?: JSONArray())
             delRoot.remove(old)
-            prefs(ctx).edit().putString("deletedStations", delRoot.toString()).commit()
+            prefs(ctx).edit().putString("deletedStations", delRoot.toString()).apply()
         }
         return null
     }
@@ -155,10 +155,10 @@ object TabStore {
         }
         val root = JSONObject(prefs(ctx).getString(KEY_ADDED, "{}") ?: "{}")
         root.remove(tab)
-        prefs(ctx).edit().putString(KEY_ADDED, root.toString()).commit()
+        prefs(ctx).edit().putString(KEY_ADDED, root.toString()).apply()
         val delRoot = deletedRoot(ctx)
         delRoot.remove(tab)
-        prefs(ctx).edit().putString("deletedStations", delRoot.toString()).commit()
+        prefs(ctx).edit().putString("deletedStations", delRoot.toString()).apply()
     }
 
     fun removeStation(ctx: Context, tab: String, url: String) {
@@ -170,7 +170,7 @@ object TabStore {
             if (o.optString("value") != url) next.put(o)
         }
         root.put(tab, next)
-        prefs(ctx).edit().putString(KEY_ADDED, root.toString()).commit()
+        prefs(ctx).edit().putString(KEY_ADDED, root.toString()).apply()
         // Позначаємо станцію видаленою САМЕ на цій вкладці — на інших вкладках,
         // де є ця сама станція (той самий URL доданий окремо), вона й далі
         // показуватиметься без змін.
@@ -184,7 +184,7 @@ object TabStore {
     fun saveOrder(ctx: Context, tab: String, urls: List<String>) {
         val arr = JSONArray()
         urls.forEach { arr.put(it) }
-        prefs(ctx).edit().putString("order_" + tab, arr.toString()).commit()
+        prefs(ctx).edit().putString("order_" + tab, arr.toString()).apply()
     }
 
     fun applyOrder(ctx: Context, tab: String, list: List<Station>): List<Station> {
@@ -251,7 +251,7 @@ object TabStore {
     private fun saveTabs(ctx: Context, tabs: List<String>) {
         val arr = JSONArray()
         tabs.forEach { arr.put(it) }
-        prefs(ctx).edit().putString(KEY_CUSTOM, arr.toString()).commit()
+        prefs(ctx).edit().putString(KEY_CUSTOM, arr.toString()).apply()
     }
 
     private fun prefs(ctx: Context) =

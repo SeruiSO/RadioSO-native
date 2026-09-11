@@ -27,13 +27,13 @@ object ThemeStore {
         val cur = get(ctx)
         val n = all[(all.indexOf(cur) + 1) % all.size]
         ctx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)
-            .edit().putString("selectedTheme", n.id).commit()
+            .edit().putString("selectedTheme", n.id).apply()
         return n
     }
     fun set(ctx: Context, id: String): Theme {
         val n = all.firstOrNull { it.id == id } ?: all.first()
         ctx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)
-            .edit().putString("selectedTheme", n.id).commit()
+            .edit().putString("selectedTheme", n.id).apply()
         return n
     }
     fun color(t: Theme) = Color(t.accent)

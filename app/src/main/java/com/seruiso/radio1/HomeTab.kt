@@ -113,55 +113,6 @@ fun HomeTabContent(
 }
 
 @Composable
-private fun HomeHero(
-    name: String, genre: String, art: String, url: String, playing: Boolean,
-    acc: Color, muted: Color, text: Color, onOpen: () -> Unit, onPlayPause: () -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 4.dp, bottom = 16.dp)
-            .background(Palette.panel, RoundedCornerShape(16.dp))
-            .clickable { onOpen() }
-            .padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        HomeArt(art, url, 80.dp, muted, current = true, acc = acc)
-        Column(modifier = Modifier.weight(1f).padding(horizontal = 12.dp)) {
-            Text("Продовжити", color = muted, style = MaterialTheme.typography.labelSmall)
-            Text(name, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
-            if (genre.isNotBlank()) {
-                Text(
-                    genre,
-                    color = muted,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier
-                        .padding(top = 4.dp)
-                        .background(Palette.panel2, RoundedCornerShape(8.dp))
-                        .padding(horizontal = 8.dp, vertical = 2.dp)
-                )
-            }
-        }
-        Box(
-            modifier = Modifier
-                .size(48.dp)
-                .background(acc.copy(alpha = 0.22f), CircleShape)
-                .clickable { onPlayPause() },
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                contentDescription = if (playing) "Пауза" else "Грати",
-                tint = acc,
-                modifier = Modifier.size(28.dp),
-            )
-        }
-    }
-}
-
-@Composable
 private fun HomeWelcome(muted: Color, text: Color, acc: Color, onAllStations: () -> Unit) {
     Column(
         modifier = Modifier

@@ -6,13 +6,14 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
-import java.util.concurrent.ConcurrentHashMap
 
 private val TITLE_SEPS = listOf(
     " - ", " – ", " — ", " | ",
@@ -67,14 +68,19 @@ fun splitArtists(raw: String): List<String> {
 }
 
 private const val UA = "RadioSO/1.0 (+https://github.com/SeruiSO/RadioSO-native)"
-private val photoCache = ConcurrentHashMap<String, String>()
+private val photoCache = object : LinkedHashMap<String, String>(64, 0.75f, true) {
+    override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, String>): Boolean {
+        return size > 200
+    }
+}
+private val photoCacheLock = Any()
 
 private fun cacheKey(artist: String) = artist.trim().lowercase()
 
 private fun httpGetJson(urlStr: String, accept: String): String {
     val conn = URL(urlStr).openConnection() as HttpURLConnection
-    conn.connectTimeout = 4000
-    conn.readTimeout = 4000
+    conn.connectTimeout = 2500
+    conn.readTimeout = 2500
     conn.requestMethod = "GET"
     conn.setRequestProperty("User-Agent", UA)
     conn.setRequestProperty("Accept", accept)
@@ -113,43 +119,20 @@ private fun itunesArtistPhoto(artist: String): String? = try {
     null
 }
 
-private fun musicBrainzMbid(artist: String): String? = try {
-    val q = URLEncoder.encode("artist:$artist", "UTF-8")
-    val body = httpGetJson("https://musicbrainz.org/ws/2/artist/?query=$q&fmt=json&limit=1", "application/json")
-    val arr = JSONObject(body).optJSONArray("artists")
-    if (arr != null && arr.length() > 0) arr.getJSONObject(0).optString("id").ifBlank { null } else null
-} catch (_: Exception) {
-    null
-}
-
-private fun wikidataPhotoByMbid(mbid: String): String? = try {
-    val sparql = """
-        SELECT ?image WHERE {
-          ?artist wdt:P434 "$mbid" .
-          ?artist wdt:P18 ?image .
-        } LIMIT 1
-    """.trimIndent()
-    val q = URLEncoder.encode(sparql, "UTF-8")
-    val body = httpGetJson(
-        "https://query.wikidata.org/sparql?query=$q&format=json",
-        "application/sparql-results+json"
-    )
-    val bindings = JSONObject(body).optJSONObject("results")?.optJSONArray("bindings")
-    if (bindings != null && bindings.length() > 0) {
-        bindings.getJSONObject(0).optJSONObject("image")?.optString("value")?.ifBlank { null }
-    } else null
-} catch (_: Exception) {
-    null
-}
-
-private fun photoForSingleArtist(artist: String): String? {
+private suspend fun photoForSingleArtist(artist: String): String? {
     if (artist.isBlank() || looksLikeJunk(artist)) return null
     val key = cacheKey(artist)
-    photoCache[key]?.let { return it.ifBlank { null } }
-    val photo = deezerArtistPhoto(artist)
-        ?: itunesArtistPhoto(artist)
-        ?: musicBrainzMbid(artist)?.let { wikidataPhotoByMbid(it) }
-    photoCache[key] = photo ?: ""
+    synchronized(photoCacheLock) {
+        photoCache[key]?.let { return it.ifBlank { null } }
+    }
+    val photo = coroutineScope {
+        val deezer = async { deezerArtistPhoto(artist) }
+        val itunes = async { itunesArtistPhoto(artist) }
+        deezer.await() ?: itunes.await()
+    }
+    synchronized(photoCacheLock) {
+        photoCache[key] = photo ?: ""
+    }
     return photo
 }
 

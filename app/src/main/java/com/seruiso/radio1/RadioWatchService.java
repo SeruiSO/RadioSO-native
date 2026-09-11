@@ -1048,6 +1048,12 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         }
 
         if (ACTION_BT.equals(action)) {
+            long nowBt = System.currentTimeMillis();
+            if (nowBt - lastBtActionMs < 1500L) {
+                android.util.Log.i("RadioWatch", "ACTION_BT debounced");
+                return START_STICKY;
+            }
+            lastBtActionMs = nowBt;
             SharedPreferences spBt = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE);
             if (!spBt.getBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, true)) {
                 android.util.Log.i("RadioWatch", "ACTION_BT ignored — BT watch off");
@@ -1245,6 +1251,12 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
 
     private void forceStopPlayback(String reason) {
         android.util.Log.i("RadioWatch", "forceStopPlayback: " + reason);
+        // VoIP (WhatsApp/Viber) через BT: A2DP→SCO дає ACTION_PAUSE від BluetoothReceiver.
+        // Не затираємо pausedByFocusLoss, інакше AUDIOFOCUS_GAIN після дзвінка не відновить ефір.
+        if ("ACTION_PAUSE".equals(reason) && pausedByFocusLoss) {
+            android.util.Log.i("RadioWatch", "forceStopPlayback skipped — already paused by focus loss (likely call)");
+            return;
+        }
         pausedByFocusLoss = false;
         ignoreNoisyUntilMs = 0L;
         sawA2dpAfterBtStart = false;
@@ -1495,6 +1507,8 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
     private int reconnectAttempt = 0;
     private long reconnectWindowStart = 0L;
     private long lastReconnectTriggerMs = 0L;
+    /** Дебаунс подвійного ACTION_BT (ACL + A2DP STATE_CONNECTED). */
+    private long lastBtActionMs = 0L;
     private static final long RECONNECT_DEBOUNCE_MS = 1500L;
     /** Скільки часу після BT-конекту вважаємо, що ще триває апаратний handoff
      *  (магнітола/колонка можуть на мить забрати audio focus чи знімати маршрут) —
@@ -1561,6 +1575,32 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         long elapsed = now - reconnectWindowStart;
         if (ReconnectPolicy.windowExpired(elapsed)) {
             notifyUiStatus("немає мережі", reconnectAttempt);
+            // Повільний heartbeat після 5хв вікна: мережа може «бути», але не працювати
+            // (onAvailable тоді не прийде). Не чіпаємо ReconnectPolicy — лише retry тут.
+            final int attemptHb = reconnectAttempt;
+            reconnectHandler.postDelayed(() -> {
+                if (player == null) return;
+                if (isLocalMode()) return;
+                if (!PlaybackPrefs.isIntended(RadioWatchService.this)) return;
+                if (player.isPlaying()) {
+                    reconnectAttempt = 0;
+                    reconnectWindowStart = 0L;
+                    notifyUiStatus("відтворення", 0);
+                    return;
+                }
+                if (!hasInternet()) {
+                    scheduleReconnect();
+                    return;
+                }
+                String url = resolveReconnectUrl();
+                if (url != null && !url.isEmpty()) {
+                    reconnectAttempt = attemptHb + 1;
+                    lastPlayedUrl = "";
+                    lastPlayMs = 0;
+                    playUrl(url);
+                }
+                scheduleReconnect();
+            }, 90_000L);
             return;
         }
         long delay = ReconnectPolicy.nextDelayMs(elapsed, reconnectAttempt);

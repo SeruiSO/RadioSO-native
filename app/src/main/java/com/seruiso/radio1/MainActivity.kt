@@ -461,10 +461,10 @@ class MainActivity : ComponentActivity() {
                                 val inBase = stations.any { it.url == s.url && it.tab == tab }
                                 val already = (inExtra || inBase) && s.url !in deleted
                                 if (already) {
-                                    statusText = "вже є в $tab"
+                                    holdStatus("вже є в $tab")
                                 } else {
                                     val err = TabStore.addStation(this, tab, s)
-                                    statusText = err ?: "додано в $tab"
+                                    holdStatus(err ?: "додано в $tab")
                                     if (err == null) {
                                         // якщо вже в ★ — оновити знімок (іконка/жанр з пошуку)
                                         if (favUrls.contains(s.url)) {
@@ -484,7 +484,7 @@ class MainActivity : ComponentActivity() {
                             val err = TabStore.addTab(this, newTabName, sourceTabs)
                             if (err == null) {
                                 customTabs = TabStore.customTabs(this)
-                                statusText = "вкладка ${newTabName.lowercase()} створена"
+                                holdStatus("вкладка ${newTabName.lowercase()} створена")
                                 newTabName = ""
                                 newTabOpen = false
                             } else holdStatus(err)
@@ -508,9 +508,9 @@ class MainActivity : ComponentActivity() {
                             if (err == null) {
                                 customTabs = TabStore.customTabs(this)
                                 addedRev++
-                                statusText = "перейменовано"
+                                holdStatus("перейменовано")
                                 editTab = null
-                            } else statusText = err
+                            } else holdStatus(err)
                         },
                         onDeleteTab = {
                             val tab = editTab ?: return@StationScreen
@@ -519,7 +519,7 @@ class MainActivity : ComponentActivity() {
                             customTabs = TabStore.customTabs(this)
                             addedRev++
                             if (uiTabs.getOrNull(tabIndex) == tab) tabIndex = 0
-                            statusText = "видалено $tab"
+                            holdStatus("видалено $tab")
                             editTab = null
                             deleteArmed = false
                         },
@@ -550,7 +550,7 @@ class MainActivity : ComponentActivity() {
                             val n = ThemeStore.set(this, id)
                             themeId = n.id
                             accent = n.accent
-                            statusText = n.id
+                            holdStatus(n.id)
                         },
                         pendingDelete = pendingDelete,
                         onAskDelete = { pendingDelete = it },
@@ -568,7 +568,7 @@ class MainActivity : ComponentActivity() {
                                 if (favUrls.contains(s.url)) toggleFav(s)
                             }
                             addedRev++
-                            statusText = "видалено"
+                            holdStatus("видалено")
                         },
                         track = trackTitle,
                         playing = isPlaying,
@@ -1892,12 +1892,16 @@ fun StationScreen(
     var toastTxt by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
     LaunchedEffect(status) {
         if (playbackInfoText(status) != null || status.isBlank() || status == "готово") {
+            toastOn = false
             return@LaunchedEffect
         }
         toastTxt = status
         toastOn = true
-        kotlinx.coroutines.delay(2000)
-        toastOn = false
+        try {
+            kotlinx.coroutines.delay(2000)
+        } finally {
+            toastOn = false
+        }
     }
     Box(modifier = Modifier.fillMaxSize().background(bg).navigationBarsPadding()) {
     Column(

@@ -1,16 +1,19 @@
 package com.seruiso.radio1
 
+import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
@@ -54,7 +57,7 @@ fun artistFromTrackTitle(title: String): String {
 fun splitArtists(raw: String): List<String> {
     var s = raw.trim()
     if (s.isEmpty()) return emptyList()
-    s = s.replace(Regex("""\s*[\(\[][^)\]]*[\)\]]\s*$"""), "").trim()
+    s = s.replace(Regex("""\s*[\(\[][^)\\]]*[\)\]]\s*$"""), "").trim()
     if (s.isEmpty()) return emptyList()
     val parts = s.split(
         Regex(
@@ -68,14 +71,61 @@ fun splitArtists(raw: String): List<String> {
 }
 
 private const val UA = "RadioSO/1.0 (+https://github.com/SeruiSO/RadioSO-native)"
+private const val DISK_FILE = "artist_photo_cache.json"
+private const val TTL_MS = 14L * 24 * 60 * 60 * 1000 // 14 днів
+private const val MISS = "" // порожній URL = "не знайдено"
+
 private val photoCache = object : LinkedHashMap<String, String>(64, 0.75f, true) {
     override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, String>): Boolean {
         return size > 200
     }
 }
 private val photoCacheLock = Any()
+@Volatile private var diskLoaded = false
 
 private fun cacheKey(artist: String) = artist.trim().lowercase()
+
+private fun diskFile(ctx: Context): File = File(ctx.applicationContext.filesDir, DISK_FILE)
+
+/** Підвантажити диск → пам'ять один раз на процес. */
+private fun ensureDiskLoaded(ctx: Context) {
+    if (diskLoaded) return
+    synchronized(photoCacheLock) {
+        if (diskLoaded) return
+        try {
+            val f = diskFile(ctx)
+            if (f.isFile) {
+                val root = JSONObject(f.readText())
+                val now = System.currentTimeMillis()
+                val keys = root.keys()
+                while (keys.hasNext()) {
+                    val k = keys.next()
+                    val o = root.optJSONObject(k) ?: continue
+                    val ts = o.optLong("ts", 0L)
+                    if (ts > 0 && now - ts > TTL_MS) continue // прострочено
+                    val url = o.optString("url", MISS)
+                    photoCache[k] = url
+                }
+            }
+        } catch (_: Exception) {
+        }
+        diskLoaded = true
+    }
+}
+
+private fun persistDisk(ctx: Context) {
+    try {
+        val root = JSONObject()
+        val now = System.currentTimeMillis()
+        synchronized(photoCacheLock) {
+            for ((k, v) in photoCache) {
+                root.put(k, JSONObject().put("url", v).put("ts", now))
+            }
+        }
+        diskFile(ctx).writeText(root.toString())
+    } catch (_: Exception) {
+    }
+}
 
 private fun httpGetJson(urlStr: String, accept: String): String {
     val conn = URL(urlStr).openConnection() as HttpURLConnection
@@ -119,8 +169,9 @@ private fun itunesArtistPhoto(artist: String): String? = try {
     null
 }
 
-private suspend fun photoForSingleArtist(artist: String): String? {
+private suspend fun photoForSingleArtist(ctx: Context, artist: String): String? {
     if (artist.isBlank() || looksLikeJunk(artist)) return null
+    ensureDiskLoaded(ctx)
     val key = cacheKey(artist)
     synchronized(photoCacheLock) {
         photoCache[key]?.let { return it.ifBlank { null } }
@@ -131,13 +182,16 @@ private suspend fun photoForSingleArtist(artist: String): String? {
         deezer.await() ?: itunes.await()
     }
     synchronized(photoCacheLock) {
-        photoCache[key] = photo ?: ""
+        photoCache[key] = photo ?: MISS
     }
+    // диск асинхронно — не блокуємо UI
+    try { persistDisk(ctx) } catch (_: Exception) {}
     return photo
 }
 
 @Composable
 fun rememberArtistPhotoUrl(artist: String, bust: String = ""): State<String?> {
+    val ctx = LocalContext.current.applicationContext
     val result = remember(artist, bust) { mutableStateOf<String?>(null) }
     LaunchedEffect(artist, bust) {
         result.value = null
@@ -151,7 +205,7 @@ fun rememberArtistPhotoUrl(artist: String, bust: String = ""): State<String?> {
                 if (isEmpty()) add(artist.trim())
             }.distinct().take(3)
             for (name in list) {
-                val photo = photoForSingleArtist(name)
+                val photo = photoForSingleArtist(ctx, name)
                 if (photo != null) return@withContext photo
             }
             null

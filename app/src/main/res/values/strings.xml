@@ -1,3 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Radio S O</string>
+
+    <!-- Home -->
+    <string name="home_recent">Нещодавно</string>
+    <string name="home_favorites">Улюблені</string>
+    <string name="home_local_fav">Обране локальне</string>
+    <string name="home_similar">Близьке за жанром</string>
+    <string name="home_all">Усі</string>
+    <string name="home_welcome_title">Додай станції зіркою</string>
+    <string name="home_welcome_sub">Тоді вони з’являться тут</string>
+    <string name="home_welcome_cta">До улюблених</string>
+    <string name="cd_pause">Пауза</string>
+    <string name="cd_play">Грати</string>
+
+    <!-- Common UI -->
+    <string name="tab_fav">Обране</string>
+    <string name="tab_best">Топ</string>
+    <string name="tab_local">Локальне</string>
+    <string name="tab_search">Пошук</string>
+    <string name="bt_watch_on">Стежити за BT</string>
+    <string name="bt_watch_off">BT-стеження вимкнено</string>
+    <string name="status_connecting">підключення</string>
+    <string name="status_playing">відтворення</string>
+    <string name="status_no_network">немає мережі</string>
+    <string name="status_reconnecting">Відновлюємо з’єднання…</string>
+    <string name="import_ok">імпорт ок</string>
+    <string name="error_tab_name">Введи назву</string>
+    <string name="error_tab_exists">Така вкладка вже є</string>
+    <string name="error_tab_max">Максимум 7 кастомних</string>
+    <string name="error_tab_reserved">Сюди не можна</string>
 </resources>

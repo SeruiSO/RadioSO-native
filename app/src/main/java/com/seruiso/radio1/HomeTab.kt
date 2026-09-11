@@ -1,5 +1,7 @@
 package com.seruiso.radio1
 
+// R in same package
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -28,6 +30,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
 import coil.compose.AsyncImage
 
 @Composable
@@ -69,7 +72,7 @@ fun HomeTabContent(
         } else {
             if (recent10.isNotEmpty()) {
                 item {
-                    HomeSectionHeader("Нещодавно", acc, text, onAll = null)
+                    HomeSectionHeader(stringResource(R.string.home_recent), acc, text, onAll = null)
                     HomeStationGrid(recent10, currentUrl, muted, text, tile = 88.dp) { s ->
                         if (s.url != currentUrl) onPickOneRadio(recent10, recent10.indexOfFirst { it.url == s.url }.coerceAtLeast(0))
                         onPlayNow()
@@ -78,7 +81,7 @@ fun HomeTabContent(
             }
             if (favRows.isNotEmpty()) {
                 item {
-                    HomeSectionHeader("Улюблені", acc, text, onAll = onAllStations, icon = Icons.Filled.Star)
+                    HomeSectionHeader(stringResource(R.string.home_favorites), acc, text, onAll = onAllStations, icon = Icons.Filled.Star)
                     HomeStationGrid(favRows, currentUrl, muted, text, tile = 88.dp) { s ->
                         val i = favRows.indexOfFirst { it.url == s.url }
                         if (s.url != currentUrl) onPickRadio(favRows, if (i >= 0) i else 0)
@@ -88,7 +91,7 @@ fun HomeTabContent(
             }
             if (heartRows.isNotEmpty()) {
                 item {
-                    HomeSectionHeader("Обране локальне", acc, text, onAll = onAllHeart, icon = Icons.Filled.Favorite)
+                    HomeSectionHeader(stringResource(R.string.home_local_fav), acc, text, onAll = onAllHeart, icon = Icons.Filled.Favorite)
                     HomeLocalGrid(heartRows, currentUrl, muted, text, tile = 72.dp) { t ->
                         val i = heartRows.indexOfFirst { it.uri == t.uri }
                         if (t.uri != currentUrl) onPickLocal(heartRows, if (i >= 0) i else 0)
@@ -99,7 +102,7 @@ fun HomeTabContent(
             if (similar10.isNotEmpty()) {
                 item {
                     HomeSectionHeader(
-                        if (similarTitle.isBlank()) "Близьке за жанром" else similarTitle,
+                        if (similarTitle.isBlank()) stringResource(R.string.home_similar) else similarTitle,
                         acc, text, onAll = null,
                     )
                     HomeStationGrid(similar10, currentUrl, muted, text, tile = 80.dp) { s ->
@@ -123,10 +126,10 @@ private fun HomeWelcome(muted: Color, text: Color, acc: Color, onAllStations: ()
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Icon(Icons.Filled.Star, contentDescription = null, tint = acc, modifier = Modifier.size(28.dp))
-        Text("Додай станції зіркою", color = text, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp))
-        Text("Тоді вони з’являться тут", color = muted, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
+        Text(stringResource(R.string.home_welcome_title), color = text, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp))
+        Text(stringResource(R.string.home_welcome_sub), color = muted, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
         Text(
-            "До улюблених",
+            stringResource(R.string.home_welcome_cta),
             color = acc,
             style = MaterialTheme.typography.labelLarge,
             modifier = Modifier
@@ -150,7 +153,7 @@ private fun HomeSectionHeader(title: String, acc: Color, text: Color, onAll: (()
         Text(title, color = text, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
         if (onAll != null) {
             Text(
-                "Усі",
+                stringResource(R.string.home_all),
                 color = acc,
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.clickable { onAll() }.padding(horizontal = 14.dp, vertical = 8.dp),

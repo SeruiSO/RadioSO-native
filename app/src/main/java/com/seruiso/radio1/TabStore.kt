@@ -7,6 +7,7 @@ import org.json.JSONObject
 object TabStore {
     private const val KEY_CUSTOM = "customTabs"
     private const val KEY_ADDED = "userAddedStations"
+    private const val KEY_HIDDEN = "hiddenTabs"
     val reserved = setOf("fav", "best", "local", "search", "localbest")
 
     fun customTabs(ctx: Context): List<String> {
@@ -18,6 +19,24 @@ object TabStore {
             if (t.isNotEmpty()) out.add(t)
         }
         return out
+    }
+
+    /** Вкладки, які користувач «видалив» (у т.ч. вбудовані techno/pop/…). */
+    fun hiddenTabs(ctx: Context): Set<String> {
+        val raw = prefs(ctx).getString(KEY_HIDDEN, "[]") ?: "[]"
+        val arr = JSONArray(raw)
+        val out = mutableSetOf<String>()
+        for (i in 0 until arr.length()) {
+            val t = arr.optString(i).trim()
+            if (t.isNotEmpty()) out.add(t)
+        }
+        return out
+    }
+
+    private fun saveHidden(ctx: Context, tabs: Collection<String>) {
+        val arr = JSONArray()
+        tabs.forEach { arr.put(it) }
+        prefs(ctx).edit().putString(KEY_HIDDEN, arr.toString()).commit()
     }
 
     fun addTab(ctx: Context, rawName: String, builtInTabs: List<String> = emptyList()): String? {
@@ -124,7 +143,16 @@ object TabStore {
     }
 
     fun deleteTab(ctx: Context, tab: String) {
-        saveTabs(ctx, customTabs(ctx).filter { it != tab })
+        if (tab in reserved || tab == "search") return
+        // Кастомна — прибираємо зі списку customTabs
+        if (tab in customTabs(ctx)) {
+            saveTabs(ctx, customTabs(ctx).filter { it != tab })
+        } else {
+            // Вбудована (techno/trance/ukraine/pop…) — ховаємо, stations.json не чіпаємо
+            val h = hiddenTabs(ctx).toMutableSet()
+            h.add(tab)
+            saveHidden(ctx, h)
+        }
         val root = JSONObject(prefs(ctx).getString(KEY_ADDED, "{}") ?: "{}")
         root.remove(tab)
         prefs(ctx).edit().putString(KEY_ADDED, root.toString()).commit()

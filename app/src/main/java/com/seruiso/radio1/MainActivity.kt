@@ -329,8 +329,9 @@ class MainActivity : ComponentActivity() {
 
     private val uiTabs: List<String>
         get() {
-            val mid = sourceTabs.filter { it !in listOf("fav", "best", "local", "search") } +
-                customTabs.filter { it !in sourceTabs && it !in listOf("fav", "best", "local", "search") }
+            val hidden = TabStore.hiddenTabs(this)
+            val mid = sourceTabs.filter { it !in listOf("fav", "best", "local", "search") && it !in hidden } +
+                customTabs.filter { it !in sourceTabs && it !in listOf("fav", "best", "local", "search") && it !in hidden }
             return listOf("fav", "best") + mid.distinct() + listOf("local", "search")
         }
 
@@ -495,7 +496,8 @@ class MainActivity : ComponentActivity() {
                         editName = editName,
                         deleteArmed = deleteArmed,
                         onLongTab = { tab ->
-                            if (tab in customTabs) {
+                            // Можна керувати і вбудованими (techno/pop…), і кастомними; системні — ні
+                            if (tab !in listOf("fav", "best", "local", "search") && tab !in TabStore.reserved) {
                                 editTab = tab
                                 editName = tab
                                 deleteArmed = false
@@ -648,8 +650,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun targetTabs(): List<String> {
-        val built = sourceTabs.filter { it !in TabStore.reserved && it != "search" }
-        return (built + customTabs).distinct()
+        val hidden = TabStore.hiddenTabs(this)
+        val built = sourceTabs.filter { it !in TabStore.reserved && it != "search" && it !in hidden }
+        return (built + customTabs.filter { it !in hidden }).distinct()
     }
 
     /** Повідомлення в інфо-панелі тримається holdMs, щоб «відтворення» його не змивало */

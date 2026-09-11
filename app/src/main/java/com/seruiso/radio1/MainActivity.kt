@@ -185,11 +185,11 @@ import androidx.compose.ui.text.font.FontWeight
 
 
 /** Підписи вкладок (UA) — top-level, щоб StationScreen теж бачив */
-private fun tabLabel(tab: String): String = when (tab.lowercase()) {
-    "fav" -> getString(R.string.favorites)
-    "best" -> getString(R.string.local_best_short)
-    "local" -> getString(R.string.tab_local)
-    "search" -> getString(R.string.nav_search)
+private fun tabLabel(ctx: android.content.Context, tab: String): String = when (tab.lowercase()) {
+    "fav" -> ctx.getString(R.string.favorites)
+    "best" -> ctx.getString(R.string.local_best_short)
+    "local" -> ctx.getString(R.string.tab_local)
+    "search" -> ctx.getString(R.string.nav_search)
     "ukraine", "ua" -> "UA"
     "techno" -> "Techno"
     "trance" -> "Trance"
@@ -198,16 +198,16 @@ private fun tabLabel(tab: String): String = when (tab.lowercase()) {
 }
 
 /** Статус ефіру для інфо-панелі; решта йде в тост. */
-private fun playbackInfoText(status: String): String? {
+private fun playbackInfoText(ctx: android.content.Context, status: String): String? {
     val x = status.trim().lowercase()
-    if (x.isEmpty() || x == getString(R.string.done)) return null
+    if (x.isEmpty() || x == ctx.getString(R.string.done)) return null
     return when {
-        x.startsWith("відтвор") -> getString(R.string.playing_cap)
-        x == "пауза" || x.contains(getString(R.string.sleep_pause)) -> getString(R.string.pause)
-        x.startsWith("стоп") -> getString(R.string.stop)
-        x.contains(getString(R.string.buffer)) -> getString(R.string.buffer_cap)
-        x.startsWith("підключ") -> getString(R.string.connecting_cap)
-        x == "запуск" -> getString(R.string.start)
+        x.startsWith("відтвор") -> ctx.getString(R.string.playing_cap)
+        x == "пауза" || x.contains(ctx.getString(R.string.sleep_pause)) -> ctx.getString(R.string.pause)
+        x.startsWith("стоп") -> ctx.getString(R.string.stop)
+        x.contains(ctx.getString(R.string.buffer)) -> ctx.getString(R.string.buffer_cap)
+        x.startsWith("підключ") -> ctx.getString(R.string.connecting_cap)
+        x == "запуск" -> ctx.getString(R.string.start)
         x.contains("#") -> status.trim()
         else -> null
     }
@@ -1893,8 +1893,9 @@ fun StationScreen(
     val scope = rememberCoroutineScope()
     var toastOn by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     var toastTxt by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
+    val ctxToast = LocalContext.current
     LaunchedEffect(status) {
-        if (playbackInfoText(status) != null || status.isBlank() || status == LocalContext.current.getString(R.string.done)) {
+        if (playbackInfoText(ctxToast, status) != null || status.isBlank() || status == ctxToast.getString(R.string.done)) {
             toastOn = false
             return@LaunchedEffect
         }
@@ -2044,7 +2045,7 @@ fun StationScreen(
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.fillMaxWidth()
                 )
-                val playInfo = playbackInfoText(status)
+                val playInfo = playbackInfoText(LocalContext.current, status)
                 if (playInfo != null) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -2652,7 +2653,7 @@ fun StationScreen(
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                     targetTabs.forEach { tab ->
                         Text(
-                            tabLabel(tab),
+                            tabLabel(LocalContext.current, tab),
                             color = text,
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -3365,7 +3366,7 @@ private fun BoxScope.RightTabsPanel(
                                 modifier = Modifier.size(20.dp).padding(end = 2.dp)
                             )
                             Text(
-                                tabLabel(tab),
+                                tabLabel(LocalContext.current, tab),
                                 color = if (selected) acc else text,
                                 style = MaterialTheme.typography.titleSmall,
                                 maxLines = 1,

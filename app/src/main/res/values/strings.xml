@@ -2,7 +2,7 @@
 <resources>
     <string name="app_name">Radio S O</string>
 
-    <!-- Home -->
+    <!-- Home (already used) -->
     <string name="home_recent">Нещодавно</string>
     <string name="home_favorites">Улюблені</string>
     <string name="home_local_fav">Обране локальне</string>
@@ -14,20 +14,143 @@
     <string name="cd_pause">Пауза</string>
     <string name="cd_play">Грати</string>
 
-    <!-- Common UI -->
+    <!-- Tabs / nav -->
     <string name="tab_fav">Обране</string>
     <string name="tab_best">Топ</string>
-    <string name="tab_local">Локальне</string>
+    <string name="tab_local">Локальні</string>
     <string name="tab_search">Пошук</string>
-    <string name="bt_watch_on">Стежити за BT</string>
-    <string name="bt_watch_off">BT-стеження вимкнено</string>
-    <string name="status_connecting">підключення</string>
-    <string name="status_playing">відтворення</string>
-    <string name="status_no_network">немає мережі</string>
-    <string name="status_reconnecting">Відновлюємо з’єднання…</string>
+    <string name="nav_home">Дім</string>
+    <string name="nav_music">Музика</string>
+    <string name="nav_stations">Станції</string>
+    <string name="nav_search">Пошук</string>
+    <string name="tabs">Вкладки</string>
+    <string name="local_best_short">Топ лок.</string>
+
+    <!-- Playback -->
+    <string name="play">Відтворити</string>
+    <string name="pause">Пауза</string>
+    <string name="stop">Стоп</string>
+    <string name="playing">відтворення</string>
+    <string name="playing_cap">Відтворення</string>
+    <string name="connecting">підключення</string>
+    <string name="connecting_cap">Підключення</string>
+    <string name="buffer">буфер</string>
+    <string name="buffer_cap">Буфер</string>
+    <string name="prev_station">Попередня станція</string>
+    <string name="next_station">Наступна станція</string>
+    <string name="open_now_playing">Відкрити Now Playing</string>
+    <string name="shuffle">Перемішати</string>
+    <string name="shuffle_on">перемішування: увімк</string>
+    <string name="shuffle_off">перемішування: вимк</string>
+    <string name="repeat">Повторити</string>
+    <string name="repeat_off">повтор: вимкнено</string>
+    <string name="repeat_one">повтор: один трек</string>
+    <string name="repeat_all">повтор: усі</string>
+    <string name="track_unknown">Трек невідомий</string>
+    <string name="track_unknown2">Трек: невідомо</string>
+    <string name="no_cover">Немає обкладинки</string>
+
+    <!-- BT -->
+    <string name="bt_on">BT увімк</string>
+    <string name="bt_off">BT вимк</string>
+    <string name="bt_watch_on">BT стеження увімк</string>
+    <string name="bt_watch_off">BT стеження вимк</string>
+    <string name="bt_watch_on_long">BT відстеження увімкнено</string>
+    <string name="bt_watch_off_long">BT відстеження вимкнено</string>
+
+    <!-- Theme / settings -->
+    <string name="theme">Тема</string>
+    <string name="theme_title">Тема оформлення</string>
+    <string name="theme_light">Світла тема</string>
+    <string name="theme_dark">Темна тема</string>
+    <string name="more_settings">Ще налаштування</string>
+    <string name="sleep_timer">Таймер сну</string>
+    <string name="sleep_off">таймер вимкнено</string>
+    <string name="sleep_pause">таймер сну: пауза</string>
+    <string name="sleep_mins">Сон: %1$d хв</string>
+    <string name="mins_short">%1$d хв</string>
+    <string name="export">Експорт</string>
+    <string name="import_label">Імпорт</string>
+    <string name="export_settings">Експорт налаштувань</string>
+    <string name="import_settings">Імпорт налаштувань</string>
+    <string name="export_radioso">Експорт RadioSO</string>
     <string name="import_ok">імпорт ок</string>
-    <string name="error_tab_name">Введи назву</string>
-    <string name="error_tab_exists">Така вкладка вже є</string>
-    <string name="error_tab_max">Максимум 7 кастомних</string>
-    <string name="error_tab_reserved">Сюди не можна</string>
+    <string name="import_error">помилка імпорту</string>
+    <string name="close">Закрити</string>
+    <string name="cancel">Скасувати</string>
+    <string name="delete">Видалити</string>
+    <string name="create">Створити</string>
+    <string name="rename">Перейменувати</string>
+    <string name="off">Вимк.</string>
+    <string name="disable">Вимкнути</string>
+    <string name="start">Запуск</string>
+    <string name="done">готово</string>
+    <string name="already_have">Вже є</string>
+    <string name="find">Знайти</string>
+    <string name="scan">Скан</string>
+    <string name="genre">Жанр</string>
+    <string name="country">Країна</string>
+    <string name="name_label">Назва</string>
+
+    <!-- Lists / empty -->
+    <string name="favorites">Обране</string>
+    <string name="favorites_plural">Обрані</string>
+    <string name="local_music">Локальна музика</string>
+    <string name="local_favorites">Обрані локальні</string>
+    <string name="add_to_favorites">Додати в улюблені</string>
+    <string name="remove_from_favorites">Прибрати з улюблених</string>
+    <string name="add_to_local_fav">Додати в обрані локальні</string>
+    <string name="add_to_local_fav_short">В обрані локальні</string>
+    <string name="remove_from_local_fav">Прибрати з обраних локальних</string>
+    <string name="empty_for_now">поки порожньо</string>
+    <string name="no_genre_tabs">Поки немає жанрових вкладок</string>
+    <string name="no_tracks_scan">Немає треків. Натисни «Сканувати».</string>
+    <string name="fav_hint_long">Додайте улюблені станції зіркою на вкладках. Немає потрібної — знайдіть у пошуку й додайте на існуючу вкладку або створіть нову.</string>
+    <string name="local_hint_long">Перейдіть у «Музика» і додайте улюблені треки з пристрою — позначте їх серцем.</string>
+    <string name="tap_hold_hint">Тап — відкрити · утримання — змінити</string>
+    <string name="select_tab">Виберіть вкладку</string>
+    <string name="select_station">Виберіть станцію</string>
+    <string name="add_tab">Додати вкладку</string>
+    <string name="create_new_tab">Створити нову вкладку</string>
+    <string name="delete_station">Видалити станцію</string>
+    <string name="delete_station_q">Видалити станцію?</string>
+    <string name="delete_confirm">Точно видалити?</string>
+    <string name="tab_edit">Вкладка %1$s</string>
+    <string name="more_100">Ще 100</string>
+
+    <!-- Search -->
+    <string name="search_hint">введи назву, країну або жанр</string>
+    <string name="search_ellipsis">пошук…</string>
+    <string name="search_ellipsis2"> Пошук…</string>
+    <string name="search_progress">пошук: %1$s…</string>
+    <string name="search_found">знайдено: %1$d</string>
+    <string name="nothing_found">нічого не знайдено</string>
+    <string name="scan_error">помилка сканування</string>
+    <string name="tracks_count">треків: %1$d</string>
+    <string name="detecting_country">визначаємо країну…</string>
+    <string name="country_unknown">не вдалося визначити країну</string>
+    <string name="no_audio_permission">немає дозволу на аудіо</string>
+    <string name="similar_genre">Близьке за жанром: %1$s</string>
+
+    <!-- TabStore messages -->
+    <string name="err_enter_name">Введи назву</string>
+    <string name="err_tab_chars">Літери (ua/en), цифри, _ - ; до 10 символів</string>
+    <string name="err_tab_chars_en">Лише a-z 0-9 _ - до 10 символів</string>
+    <string name="err_tab_exists">Така вкладка вже є</string>
+    <string name="err_tab_max">Максимум 7 кастомних</string>
+    <string name="err_tab_no">Немає вкладки</string>
+    <string name="err_tab_reserved">Сюди не можна</string>
+    <string name="tab_created">вкладка %1$s створена</string>
+    <string name="tab_renamed">перейменовано</string>
+    <string name="tab_deleted">видалено %1$s</string>
+    <string name="added_to_tab">додано в %1$s</string>
+    <string name="already_in_tab">вже є в %1$s</string>
+    <string name="deleted">видалено</string>
+    <string name="hint_tab_name">ua/en літери, цифри, _ - ; до 10 символів</string>
+
+    <!-- Service / status -->
+    <string name="status_no_network">немає мережі</string>
+    <string name="status_reconnect">повторне підключення</string>
+    <string name="status_buffering">буферизація</string>
+    <string name="notif_channel_desc">Відтворення радіо та стеження за Bluetooth</string>
 </resources>

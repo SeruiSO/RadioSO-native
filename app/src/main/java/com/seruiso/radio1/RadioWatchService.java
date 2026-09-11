@@ -409,7 +409,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                         if (isLocalMode()) return;
                         if (player != null && player.isPlaying()) {
                             reconnectAttempt = 0;
-                            notifyUiStatus("відтворення", 0);
+                            notifyUiStatus(getString(R.string.playing), 0);
                             return;
                         }
                         // ще буферизує (не зупинився, не в помилці) — дати шанс
@@ -424,7 +424,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                             reconnectHandler.postDelayed(() -> {
                                 if (player != null && player.isPlaying()) {
                                     reconnectAttempt = 0;
-                                    notifyUiStatus("відтворення", 0);
+                                    notifyUiStatus(getString(R.string.playing), 0);
                                     return;
                                 }
                                 android.util.Log.i("RadioWatch", "still not playing after grace — forcing reconnect");
@@ -466,7 +466,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
     /** Форсований реконект: скидає лічильники і одразу пробує грати resolved URL. */
     private void forceNetworkReconnect() {
         android.util.Log.i("RadioWatch", "network available → reconnect");
-        notifyUiStatus("повторне підключення", reconnectAttempt + 1);
+        notifyUiStatus(getString(R.string.status_reconnect), reconnectAttempt + 1);
         reconnectAttempt = 0;
         reconnectWindowStart = 0L;
         if (reconnectHandler != null) {
@@ -503,7 +503,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         if (player != null && player.isPlaying()) {
             reconnectAttempt = 0;
             reconnectWindowStart = 0L;
-            notifyUiStatus("відтворення", 0);
+            notifyUiStatus(getString(R.string.playing), 0);
             return;
         }
         long now = System.currentTimeMillis();
@@ -951,7 +951,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                             || st == Player.STATE_ENDED)) {
                         bufferingTicks++;
                         if (bufferingTicks == 1) {
-                            notifyUiStatus("буферизація", reconnectAttempt);
+                            notifyUiStatus(getString(R.string.status_buffering), reconnectAttempt);
                         }
                         if (bufferingTicks >= 8) { // ~8 * 3s ≈ 24s
                             android.util.Log.w("RadioWatch", "silence/buffer timeout → reconnect");
@@ -962,7 +962,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                             return;
                         }
                     } else if (playing) {
-                        if (bufferingTicks > 0) notifyUiStatus("відтворення", 0);
+                        if (bufferingTicks > 0) notifyUiStatus(getString(R.string.playing), 0);
                         bufferingTicks = 0;
                     }
                 } catch (Exception e) {
@@ -1473,7 +1473,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             if (isLocalMode()) armPositionTicker();
             // 0.9.51: reported playing тільки з onIsPlayingChanged — не раніше
             loadStationArtAsync();
-            notifyUiStatus("підключення", 0);
+            notifyUiStatus(getString(R.string.connecting), 0);
             bufferingTicks = 0;
             if (!isLocalMode()) armSilenceWatch(); // лише для радіо-потоків
             notifyForeground();
@@ -1574,7 +1574,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         if (reconnectWindowStart == 0L) reconnectWindowStart = now;
         long elapsed = now - reconnectWindowStart;
         if (ReconnectPolicy.windowExpired(elapsed)) {
-            notifyUiStatus("немає мережі", reconnectAttempt);
+            notifyUiStatus(getString(R.string.status_no_network), reconnectAttempt);
             // Повільний heartbeat після 5хв вікна: мережа може «бути», але не працювати
             // (onAvailable тоді не прийде). Не чіпаємо ReconnectPolicy — лише retry тут.
             final int attemptHb = reconnectAttempt;
@@ -1585,7 +1585,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                 if (player.isPlaying()) {
                     reconnectAttempt = 0;
                     reconnectWindowStart = 0L;
-                    notifyUiStatus("відтворення", 0);
+                    notifyUiStatus(getString(R.string.playing), 0);
                     return;
                 }
                 if (!hasInternet()) {
@@ -1611,11 +1611,11 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             if (player.isPlaying()) {
                 reconnectAttempt = 0;
                 reconnectWindowStart = 0L;
-                notifyUiStatus("відтворення", 0);
+                notifyUiStatus(getString(R.string.playing), 0);
                 return;
             }
             if (!hasInternet()) {
-                notifyUiStatus("немає мережі", attempt + 1);
+                notifyUiStatus(getString(R.string.status_no_network), attempt + 1);
                 scheduleReconnect();
                 return;
             }
@@ -1635,7 +1635,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         if (Build.VERSION.SDK_INT >= 26) {
             NotificationChannel ch = new NotificationChannel(
                 CHANNEL, "Radio S O", NotificationManager.IMPORTANCE_LOW);
-            ch.setDescription("Відтворення радіо та стеження за Bluetooth");
+            ch.setDescription(getString(R.string.notif_channel_desc));
             NotificationManager nm = getSystemService(NotificationManager.class);
             if (nm != null) nm.createNotificationChannel(ch);
         }

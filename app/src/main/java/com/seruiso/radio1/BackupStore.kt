@@ -75,6 +75,6 @@ object BackupStore {
             }
         }
         e.commit()
-        return "імпорт ок"
+        return ctx.getString(R.string.import_ok)
     }
 }

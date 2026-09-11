@@ -186,10 +186,10 @@ import androidx.compose.ui.text.font.FontWeight
 
 /** Підписи вкладок (UA) — top-level, щоб StationScreen теж бачив */
 private fun tabLabel(tab: String): String = when (tab.lowercase()) {
-    "fav" -> "Обране"
-    "best" -> "Топ лок."
-    "local" -> "Локальні"
-    "search" -> "Пошук"
+    "fav" -> getString(R.string.favorites)
+    "best" -> getString(R.string.local_best_short)
+    "local" -> getString(R.string.tab_local)
+    "search" -> getString(R.string.nav_search)
     "ukraine", "ua" -> "UA"
     "techno" -> "Techno"
     "trance" -> "Trance"
@@ -200,14 +200,14 @@ private fun tabLabel(tab: String): String = when (tab.lowercase()) {
 /** Статус ефіру для інфо-панелі; решта йде в тост. */
 private fun playbackInfoText(status: String): String? {
     val x = status.trim().lowercase()
-    if (x.isEmpty() || x == "готово") return null
+    if (x.isEmpty() || x == getString(R.string.done)) return null
     return when {
-        x.startsWith("відтвор") -> "Відтворення"
-        x == "пауза" || x.contains("таймер сну: пауза") -> "Пауза"
-        x.startsWith("стоп") -> "Стоп"
-        x.contains("буфер") -> "Буфер"
-        x.startsWith("підключ") -> "Підключення"
-        x == "запуск" -> "Запуск"
+        x.startsWith("відтвор") -> getString(R.string.playing_cap)
+        x == "пауза" || x.contains(getString(R.string.sleep_pause)) -> getString(R.string.pause)
+        x.startsWith("стоп") -> getString(R.string.stop)
+        x.contains(getString(R.string.buffer)) -> getString(R.string.buffer_cap)
+        x.startsWith("підключ") -> getString(R.string.connecting_cap)
+        x == "запуск" -> getString(R.string.start)
         x.contains("#") -> status.trim()
         else -> null
     }
@@ -256,7 +256,7 @@ class MainActivity : ComponentActivity() {
                 .getBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, true)
             addedRev++
         } catch (e: Exception) {
-            holdStatus("помилка імпорту")
+            holdStatus(getString(R.string.import_error))
         }
     }
 
@@ -267,7 +267,7 @@ class MainActivity : ComponentActivity() {
         maybeStartBtIfConnected()
     }
 
-    private var stationName by mutableStateOf("Виберіть станцію")
+    private var stationName by mutableStateOf(getString(R.string.select_station))
     private var currentGenre by mutableStateOf("-")
     private var currentCountry by mutableStateOf("-")
     private var currentFavicon by mutableStateOf("")
@@ -295,7 +295,7 @@ class MainActivity : ComponentActivity() {
     }
     private var trackTitle by mutableStateOf("")
     private var isPlaying by mutableStateOf(false)
-    private var statusText by mutableStateOf("готово")
+    private var statusText by mutableStateOf(getString(R.string.done))
     private var tabIndex by mutableIntStateOf(0)
     // Нижні вкладки: "home" | "stations"(★) | "heart"(♥) | "music" | "search"
     private var bottomTab by mutableStateOf("home")
@@ -323,7 +323,7 @@ class MainActivity : ComponentActivity() {
     private var menuOpen by mutableStateOf(false)
     private var sleepMenu by mutableStateOf(false)
     private var btWatch by mutableStateOf(true)
-    private var sleepLabel by mutableStateOf("Таймер сну")
+    private var sleepLabel by mutableStateOf(getString(R.string.sleep_timer))
     private val sleepHandler = Handler(Looper.getMainLooper())
     private var sleepRunnable: Runnable? = null
 
@@ -347,8 +347,8 @@ class MainActivity : ComponentActivity() {
                     readPrefs()
         if (recentStations.isEmpty()) recentStations = loadRecentStations()
                     isPlaying = intent.getBooleanExtra("playing", false)
-                    if (isPlaying) softStatus( "відтворення")
-                    else if (statusText == "відтворення") statusText = "пауза"
+                    if (isPlaying) softStatus( getString(R.string.playing))
+                    else if (statusText == getString(R.string.playing)) statusText = "пауза"
                     isLocalNow = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
                         .getString(LocalMusicPlugin.KEY_MODE, "radio") == "local"
                     if (isLocalNow) {
@@ -454,7 +454,7 @@ class MainActivity : ComponentActivity() {
                         onPickTabForStation = { tab ->
                             val s = pickStation
                             if (s != null) {
-                                // "Вже є" лише якщо РЕАЛЬНО видно на вкладці.
+                                // getString(R.string.already_have) лише якщо РЕАЛЬНО видно на вкладці.
                                 // Після removeStation URL у deletedStations — у списку її немає,
                                 // тож already=false → addStation зробить unDelete + свіжі meta.
                                 val deleted = TabStore.deleted(this, tab)
@@ -462,10 +462,10 @@ class MainActivity : ComponentActivity() {
                                 val inBase = stations.any { it.url == s.url && it.tab == tab }
                                 val already = (inExtra || inBase) && s.url !in deleted
                                 if (already) {
-                                    holdStatus("вже є в $tab")
+                                    holdStatus(getString(R.string.already_in_tab, tab))
                                 } else {
                                     val err = TabStore.addStation(this, tab, s)
-                                    holdStatus(err ?: "додано в $tab")
+                                    holdStatus(err ?: getString(R.string.added_to_tab, tab))
                                     if (err == null) {
                                         // якщо вже в ★ — оновити знімок (іконка/жанр з пошуку)
                                         if (favUrls.contains(s.url)) {
@@ -485,7 +485,7 @@ class MainActivity : ComponentActivity() {
                             val err = TabStore.addTab(this, newTabName, sourceTabs)
                             if (err == null) {
                                 customTabs = TabStore.customTabs(this)
-                                holdStatus("вкладка ${newTabName.lowercase()} створена")
+                                holdStatus(getString(R.string.tab_created, newTabName.lowercase()))
                                 newTabName = ""
                                 newTabOpen = false
                             } else holdStatus(err)
@@ -510,7 +510,7 @@ class MainActivity : ComponentActivity() {
                             if (err == null) {
                                 customTabs = TabStore.customTabs(this)
                                 addedRev++
-                                holdStatus("перейменовано")
+                                holdStatus(getString(R.string.tab_renamed))
                                 editTab = null
                             } else holdStatus(err)
                         },
@@ -521,7 +521,7 @@ class MainActivity : ComponentActivity() {
                             customTabs = TabStore.customTabs(this)
                             addedRev++
                             if (uiTabs.getOrNull(tabIndex) == tab) tabIndex = 0
-                            holdStatus("видалено $tab")
+                            holdStatus(getString(R.string.tab_deleted, tab))
                             editTab = null
                             deleteArmed = false
                         },
@@ -570,7 +570,7 @@ class MainActivity : ComponentActivity() {
                                 if (favUrls.contains(s.url)) toggleFav(s)
                             }
                             addedRev++
-                            holdStatus("видалено")
+                            holdStatus(getString(R.string.deleted))
                         },
                         track = trackTitle,
                         playing = isPlaying,
@@ -609,7 +609,7 @@ class MainActivity : ComponentActivity() {
                             val p = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
                             val v = !p.getBoolean(LocalMusicPlugin.KEY_LOCAL_SHUFFLE, false)
                             p.edit().putBoolean(LocalMusicPlugin.KEY_LOCAL_SHUFFLE, v).apply()
-                            holdStatus(if (v) "перемішування: увімк" else "перемішування: вимк")
+                            holdStatus(if (v) getString(R.string.shuffle_on) else getString(R.string.shuffle_off))
                         },
                         onRepeat = {
                             val p = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
@@ -617,9 +617,9 @@ class MainActivity : ComponentActivity() {
                             val next = when (cur) { "off" -> "all"; "all" -> "one"; else -> "off" }
                             p.edit().putString(LocalMusicPlugin.KEY_LOCAL_REPEAT, next).apply()
                             holdStatus(when (next) {
-                                "all" -> "повтор: усі"
-                                "one" -> "повтор: один трек"
-                                else -> "повтор: вимкнено"
+                                "all" -> getString(R.string.repeat_all)
+                                "one" -> getString(R.string.repeat_one)
+                                else -> getString(R.string.repeat_off)
                             })
                         },
                         posMs = posMs,
@@ -681,11 +681,11 @@ class MainActivity : ComponentActivity() {
             SearchHints.savePast(this, past.take(5))
         }
         if (n.isBlank() && c.isBlank() && g.isBlank()) {
-            holdStatus("введи назву, країну або жанр")
+            holdStatus(getString(R.string.search_hint))
             return
         }
         val gen = ++RadioBrowser.activeGen
-        statusText = "пошук..."
+        statusText = getString(R.string.search_ellipsis)
         searchAll = emptyList()
         searchRows = emptyList()
         searchShown = 0
@@ -696,7 +696,7 @@ class MainActivity : ComponentActivity() {
                 searchAll = result ?: emptyList()
                 searchShown = minOf(100, searchAll.size)
                 searchRows = searchAll.take(searchShown)
-                holdStatus(if (searchAll.isEmpty()) "нічого не знайдено" else "знайдено: ${searchAll.size}")
+                holdStatus(if (searchAll.isEmpty()) getString(R.string.nothing_found) else getString(R.string.search_found, searchAll.size))
             }
         }.start()
     }
@@ -717,7 +717,7 @@ class MainActivity : ComponentActivity() {
         send.putExtra(Intent.EXTRA_STREAM, uri)
         send.putExtra(Intent.EXTRA_SUBJECT, "radio_settings.json")
         send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        startActivity(Intent.createChooser(send, "Експорт RadioSO"))
+        startActivity(Intent.createChooser(send, getString(R.string.export_radioso)))
         statusText = "експорт"
     }
 
@@ -725,24 +725,24 @@ class MainActivity : ComponentActivity() {
         btWatch = !btWatch
         getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
             .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, btWatch).commit()
-        statusText = if (btWatch) "BT стеження увімк" else "BT стеження вимк"
+        statusText = if (btWatch) getString(R.string.bt_watch_on) else getString(R.string.bt_watch_off)
     }
 
     private fun armSleep(mins: Int) {
         sleepRunnable?.let { sleepHandler.removeCallbacks(it) }
         sleepRunnable = null
         if (mins <= 0) {
-            sleepLabel = "Таймер сну"
-            statusText = "таймер вимкнено"
+            sleepLabel = getString(R.string.sleep_timer)
+            statusText = getString(R.string.sleep_off)
             sleepMenu = false
             return
         }
-        sleepLabel = "Сон: ${mins} хв"
+        sleepLabel = getString(R.string.sleep_mins, mins)
         statusText = sleepLabel
         val r = Runnable {
             sendAction(RadioWatchService.ACTION_PAUSE)
-            sleepLabel = "Таймер сну"
-            softStatus("таймер сну: пауза")
+            sleepLabel = getString(R.string.sleep_timer)
+            softStatus(getString(R.string.sleep_pause))
         }
         sleepRunnable = r
         sleepHandler.postDelayed(r, mins * 60_000L)
@@ -876,10 +876,10 @@ class MainActivity : ComponentActivity() {
         qGenre = ""
         qCountry = "" // поля порожні — зручно вводити свій запит
         if (first.isNotBlank()) {
-            holdStatus("пошук: $first…")
+            holdStatus(getString(R.string.search_progress, first))
             runSearch(countryOverride = first)
         } else {
-            statusText = "визначаємо країну…"
+            statusText = getString(R.string.detecting_country)
             searchAll = emptyList()
             searchRows = emptyList()
             searchShown = 0
@@ -889,7 +889,7 @@ class MainActivity : ComponentActivity() {
             if (refined.isBlank()) refined = countryFromLocation()
             if (refined.isBlank()) {
                 runOnUiThread {
-                    if (searchRows.isEmpty() && first.isBlank()) holdStatus("не вдалося визначити країну")
+                    if (searchRows.isEmpty() && first.isBlank()) holdStatus(getString(R.string.country_unknown))
                 }
                 return@Thread
             }
@@ -897,7 +897,7 @@ class MainActivity : ComponentActivity() {
             // не пишемо refined у qCountry — лише перезапуск пошуку, якщо інша країна
             if (normalizeCountry(first) != refined) {
                 runOnUiThread {
-                    holdStatus("пошук: $refined…")
+                    holdStatus(getString(R.string.search_progress, refined))
                     runSearch(countryOverride = refined)
                 }
             } else if (cached.isBlank()) {
@@ -1110,17 +1110,17 @@ class MainActivity : ComponentActivity() {
     private fun reloadLocal() {
         if (!hasAudioPermission()) {
             localTracks = emptyList()
-            holdStatus("немає дозволу на аудіо")
+            holdStatus(getString(R.string.no_audio_permission))
             return
         }
         localTracks = try {
             LocalLibrary.list(this)
         } catch (e: Exception) {
-            holdStatus("помилка сканування")
+            holdStatus(getString(R.string.scan_error))
             emptyList()
         }
         if (currentTab() == "local") {
-            statusText = "треків: ${localTracks.size}"
+            statusText = getString(R.string.tracks_count, localTracks.size)
         }
     }
 
@@ -1149,7 +1149,7 @@ class MainActivity : ComponentActivity() {
 
     private fun readPrefs() {
         val p = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-        stationName = p.getString(BluetoothAutoPlayPlugin.KEY_NAME, "Виберіть станцію") ?: "Виберіть станцію"
+        stationName = p.getString(BluetoothAutoPlayPlugin.KEY_NAME, getString(R.string.select_station)) ?: getString(R.string.select_station)
         trackTitle = p.getString(BluetoothAutoPlayPlugin.KEY_TRACK, "") ?: ""
         currentGenre = p.getString(BluetoothAutoPlayPlugin.KEY_GENRE, "-") ?: "-"
         currentCountry = p.getString(BluetoothAutoPlayPlugin.KEY_COUNTRY, "-") ?: "-"
@@ -1440,7 +1440,7 @@ private fun MiniProgressBar(
         if (onShuffle != null) {
             Icon(
                 Icons.Filled.Shuffle,
-                contentDescription = "Перемішати",
+                contentDescription = getString(R.string.shuffle),
                 tint = controlsTint,
                 modifier = Modifier
                     .padding(end = 6.dp)
@@ -1504,7 +1504,7 @@ private fun MiniProgressBar(
         if (onRepeat != null) {
             Icon(
                 Icons.Filled.Repeat,
-                contentDescription = "Повторити",
+                contentDescription = getString(R.string.repeat),
                 tint = controlsTint,
                 modifier = Modifier
                     .padding(start = 6.dp)
@@ -1515,8 +1515,8 @@ private fun MiniProgressBar(
     }
 }
 
-// Рядок локального треку — перевикористовується у вкладці "Обрані"
-// для секцій "Обрані локальні" та "Локальна музика".
+// Рядок локального треку — перевикористовується у вкладці getString(R.string.favorites_plural)
+// для секцій getString(R.string.local_favorites) та getString(R.string.local_music).
 @Composable
 private fun LocalTrackRow(
     item: LocalTrack,
@@ -1544,7 +1544,7 @@ private fun LocalTrackRow(
             val a = if (item.albumId.isNotBlank() && item.albumId != "0")
                 "content://media/external/audio/albumart/${item.albumId}" else ""
             if (a.isNotEmpty()) AsyncImage(model = a, contentDescription = null, modifier = Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop)
-            else Icon(Icons.Filled.MusicNote, contentDescription = "Немає обкладинки", tint = muted)
+            else Icon(Icons.Filled.MusicNote, contentDescription = getString(R.string.no_cover), tint = muted)
         }
         Column(modifier = Modifier.weight(1f).padding(start = 8.dp).clickable { onClick() }) {
             Text(item.title, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -1553,7 +1553,7 @@ private fun LocalTrackRow(
         if (onToggleBest != null) {
             Icon(
                 if (isBest) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                contentDescription = if (isBest) "Прибрати з обраних локальних" else "В обрані локальні",
+                contentDescription = if (isBest) getString(R.string.remove_from_local_fav) else getString(R.string.add_to_local_fav_short),
                 tint = acc,
                 modifier = Modifier
                     .clickable { onToggleBest() }
@@ -1577,12 +1577,12 @@ private fun BottomNavBar(
     onPullEnd: () -> Unit = {},
 ) {
     val items = listOf(
-        Triple("home", "Дім", Icons.Filled.Home),
-        Triple("stations", "Станції", Icons.Filled.Star),
-        Triple("heart", "Обрані", Icons.Filled.Favorite),
-        Triple("music", "Музика", Icons.Filled.LibraryMusic),
-        Triple("tabs", "Вкладки", Icons.Filled.Category),
-        Triple("search", "Пошук", Icons.Filled.Search),
+        Triple("home", getString(R.string.nav_home), Icons.Filled.Home),
+        Triple("stations", getString(R.string.nav_stations), Icons.Filled.Star),
+        Triple("heart", getString(R.string.favorites_plural), Icons.Filled.Favorite),
+        Triple("music", getString(R.string.nav_music), Icons.Filled.LibraryMusic),
+        Triple("tabs", getString(R.string.tabs), Icons.Filled.Category),
+        Triple("search", getString(R.string.nav_search), Icons.Filled.Search),
     )
     Row(
         modifier = Modifier
@@ -1752,7 +1752,7 @@ fun StationScreen(
     ) {
         val st = status.lowercase()
         val busy = !playing && (
-            st.contains("підключ") || st.contains("буфер") || st == "запуск"
+            st.contains("підключ") || st.contains(getString(R.string.buffer)) || st == "запуск"
         )
         val pulseOn = playing || busy
         val infinite = rememberInfiniteTransition(label = "playPulse")
@@ -1790,8 +1790,8 @@ fun StationScreen(
                     color = Color(0xFF0A0A0C),
                     strokeWidth = 2.5.dp
                 )
-                playing -> Icon(Icons.Filled.Pause, contentDescription = "Пауза", tint = Color(0xFF0A0A0C), modifier = Modifier.size(sizeDp * 0.42f))
-                else -> Icon(Icons.Filled.PlayArrow, contentDescription = "Відтворити", tint = Color(0xFF0A0A0C), modifier = Modifier.size(sizeDp * 0.42f))
+                playing -> Icon(Icons.Filled.Pause, contentDescription = getString(R.string.pause), tint = Color(0xFF0A0A0C), modifier = Modifier.size(sizeDp * 0.42f))
+                else -> Icon(Icons.Filled.PlayArrow, contentDescription = getString(R.string.play), tint = Color(0xFF0A0A0C), modifier = Modifier.size(sizeDp * 0.42f))
             }
         }
     }
@@ -1881,7 +1881,7 @@ fun StationScreen(
         }
     }
     // Ліва картка з локальною музикою видалена — весь її функціонал
-    // перенесено у вкладку "Обрані" нижньої навігації.
+    // перенесено у вкладку getString(R.string.favorites_plural) нижньої навігації.
     LaunchedEffect(nowOpen) {
         if (nowOpen) {
             sheetShow = true
@@ -1894,7 +1894,7 @@ fun StationScreen(
     var toastOn by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     var toastTxt by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
     LaunchedEffect(status) {
-        if (playbackInfoText(status) != null || status.isBlank() || status == "готово") {
+        if (playbackInfoText(status) != null || status.isBlank() || status == getString(R.string.done)) {
             toastOn = false
             return@LaunchedEffect
         }
@@ -1922,7 +1922,7 @@ fun StationScreen(
                 Box(
                     modifier = Modifier.size(40.dp).background(card, AppShapes.chip).springPress(0.9f) { topThemeOpen = true },
                     contentAlignment = Alignment.Center
-                ) { Icon(Icons.Filled.Palette, contentDescription = "Тема оформлення", tint = text) }
+                ) { Icon(Icons.Filled.Palette, contentDescription = getString(R.string.theme_title), tint = text) }
             }
             Row(modifier = Modifier.align(Alignment.Center), verticalAlignment = Alignment.CenterVertically) {
                 Text("Radio ", color = text, style = MaterialTheme.typography.headlineSmall.copy(fontFamily = logoFont, fontWeight = FontWeight.Bold))
@@ -1937,7 +1937,7 @@ fun StationScreen(
                 Box(
                     modifier = Modifier.size(40.dp).background(card, AppShapes.chip).springPress(0.9f) { onMenu() },
                     contentAlignment = Alignment.Center
-                ) { Icon(Icons.Filled.MoreVert, contentDescription = "Ще налаштування", tint = text) }
+                ) { Icon(Icons.Filled.MoreVert, contentDescription = getString(R.string.more_settings), tint = text) }
             }
         }
         // Інфо-панель: тап → Now Playing (верхню картку прибрано)
@@ -1995,7 +1995,7 @@ fun StationScreen(
                 if (artUrl(favicon).startsWith("http") || artUrl(favicon).startsWith("content:")) {
                     AsyncImage(model = artUrl(favicon), contentDescription = null, modifier = Modifier.size(88.dp).clip(AppShapes.card), contentScale = ContentScale.Crop)
                 } else {
-                    Icon(Icons.Filled.MusicNote, contentDescription = "Немає обкладинки", tint = muted)
+                    Icon(Icons.Filled.MusicNote, contentDescription = getString(R.string.no_cover), tint = muted)
                 }
             }
             // текст інфо → верхня картка
@@ -2037,7 +2037,7 @@ fun StationScreen(
                     )
                 }
                 Text(
-                    if (track.isBlank()) "Трек невідомий" else track,
+                    if (track.isBlank()) getString(R.string.track_unknown) else track,
                     color = text,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -2077,7 +2077,7 @@ fun StationScreen(
                     favRows = favRows,
                     heartRows = bestRows,
                     similar = similarHome,
-                    similarTitle = if (genre.isNotBlank()) "Близьке за жанром: $genre" else "Близьке за жанром",
+                    similarTitle = if (genre.isNotBlank()) getString(R.string.similar_genre, genre) else getString(R.string.home_similar),
                     recent = recentStations,
                     acc = acc, muted = muted, text = text,
                     onAllStations = { onBottomTab("stations") },
@@ -2101,8 +2101,8 @@ fun StationScreen(
                     modifier = Modifier.fillMaxWidth().clickable { onSearchOpen() }.padding(bottom = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Filled.Search, contentDescription = "Пошук", tint = text, modifier = Modifier.size(18.dp))
-                    Text(" Пошук…", color = text, modifier = Modifier.weight(1f))
+                    Icon(Icons.Filled.Search, contentDescription = getString(R.string.nav_search), tint = text, modifier = Modifier.size(18.dp))
+                    Text(getString(R.string.search_ellipsis2), color = text, modifier = Modifier.weight(1f))
                     Text(if (searchOpen) "▴" else "▾", color = muted)
                 }
                 if (searchOpen) {
@@ -2132,16 +2132,16 @@ fun StationScreen(
                         }
                     }
                 }
-                field(qName, onName, "Назва", "name", nameHints)
-                field(qCountry, onCountry, "Країна", "country", countryHints)
-                field(qGenre, onGenre, "Жанр", "genre", genreHints)
+                field(qName, onName, getString(R.string.name_label), "name", nameHints)
+                field(qCountry, onCountry, getString(R.string.country), "country", countryHints)
+                field(qGenre, onGenre, getString(R.string.genre), "genre", genreHints)
                 Button(onClick = onSearch, modifier = Modifier.fillMaxWidth().padding(top = 8.dp).height(44.dp),
-                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = acc, contentColor = Color(0xFF0A0A0C))) { Text("Знайти") }
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = acc, contentColor = Color(0xFF0A0A0C))) { Text(getString(R.string.find)) }
                 }
             }
         }
         if (showLocal) {
-            if (localRows.isEmpty()) EmptySlot("Немає треків. Натисни «Сканувати».", muted)
+            if (localRows.isEmpty()) EmptySlot(getString(R.string.no_tracks_scan), muted)
             LazyColumn(modifier = Modifier.weight(1f), state = listState, userScrollEnabled = !dragging) {
                 itemsIndexed(localRows, key = { _, x -> x.uri }) { index, item ->
                     Row(
@@ -2182,7 +2182,7 @@ fun StationScreen(
                             val a = if (item.albumId.isNotBlank() && item.albumId != "0")
                                 "content://media/external/audio/albumart/${item.albumId}" else ""
                             if (a.isNotEmpty()) AsyncImage(model = a, contentDescription = null, modifier = Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop)
-                            else Icon(Icons.Filled.MusicNote, contentDescription = "Немає обкладинки", tint = muted)
+                            else Icon(Icons.Filled.MusicNote, contentDescription = getString(R.string.no_cover), tint = muted)
                         }
                         Column(
                             modifier = Modifier
@@ -2195,7 +2195,7 @@ fun StationScreen(
                         }
                         Icon(
                             if (bestUris.contains(item.uri)) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                            contentDescription = if (bestUris.contains(item.uri)) "Прибрати з обраних локальних" else "В обрані локальні",
+                            contentDescription = if (bestUris.contains(item.uri)) getString(R.string.remove_from_local_fav) else getString(R.string.add_to_local_fav_short),
                             tint = acc,
                             modifier = Modifier.clickable { onToggleBest(item) }.padding(start = 10.dp, end = 2.dp).size(24.dp)
                         )
@@ -2208,9 +2208,9 @@ fun StationScreen(
                     item {
                         EmptySlot(
                             when {
-                                tabs.getOrNull(tabIndex) == "search" || bottomTab == "search" -> "нічого не знайдено"
-                                tabs.getOrNull(tabIndex) == "fav" || bottomTab == "stations" -> "Додайте улюблені станції зіркою на вкладках. Немає потрібної — знайдіть у пошуку й додайте на існуючу вкладку або створіть свою."
-                                else -> "поки порожньо"
+                                tabs.getOrNull(tabIndex) == "search" || bottomTab == "search" -> getString(R.string.nothing_found)
+                                tabs.getOrNull(tabIndex) == "fav" || bottomTab == "stations" -> getString(R.string.fav_hint_long)
+                                else -> getString(R.string.empty_for_now)
                             },
                             muted
                         )
@@ -2254,7 +2254,7 @@ fun StationScreen(
                         ) {
                             if (s.favicon.startsWith("http") && !s.favicon.contains("example.com")) {
                                 AsyncImage(model = s.favicon, contentDescription = null, modifier = Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop)
-                            } else Icon(Icons.Filled.MusicNote, contentDescription = "Немає обкладинки", tint = muted)
+                            } else Icon(Icons.Filled.MusicNote, contentDescription = getString(R.string.no_cover), tint = muted)
                         }
                         // рядок (назва) → лише відтворення, без нижньої картки
                         Column(
@@ -2271,14 +2271,14 @@ fun StationScreen(
                         } else {
                             Icon(
                                 if (favUrls.contains(s.url)) Icons.Filled.Star else Icons.Filled.StarBorder,
-                                contentDescription = if (favUrls.contains(s.url)) "Прибрати з улюблених" else "Додати в улюблені",
+                                contentDescription = if (favUrls.contains(s.url)) getString(R.string.remove_from_favorites) else getString(R.string.add_to_favorites),
                                 tint = acc,
                                 modifier = Modifier.clickable { onToggleFav(s) }.padding(start = 8.dp, end = 2.dp).size(24.dp)
                             )
                             if (tabs.getOrNull(tabIndex) != "fav") {
                                 Icon(
                                     Icons.Filled.Delete,
-                                    contentDescription = "Видалити станцію",
+                                    contentDescription = getString(R.string.delete_station),
                                     tint = muted,
                                     modifier = Modifier.clickable { onAskDelete(s) }.padding(start = 8.dp, end = 0.dp).size(22.dp)
                                 )
@@ -2287,14 +2287,14 @@ fun StationScreen(
                     }
                 }
                 if (canMore) {
-                    item { Button(onClick = onMore, modifier = Modifier.fillMaxWidth().padding(8.dp)) { Text("Ще 100") } }
+                    item { Button(onClick = onMore, modifier = Modifier.fillMaxWidth().padding(8.dp)) { Text(getString(R.string.more_100)) } }
                 }
-                // ===== Вкладка "Обрані": далі йдуть обрані локальні треки та вся локальна музика =====
+                // ===== Вкладка getString(R.string.favorites_plural): далі йдуть обрані локальні треки та вся локальна музика =====
                 // Серце (heart): лише обрані локальні (best). Станції — на зірці (stations).
                 if (bottomTab == "heart" || bottomTab == "library") {
                     item {
                         Text(
-                            "Обрані локальні",
+                            getString(R.string.local_favorites),
                             color = muted,
                             style = MaterialTheme.typography.labelLarge,
                             modifier = Modifier.padding(top = 16.dp, bottom = 4.dp)
@@ -2302,7 +2302,7 @@ fun StationScreen(
                     }
                     if (bestRows.isEmpty()) {
                         item {
-                            EmptySlot("Перейдіть у «Музика» і додайте улюблені треки з пристрою — позначте їх серцем.", muted)
+                            EmptySlot(getString(R.string.local_hint_long), muted)
                         }
                     }
                     itemsIndexed(bestRows, key = { i, x -> "best-" + x.uri + i }) { _, item ->
@@ -2374,7 +2374,7 @@ fun StationScreen(
             ) {
                 Icon(
                     Icons.Filled.SkipPrevious,
-                    contentDescription = "Попередня станція",
+                    contentDescription = getString(R.string.prev_station),
                     tint = text,
                     modifier = Modifier.size(30.dp)
                 )
@@ -2388,7 +2388,7 @@ fun StationScreen(
             ) {
                 Icon(
                     Icons.Filled.SkipNext,
-                    contentDescription = "Наступна станція",
+                    contentDescription = getString(R.string.next_station),
                     tint = text,
                     modifier = Modifier.size(30.dp)
                 )
@@ -2398,12 +2398,12 @@ fun StationScreen(
                 Box(
                     modifier = Modifier.size(40.dp).background(Palette.panel.copy(alpha = 0.90f), RoundedCornerShape(12.dp)).clickable { onScan() },
                     contentAlignment = Alignment.Center
-                ) { Text("Скан", color = acc, style = MaterialTheme.typography.labelSmall) }
+                ) { Text(getString(R.string.scan), color = acc, style = MaterialTheme.typography.labelSmall) }
             }
         }
             Icon(
                 Icons.Filled.KeyboardArrowUp,
-                contentDescription = "Відкрити Now Playing",
+                contentDescription = getString(R.string.open_now_playing),
                 tint = muted,
                 modifier = Modifier.align(Alignment.CenterEnd).clickable { onNow() }.padding(4.dp).size(28.dp)
             )
@@ -2496,14 +2496,14 @@ fun StationScreen(
         AlertDialog(
             containerColor = card,
             onDismissRequest = { topSleepOpen = false },
-            title = { Text("Таймер сну", color = text) },
+            title = { Text(getString(R.string.sleep_timer), color = text) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf(15 to 30, 60 to 0).forEach { (a, b) ->
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             listOf(a, b).forEach { m ->
-                                val lab = if (m == 0) "Вимкнути" else "${m} хв"
-                                val selected = if (m == 0) sleepLabel == "Таймер сну" else sleepLabel.contains("${m} хв")
+                                val lab = if (m == 0) getString(R.string.disable) else getString(R.string.mins_short, m)
+                                val selected = if (m == 0) sleepLabel == getString(R.string.sleep_timer) else sleepLabel.contains(getString(R.string.mins_short, m))
                                 Box(
                                     modifier = Modifier
                                         .weight(1f)
@@ -2520,7 +2520,7 @@ fun StationScreen(
             },
             confirmButton = {},
             dismissButton = {
-                TextButton(onClick = { topSleepOpen = false }) { Text("Закрити", color = muted) }
+                TextButton(onClick = { topSleepOpen = false }) { Text(getString(R.string.close), color = muted) }
             }
         )
     }
@@ -2528,7 +2528,7 @@ fun StationScreen(
         AlertDialog(
             containerColor = card,
             onDismissRequest = { topThemeOpen = false },
-            title = { Text("Тема", color = text) },
+            title = { Text(getString(R.string.theme), color = text) },
             text = {
                 Column {
                     // 4 в ряд
@@ -2559,7 +2559,7 @@ fun StationScreen(
             },
             confirmButton = {},
             dismissButton = {
-                TextButton(onClick = { topThemeOpen = false }) { Text("Закрити", color = muted) }
+                TextButton(onClick = { topThemeOpen = false }) { Text(getString(R.string.close), color = muted) }
             }
         )
     }
@@ -2586,11 +2586,11 @@ fun StationScreen(
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth().clickable { Palette.toggle(ctxForTheme) }.padding(8.dp)) {
                     Icon(
                         if (Palette.isLight) Icons.Filled.LightMode else Icons.Filled.DarkMode,
-                        contentDescription = if (Palette.isLight) "Світла тема" else "Темна тема",
+                        contentDescription = if (Palette.isLight) getString(R.string.theme_light) else getString(R.string.theme_dark),
                         tint = text,
                         modifier = Modifier.size(20.dp)
                     )
-                    Text(if (Palette.isLight) "Світла тема" else "Темна тема", color = text)
+                    Text(if (Palette.isLight) getString(R.string.theme_light) else getString(R.string.theme_dark), color = text)
                 }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -2599,18 +2599,18 @@ fun StationScreen(
                 ) {
                     Icon(
                         if (btWatch) Icons.Filled.Bluetooth else Icons.Filled.BluetoothDisabled,
-                        contentDescription = if (btWatch) "BT відстеження увімкнено" else "BT відстеження вимкнено",
+                        contentDescription = if (btWatch) getString(R.string.bt_watch_on_long) else getString(R.string.bt_watch_off_long),
                         tint = text,
                         modifier = Modifier.size(20.dp)
                     )
-                    Text(if (btWatch) "BT увімк" else "BT вимк", color = text)
+                    Text(if (btWatch) getString(R.string.bt_on) else getString(R.string.bt_off), color = text)
                 }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.fillMaxWidth().clickable { onSleepMenu() }.padding(8.dp)
                 ) {
-                    Icon(Icons.Filled.Timer, contentDescription = "Таймер сну", tint = text, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Filled.Timer, contentDescription = getString(R.string.sleep_timer), tint = text, modifier = Modifier.size(20.dp))
                     Text(sleepLabel, color = text)
                 }
                 if (sleepMenu) {
@@ -2625,19 +2625,19 @@ fun StationScreen(
                                             .background(Palette.panel, RoundedCornerShape(10.dp))
                                             .clickable { onSleep(m); onCloseMenu() },
                                         contentAlignment = Alignment.Center
-                                    ) { Text(if (m == 0) "Вимк." else "${m} хв", color = acc, style = MaterialTheme.typography.labelSmall) }
+                                    ) { Text(if (m == 0) getString(R.string.off) else getString(R.string.mins_short, m), color = acc, style = MaterialTheme.typography.labelSmall) }
                                 }
                             }
                         }
                     }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth().clickable { onExport() }.padding(8.dp)) {
-                    Icon(Icons.Filled.FileUpload, contentDescription = "Експорт налаштувань", tint = text, modifier = Modifier.size(18.dp))
-                    Text("Експорт", color = text)
+                    Icon(Icons.Filled.FileUpload, contentDescription = getString(R.string.export_settings), tint = text, modifier = Modifier.size(18.dp))
+                    Text(getString(R.string.export), color = text)
                 }
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth().clickable { onImport() }.padding(8.dp)) {
-                    Icon(Icons.Filled.FileDownload, contentDescription = "Імпорт налаштувань", tint = text, modifier = Modifier.size(18.dp))
-                    Text("Імпорт", color = text)
+                    Icon(Icons.Filled.FileDownload, contentDescription = getString(R.string.import_settings), tint = text, modifier = Modifier.size(18.dp))
+                    Text(getString(R.string.import_label), color = text)
                 }
             }
         }
@@ -2647,7 +2647,7 @@ fun StationScreen(
         AlertDialog(
             containerColor = card,
             onDismissRequest = onCancelPick,
-            title = { Text("Виберіть вкладку", color = text) },
+            title = { Text(getString(R.string.select_tab), color = text) },
             text = {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                     targetTabs.forEach { tab ->
@@ -2665,23 +2665,23 @@ fun StationScreen(
                 }
             },
             confirmButton = {},
-            dismissButton = { TextButton(onClick = onCancelPick) { Text("Скасувати", color = muted) } }
+            dismissButton = { TextButton(onClick = onCancelPick) { Text(getString(R.string.cancel), color = muted) } }
         )
     }
     if (newTabOpen) {
         AlertDialog(
             containerColor = card,
             onDismissRequest = onCancelNewTab,
-            title = { Text("Створити нову вкладку", color = text) },
+            title = { Text(getString(R.string.create_new_tab), color = text) },
             text = {
                 Column {
                     OutlinedTextField(
                         value = newTabName,
                         onValueChange = onNewTabName,
                         singleLine = true,
-                        label = { Text("Назва") },
+                        label = { Text(getString(R.string.name_label)) },
                         supportingText = {
-                            Text("ua/en літери, цифри, _ - ; до 10 символів")
+                            Text(getString(R.string.hint_tab_name))
                         }
                     )
                 }
@@ -2690,16 +2690,16 @@ fun StationScreen(
                 Button(
                     onClick = onCreateTab,
                     colors = ButtonDefaults.buttonColors(containerColor = acc, contentColor = Color(0xFF0A0A0C))
-                ) { Text("Створити") }
+                ) { Text(getString(R.string.create)) }
             },
-            dismissButton = { TextButton(onClick = onCancelNewTab) { Text("Скасувати", color = muted) } }
+            dismissButton = { TextButton(onClick = onCancelNewTab) { Text(getString(R.string.cancel), color = muted) } }
         )
     }
     if (editTab != null) {
         AlertDialog(
             containerColor = card,
             onDismissRequest = onCancelEdit,
-            title = { Text("Вкладка $editTab", color = text) },
+            title = { Text(getString(R.string.tab_edit, editTab), color = text) },
             text = {
                 Column {
                     OutlinedTextField(value = editName, onValueChange = onEditName, singleLine = true)
@@ -2708,7 +2708,7 @@ fun StationScreen(
                         onClick = onRenameTab,
                         modifier = Modifier.fillMaxWidth().height(44.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = acc, contentColor = Color(0xFF0A0A0C))
-                    ) { Text("Перейменувати") }
+                    ) { Text(getString(R.string.rename)) }
                 }
             },
             confirmButton = {
@@ -2716,18 +2716,18 @@ fun StationScreen(
                     Button(
                         onClick = onDeleteTab,
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC62828), contentColor = Color.White)
-                    ) { Text("Точно видалити?") }
+                    ) { Text(getString(R.string.delete_confirm)) }
                 else
-                    TextButton(onClick = onDeleteTab) { Text("Видалити", color = Color(0xFFE53935)) }
+                    TextButton(onClick = onDeleteTab) { Text(getString(R.string.delete), color = Color(0xFFE53935)) }
             },
-            dismissButton = { TextButton(onClick = onCancelEdit) { Text("Скасувати", color = muted) } }
+            dismissButton = { TextButton(onClick = onCancelEdit) { Text(getString(R.string.cancel), color = muted) } }
         )
     }
     if (pendingDelete != null) {
         AlertDialog(
             containerColor = card,
             onDismissRequest = onCancelDelete,
-            title = { Text("Видалити станцію?", color = text) },
+            title = { Text(getString(R.string.delete_station_q), color = text) },
             text = { Text(pendingDelete?.name ?: "", color = muted) },
             confirmButton = {
                 Button(
@@ -2736,9 +2736,9 @@ fun StationScreen(
                         onCancelDelete()
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC62828), contentColor = Color.White)
-                ) { Text("Видалити") }
+                ) { Text(getString(R.string.delete)) }
             },
-            dismissButton = { TextButton(onClick = onCancelDelete) { Text("Скасувати", color = muted) } }
+            dismissButton = { TextButton(onClick = onCancelDelete) { Text(getString(R.string.cancel), color = muted) } }
         )
     }
     if (nowOpen || sheetShow) {
@@ -3034,7 +3034,7 @@ fun StationScreen(
                             val on = bestUris.contains(currentUrl)
                             Icon(
                                 if (on) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                                contentDescription = if (on) "Прибрати з обраних локальних" else "Додати в обрані локальні",
+                                contentDescription = if (on) getString(R.string.remove_from_local_fav) else getString(R.string.add_to_local_fav),
                                 tint = acc,
                                 modifier = Modifier
                                     .padding(start = 8.dp)
@@ -3049,7 +3049,7 @@ fun StationScreen(
                             val on = favUrls.contains(currentUrl)
                             Icon(
                                 if (on) Icons.Filled.Star else Icons.Filled.StarBorder,
-                                contentDescription = if (on) "Прибрати з улюблених" else "Додати в улюблені",
+                                contentDescription = if (on) getString(R.string.remove_from_favorites) else getString(R.string.add_to_favorites),
                                 tint = acc,
                                 modifier = Modifier
                                     .padding(start = 8.dp)
@@ -3070,7 +3070,7 @@ fun StationScreen(
                         }
                     }
                     Text(
-                        if (track.isBlank()) "Трек: невідомо" else track,
+                        if (track.isBlank()) getString(R.string.track_unknown2) else track,
                         color = muted,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
@@ -3155,7 +3155,7 @@ fun StationScreen(
                             .springPress { skipUi(false) },
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Filled.SkipPrevious, contentDescription = "Попередня станція", tint = text, modifier = Modifier.size(40.dp))
+                        Icon(Icons.Filled.SkipPrevious, contentDescription = getString(R.string.prev_station), tint = text, modifier = Modifier.size(40.dp))
                     }
                     }
                     PlayBtn(playing = playing, status = status, sizeDp = 80.dp, onClick = onPlayPause)
@@ -3167,7 +3167,7 @@ fun StationScreen(
                             .springPress { skipUi(true) },
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Filled.SkipNext, contentDescription = "Наступна станція", tint = text, modifier = Modifier.size(40.dp))
+                        Icon(Icons.Filled.SkipNext, contentDescription = getString(R.string.next_station), tint = text, modifier = Modifier.size(40.dp))
                     }
                     }
                 }
@@ -3303,20 +3303,20 @@ private fun BoxScope.RightTabsPanel(
                     Box(modifier = Modifier.width(40.dp).height(4.dp).background(muted, RoundedCornerShape(2.dp)))
                 }
                 Text(
-                    "Вкладки",
+                    getString(R.string.tabs),
                     color = text,
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.padding(bottom = 6.dp)
                 )
                 Text(
-                    "Тап — відкрити · утримання — змінити",
+                    getString(R.string.tap_hold_hint),
                     color = muted,
                     style = MaterialTheme.typography.labelSmall,
                     modifier = Modifier.padding(bottom = 10.dp)
                 )
                 val genreTabs = tabs.withIndex().filter { it.value !in listOf("fav", "best", "local", "search") }
                 if (genreTabs.isEmpty()) {
-                    EmptySlot("Поки немає жанрових вкладок", muted)
+                    EmptySlot(getString(R.string.no_genre_tabs), muted)
                 }
                 // reverseLayout: перший item знизу — список росте вгору
                 LazyColumn(modifier = Modifier.weight(1f), reverseLayout = true) {
@@ -3332,7 +3332,7 @@ private fun BoxScope.RightTabsPanel(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text("+", color = acc, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(end = 10.dp))
-                            Text("Додати вкладку", color = acc, style = MaterialTheme.typography.bodyLarge)
+                            Text(getString(R.string.add_tab), color = acc, style = MaterialTheme.typography.bodyLarge)
                         }
                     }
                     itemsIndexed(genreTabs, key = { _, iv -> "tab-" + iv.value }) { _, iv ->

@@ -41,24 +41,24 @@ object TabStore {
 
     fun addTab(ctx: Context, rawName: String, builtInTabs: List<String> = emptyList()): String? {
         val name = rawName.trim().lowercase()
-        if (name.isEmpty()) return "Введи назву"
+        if (name.isEmpty()) return ctx.getString(R.string.err_enter_name)
         // латиниця + українські літери (id у JSON/prefs — безпечно)
         if (name.length > 10 || !name.matches(Regex("^[a-z0-9_а-яіїєґ-]+$"))) {
-            return "Літери (ua/en), цифри, _ - ; до 10 символів"
+            return ctx.getString(R.string.err_tab_chars)
         }
         val cur = customTabs(ctx).toMutableList()
         val builtInLower = builtInTabs.map { it.lowercase() }
         if (reserved.contains(name) || cur.contains(name) || builtInLower.contains(name)) {
-            return "Така вкладка вже є"
+            return ctx.getString(R.string.err_tab_exists)
         }
-        if (cur.size >= 7) return "Максимум 7 кастомних"
+        if (cur.size >= 7) return ctx.getString(R.string.err_tab_max)
         cur.add(name)
         saveTabs(ctx, cur)
         return null
     }
 
     fun addStation(ctx: Context, tab: String, s: Station): String? {
-        if (reserved.contains(tab) || tab == "search") return "Сюди не можна"
+        if (reserved.contains(tab) || tab == "search") return ctx.getString(R.string.err_tab_reserved)
         unDelete(ctx, tab, s.url)
         val root = JSONObject(prefs(ctx).getString(KEY_ADDED, "{}") ?: "{}")
         val arr = root.optJSONArray(tab) ?: JSONArray()
@@ -113,18 +113,18 @@ object TabStore {
 
     fun renameTab(ctx: Context, old: String, rawNew: String, builtInTabs: List<String> = emptyList()): String? {
         val name = rawNew.trim().lowercase()
-        if (name.isEmpty()) return "Введи назву"
+        if (name.isEmpty()) return ctx.getString(R.string.err_enter_name)
         if (name == old) return null
         if (name.length > 10 || !name.matches(Regex("^[a-z0-9_-]+$"))) {
-            return "Лише a-z 0-9 _ - до 10 символів"
+            return ctx.getString(R.string.err_tab_chars_en)
         }
         val cur = customTabs(ctx).toMutableList()
         val builtInLower = builtInTabs.map { it.lowercase() }
         if (reserved.contains(name) || cur.contains(name) || builtInLower.contains(name)) {
-            return "Така вкладка вже є"
+            return ctx.getString(R.string.err_tab_exists)
         }
         val idx = cur.indexOf(old)
-        if (idx < 0) return "Немає вкладки"
+        if (idx < 0) return ctx.getString(R.string.err_tab_no)
         cur[idx] = name
         saveTabs(ctx, cur)
         val root = JSONObject(prefs(ctx).getString(KEY_ADDED, "{}") ?: "{}")

@@ -1440,7 +1440,7 @@ private fun MiniProgressBar(
         if (onShuffle != null) {
             Icon(
                 Icons.Filled.Shuffle,
-                contentDescription = getString(R.string.shuffle),
+                contentDescription = LocalContext.current.getString(R.string.shuffle),
                 tint = controlsTint,
                 modifier = Modifier
                     .padding(end = 6.dp)
@@ -1504,7 +1504,7 @@ private fun MiniProgressBar(
         if (onRepeat != null) {
             Icon(
                 Icons.Filled.Repeat,
-                contentDescription = getString(R.string.repeat),
+                contentDescription = LocalContext.current.getString(R.string.repeat),
                 tint = controlsTint,
                 modifier = Modifier
                     .padding(start = 6.dp)
@@ -1515,8 +1515,8 @@ private fun MiniProgressBar(
     }
 }
 
-// Рядок локального треку — перевикористовується у вкладці getString(R.string.favorites_plural)
-// для секцій getString(R.string.local_favorites) та getString(R.string.local_music).
+// Рядок локального треку — перевикористовується у вкладці LocalContext.current.getString(R.string.favorites_plural)
+// для секцій LocalContext.current.getString(R.string.local_favorites) та LocalContext.current.getString(R.string.local_music).
 @Composable
 private fun LocalTrackRow(
     item: LocalTrack,
@@ -1544,7 +1544,7 @@ private fun LocalTrackRow(
             val a = if (item.albumId.isNotBlank() && item.albumId != "0")
                 "content://media/external/audio/albumart/${item.albumId}" else ""
             if (a.isNotEmpty()) AsyncImage(model = a, contentDescription = null, modifier = Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop)
-            else Icon(Icons.Filled.MusicNote, contentDescription = getString(R.string.no_cover), tint = muted)
+            else Icon(Icons.Filled.MusicNote, contentDescription = LocalContext.current.getString(R.string.no_cover), tint = muted)
         }
         Column(modifier = Modifier.weight(1f).padding(start = 8.dp).clickable { onClick() }) {
             Text(item.title, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -1553,7 +1553,7 @@ private fun LocalTrackRow(
         if (onToggleBest != null) {
             Icon(
                 if (isBest) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                contentDescription = if (isBest) getString(R.string.remove_from_local_fav) else getString(R.string.add_to_local_fav_short),
+                contentDescription = if (isBest) LocalContext.current.getString(R.string.remove_from_local_fav) else LocalContext.current.getString(R.string.add_to_local_fav_short),
                 tint = acc,
                 modifier = Modifier
                     .clickable { onToggleBest() }
@@ -1577,12 +1577,12 @@ private fun BottomNavBar(
     onPullEnd: () -> Unit = {},
 ) {
     val items = listOf(
-        Triple("home", getString(R.string.nav_home), Icons.Filled.Home),
-        Triple("stations", getString(R.string.nav_stations), Icons.Filled.Star),
-        Triple("heart", getString(R.string.favorites_plural), Icons.Filled.Favorite),
-        Triple("music", getString(R.string.nav_music), Icons.Filled.LibraryMusic),
-        Triple("tabs", getString(R.string.tabs), Icons.Filled.Category),
-        Triple("search", getString(R.string.nav_search), Icons.Filled.Search),
+        Triple("home", LocalContext.current.getString(R.string.nav_home), Icons.Filled.Home),
+        Triple("stations", LocalContext.current.getString(R.string.nav_stations), Icons.Filled.Star),
+        Triple("heart", LocalContext.current.getString(R.string.favorites_plural), Icons.Filled.Favorite),
+        Triple("music", LocalContext.current.getString(R.string.nav_music), Icons.Filled.LibraryMusic),
+        Triple("tabs", LocalContext.current.getString(R.string.tabs), Icons.Filled.Category),
+        Triple("search", LocalContext.current.getString(R.string.nav_search), Icons.Filled.Search),
     )
     Row(
         modifier = Modifier
@@ -1752,7 +1752,7 @@ fun StationScreen(
     ) {
         val st = status.lowercase()
         val busy = !playing && (
-            st.contains("підключ") || st.contains(getString(R.string.buffer)) || st == "запуск"
+            st.contains("підключ") || st.contains(LocalContext.current.getString(R.string.buffer)) || st == "запуск"
         )
         val pulseOn = playing || busy
         val infinite = rememberInfiniteTransition(label = "playPulse")
@@ -1790,8 +1790,8 @@ fun StationScreen(
                     color = Color(0xFF0A0A0C),
                     strokeWidth = 2.5.dp
                 )
-                playing -> Icon(Icons.Filled.Pause, contentDescription = getString(R.string.pause), tint = Color(0xFF0A0A0C), modifier = Modifier.size(sizeDp * 0.42f))
-                else -> Icon(Icons.Filled.PlayArrow, contentDescription = getString(R.string.play), tint = Color(0xFF0A0A0C), modifier = Modifier.size(sizeDp * 0.42f))
+                playing -> Icon(Icons.Filled.Pause, contentDescription = LocalContext.current.getString(R.string.pause), tint = Color(0xFF0A0A0C), modifier = Modifier.size(sizeDp * 0.42f))
+                else -> Icon(Icons.Filled.PlayArrow, contentDescription = LocalContext.current.getString(R.string.play), tint = Color(0xFF0A0A0C), modifier = Modifier.size(sizeDp * 0.42f))
             }
         }
     }
@@ -1881,7 +1881,7 @@ fun StationScreen(
         }
     }
     // Ліва картка з локальною музикою видалена — весь її функціонал
-    // перенесено у вкладку getString(R.string.favorites_plural) нижньої навігації.
+    // перенесено у вкладку LocalContext.current.getString(R.string.favorites_plural) нижньої навігації.
     LaunchedEffect(nowOpen) {
         if (nowOpen) {
             sheetShow = true
@@ -1894,7 +1894,7 @@ fun StationScreen(
     var toastOn by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     var toastTxt by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
     LaunchedEffect(status) {
-        if (playbackInfoText(status) != null || status.isBlank() || status == getString(R.string.done)) {
+        if (playbackInfoText(status) != null || status.isBlank() || status == LocalContext.current.getString(R.string.done)) {
             toastOn = false
             return@LaunchedEffect
         }
@@ -1922,7 +1922,7 @@ fun StationScreen(
                 Box(
                     modifier = Modifier.size(40.dp).background(card, AppShapes.chip).springPress(0.9f) { topThemeOpen = true },
                     contentAlignment = Alignment.Center
-                ) { Icon(Icons.Filled.Palette, contentDescription = getString(R.string.theme_title), tint = text) }
+                ) { Icon(Icons.Filled.Palette, contentDescription = LocalContext.current.getString(R.string.theme_title), tint = text) }
             }
             Row(modifier = Modifier.align(Alignment.Center), verticalAlignment = Alignment.CenterVertically) {
                 Text("Radio ", color = text, style = MaterialTheme.typography.headlineSmall.copy(fontFamily = logoFont, fontWeight = FontWeight.Bold))
@@ -1937,7 +1937,7 @@ fun StationScreen(
                 Box(
                     modifier = Modifier.size(40.dp).background(card, AppShapes.chip).springPress(0.9f) { onMenu() },
                     contentAlignment = Alignment.Center
-                ) { Icon(Icons.Filled.MoreVert, contentDescription = getString(R.string.more_settings), tint = text) }
+                ) { Icon(Icons.Filled.MoreVert, contentDescription = LocalContext.current.getString(R.string.more_settings), tint = text) }
             }
         }
         // Інфо-панель: тап → Now Playing (верхню картку прибрано)
@@ -1995,7 +1995,7 @@ fun StationScreen(
                 if (artUrl(favicon).startsWith("http") || artUrl(favicon).startsWith("content:")) {
                     AsyncImage(model = artUrl(favicon), contentDescription = null, modifier = Modifier.size(88.dp).clip(AppShapes.card), contentScale = ContentScale.Crop)
                 } else {
-                    Icon(Icons.Filled.MusicNote, contentDescription = getString(R.string.no_cover), tint = muted)
+                    Icon(Icons.Filled.MusicNote, contentDescription = LocalContext.current.getString(R.string.no_cover), tint = muted)
                 }
             }
             // текст інфо → верхня картка
@@ -2037,7 +2037,7 @@ fun StationScreen(
                     )
                 }
                 Text(
-                    if (track.isBlank()) getString(R.string.track_unknown) else track,
+                    if (track.isBlank()) LocalContext.current.getString(R.string.track_unknown) else track,
                     color = text,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -2077,7 +2077,7 @@ fun StationScreen(
                     favRows = favRows,
                     heartRows = bestRows,
                     similar = similarHome,
-                    similarTitle = if (genre.isNotBlank()) getString(R.string.similar_genre, genre) else getString(R.string.home_similar),
+                    similarTitle = if (genre.isNotBlank()) LocalContext.current.getString(R.string.similar_genre, genre) else LocalContext.current.getString(R.string.home_similar),
                     recent = recentStations,
                     acc = acc, muted = muted, text = text,
                     onAllStations = { onBottomTab("stations") },
@@ -2101,8 +2101,8 @@ fun StationScreen(
                     modifier = Modifier.fillMaxWidth().clickable { onSearchOpen() }.padding(bottom = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Filled.Search, contentDescription = getString(R.string.nav_search), tint = text, modifier = Modifier.size(18.dp))
-                    Text(getString(R.string.search_ellipsis2), color = text, modifier = Modifier.weight(1f))
+                    Icon(Icons.Filled.Search, contentDescription = LocalContext.current.getString(R.string.nav_search), tint = text, modifier = Modifier.size(18.dp))
+                    Text(LocalContext.current.getString(R.string.search_ellipsis2), color = text, modifier = Modifier.weight(1f))
                     Text(if (searchOpen) "▴" else "▾", color = muted)
                 }
                 if (searchOpen) {
@@ -2132,16 +2132,16 @@ fun StationScreen(
                         }
                     }
                 }
-                field(qName, onName, getString(R.string.name_label), "name", nameHints)
-                field(qCountry, onCountry, getString(R.string.country), "country", countryHints)
-                field(qGenre, onGenre, getString(R.string.genre), "genre", genreHints)
+                field(qName, onName, LocalContext.current.getString(R.string.name_label), "name", nameHints)
+                field(qCountry, onCountry, LocalContext.current.getString(R.string.country), "country", countryHints)
+                field(qGenre, onGenre, LocalContext.current.getString(R.string.genre), "genre", genreHints)
                 Button(onClick = onSearch, modifier = Modifier.fillMaxWidth().padding(top = 8.dp).height(44.dp),
-                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = acc, contentColor = Color(0xFF0A0A0C))) { Text(getString(R.string.find)) }
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = acc, contentColor = Color(0xFF0A0A0C))) { Text(LocalContext.current.getString(R.string.find)) }
                 }
             }
         }
         if (showLocal) {
-            if (localRows.isEmpty()) EmptySlot(getString(R.string.no_tracks_scan), muted)
+            if (localRows.isEmpty()) EmptySlot(LocalContext.current.getString(R.string.no_tracks_scan), muted)
             LazyColumn(modifier = Modifier.weight(1f), state = listState, userScrollEnabled = !dragging) {
                 itemsIndexed(localRows, key = { _, x -> x.uri }) { index, item ->
                     Row(
@@ -2182,7 +2182,7 @@ fun StationScreen(
                             val a = if (item.albumId.isNotBlank() && item.albumId != "0")
                                 "content://media/external/audio/albumart/${item.albumId}" else ""
                             if (a.isNotEmpty()) AsyncImage(model = a, contentDescription = null, modifier = Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop)
-                            else Icon(Icons.Filled.MusicNote, contentDescription = getString(R.string.no_cover), tint = muted)
+                            else Icon(Icons.Filled.MusicNote, contentDescription = LocalContext.current.getString(R.string.no_cover), tint = muted)
                         }
                         Column(
                             modifier = Modifier
@@ -2195,7 +2195,7 @@ fun StationScreen(
                         }
                         Icon(
                             if (bestUris.contains(item.uri)) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                            contentDescription = if (bestUris.contains(item.uri)) getString(R.string.remove_from_local_fav) else getString(R.string.add_to_local_fav_short),
+                            contentDescription = if (bestUris.contains(item.uri)) LocalContext.current.getString(R.string.remove_from_local_fav) else LocalContext.current.getString(R.string.add_to_local_fav_short),
                             tint = acc,
                             modifier = Modifier.clickable { onToggleBest(item) }.padding(start = 10.dp, end = 2.dp).size(24.dp)
                         )
@@ -2208,9 +2208,9 @@ fun StationScreen(
                     item {
                         EmptySlot(
                             when {
-                                tabs.getOrNull(tabIndex) == "search" || bottomTab == "search" -> getString(R.string.nothing_found)
-                                tabs.getOrNull(tabIndex) == "fav" || bottomTab == "stations" -> getString(R.string.fav_hint_long)
-                                else -> getString(R.string.empty_for_now)
+                                tabs.getOrNull(tabIndex) == "search" || bottomTab == "search" -> LocalContext.current.getString(R.string.nothing_found)
+                                tabs.getOrNull(tabIndex) == "fav" || bottomTab == "stations" -> LocalContext.current.getString(R.string.fav_hint_long)
+                                else -> LocalContext.current.getString(R.string.empty_for_now)
                             },
                             muted
                         )
@@ -2254,7 +2254,7 @@ fun StationScreen(
                         ) {
                             if (s.favicon.startsWith("http") && !s.favicon.contains("example.com")) {
                                 AsyncImage(model = s.favicon, contentDescription = null, modifier = Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop)
-                            } else Icon(Icons.Filled.MusicNote, contentDescription = getString(R.string.no_cover), tint = muted)
+                            } else Icon(Icons.Filled.MusicNote, contentDescription = LocalContext.current.getString(R.string.no_cover), tint = muted)
                         }
                         // рядок (назва) → лише відтворення, без нижньої картки
                         Column(
@@ -2271,14 +2271,14 @@ fun StationScreen(
                         } else {
                             Icon(
                                 if (favUrls.contains(s.url)) Icons.Filled.Star else Icons.Filled.StarBorder,
-                                contentDescription = if (favUrls.contains(s.url)) getString(R.string.remove_from_favorites) else getString(R.string.add_to_favorites),
+                                contentDescription = if (favUrls.contains(s.url)) LocalContext.current.getString(R.string.remove_from_favorites) else LocalContext.current.getString(R.string.add_to_favorites),
                                 tint = acc,
                                 modifier = Modifier.clickable { onToggleFav(s) }.padding(start = 8.dp, end = 2.dp).size(24.dp)
                             )
                             if (tabs.getOrNull(tabIndex) != "fav") {
                                 Icon(
                                     Icons.Filled.Delete,
-                                    contentDescription = getString(R.string.delete_station),
+                                    contentDescription = LocalContext.current.getString(R.string.delete_station),
                                     tint = muted,
                                     modifier = Modifier.clickable { onAskDelete(s) }.padding(start = 8.dp, end = 0.dp).size(22.dp)
                                 )
@@ -2287,14 +2287,14 @@ fun StationScreen(
                     }
                 }
                 if (canMore) {
-                    item { Button(onClick = onMore, modifier = Modifier.fillMaxWidth().padding(8.dp)) { Text(getString(R.string.more_100)) } }
+                    item { Button(onClick = onMore, modifier = Modifier.fillMaxWidth().padding(8.dp)) { Text(LocalContext.current.getString(R.string.more_100)) } }
                 }
-                // ===== Вкладка getString(R.string.favorites_plural): далі йдуть обрані локальні треки та вся локальна музика =====
+                // ===== Вкладка LocalContext.current.getString(R.string.favorites_plural): далі йдуть обрані локальні треки та вся локальна музика =====
                 // Серце (heart): лише обрані локальні (best). Станції — на зірці (stations).
                 if (bottomTab == "heart" || bottomTab == "library") {
                     item {
                         Text(
-                            getString(R.string.local_favorites),
+                            LocalContext.current.getString(R.string.local_favorites),
                             color = muted,
                             style = MaterialTheme.typography.labelLarge,
                             modifier = Modifier.padding(top = 16.dp, bottom = 4.dp)
@@ -2302,7 +2302,7 @@ fun StationScreen(
                     }
                     if (bestRows.isEmpty()) {
                         item {
-                            EmptySlot(getString(R.string.local_hint_long), muted)
+                            EmptySlot(LocalContext.current.getString(R.string.local_hint_long), muted)
                         }
                     }
                     itemsIndexed(bestRows, key = { i, x -> "best-" + x.uri + i }) { _, item ->
@@ -2374,7 +2374,7 @@ fun StationScreen(
             ) {
                 Icon(
                     Icons.Filled.SkipPrevious,
-                    contentDescription = getString(R.string.prev_station),
+                    contentDescription = LocalContext.current.getString(R.string.prev_station),
                     tint = text,
                     modifier = Modifier.size(30.dp)
                 )
@@ -2388,7 +2388,7 @@ fun StationScreen(
             ) {
                 Icon(
                     Icons.Filled.SkipNext,
-                    contentDescription = getString(R.string.next_station),
+                    contentDescription = LocalContext.current.getString(R.string.next_station),
                     tint = text,
                     modifier = Modifier.size(30.dp)
                 )
@@ -2398,12 +2398,12 @@ fun StationScreen(
                 Box(
                     modifier = Modifier.size(40.dp).background(Palette.panel.copy(alpha = 0.90f), RoundedCornerShape(12.dp)).clickable { onScan() },
                     contentAlignment = Alignment.Center
-                ) { Text(getString(R.string.scan), color = acc, style = MaterialTheme.typography.labelSmall) }
+                ) { Text(LocalContext.current.getString(R.string.scan), color = acc, style = MaterialTheme.typography.labelSmall) }
             }
         }
             Icon(
                 Icons.Filled.KeyboardArrowUp,
-                contentDescription = getString(R.string.open_now_playing),
+                contentDescription = LocalContext.current.getString(R.string.open_now_playing),
                 tint = muted,
                 modifier = Modifier.align(Alignment.CenterEnd).clickable { onNow() }.padding(4.dp).size(28.dp)
             )
@@ -2496,14 +2496,14 @@ fun StationScreen(
         AlertDialog(
             containerColor = card,
             onDismissRequest = { topSleepOpen = false },
-            title = { Text(getString(R.string.sleep_timer), color = text) },
+            title = { Text(LocalContext.current.getString(R.string.sleep_timer), color = text) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf(15 to 30, 60 to 0).forEach { (a, b) ->
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             listOf(a, b).forEach { m ->
-                                val lab = if (m == 0) getString(R.string.disable) else getString(R.string.mins_short, m)
-                                val selected = if (m == 0) sleepLabel == getString(R.string.sleep_timer) else sleepLabel.contains(getString(R.string.mins_short, m))
+                                val lab = if (m == 0) LocalContext.current.getString(R.string.disable) else LocalContext.current.getString(R.string.mins_short, m)
+                                val selected = if (m == 0) sleepLabel == LocalContext.current.getString(R.string.sleep_timer) else sleepLabel.contains(LocalContext.current.getString(R.string.mins_short, m))
                                 Box(
                                     modifier = Modifier
                                         .weight(1f)
@@ -2520,7 +2520,7 @@ fun StationScreen(
             },
             confirmButton = {},
             dismissButton = {
-                TextButton(onClick = { topSleepOpen = false }) { Text(getString(R.string.close), color = muted) }
+                TextButton(onClick = { topSleepOpen = false }) { Text(LocalContext.current.getString(R.string.close), color = muted) }
             }
         )
     }
@@ -2528,7 +2528,7 @@ fun StationScreen(
         AlertDialog(
             containerColor = card,
             onDismissRequest = { topThemeOpen = false },
-            title = { Text(getString(R.string.theme), color = text) },
+            title = { Text(LocalContext.current.getString(R.string.theme), color = text) },
             text = {
                 Column {
                     // 4 в ряд
@@ -2559,7 +2559,7 @@ fun StationScreen(
             },
             confirmButton = {},
             dismissButton = {
-                TextButton(onClick = { topThemeOpen = false }) { Text(getString(R.string.close), color = muted) }
+                TextButton(onClick = { topThemeOpen = false }) { Text(LocalContext.current.getString(R.string.close), color = muted) }
             }
         )
     }
@@ -2586,11 +2586,11 @@ fun StationScreen(
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth().clickable { Palette.toggle(ctxForTheme) }.padding(8.dp)) {
                     Icon(
                         if (Palette.isLight) Icons.Filled.LightMode else Icons.Filled.DarkMode,
-                        contentDescription = if (Palette.isLight) getString(R.string.theme_light) else getString(R.string.theme_dark),
+                        contentDescription = if (Palette.isLight) LocalContext.current.getString(R.string.theme_light) else LocalContext.current.getString(R.string.theme_dark),
                         tint = text,
                         modifier = Modifier.size(20.dp)
                     )
-                    Text(if (Palette.isLight) getString(R.string.theme_light) else getString(R.string.theme_dark), color = text)
+                    Text(if (Palette.isLight) LocalContext.current.getString(R.string.theme_light) else LocalContext.current.getString(R.string.theme_dark), color = text)
                 }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -2599,18 +2599,18 @@ fun StationScreen(
                 ) {
                     Icon(
                         if (btWatch) Icons.Filled.Bluetooth else Icons.Filled.BluetoothDisabled,
-                        contentDescription = if (btWatch) getString(R.string.bt_watch_on_long) else getString(R.string.bt_watch_off_long),
+                        contentDescription = if (btWatch) LocalContext.current.getString(R.string.bt_watch_on_long) else LocalContext.current.getString(R.string.bt_watch_off_long),
                         tint = text,
                         modifier = Modifier.size(20.dp)
                     )
-                    Text(if (btWatch) getString(R.string.bt_on) else getString(R.string.bt_off), color = text)
+                    Text(if (btWatch) LocalContext.current.getString(R.string.bt_on) else LocalContext.current.getString(R.string.bt_off), color = text)
                 }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.fillMaxWidth().clickable { onSleepMenu() }.padding(8.dp)
                 ) {
-                    Icon(Icons.Filled.Timer, contentDescription = getString(R.string.sleep_timer), tint = text, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Filled.Timer, contentDescription = LocalContext.current.getString(R.string.sleep_timer), tint = text, modifier = Modifier.size(20.dp))
                     Text(sleepLabel, color = text)
                 }
                 if (sleepMenu) {
@@ -2625,19 +2625,19 @@ fun StationScreen(
                                             .background(Palette.panel, RoundedCornerShape(10.dp))
                                             .clickable { onSleep(m); onCloseMenu() },
                                         contentAlignment = Alignment.Center
-                                    ) { Text(if (m == 0) getString(R.string.off) else getString(R.string.mins_short, m), color = acc, style = MaterialTheme.typography.labelSmall) }
+                                    ) { Text(if (m == 0) LocalContext.current.getString(R.string.off) else LocalContext.current.getString(R.string.mins_short, m), color = acc, style = MaterialTheme.typography.labelSmall) }
                                 }
                             }
                         }
                     }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth().clickable { onExport() }.padding(8.dp)) {
-                    Icon(Icons.Filled.FileUpload, contentDescription = getString(R.string.export_settings), tint = text, modifier = Modifier.size(18.dp))
-                    Text(getString(R.string.export), color = text)
+                    Icon(Icons.Filled.FileUpload, contentDescription = LocalContext.current.getString(R.string.export_settings), tint = text, modifier = Modifier.size(18.dp))
+                    Text(LocalContext.current.getString(R.string.export), color = text)
                 }
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth().clickable { onImport() }.padding(8.dp)) {
-                    Icon(Icons.Filled.FileDownload, contentDescription = getString(R.string.import_settings), tint = text, modifier = Modifier.size(18.dp))
-                    Text(getString(R.string.import_label), color = text)
+                    Icon(Icons.Filled.FileDownload, contentDescription = LocalContext.current.getString(R.string.import_settings), tint = text, modifier = Modifier.size(18.dp))
+                    Text(LocalContext.current.getString(R.string.import_label), color = text)
                 }
             }
         }
@@ -2647,7 +2647,7 @@ fun StationScreen(
         AlertDialog(
             containerColor = card,
             onDismissRequest = onCancelPick,
-            title = { Text(getString(R.string.select_tab), color = text) },
+            title = { Text(LocalContext.current.getString(R.string.select_tab), color = text) },
             text = {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                     targetTabs.forEach { tab ->
@@ -2665,23 +2665,23 @@ fun StationScreen(
                 }
             },
             confirmButton = {},
-            dismissButton = { TextButton(onClick = onCancelPick) { Text(getString(R.string.cancel), color = muted) } }
+            dismissButton = { TextButton(onClick = onCancelPick) { Text(LocalContext.current.getString(R.string.cancel), color = muted) } }
         )
     }
     if (newTabOpen) {
         AlertDialog(
             containerColor = card,
             onDismissRequest = onCancelNewTab,
-            title = { Text(getString(R.string.create_new_tab), color = text) },
+            title = { Text(LocalContext.current.getString(R.string.create_new_tab), color = text) },
             text = {
                 Column {
                     OutlinedTextField(
                         value = newTabName,
                         onValueChange = onNewTabName,
                         singleLine = true,
-                        label = { Text(getString(R.string.name_label)) },
+                        label = { Text(LocalContext.current.getString(R.string.name_label)) },
                         supportingText = {
-                            Text(getString(R.string.hint_tab_name))
+                            Text(LocalContext.current.getString(R.string.hint_tab_name))
                         }
                     )
                 }
@@ -2690,16 +2690,16 @@ fun StationScreen(
                 Button(
                     onClick = onCreateTab,
                     colors = ButtonDefaults.buttonColors(containerColor = acc, contentColor = Color(0xFF0A0A0C))
-                ) { Text(getString(R.string.create)) }
+                ) { Text(LocalContext.current.getString(R.string.create)) }
             },
-            dismissButton = { TextButton(onClick = onCancelNewTab) { Text(getString(R.string.cancel), color = muted) } }
+            dismissButton = { TextButton(onClick = onCancelNewTab) { Text(LocalContext.current.getString(R.string.cancel), color = muted) } }
         )
     }
     if (editTab != null) {
         AlertDialog(
             containerColor = card,
             onDismissRequest = onCancelEdit,
-            title = { Text(getString(R.string.tab_edit, editTab), color = text) },
+            title = { Text(LocalContext.current.getString(R.string.tab_edit, editTab), color = text) },
             text = {
                 Column {
                     OutlinedTextField(value = editName, onValueChange = onEditName, singleLine = true)
@@ -2708,7 +2708,7 @@ fun StationScreen(
                         onClick = onRenameTab,
                         modifier = Modifier.fillMaxWidth().height(44.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = acc, contentColor = Color(0xFF0A0A0C))
-                    ) { Text(getString(R.string.rename)) }
+                    ) { Text(LocalContext.current.getString(R.string.rename)) }
                 }
             },
             confirmButton = {
@@ -2716,18 +2716,18 @@ fun StationScreen(
                     Button(
                         onClick = onDeleteTab,
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC62828), contentColor = Color.White)
-                    ) { Text(getString(R.string.delete_confirm)) }
+                    ) { Text(LocalContext.current.getString(R.string.delete_confirm)) }
                 else
-                    TextButton(onClick = onDeleteTab) { Text(getString(R.string.delete), color = Color(0xFFE53935)) }
+                    TextButton(onClick = onDeleteTab) { Text(LocalContext.current.getString(R.string.delete), color = Color(0xFFE53935)) }
             },
-            dismissButton = { TextButton(onClick = onCancelEdit) { Text(getString(R.string.cancel), color = muted) } }
+            dismissButton = { TextButton(onClick = onCancelEdit) { Text(LocalContext.current.getString(R.string.cancel), color = muted) } }
         )
     }
     if (pendingDelete != null) {
         AlertDialog(
             containerColor = card,
             onDismissRequest = onCancelDelete,
-            title = { Text(getString(R.string.delete_station_q), color = text) },
+            title = { Text(LocalContext.current.getString(R.string.delete_station_q), color = text) },
             text = { Text(pendingDelete?.name ?: "", color = muted) },
             confirmButton = {
                 Button(
@@ -2736,9 +2736,9 @@ fun StationScreen(
                         onCancelDelete()
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC62828), contentColor = Color.White)
-                ) { Text(getString(R.string.delete)) }
+                ) { Text(LocalContext.current.getString(R.string.delete)) }
             },
-            dismissButton = { TextButton(onClick = onCancelDelete) { Text(getString(R.string.cancel), color = muted) } }
+            dismissButton = { TextButton(onClick = onCancelDelete) { Text(LocalContext.current.getString(R.string.cancel), color = muted) } }
         )
     }
     if (nowOpen || sheetShow) {
@@ -3034,7 +3034,7 @@ fun StationScreen(
                             val on = bestUris.contains(currentUrl)
                             Icon(
                                 if (on) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                                contentDescription = if (on) getString(R.string.remove_from_local_fav) else getString(R.string.add_to_local_fav),
+                                contentDescription = if (on) LocalContext.current.getString(R.string.remove_from_local_fav) else LocalContext.current.getString(R.string.add_to_local_fav),
                                 tint = acc,
                                 modifier = Modifier
                                     .padding(start = 8.dp)
@@ -3049,7 +3049,7 @@ fun StationScreen(
                             val on = favUrls.contains(currentUrl)
                             Icon(
                                 if (on) Icons.Filled.Star else Icons.Filled.StarBorder,
-                                contentDescription = if (on) getString(R.string.remove_from_favorites) else getString(R.string.add_to_favorites),
+                                contentDescription = if (on) LocalContext.current.getString(R.string.remove_from_favorites) else LocalContext.current.getString(R.string.add_to_favorites),
                                 tint = acc,
                                 modifier = Modifier
                                     .padding(start = 8.dp)
@@ -3070,7 +3070,7 @@ fun StationScreen(
                         }
                     }
                     Text(
-                        if (track.isBlank()) getString(R.string.track_unknown2) else track,
+                        if (track.isBlank()) LocalContext.current.getString(R.string.track_unknown2) else track,
                         color = muted,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
@@ -3155,7 +3155,7 @@ fun StationScreen(
                             .springPress { skipUi(false) },
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Filled.SkipPrevious, contentDescription = getString(R.string.prev_station), tint = text, modifier = Modifier.size(40.dp))
+                        Icon(Icons.Filled.SkipPrevious, contentDescription = LocalContext.current.getString(R.string.prev_station), tint = text, modifier = Modifier.size(40.dp))
                     }
                     }
                     PlayBtn(playing = playing, status = status, sizeDp = 80.dp, onClick = onPlayPause)
@@ -3167,7 +3167,7 @@ fun StationScreen(
                             .springPress { skipUi(true) },
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Filled.SkipNext, contentDescription = getString(R.string.next_station), tint = text, modifier = Modifier.size(40.dp))
+                        Icon(Icons.Filled.SkipNext, contentDescription = LocalContext.current.getString(R.string.next_station), tint = text, modifier = Modifier.size(40.dp))
                     }
                     }
                 }
@@ -3303,20 +3303,20 @@ private fun BoxScope.RightTabsPanel(
                     Box(modifier = Modifier.width(40.dp).height(4.dp).background(muted, RoundedCornerShape(2.dp)))
                 }
                 Text(
-                    getString(R.string.tabs),
+                    LocalContext.current.getString(R.string.tabs),
                     color = text,
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.padding(bottom = 6.dp)
                 )
                 Text(
-                    getString(R.string.tap_hold_hint),
+                    LocalContext.current.getString(R.string.tap_hold_hint),
                     color = muted,
                     style = MaterialTheme.typography.labelSmall,
                     modifier = Modifier.padding(bottom = 10.dp)
                 )
                 val genreTabs = tabs.withIndex().filter { it.value !in listOf("fav", "best", "local", "search") }
                 if (genreTabs.isEmpty()) {
-                    EmptySlot(getString(R.string.no_genre_tabs), muted)
+                    EmptySlot(LocalContext.current.getString(R.string.no_genre_tabs), muted)
                 }
                 // reverseLayout: перший item знизу — список росте вгору
                 LazyColumn(modifier = Modifier.weight(1f), reverseLayout = true) {
@@ -3332,7 +3332,7 @@ private fun BoxScope.RightTabsPanel(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text("+", color = acc, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(end = 10.dp))
-                            Text(getString(R.string.add_tab), color = acc, style = MaterialTheme.typography.bodyLarge)
+                            Text(LocalContext.current.getString(R.string.add_tab), color = acc, style = MaterialTheme.typography.bodyLarge)
                         }
                     }
                     itemsIndexed(genreTabs, key = { _, iv -> "tab-" + iv.value }) { _, iv ->

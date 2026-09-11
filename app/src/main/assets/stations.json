@@ -1,158 +1,67 @@
 {
   "techno": [
     {
-      "value": "https://stream.sunshine-live.de/germante/mp3-128",
-      "name": "Sunshine Live - German Techno",
-      "genre": "Techno",
-      "country": "Німеччина",
-      "favicon": "https://sunshine-live.de/favicon.ico"
+      "value": "https://stream.technolovers.fm/melodic-house-techno?ref=radiobrowser-2",
+      "name": "Melodic House & Techno @ Technolovers.FM (Chillout, Beach, Festival, Sundowner, Relax, Ibiza, Sea, Ocean Music, Beachclub, Cocktailbar, 2024, 2025, 2026 Future Rave 126, 128, 124 Beats per Minute , BPM)",
+      "genre": "#, beach, beachclub, chill...",
+      "country": "Germany",
+      "favicon": "https://i.ibb.co/mFjn8LB/TL-Melodic-House-Techno-png.jpg"
     },
     {
-      "value": "https://stream.sunshine-live.de/technoqueens/aac-64",
-      "name": "Sunshine Live - Techno Queens",
-      "genre": "Techno",
-      "country": "Німеччина",
-      "favicon": "https://sunshine-live.de/favicon.ico"
+      "value": "http://strm112.1.fm/deephouse_mobile_mp3",
+      "name": "1.FM - Deep House Radio",
+      "genre": "deep house, techno",
+      "country": "Switzerland",
+      "favicon": ""
     },
     {
-      "value": "https://online.radiorecord.com.ua/techno",
-      "name": "Radio Record - Techno",
-      "genre": "Techno",
-      "country": "Україна",
-      "favicon": "https://online.radiorecord.com.ua/favicon.ico"
+      "value": "http://sa46.scastream.com.au/live/chill-house.stream/playlist.m3u8",
+      "name": "LiSTNR - Chill House (HLS)",
+      "genre": "chill, house",
+      "country": "Australia",
+      "favicon": "https://i.ibb.co/RkgqxRWW/Li-STNR-Square-Tile-3000x3000-CHILL-HOUSE.jpg"
     },
     {
-      "value": "https://listen.181fm.com/181-technoclub_64k.aac",
-      "name": "181.fm - Techno Club",
-      "genre": "Techno",
-      "country": "США",
-      "favicon": "https://example.com/techno_logo.png"
+      "value": "https://whsh4u-panel.com/proxy/yfryujzw/stream",
+      "name": "Extreme Deep House Radio",
+      "genre": "deep house, nu disco, vocal house",
+      "country": "Bulgaria",
+      "favicon": "https://www.facebook.com/photo/?fbid=110190505100190&set=ecnf.100083514593114"
     },
     {
-      "value": "https://stream.sunshine-live.de/techno/mp3-192/radoxo/",
-      "name": "Sunshine Live - Techno",
-      "genre": "Techno",
-      "country": "Німеччина",
-      "favicon": "https://sunshine-live.de/favicon.ico"
+      "value": "http://mercury.reliastream.com:8085/stream.mp3",
+      "name": "Radio Techno Zagreb",
+      "genre": "techno",
+      "country": "Croatia",
+      "favicon": ""
     },
     {
-      "value": "https://stream.technolovers.fm/big-room",
-      "name": "Techno Lovers FM Big Room",
-      "genre": "Big Room",
-      "country": "Німеччина",
-      "favicon": "https://example.com/default_logo.png"
+      "value": "http://stream.rcs.revma.com/1z19ak79n98uv",
+      "name": "Radio FG Techno",
+      "genre": "techno",
+      "country": "France",
+      "favicon": "https://static.mytuner.mobi/media/tvos_radios/874/fg-techno.f21527ee.jpg"
     },
     {
-      "value": "https://stream.technolovers.fm/festivalsounds",
-      "name": "Techno Lovers FM Festival Sounds",
-      "genre": "Techno",
-      "country": "Німеччина",
-      "favicon": "https://example.com/techno_logo.png"
+      "value": "http://fluxfm.streamabc.net/flx-technounderground-mp3-128-7228171?sABC=6n968qp1%230%23r30o443r1929r059s085628511796n57%23nhqvb&aw_0_1st.playerid=audio&amsparams=playerid:audio;skey:1788251585",
+      "name": "FluxFM - Techno Underground",
+      "genre": "techno",
+      "country": "Germany",
+      "favicon": "http://www.fluxfm.de/assets/favicons/apple-icon-120x120.png"
     },
     {
-      "value": "https://stream.laut.fm/cgntechnofm",
-      "name": "CGN Techno FM",
-      "genre": "Techno",
-      "country": "Німеччина",
-      "favicon": "https://example.com/techno_logo.png"
+      "value": "https://breakz-high.rautemusik.fm/?ref=radiobrowser-deejay-remixes-radio",
+      "name": "_DEEJAY REMIXE_ Your Radio for finest House, EDM, Electro, Dance, Mashup, Hypertechno, Techno, Bootleg, Charts, Top40, Chillout, Lounge, HipHop, Urban & Latin Party DJ Remixes!",
+      "genre": "#mashup, bass, beach music, breaks...",
+      "country": "Germany",
+      "favicon": "https://i.ibb.co/sP4q4Wh/breakz-fm-logo-fav.png "
     },
     {
-      "value": "https://streams.radiomast.io/8846a94e-9874-4692-a1a0-ec7aadbe2771",
-      "name": "Fnoob Techno",
-      "genre": "Techno",
-      "country": "США",
-      "favicon": "https://example.com/techno_logo.png"
-    },
-    {
-      "value": "https://stream.laut.fm/grooveradio",
-      "name": "Groove Radio",
-      "genre": "Techno/Minimal",
-      "country": "Німеччина",
-      "favicon": "http://dancegrooveradio.com/images1/dgrlogo.jpg"
-    },
-    {
-      "value": "https://minimalcalling.stream.laut.fm/minimalcalling",
-      "name": "Minimal Techno Calling",
-      "genre": "Minimal Techno",
-      "country": "Німеччина",
-      "favicon": "https://example.com/default_logo.png"
-    },
-    {
-      "value": "https://decoderfm.stream.laut.fm/decoderfm",
-      "name": "Decoder FM Radio",
-      "genre": "Techno/Minimal",
-      "country": "Німеччина",
-      "favicon": "https://example.com/default_logo.png"
-    },
-    {
-      "value": "https://stream.electroradio.fm/192k?icy=https",
-      "name": "Electro Radio",
-      "genre": "Techno/Electronic",
-      "country": "Швейцарія",
-      "favicon": "https://example.com/default_logo.png"
-    },
-    {
-      "value": "https://traxx020.ice.infomaniak.ch/traxx020-low.mp3",
-      "name": "Tech Minimal Traxx",
-      "genre": "Minimal Techno",
-      "country": "Швейцарія",
-      "favicon": "https://traxx020.ice.infomaniak.ch/favicon.ico"
-    },
-    {
-      "value": "https://1000techno.stream.laut.fm/1000techno",
-      "name": "1000 Techno",
-      "genre": "Techno",
-      "country": "Німеччина",
-      "favicon": "https://example.com/techno_logo.png"
-    },
-    {
-      "value": "https://radio.edm1.fm/proxy/17_technique?mp=/stream",
-      "name": "edm1.fm - Technique",
-      "genre": "Modern Techno",
-      "country": "Німеччина",
-      "favicon": "https://example.com/default_logo.png"
-    },
-    {
-      "value": "https://radio.edm1.fm/proxy/13_melodia?mp=/stream",
-      "name": "edm1.fm - Melodia",
-      "genre": "Melodic Techno",
-      "country": "Німеччина",
-      "favicon": "https://example.com/default_logo.png"
-    },
-    {
-      "value": "https://www.partyvibe.com:8068/;listen.pls?sid=1",
-      "name": "Party Vibe Radio: Techno",
-      "genre": "Techno",
-      "country": "Велика Британія",
-      "favicon": "https://example.com/techno_logo.png"
-    },
-    {
-      "value": "https://cosmo.streamerr.co/proxy/technoradioeuhq/stream",
-      "name": "Techno Radio EU",
-      "genre": "Techno",
-      "country": "Нідерланди",
-      "favicon": "https://cosmo.streamerr.co/favicon.ico"
-    },
-    {
-      "value": "https://sunsl.streamabc.net/sunsl-melodictechno-mp3-192-4167248",
-      "name": "Sunshine Live - Melodic Techno",
-      "genre": "Melodic Techno",
-      "country": "Німеччина",
-      "favicon": "https://example.com/default_logo.png"
-    },
-    {
-      "value": "https://s2.we4stream.com/listen/loca_techo/live",
-      "name": "Loca FM Techno",
-      "genre": "Techno",
-      "country": "Іспанія",
-      "favicon": "https://s2.we4stream.com/favicon.ico"
-    },
-    {
-      "value": "https://live.radiospinner.com/minimal-techno-96",
-      "name": "Minimal Techno",
-      "genre": "Techno/Electronic",
-      "country": "Іспанія",
-      "favicon": "https://example.com/default_logo.png"
+      "value": "https://stream.technolovers.fm/minimal?ref=radiobrowser",
+      "name": "Technolovers - MINIMAL",
+      "genre": "#minimal, deep house, house, minimal...",
+      "country": "Germany",
+      "favicon": "https://i.ibb.co/LncDTYz/MINIMAL-TL.jpg"
     },
     {
       "value": "https://listen.openstream.co/6521/audio",
@@ -162,53 +71,25 @@
       "favicon": "https://listen.openstream.co/favicon.ico"
     },
     {
-      "value": "https://live.radiospinner.com/techno-96",
-      "name": "Techno",
-      "genre": "Techno/Electronic",
+      "value": "https://s2.we4stream.com/listen/loca_techo/live",
+      "name": "Loca FM Techno",
+      "genre": "Techno",
       "country": "Іспанія",
-      "favicon": "https://creativecommons.org/wp-content/uploads/2016/06/music-4.png"
+      "favicon": "https://s2.we4stream.com/favicon.ico"
     },
     {
-      "value": "https://playerservices.streamtheworld.com/api/livestream-redirect/TOPSPINNING.mp3",
-      "name": "TOPspinning 30",
-      "genre": "Techno",
-      "country": "Бельгія",
-      "favicon": "https://example.com/techno_logo.png"
-    },
-    {
-      "value": "https://stream.laut.fm/blockfm",
-      "name": "Block FM",
-      "genre": "Techno",
-      "country": "Швейцарія",
-      "favicon": "https://example.com/techno_logo.png"
-    },
-    {
-      "value": "https://stream.laut.fm/crazybass",
-      "name": "Crazy Bass",
-      "genre": "Techno",
-      "country": "Німеччина",
-      "favicon": "https://example.com/techno_logo.png"
-    },
-    {
-      "value": "https://stream.laut.fm/darkmindradio",
-      "name": "Darkmind Radio",
+      "value": "https://radio.edm1.fm/proxy/13_melodia?mp=/stream",
+      "name": "edm1.fm - Melodia",
       "genre": "Melodic Techno",
       "country": "Німеччина",
       "favicon": "https://example.com/default_logo.png"
     },
     {
-      "value": "https://stream.zeno.fm/7ewrk39pknruv",
-      "name": "Techno Importation",
-      "genre": "Techno",
-      "country": "Франція",
-      "favicon": "https://example.com/techno_logo.png"
-    },
-    {
-      "value": "https://stream.techno.fm/radio1-320k.mp3",
-      "name": "Techno - FM - Channel",
-      "genre": "Techno",
-      "country": "Велика Британія",
-      "favicon": "https://techno.fm/favicon.ico"
+      "value": "https://sunsl.streamabc.net/sunsl-melodictechno-mp3-192-4167248",
+      "name": "Sunshine Live - Melodic Techno",
+      "genre": "Melodic Techno",
+      "country": "Німеччина",
+      "favicon": "https://example.com/default_logo.png"
     },
     {
       "value": "https://rautemusik.stream43.radiohost.de/rautemusik-techno_mp3-192?ref=radiobrowser&upd-meta=0&upd-scheme=https&_art=dD0xNzQ4OTUzODYzJmQ9Y2UzNzJkNWIyNTFjMzJmODNhM2U",
@@ -225,30 +106,9 @@
       "favicon": "https://www.0nradio.com/logos/0n-techno_600x600.jpg"
     },
     {
-      "value": "https://rautemusik.stream43.radiohost.de/breakz?ref=rb-gpt-t100&upd-meta=0&upd-scheme=https&_art=dD0xNzQ4OTQ0MDcwJmQ9Y2VmZTYwZTQxMGM1OGM0ZTk2NzY",
-      "name": "- TOP 100 - DJ Charts",
-      "genre": "DJ Charts",
-      "country": "Німеччина",
-      "favicon": "https://i.ibb.co/b7gfKT6/TOP-100-DJ-CHARTS-GPT.jpg"
-    },
-    {
-      "value": "https://regiocast.streamabc.net/regc-90s90stechno2195701-mp3-128-2406006?sABC=683rrnqn%230%23s8389203o94019r3452q8r0757pr757p%23enqvbqr&aw_0_1st.playerid=radiode&amsparams=playerid:radiode;skey:1748953818",
-      "name": "90s90s Techno",
-      "genre": "90s Techno",
-      "country": "Німеччина",
-      "favicon": "https://example.com/default_logo.png"
-    },
-    {
       "value": "https://best-of-techno.stream.laut.fm/best-of-techno?t302=2025-06-03_02-18-21&uuid=574ecd8e-ce89-405f-a67a-9ff8979a388d",
       "name": "Best Of Techno",
       "genre": "Classic Techno",
-      "country": "Німеччина",
-      "favicon": "https://example.com/default_logo.png"
-    },
-    {
-      "value": "https://chronischelektronisch.stream.laut.fm/chronisch_elektronisch?pl=m3u&t302=2025-06-03_08-01-32&uuid=dffd3c7b-39b0-4f2b-847a-65a67acbc825",
-      "name": "chronisch_elektronisch-laut-fm",
-      "genre": "Minimal Techno",
       "country": "Німеччина",
       "favicon": "https://example.com/default_logo.png"
     },
@@ -260,53 +120,11 @@
       "favicon": "https://rm.fm/favicon.ico"
     },
     {
-      "value": "https://sunsl.streamabc.net/sunsl-classics-mp3-192-8423201?sABC=683ron12%230%23q7s809s74070n543n7p5213q6qr39235%23&aw_0_1st.playerid=&amsparams=playerid:;skey:1748941330",
-      "name": "Sunshine-Live Classics",
-      "genre": "Classic Techno",
-      "country": "Німеччина",
-      "favicon": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/00/Sunshine_live_Logo_2022.svg/1920px-Sunshine_live_Logo_2022.svg.png"
-    },
-    {
-      "value": "https://takeadj-radio.stream.laut.fm/takeadj-radio",
-      "name": "TAKE A DJ - RADIO",
-      "genre": "Melodic Techno",
-      "country": "Німеччина",
-      "favicon": "https://example.com/default_logo.png"
-    },
-    {
       "value": "https://techno.stream.laut.fm/techno?t302=2025-06-03_09-00-07&uuid=6cd9038e-6131-4ef7-9f0f-9c8308ebd715",
       "name": "TECHNO",
       "genre": "Techno",
       "country": "Німеччина",
       "favicon": "https://i.ibb.co/7J492pjD/neuersachein.jpg"
-    },
-    {
-      "value": "https://technobunkerfm.stream.laut.fm/technobunkerfm?t302=2025-06-03_00-50-02&uuid=e8b5309b-a8b9-4055-9acc-3bbf62f1b663",
-      "name": "techno bunker",
-      "genre": "Techno",
-      "country": "Німеччина",
-      "favicon": "https://example.com/techno_logo.png"
-    },
-    {
-      "value": "https://technoclassics.stream.laut.fm/techno_classics?t302=2025-06-03_12-29-50&uuid=b1e379cb-58a3-4bcf-b9c7-d572a8d31f3c",
-      "name": "Techno Classics",
-      "genre": "Classic Techno",
-      "country": "Німеччина",
-      "favicon": "https://example.com/default_logo.png"
-    },
-    {
-      "value": "https://techno-paradize.stream.laut.fm/techno-paradize?t302=2021-12-12_09-00-32&uuid=8fb20a49-0aa6-427a-b0ff-2f65e43898b4",
-      "name": "techno paradize",
-      "genre": "Minimal Techno",
-      "country": "Німеччина",
-      "favicon": "https://www.facebook.com/favicon.ico"
-    },
-    {
-      "value": "https://stream.techno.fm/radio1-192k.mp3",
-      "name": "Techno.FM (CA) 192k MP3",
-      "genre": "Techno",
-      "country": "Канада",
-      "favicon": "https://techno.fm/images/logos/logo_80px.png"
     },
     {
       "value": "https://stream1-technolovers.radiohost.de/techno?ref=radiobrowser",
@@ -316,55 +134,69 @@
       "favicon": "https://i.ibb.co/ScwBQ49/TECHNO-TL.jpg"
     },
     {
-      "value": "https://technotune.stream.laut.fm/technotune?t302=2025-06-03_10-43-43&uuid=7cf73f05-af72-4aff-822c-cc5b758373a6",
-      "name": "Technotune",
-      "genre": "Minimal Techno",
-      "country": "Німеччина",
-      "favicon": "https://static.twitchcdn.net/assets/favicon-32-e29e246c157142c94346.png"
-    },
-    {
-      "value": "https://radio.balearic-fm.com:8000/radio.mp3",
-      "name": "Balearic FM",
-      "genre": "Soulful House",
-      "country": "США",
-      "favicon": "https://radio.balearic-fm.com:8000/favicon.ico"
-    },
-    {
-      "value": "https://sunsl.streamabc.net/sunsl-amsterdam-mp3-192-9011779?sABC=683rp6p8%230%23q7s809s74070n543n7p5213q6qr39235%23fgernz.fhafuvar-yvir.qr&aw_0_1st.playerid=stream.sunshine-live.de&amsparams=playerid:stream.sunshine-live.de;skey:1748944584",
-      "name": "Sunshine Live - Bunker",
-      "genre": "Dark Techno",
-      "country": "Німеччина",
-      "favicon": "https://example.com/default_logo.png"
-    }
-  ],
-  "trance": [
-    {
-      "value": "https://stream.sunshine-live.de/trance/mp3-192/radoxo/",
-      "name": "Sunshine Live - Trance",
-      "genre": "Trance",
+      "value": "https://stream.sunshine-live.de/techno/mp3-192/radoxo/",
+      "name": "Sunshine Live - Techno",
+      "genre": "Techno",
       "country": "Німеччина",
       "favicon": "https://sunshine-live.de/favicon.ico"
     },
     {
-      "value": "https://listen.trancebase.fm/tunein-mp3",
-      "name": "TRANCEBASE.FM",
-      "genre": "Trance/Techno",
-      "country": "Німеччина",
-      "favicon": "http://trancebase.fm/media/icons/trb/apple-touch-icon.png"
+      "value": "https://stream.sunshine-live.de/melodic-techno/mp3-128/stream.sunshine-live.de/",
+      "name": "sunshine live - Melodic Techno",
+      "genre": "Unknown",
+      "country": "Germany",
+      "favicon": ""
     },
     {
-      "value": "https://radio.trance-energy.org:8443/trance",
-      "name": "Trance-Energy Radio",
-      "genre": "Trance/Techno",
-      "country": "Нідерланди",
-      "favicon": "https://example.com/default_logo.png"
+      "value": "https://radio.nia.nc/radio/8000/pacific-hq-stream.aac",
+      "name": "NIA Radio - Pacifique",
+      "genre": "electronica, house, techno",
+      "country": "New Caledonia",
+      "favicon": "https://nia.nc/static/icons/apple-touch-icon.png"
     },
     {
-      "value": "https://stream.technolovers.fm/vocal-trance",
-      "name": "Techno Lovers FM Vocal Trance",
-      "genre": "Vocal Trance",
-      "country": "Німеччина",
-      "favicon": "https://i.postimg.cc/j5JqRGN7/technoloversvocaltrance.jpg"
+      "value": "https://onair7.xdevel.com/proxy/xautocloud_vovi_2030?mp=/;1/",
+      "name": "Radio Romeo & Juliet",
+      "genre": "electronic, house, techno",
+      "country": "Italy",
+      "favicon": "https://static3.inonda.com/2030/RES/player/5ViwscqTCV-cover-600,600.png"
+    },
+    {
+      "value": "https://stream.7000fm.gr/radio/8000/radio.mp3",
+      "name": "7000FM",
+      "genre": "techno",
+      "country": "Greece",
+      "favicon": "https://7000fm.gr/images/favicon.ico"
+    },
+    {
+      "value": "https://stream-153.zeno.fm/xilwjn4t17qvv",
+      "name": "Remember Vip Techno",
+      "genre": "dark techno, deep techno, hard techno, minimal techno...",
+      "country": "Spain",
+      "favicon": "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEibV9pYnEabVR6GlnZKa4FUlFCM1Pt9ak26YCKncCohqDgq8_9gl_71ELh1ccHa5ChALsP2WLkprYZzKusvxROrASELi4UaEjhs6JZe-i9BlVWF9KR841zc3QR5SMkSzgOZ5FtmBeSiq7pZeGK-pfnkv1SAEeAIEoidYxUM9R3jt7M4U8ZbRQiWjQOQmrE/s176/channels4_profile.jpg"
+    },
+    {
+      "value": "https://streams.rautemusik.fm/techno/mp3-192/?ref=radiobrowser",
+      "name": "__TECHNO__ by rautemusik.fm",
+      "genre": "ambient techno, deep techno, dub techno, hard techno...",
+      "country": "Germany",
+      "favicon": "https://rm.fm/favicon.ico"
+    }
+  ],
+  "trance": [
+    {
+      "value": "http://91.218.212.84:8000/radionv.mp3",
+      "name": "Радио НВ",
+      "genre": "news, politics",
+      "country": "Ukraine",
+      "favicon": "https://d3e54v103j8qbb.cloudfront.net/static/designer_favicon.5ea478d03e.png"
+    },
+    {
+      "value": "http://s2.euer.tv/audio320",
+      "name": "euer-radio (www.Euer - Radio.DE)",
+      "genre": "dance, house, techno, trance",
+      "country": "Germany",
+      "favicon": "https://www.euer-radio.de/images/Logo6.Erde.png"
     },
     {
       "value": "https://s2.radioparty.pl:8025/vocaltrance",
@@ -381,32 +213,25 @@
       "favicon": "https://www.ganorium.com/wp-content/uploads/2018/10/ganorium-radio-2018-favicon.png"
     },
     {
+      "value": "https://listen.trancebase.fm/tunein-mp3",
+      "name": "TRANCEBASE.FM",
+      "genre": "Trance/Techno",
+      "country": "Німеччина",
+      "favicon": "http://trancebase.fm/media/icons/trb/apple-touch-icon.png"
+    },
+    {
+      "value": "https://stream.technolovers.fm/vocal-trance",
+      "name": "Techno Lovers FM Vocal Trance",
+      "genre": "electro",
+      "country": "Germany",
+      "favicon": "https://i.postimg.cc/j5JqRGN7/technoloversvocaltrance.jpg"
+    },
+    {
       "value": "https://icecast.pulsradio.com/pulsHD.mp3",
       "name": "PulsRadio Dance",
       "genre": "Trance/Techno",
       "country": "Франція",
       "favicon": "https://pulsradio.com/favicon.ico"
-    },
-    {
-      "value": "https://sunsl.streamabc.net/sunsl-newhits-mp3-192-1294829",
-      "name": "Sunshine Live - New Music",
-      "genre": "Techno/Trance",
-      "country": "Німеччина",
-      "favicon": "https://example.com/default_logo.png"
-    },
-    {
-      "value": "https://streaming.playtrance.com/playtrance-main-low",
-      "name": "Play Trance - Main Channel",
-      "genre": "Trance",
-      "country": "Іспанія",
-      "favicon": "https://example.com/trance_logo.png"
-    },
-    {
-      "value": "https://live-ff.playtrance.com/playtrance-classics.mp3",
-      "name": "PlayTrance Radio (Classics Channel)",
-      "genre": "Trance",
-      "country": "Іспанія",
-      "favicon": "https://example.com/trance_logo.png"
     },
     {
       "value": "https://london-dedicated.myautodj.com:3199/proxy/trance/stream",
@@ -430,27 +255,6 @@
       "favicon": "https://example.com/default_logo.png"
     },
     {
-      "value": "https://strmreg.1.fm/trance_mobile_mp3",
-      "name": "1.FM - Absolute Trance Radio",
-      "genre": "Trance/Dance",
-      "country": "Швейцарія",
-      "favicon": "https://www.1.fm/favicon.ico"
-    },
-    {
-      "value": "https://online.kissfm.ua/KissFM",
-      "name": "Kiss FM Ukraine",
-      "genre": "Dance/Electronic",
-      "country": "Україна",
-      "favicon": "https://www.kissfm.ua/static/img/fav-icon/apple-icon-120x120.png"
-    },
-    {
-      "value": "https://cast.brg.ua/djfm_main_public_mp3_hq",
-      "name": "DJFM",
-      "genre": "EDM/Techno",
-      "country": "Україна",
-      "favicon": "https://firebasestorage.googleapis.com/v0/b/radiogalaxy-580f4.appspot.com/o/images%2FIMG_20241110_104536688.jpg?alt=media&token=283f1a5c-c8df-4193-9771-9c85a3e09078"
-    },
-    {
       "value": "https://secure.live-streams.nl/live",
       "name": "Intense Radio",
       "genre": "House/Techno/Trance",
@@ -463,13 +267,6 @@
       "genre": "Trance",
       "country": "Німеччина",
       "favicon": "https://www.rm.fm/favicon.ico"
-    },
-    {
-      "value": "https://solid48.streamupsolutions.com/proxy/cfujtbgw/109fm",
-      "name": "109FM",
-      "genre": "Trance",
-      "country": "Україна",
-      "favicon": "https://solid48.streamupsolutions.com/favicon.ico"
     },
     {
       "value": "https://stream-156.zeno.fm/ilibzonk6hotv?zt=eyJhbGciOiJIUzI1NiJ9.eyJzdHJlYW0iOiJpbGliem9uazZob3R2IiwiaG9zdCI6InN0cmVhbS0xNTYuemVuby5mbSIsInRtIjpmYWxzZSwicnR0bCI6NSwianRpIjoiWnNPMnIzZUZUd3FCVmNkb1NTTm9KZyIsImlhdCI6MTc0ODk0NzcxMywiZXhwIjoxNzQ4OTQ3NzczfQ.KWWdnlhcWlLlPQGzK7vMAfZk784ZiaCmidq1xOlrXKE&abn128",
@@ -486,25 +283,11 @@
       "favicon": "https://ah.fm/wp-content/uploads/2023/03/transparent-white.png"
     },
     {
-      "value": "https://stream.antiradio.net/radio/8000/mp3",
-      "name": "Anti Radio",
-      "genre": "Trance",
-      "country": "Азербайджан",
-      "favicon": "https://antiradio.net/favicon.ico"
-    },
-    {
-      "value": "https://stream-178.zeno.fm/z5artz4g2wzuv?zt=eyJhbGciOiJIUzI1NiJ9.eyJzdHJlYW0iOiJ6NWFydHo0ZzJ3enV2IiwiaG9zdCI6InN0cmVhbS0xNzguemVuby5mbSIsInRtIjpmYWxzZSwicnR0bCI6NSwianRpIjoiMHpMUDRzX0NRbUdMMmVGYVUyU0ExdyIsImlhdCI6MTc0ODk0NjcxMCwiZXhwIjoxNzQ4OTQ2NzcwfQ.3CQqr5bqHYZA4TdguDYOlDm-4EJso9sOcIRgBCdmZWE",
-      "name": "Banita Maxx",
-      "genre": "Trance",
-      "country": "Велика Британія",
-      "favicon": "https://example.com/trance_logo.png"
-    },
-    {
       "value": "https://mediaserv38.live-streams.nl:18002/trance",
-      "name": "Beats 2 Dance - Trance",
-      "genre": "Trance",
-      "country": "Нідерланди",
-      "favicon": "https://beats2dance.com/wp-content/uploads/2022/11/dj-set.png"
+      "name": "beats2dance - Trance",
+      "genre": "trance",
+      "country": "The Netherlands",
+      "favicon": "https://beats2dance.com/wp-content/uploads/2020/09/logo-profiel-foto.png"
     },
     {
       "value": "https://stream-161.zeno.fm/z8cp1nqwhnruv?zt=eyJhbGciOiJIUzI1NiJ9.eyJzdHJlYW0iOiJ6OGNwMW5xd2hucnV2IiwiaG9zdCI6InN0cmVhbS0xNjEuemVuby5mbSIsInRtIjpmYWxzZSwicnR0bCI6NSwianRpIjoiajQtWUdLZ2RUdGFTalprbnRxY0pqdyIsImlhdCI6MTc0ODk1NTkyOCwiZXhwIjoxNzQ4OTU1OTg4fQ._fn8Y0Wji6eVhtcWT4ojOpoPVUM3X2F_58P5NwYpNOc&acu-uid=727435602967&triton-uid=cookie%3A83ca5b14-582e-4c12-a5ab-255cdb39e2cb",
@@ -570,27 +353,6 @@
       "favicon": "https://i0.wp.com/www.nixxfm.nl/wp-content/uploads/2022/02/cropped-favicon-nixx-fm.jpg?fit=180%2c180&#038;ssl=1"
     },
     {
-      "value": "https://streaming.playtrance.com/playtrance-main-high",
-      "name": "Play Trance Radio Main Channel (High Quality)",
-      "genre": "Trance",
-      "country": "Іспанія",
-      "favicon": "https://example.com/trance_logo.png"
-    },
-    {
-      "value": "https://streaming.playtrance.com/playtrance-uplifting-high",
-      "name": "Play Trance Radio Uplifting Only Channel (High Quality)",
-      "genre": "Uplifting Trance",
-      "country": "Іспанія",
-      "favicon": "https://i.postimg.cc/Gt0mmZmn/logo.png"
-    },
-    {
-      "value": "https://sp.streams.ovh/8020/stream",
-      "name": "Psyland.live",
-      "genre": "Psytrance",
-      "country": "Греція",
-      "favicon": "https://psyland.live/wp-content/uploads/2021/06/psyland-logo.png"
-    },
-    {
       "value": "https://sunsl.streamabc.net/sunsl-vocaltrance-mp3-192-5826863?sABC=683qq607%230%23s8389203o94019r3452q8r0757pr757p%23fgernz.fhafuvar-yvir.qr&aw_0_1st.playerid=stream.sunshine-live.de&amsparams=playerid:stream.sunshine-live.de;skey:1748882951",
       "name": "sunshine live - Vocal Trance",
       "genre": "Vocal Trance",
@@ -605,27 +367,69 @@
       "favicon": "https://example.com/default_logo.png"
     },
     {
-      "value": "https://radio4.vip-radios.fm:18051/stream-128kmp3-HitClubDance",
-      "name": "Vip Radios - Hit Club Dance",
-      "genre": "Club Dance",
-      "country": "Франція",
-      "favicon": "null"
+      "value": "https://stream.sunshine-live.de/trance/mp3-192/stream.sunshine-live.de/",
+      "name": "sunshine live - Trance",
+      "genre": "Unknown",
+      "country": "Germany",
+      "favicon": ""
+    },
+    {
+      "value": "https://stream.laut.fm/sothitsradio",
+      "name": "Laut.fm Sothits Radio",
+      "genre": "old school classic, techno, trance",
+      "country": "Germany",
+      "favicon": "https://assets.laut.fm/a65d1f60aba2f3527f0248c8af6c82b1?t=_120x120"
+    },
+    {
+      "value": "https://stream.sunshine-live.de/live/mp3-192/stream.sunshine-live.de/",
+      "name": "SUNSHINE LIVE - Simulcast",
+      "genre": "102.1 fm, club dance electronic house trance",
+      "country": "Germany",
+      "favicon": "https://i.postimg.cc/63WrjzDR/sunshine-live-208ef5b1.jpg"
+    },
+    {
+      "value": "https://live.radiospinner.com/vcltrnc-64",
+      "name": "Radio Spinner - Vocal Trance",
+      "genre": "vocal trance",
+      "country": "The United States Of America",
+      "favicon": "https://static2.mytuner.mobi/media/tvos_radios/239/vocal-trance.7d8db91c.jpg"
+    },
+    {
+      "value": "https://stream.zeno.fm/5x4sda9kxtzuv",
+      "name": "CLUB DANCE MUSIC",
+      "genre": "dance, edm, electronic, house...",
+      "country": "Costa Rica",
+      "favicon": "https://zeno.fm/_next/image/?url=https%3A%2F%2Fimages.zeno.fm%2FjzOzGtt3a2s_feaaAtASbR2wIxZEDnx6tYu91XxoAr0%2Frs%3Afit%3A1500%3A600%2Fg%3Ace%3A0%3A0%2FaHR0cHM6Ly9zdHJlYW0tdG9vbHMuemVub21lZGlhLmNvbS9jb250ZW50L3N0YXRpb25zL2FneHpmbnBsYm04dGMzUmhkSE55TWdzU0NrRjFkR2hEYkdsbGJuUVlnSURncl9MWTZBZ01DeElPVTNSaGRHbHZibEJ5YjJacGJHVVlnSURnNzZLSHNRb01vZ0VFZW1WdWJ3L21pY3Jvc2l0ZS9iYWNrZ3JvdW5kX2ltYWdlLz91cGRhdGVkPTE3MTI3NjU4ODUwMDA.webp&w=1920&q=70"
     }
   ],
   "ukraine": [
     {
-      "value": "https://online.kissfm.ua/KissFM",
-      "name": "Kiss FM",
-      "genre": "Танцювальна музика",
-      "country": "Україна",
-      "favicon": "https://www.kissfm.ua/static/img/fav-icon/apple-icon-120x120.png"
+      "value": "http://lux.radio.tvstitch.com/kyiv/lux_adv_sd",
+      "name": "Lux FM",
+      "genre": "ukrainian",
+      "country": "Ukraine",
+      "favicon": "https://lux.fm/assets/img/browser-icons/apple-touch-icon-120x120.png"
     },
     {
-      "value": "https://cast.brg.ua/djfm_main_public_mp3_hq",
-      "name": "DJ FM",
-      "genre": "Танцювальна/EDM",
-      "country": "Україна",
-      "favicon": "https://djfm.ua/favicon.ico"
+      "value": "https://lux.radio.tvstitch.com/suchasni-hiti-sd",
+      "name": "Люкс ФМ – Сучасні хіти",
+      "genre": "",
+      "country": "Ukraine",
+      "favicon": "https://slukhay.com/uploads/2026/2/3/a1200b2f-4914-4430-81cf-d6d4b6bf6f73.png"
+    },
+    {
+      "value": "https://lux.radio.tvstitch.com/ukrayinski-hiti-sd",
+      "name": "Люкс ФМ – Українські хіти",
+      "genre": "ukraine",
+      "country": "Ukraine",
+      "favicon": "https://slukhay.com/uploads/2026/2/3/0e404084-9364-4afb-a3ee-709d3ea0fcae.png"
+    },
+    {
+      "value": "https://lux.radio.tvstitch.com/chill-sd",
+      "name": "Люкс ФМ – Chill and Relax",
+      "genre": "chill, chillout, relax, ukraine",
+      "country": "Ukraine",
+      "favicon": "https://slukhay.com/uploads/2026/2/3/0fc2953e-4564-4e15-8368-4600ac738071.png"
     },
     {
       "value": "https://online.hitfm.ua/HitFM",
@@ -635,32 +439,46 @@
       "favicon": "https://www.hitfm.ua/static/img/fav-icon/apple-icon-120x120.png"
     },
     {
-      "value": "https://icecast.luxnet.ua/lux_mp3",
-      "name": "Люкс ФМ",
-      "genre": "Поп-музика",
-      "country": "Україна",
-      "favicon": "https://lux.fm/favicon.ico"
+      "value": "http://online.hitfm.ua/HitFM_Top",
+      "name": "Хіт FM Сучасні хіти",
+      "genre": "pop",
+      "country": "Ukraine",
+      "favicon": ""
     },
     {
-      "value": "https://cast.mediaonline.net.ua/radiopyatnica320",
-      "name": "Радіо П’ятниця",
-      "genre": "Поп-музика",
-      "country": "Україна",
-      "favicon": "https://cast.mediaonline.net.ua/favicon.ico"
+      "value": "http://online.hitfm.ua/HitFM_Best_Live",
+      "name": "Хіт ФМ Найбільші хіти",
+      "genre": "90's, pop",
+      "country": "Ukraine",
+      "favicon": "https://www.hitfm.ua/static/img/fav-icon/apple-icon-120x120.png"
     },
     {
-      "value": "https://online.radioroks.ua/RadioROKS",
-      "name": "Radio ROKS",
-      "genre": "Рок-музика",
-      "country": "Україна",
-      "favicon": "https://upload.wikimedia.org/wikipedia/uk/b/be/Logo_radio_roks.png"
+      "value": "http://online.hitfm.ua/HitFM_Ukr",
+      "name": "Хіт ФМ Українські хіти",
+      "genre": "pop, ukrainian",
+      "country": "Ukraine",
+      "favicon": "https://www.hitfm.ua/static/img/fav-icon/apple-icon-120x120.png"
     },
     {
-      "value": "https://online.radiorelax.ua/RadioRelax",
-      "name": "Radio Relax",
-      "genre": "Легка музика",
-      "country": "Україна",
-      "favicon": "https://example.com/relax_logo.png"
+      "value": "https://radio.c4.com.ua:8443/320",
+      "name": "Радіо C4",
+      "genre": "entertainment, information, music, news...",
+      "country": "Ukraine",
+      "favicon": "https://c4.com.ua/wp-content/themes/c4/assets/img/favicon.png"
+    },
+    {
+      "value": "https://100.cv.ua:8443/play",
+      "name": "Буковинська Хвиля",
+      "genre": "information, music, news, pop",
+      "country": "Ukraine",
+      "favicon": "https://firebasestorage.googleapis.com/v0/b/radiogalaxy-580f4.appspot.com/o/images%2FIMG_20231117_102518593.jpg?alt=media&token=bb97ee18-72a3-4693-bebe-c0c56e108ebe"
+    },
+    {
+      "value": "https://online.kissfm.ua/KissFM_HD",
+      "name": "Kiss FM",
+      "genre": "edm, hot ac",
+      "country": "Ukraine",
+      "favicon": "https://play-lh.googleusercontent.com/tfpSUUVjoePVQ9FAD1rnu6xgnapf1RUjg-iPMx8dwKOWQL1aJ69aNto4je6PHednhA=w240-h480-rw"
     },
     {
       "value": "https://online.melodiafm.ua/MelodiaFM",
@@ -670,60 +488,11 @@
       "favicon": "https://cdn.onlineradiobox.com/img/l/6/26.v35.png"
     },
     {
-      "value": "https://online.nasheradio.ua/NasheRadio",
-      "name": "Наше Радіо",
-      "genre": "Поп/Рок",
-      "country": "Україна",
-      "favicon": "https://example.com/default_logo.png"
-    },
-    {
       "value": "https://icecast.luxnet.ua/maximum_mp3",
       "name": "Радіо МАКСИМУМ",
       "genre": "Поп/Рок",
       "country": "Україна",
       "favicon": "https://maximum.fm/assets/images/favicons2/favicon.ico?v=15348"
-    },
-    {
-      "value": "https://icecast.luxnet.ua/nostalgie_mp3",
-      "name": "Radio NOSTALGIE",
-      "genre": "Ретро",
-      "country": "Україна",
-      "favicon": "https://example.com/default_logo.png"
-    },
-    {
-      "value": "https://online.classicradio.ua/ClassicRadio",
-      "name": "Classic Radio",
-      "genre": "Класична музика",
-      "country": "Україна",
-      "favicon": "https://example.com/default_logo.png"
-    },
-    {
-      "value": "https://cast.brg.ua/shanson_main_public_mp3_hq",
-      "name": "Шлягер FM",
-      "genre": "Шансон/Естрада",
-      "country": "Україна",
-      "favicon": "https://firebasestorage.googleapis.com/v0/b/radiogalaxy-580f4.appspot.com/o/images%2FIMG_20250111_141908308.jpg?alt=media&token=5b476f2f-6a30-4b8b-8d70-96c135e82ca8"
-    },
-    {
-      "value": "https://cast.brg.ua/powerfm_main_public_mp3_hq",
-      "name": "Power FM",
-      "genre": "Поп/Танцювальна",
-      "country": "Україна",
-      "favicon": "https://example.com/default_logo.png"
-    },
-    {
-      "value": "https://cast.brg.ua/business_main_public_mp3_hq",
-      "name": "Magic Radio",
-      "genre": "Легка музика",
-      "country": "Україна",
-      "favicon": "https://firebasestorage.googleapis.com/v0/b/radiogalaxy-580f4.appspot.com/o/images%2FIMG_20250111_141451443.jpg?alt=media&token=858cfad1-7c80-441a-8618-124b7875bf6f"
-    },
-    {
-      "value": "https://cast.mediaonline.net.ua/avtoradio320",
-      "name": "Авторадіо",
-      "genre": "Поп-музика",
-      "country": "Україна",
-      "favicon": "https://avtoradio.ua/images/logo.png"
     },
     {
       "value": "https://online.radiobayraktar.ua/RadioBayraktar",
@@ -740,25 +509,11 @@
       "favicon": "https://galychyna.fm/favicon.ico"
     },
     {
-      "value": "https://onair.lviv.fm:8443/lviv.fm",
-      "name": "Львівська Хвиля",
-      "genre": "Поп/Українська музика",
-      "country": "Україна",
-      "favicon": "https://lviv.fm/wp-content/themes/lvivfm/assets/images/favicon.ico"
-    },
-    {
       "value": "https://icecast.luxnet.ua/luxlviv_mp3_320",
       "name": "Люкс ФМ (Львів)",
       "genre": "Поп-музика",
       "country": "Україна",
       "favicon": "https://lux.fm/favicon.ico"
-    },
-    {
-      "value": "https://ipradio.net:8443/duzheHD",
-      "name": "Дуже Радіо",
-      "genre": "Українська музика",
-      "country": "Україна",
-      "favicon": "https://example.com/ukraine_logo.png"
     },
     {
       "value": "https://live.radio1.com.ua/liveradio320",
@@ -775,67 +530,11 @@
       "favicon": "https://radiotrek.rv.ua/tpl/images/icons/apple-touch-icon.png"
     },
     {
-      "value": "https://cdn-br2.live-tv.cloud/sferarvFM/320k/icecast.audio",
-      "name": "Сфера-ФМ",
-      "genre": "Поп-музика",
-      "country": "Україна",
-      "favicon": "https://firebasestorage.googleapis.com/v0/b/radiogalaxy-580f4.appspot.com/o/images%2FIMG_20240923_181121171.jpg?alt=media&token=2323172f-9633-412e-b3f7-57231503ed2c"
-    },
-    {
-      "value": "https://online.1043.com.ua/1043fm",
-      "name": "Західний Полюс",
-      "genre": "Поп/Рок",
-      "country": "Україна",
-      "favicon": "https://z-polus.info/wp-content/uploads/2020/06/zah_polus_newlogo_white-1.png"
-    },
-    {
-      "value": "https://100.cv.ua:8443/play",
-      "name": "Буковинська Хвиля",
-      "genre": "Поп/Народна музика",
-      "country": "Україна",
-      "favicon": "https://firebasestorage.googleapis.com/v0/b/radiogalaxy-580f4.appspot.com/o/images%2FIMG_20231117_102518593.jpg?alt=media&token=bb97ee18-72a3-4693-bebe-c0c56e108ebe"
-    },
-    {
       "value": "https://stream.chv.ua:8443/acc.mp3",
       "name": "Радіо 10",
       "genre": "Поп-музика",
       "country": "Україна",
       "favicon": "https://example.com/pop_logo.png"
-    },
-    {
-      "value": "https://radio.c4.com.ua:8443/320",
-      "name": "Радіо C4",
-      "genre": "Поп-музика",
-      "country": "Україна",
-      "favicon": "https://c4.com.ua/wp-content/themes/c4/assets/img/favicon.png"
-    },
-    {
-      "value": "https://online.kissfm.ua/KissFM_HD",
-      "name": "106.5 Kiss FM",
-      "genre": "Танцювальна/Електронна",
-      "country": "Україна",
-      "favicon": "https://example.com/default_logo.png"
-    },
-    {
-      "value": "https://solid48.streamupsolutions.com/proxy/cfujtbgw/109fm",
-      "name": "109FM",
-      "genre": "Хаус/Прогресив/Техно/Транс",
-      "country": "Україна",
-      "favicon": "https://solid48.streamupsolutions.com/favicon.ico"
-    },
-    {
-      "value": "https://stream.blits-fm.ua/stream320",
-      "name": "Blits FM",
-      "genre": "Класичні хіти/Поп/Топ-40",
-      "country": "Україна",
-      "favicon": "https://example.com/default_logo.png"
-    },
-    {
-      "value": "https://cast.brg.ua/djfmdance_main_public_mp3_hq",
-      "name": "DJFM DANCE",
-      "genre": "Танцювальна/Поп",
-      "country": "Україна",
-      "favicon": "https://firebasestorage.googleapis.com/v0/b/radiogalaxy-580f4.appspot.com/o/images%2FIMG_20241110_104536688.jpg?alt=media&token=283f1a5c-c8df-4193-9771-9c85a3e09078"
     },
     {
       "value": "https://s5.radioforge.com:7908/live?n=77357",
@@ -845,39 +544,11 @@
       "favicon": "https://europaplus.kiev.ua/europa-box/2020/10/cropped-EP_Logo_final-180x180.png"
     },
     {
-      "value": "https://online.melodiafm.ua/MelodiaFM_Disco",
-      "name": "FM Disco Melody",
-      "genre": "Диско/Поп",
-      "country": "Україна",
-      "favicon": "https://example.com/default_logo.png"
-    },
-    {
       "value": "https://online.kissfm.ua/KissFM_Deep",
       "name": "Kiss FM Deep",
       "genre": "Діп-хаус",
       "country": "Україна",
       "favicon": "https://play.tavr.media/static/image/header_menu/kiss_deep_210x210.png"
-    },
-    {
-      "value": "https://online.kissfm.ua/KissFM_Digital_HD",
-      "name": "Kiss FM Digital HD",
-      "genre": "Танцювальна",
-      "country": "Україна",
-      "favicon": "https://example.com/default_logo.png"
-    },
-    {
-      "value": "https://online.kissfm.ua/KissFM_Digital",
-      "name": "Kiss FM Digital SD",
-      "genre": "Танцювальна",
-      "country": "Україна",
-      "favicon": "https://example.com/default_logo.png"
-    },
-    {
-      "value": "https://online.kissfm.ua/KissFM_Ukr",
-      "name": "Kiss FM Ukrainian",
-      "genre": "Танцювальна",
-      "country": "Україна",
-      "favicon": "https://example.com/default_logo.png"
     },
     {
       "value": "https://radio.mfm.ua/online128",
@@ -887,93 +558,9 @@
       "favicon": "https://mfm.ua/apple-touch-icon.png"
     },
     {
-      "value": "https://cast.mediaonline.net.ua/nrj320",
-      "name": "NRJ Ukraine",
-      "genre": "Танцювальна/Електронна/Поп/Топ-40",
-      "country": "Україна",
-      "favicon": "https://nrj.ua/images/NRJ.png"
-    },
-    {
-      "value": "https://online.radiorecord.com.ua/rr_320",
-      "name": "RECORD DANCE RADIO",
-      "genre": "Танцювальна/EDM",
-      "country": "Україна",
-      "favicon": "https://www.radiorecord.com.ua/wp-content/uploads/2022/03/logo.jpg"
-    },
-    {
-      "value": "https://27783.live.streamtheworld.com:443/EHR_TIKTOK_HITS.mp3",
-      "name": "Tik Tok Hits",
-      "genre": "Танцювальна/Діп/Поп/Рок",
-      "country": "Україна",
-      "favicon": "https://telegram.org/img/apple-touch-icon.png"
-    },
-    {
-      "value": "https://listen7.myradio24.com/tisradio",
-      "name": "TRANCE IS STAR RADIO",
-      "genre": "Транс",
-      "country": "Україна",
-      "favicon": "https://abs.twimg.com/favicons/twitter.2.ico"
-    },
-    {
-      "value": "https://stream.wolfmusicradio.com:8000/Wolf_Music/radio.mp3",
-      "name": "Wolf Music Deep House Radio",
-      "genre": "Діп-хаус",
-      "country": "Україна",
-      "favicon": "https://wolfmusicradio.com/img/favicon.png"
-    },
-    {
-      "value": "https://online.hitfm.ua/HitFM_HD",
-      "name": "Hit FM",
-      "genre": "Поп",
-      "country": "Україна",
-      "favicon": "https://example.com/default_logo.png"
-    },
-    {
-      "value": "https://stream320.galychyna.fm/WebSite",
-      "name": "Galychyna",
-      "genre": "Поп/Рок",
-      "country": "Україна",
-      "favicon": "https://example.com/default_logo.png"
-    },
-    {
-      "value": "https://cast.megapolis.fm/listen/dnipro/radio.mp3",
-      "name": "Megapolis FM 90.9 Dnipro",
-      "genre": "Поп",
-      "country": "Україна",
-      "favicon": "https://cast.megapolis.fm/static/uploads/dnipro/album_art.1709217134.png"
-    },
-    {
       "value": "https://online.nasheradio.ua/NasheRadio_HD",
       "name": "Naше Радіо 107.9",
       "genre": "Поп",
-      "country": "Україна",
-      "favicon": "https://example.com/default_logo.png"
-    },
-    {
-      "value": "https://stream.radiom.ua/mp3_high",
-      "name": "Radio M",
-      "genre": "Поп",
-      "country": "Україна",
-      "favicon": "https://radiom.ua/theme/favicon/android-icon-192x192.png"
-    },
-    {
-      "value": "https://online.radioroks.ua/RadioROKS_HD",
-      "name": "Radio ROCKS Kyiv 103.6FM HD",
-      "genre": "Класичний рок/Хеві-метал/Рок",
-      "country": "Україна",
-      "favicon": "https://upload.wikimedia.org/wikipedia/uk/b/be/Logo_radio_roks.png"
-    },
-    {
-      "value": "https://online.radioroks.ua/RadioROKS_NewRock_HD",
-      "name": "Radio ROCKS Новий Рок 103.6FM HD",
-      "genre": "Альтернативний рок/Сучасний рок/Рок",
-      "country": "Україна",
-      "favicon": "https://upload.wikimedia.org/wikipedia/uk/b/be/Logo_radio_roks.png"
-    },
-    {
-      "value": "https://online.radioroks.ua/RadioROKS_ClassicRock_HD",
-      "name": "Radio ROKS Classic Rock",
-      "genre": "Класичний рок/Рок",
       "country": "Україна",
       "favicon": "https://example.com/default_logo.png"
     },
@@ -1006,27 +593,6 @@
       "favicon": "https://novaline.fm/wp-content/uploads/2022/11/cropped-1-180x180.png"
     },
     {
-      "value": "https://cast.mediaonline.net.ua/wau320",
-      "name": "Радіо Ми-Україна",
-      "genre": "Поп",
-      "country": "Україна",
-      "favicon": "https://firebasestorage.googleapis.com/v0/b/radiogalaxy-580f4.appspot.com/o/images%2FIMG_20250104_130149460.jpg?alt=media&token=32e0c1f7-c755-4f7d-91f6-c1e9567bab34"
-    },
-    {
-      "value": "https://online-novodnistrovsk.pp.ua:8443/playHD",
-      "name": "Радіо На своїй хвилі",
-      "genre": "Поп",
-      "country": "Україна",
-      "favicon": "https://play.xtvmedia.pp.ua/public/common/logos/RadioNovodnistrovsk1.png"
-    },
-    {
-      "value": "https://stream.ntktv.ua/syaivo.mp3",
-      "name": "Радіо Сяйво",
-      "genre": "Поп",
-      "country": "Україна",
-      "favicon": "https://syaivo.fm/wp-content/uploads/2023/11/logo-192.png"
-    },
-    {
       "value": "https://cast.radiotrek.rv.ua:8433/MP3_320",
       "name": "Радіо Трек",
       "genre": "Поп",
@@ -1034,321 +600,41 @@
       "favicon": "https://radiotrek.rv.ua/tpl/images/icons/apple-touch-icon.png"
     },
     {
-      "value": "https://complex.in.ua/Yavir320",
-      "name": "Явір FM",
-      "genre": "Поп",
-      "country": "Україна",
-      "favicon": "https://example.com/default_logo.png"
-    },
-    {
-      "value": "https://onair.kryvbas.fm/RadioKryvbas",
-      "name": "Радіо КРИВБАС",
-      "genre": "Поп",
-      "country": "Україна",
-      "favicon": "https://firebasestorage.googleapis.com/v0/b/radiogalaxy-580f4.appspot.com/o/images%2FIMG_20250105_091547424.jpg?alt=media&token=fdae552f-35eb-4eda-828e-3e7879fac441"
-    },
-    {
-      "value": "https://radio.zfm.com.ua:8443/zfm",
-      "name": "Радіо Захід FM+",
-      "genre": "Поп",
-      "country": "Україна",
-      "favicon": "https://firebasestorage.googleapis.com/v0/b/radiogalaxy-580f4.appspot.com/o/images%2FIMG_20231118_140548015.jpg?alt=media&token=51146bdf-5a59-4f6b-b30b-853eb1aeac4d"
-    },
-    {
-      "value": "https://online.radioplayer.ua/RadioIndieUA",
-      "name": "Радіо Інді.UA",
-      "genre": "Поп/R&B/Рок",
-      "country": "Україна",
-      "favicon": "https://upload.wikimedia.org/wikipedia/commons/4/48/%D0%A0%D0%B0%D0%B4%D1%96%D0%BE_%D0%86%D0%BD%D0%B4%D1%96.UA.png"
-    },
-    {
       "value": "https://cast108372.customer.uar.net/wtest",
       "name": "Радіо Поступ",
       "genre": "Поп",
       "country": "Україна",
       "favicon": "https://radiopostupblog.wordpress.com/favicon.ico"
-    },
-    {
-      "value": "https://service.ptrk.tv:8443/PTRK",
-      "name": "Радіо ПТРК",
-      "genre": "Поп",
-      "country": "Україна",
-      "favicon": "https://example.com/default_logo.png"
-    },
-    {
-      "value": "https://complex.in.ua/rozdillya",
-      "name": "Радіо Розділля",
-      "genre": "Поп",
-      "country": "Україна",
-      "favicon": "https://example.com/default_logo.png"
-    },
-    {
-      "value": "https://cast.megapolis.fm/listen/kamyanske/radio.mp3",
-      "name": "Радіо Мегаполіс (Кам'янське)",
-      "genre": "Поп",
-      "country": "Україна",
-      "favicon": "https://cast.megapolis.fm/favicon.ico"
-    },
-    {
-      "value": "https://stream.mistonadbugom.com.ua:8006/radiomistonadbugom",
-      "name": "Місто над Бугом",
-      "genre": "Поп",
-      "country": "Україна",
-      "favicon": "https://www.mistonadbugom.com.ua/favicon.ico"
-    },
-    {
-      "value": "https://radio.groza.ua:8443/neoradio",
-      "name": "Неорадіо",
-      "genre": "Поп",
-      "country": "Україна",
-      "favicon": "https://firebasestorage.googleapis.com/v0/b/radiogalaxy-580f4.appspot.com/o/images%2FIMG_20240311_190605941.jpg?alt=media&token=50e28b2b-aca7-40df-bee6-fc43d50755ec"
-    },
-    {
-      "value": "https://myrhorodfm.com.ua:8443/live",
-      "name": "Миргород FM",
-      "genre": "Поп",
-      "country": "Україна",
-      "favicon": "https://firebasestorage.googleapis.com/v0/b/radiogalaxy-580f4.appspot.com/o/images%2FIMG_20250104_161302494.jpg?alt=media&token=cc8e1a3e-f4e3-41bd-9efe-9f20bb125e58"
-    },
-    {
-      "value": "https://podilske.com:8013/p-radio",
-      "name": "Подільське",
-      "genre": "Поп",
-      "country": "Україна",
-      "favicon": "https://example.com/default_logo.png"
-    },
-    {
-      "value": "https://radiostream.nakypilo.ua/full",
-      "name": "Радіо Накипіло",
-      "genre": "Електронна/Джаз/Поп/Українська",
-      "country": "Україна",
-      "favicon": "https://radio.nakypilo.ua/wp-content/uploads/2021/09/cropped-radio_logo_favicon-1-192x192.png"
-    },
-    {
-      "value": "https://live.radio1.com.ua/liveradio64",
-      "name": "Радіо Перше",
-      "genre": "Поп",
-      "country": "Україна",
-      "favicon": "https://radio1.com.ua/favicon-32x32.png"
-    },
-    {
-      "value": "https://globalic.stream:1810/stream",
-      "name": "Слобожанське ФМ",
-      "genre": "Поп",
-      "country": "Україна",
-      "favicon": "https://www.sfm.in.ua/wp-content/uploads/cropped-favicon-180x180.png"
     }
   ],
   "pop": [
     {
-      "value": "https://ice-sov.musicradio.com/CapitalBirminghamMP3",
-      "name": "Capital FM Birmingham",
-      "genre": "Pop",
-      "country": "Велика Британія",
-      "favicon": "https://ice-sov.musicradio.com/favicon.ico"
+      "value": "http://lux.radio.tvstitch.com/kyiv/lux_adv_sd",
+      "name": "Lux FM",
+      "genre": "hits, top100",
+      "country": "Ukraine",
+      "favicon": "https://lux.fm/assets/img/browser-icons/apple-touch-icon-120x120.png"
     },
     {
-      "value": "https://stream.revma.ihrhls.com/zc1961",
-      "name": "Z 100 Portland",
-      "genre": "Pop",
-      "country": "США",
-      "favicon": "https://stream.revma.ihrhls.com/favicon.ico"
+      "value": "https://cast.mediaonline.net.ua/loungefm320",
+      "name": "Lounge FM",
+      "genre": "chillout, lounge",
+      "country": "Ukraine",
+      "favicon": "https://loungefm.com.ua/img/icon-144x144.png"
     },
     {
-      "value": "https://freedomice.streamakaci.com/cheriefm1.mp3",
-      "name": "Chérie FM",
-      "genre": "Pop/Top 40",
-      "country": "Франція",
-      "favicon": "https://www.cheriefm.fr/uploads/assets/cherie/icons/apple-icon-120x120.png"
+      "value": "http://online.hitfm.ua/HitFM_Best",
+      "name": "Хіт ФМ Найбільші хіти",
+      "genre": "90's, pop",
+      "country": "Ukraine",
+      "favicon": ""
     },
     {
-      "value": "https://stream.rfm.fr/rfm.mp3",
-      "name": "RFM",
-      "genre": "Pop",
-      "country": "Франція",
-      "favicon": "https://boosterfm.files.wordpress.com/2022/09/hjj.png?w=768"
-    },
-    {
-      "value": "https://secureonair.krone.at/kronehit1058.mp3",
-      "name": "Kronehit",
-      "genre": "Pop",
-      "country": "Австрія",
-      "favicon": "https://i.imgur.com/Z3rkNFc.png"
-    },
-    {
-      "value": "https://topfm-live.cast.addradio.de/topfm/live/mp3/high",
-      "name": "Top FM Germany",
-      "genre": "Pop/Rock",
-      "country": "Німеччина",
-      "favicon": "https://example.com/default_logo.png"
-    },
-    {
-      "value": "https://sc.creacast.com/topmusic_haguenau",
-      "name": "Top Music",
-      "genre": "Pop/Rock",
-      "country": "Франція",
-      "favicon": "https://bocir-prod-bucket.s3.eu-west-1.amazonaws.com/radios/top-music/images/favicon.x-icon"
-    },
-    {
-      "value": "https://live-bauerno.sharp-stream.com/top40_no_mp3",
-      "name": "Topp 40 Norway",
-      "genre": "Pop",
-      "country": "Норвегія",
-      "favicon": "https://example.com/pop_logo.png"
-    },
-    {
-      "value": "https://wz7liw.scahw.com.au/live/7top30_128.stream/playlist.m3u8",
-      "name": "Top 30 Australia",
-      "genre": "Pop",
-      "country": "Австралія",
-      "favicon": "https://example.com/pop_logo.png"
-    },
-    {
-      "value": "https://stream.laut.fm/top100germany",
-      "name": "Top 100 Germany",
-      "genre": "Pop/Charts",
-      "country": "Німеччина",
-      "favicon": "https://example.com/default_logo.png"
-    },
-    {
-      "value": "https://stream.laut.fm/top100-worldwide",
-      "name": "Top 100 Worldwide",
-      "genre": "Pop/Charts",
-      "country": "Німеччина",
-      "favicon": "https://example.com/default_logo.png"
-    },
-    {
-      "value": "https://stream.laut.fm/top4you",
-      "name": "Top 4 You",
-      "genre": "Pop/Charts",
-      "country": "Німеччина",
-      "favicon": "https://example.com/default_logo.png"
-    },
-    {
-      "value": "https://boxradio-edge-03.streamafrica.net/pop",
-      "name": "Pop",
-      "genre": "Pop",
-      "country": "Велика Британія",
-      "favicon": "https://example.com/pop_logo.png"
-    },
-    {
-      "value": "https://stream.revma.ihrhls.com/zc8470",
-      "name": "Pop 99.1 Hawaii",
-      "genre": "Pop",
-      "country": "США",
-      "favicon": "https://stream.revma.ihrhls.com/favicon.ico"
-    },
-    {
-      "value": "https://pophits128-thehitsnetwork.radioca.st/http/pollux.shoutca.st:8939/1",
-      "name": "Pop Hits Radio",
-      "genre": "Pop",
-      "country": "Велика Британія",
-      "favicon": "https://pophits128-thehitsnetwork.radioca.st/favicon.ico"
-    },
-    {
-      "value": "https://streaming.live365.com/a36628",
-      "name": "Pop Across The Pond",
-      "genre": "Pop/Alternative",
-      "country": "США",
-      "favicon": "https://example.com/default_logo.png"
-    },
-    {
-      "value": "https://main-high.rautemusik.fm/stream.mp3",
-      "name": "Pop-Radio",
-      "genre": "Pop/Top 40",
-      "country": "Німеччина",
-      "favicon": "https://assets.laut.fm/edf172a4c43423f76e381ac31d188342"
-    },
-    {
-      "value": "https://stream1.xdevel.com/audio4s975552-212/stream/icecast.audio",
-      "name": "Radio Bruno",
-      "genre": "Pop",
-      "country": "Італія",
-      "favicon": "https://www.radiobruno.it/wp-content/uploads/2023/10/logo-148-90-black1.png"
-    },
-    {
-      "value": "https://ice18.fluidstream.net/area05.mp3",
-      "name": "Radio Number One",
-      "genre": "Pop",
-      "country": "Італія",
-      "favicon": "https://radionumberone.it/wp-content/uploads/2021/03/cropped-2021_RN1-Logo-192x192.png"
-    },
-    {
-      "value": "https://edge-bauerall-01-gos2.sharp-stream.com/kisstory.aac",
-      "name": "Kisstory",
-      "genre": "Pop/House",
-      "country": "Велика Британія",
-      "favicon": "https://listenapi.s3.amazonaws.com/img/ConfigWebListenBarLogoImageUrl/22.png?ver=1463741191"
-    },
-    {
-      "value": "https://energybasel.mp3.energy.ch/energybasel-high.mp3",
-      "name": "Energy",
-      "genre": "Pop",
-      "country": "Швейцарія",
-      "favicon": "https://example.com/pop_logo.png"
-    },
-    {
-      "value": "https://rhema-radio.streamguys1.com/rhema-lifefm.aac",
-      "name": "Life FM",
-      "genre": "Christian Pop",
-      "country": "Нова Зеландія",
-      "favicon": "https://player.streamguys.com/rhema-lifefm/sgplayer/include/assets/img/logo-lifefm.jpg"
-    },
-    {
-      "value": "https://100radio-tarbes.ice.infomaniak.ch/100radio-tarbes-128.mp3",
-      "name": "100% Radio",
-      "genre": "Pop",
-      "country": "Франція",
-      "favicon": "https://zws.im/󠁿󠁰󠁧󠁹‌󠁩󠁵"
-    },
-    {
-      "value": "https://play.global.audio/nrj128",
-      "name": "Radio Energy",
-      "genre": "Pop",
-      "country": "Болгарія",
-      "favicon": "https://example.com/pop_logo.png"
-    },
-    {
-      "value": "https://kisskiss.fluidstream.eu/KKNapoli.mp3?FLID=8&type=.mp3",
-      "name": "Radio Kiss Kiss Napoli",
-      "genre": "Italo-Pop",
-      "country": "Італія",
-      "favicon": "https://kisskiss.fluidstream.eu/favicon.ico"
-    },
-    {
-      "value": "https://edge-audio-06-cr.sharp-stream.com/ssvcbfbs2.mp3",
-      "name": "BFBS Radio 2",
-      "genre": "Pop",
-      "country": "Велика Британія",
-      "favicon": "https://upload.wikimedia.org/wikipedia/commons/7/70/BFBS_logo.png"
-    },
-    {
-      "value": "https://edge-bauerall-01-gos2.sharp-stream.com/gem106.aac",
-      "name": "Gem FM",
-      "genre": "Pop",
-      "country": "Велика Британія",
-      "favicon": "https://edge-bauerall-01-gos2.sharp-stream.com/favicon.ico"
-    },
-    {
-      "value": "https://ice.abradio.cz/orion128.aac",
-      "name": "Hitrádio Orion",
-      "genre": "Pop",
-      "country": "Чехія",
-      "favicon": "https://example.com/pop_logo.png"
-    },
-    {
-      "value": "https://27823.live.streamtheworld.com:443/LOS40.mp3",
-      "name": "LOS 40 Principales España",
-      "genre": "Pop/Top 40",
-      "country": "Іспанія",
-      "favicon": "https://los40es00.epimg.net/iconos/v1.x/v1.0/touch-apple.png"
-    },
-    {
-      "value": "https://orf-live.ors-shoutcast.at/oe3-q2a",
-      "name": "ORF Hitradio Ö3 HQ",
-      "genre": "Pop",
-      "country": "Австрія",
-      "favicon": "https://orf-live.ors-shoutcast.at/favicon.ico"
+      "value": "https://stream.chillout.de/chillout/stream/aacp",
+      "name": "CHILLOUT ANTENNE",
+      "genre": "chillout, deep house, organic house, pop dance",
+      "country": "Germany",
+      "favicon": "https://www.chillout.de/logos/station-chillout-antenne/apple-touch-icon.png"
     },
     {
       "value": "https://media-ice.musicradio.com/CapitalMP3",
@@ -1358,46 +644,67 @@
       "favicon": "http://assets6.capitalfm.com/2016/11/capital-3d-network-logo-large-canvas-1458228638-herowidev4-0.jpg"
     },
     {
-      "value": "https://orf-live.ors-shoutcast.at/fm4-q2a",
-      "name": "FM4 ORF HQ",
-      "genre": "Pop/Rock/Electronic",
-      "country": "Австрія",
-      "favicon": "https://orf-live.ors-shoutcast.at/favicon.ico"
-    },
-    {
-      "value": "https://ors-sn03.ors-shoutcast.at/oe3-q1a",
-      "name": "ORF Hitradio Ö3",
+      "value": "https://stream.revma.ihrhls.com/zc1961",
+      "name": "Z 100 Portland",
       "genre": "Pop",
-      "country": "Австрія",
-      "favicon": "https://tubestatic.orf.at/mojo/1_3/storyserver//tube/common/images/apple-icons/oe3.png"
+      "country": "США",
+      "favicon": "https://stream.revma.ihrhls.com/favicon.ico"
     },
     {
-      "value": "https://radioitaliasmi.akamaized.net/hls/live/2093120/RISMI/stream01/streamPlaylist.m3u8",
-      "name": "Radio Italia Solo Musica Italiana",
+      "value": "https://ice18.fluidstream.net/area05.mp3",
+      "name": "Radio Number One",
       "genre": "Pop",
       "country": "Італія",
-      "favicon": "https://www.radioitalia.it/images/logo-radioitalia.png"
+      "favicon": "https://radionumberone.it/wp-content/uploads/2021/03/cropped-2021_RN1-Logo-192x192.png"
     },
     {
-      "value": "https://28953.live.streamtheworld.com:443/LOS40_CLASSIC.mp3",
-      "name": "LOS40 Classic",
-      "genre": "Pop/Rock",
-      "country": "Іспанія",
-      "favicon": "https://los40es00.epimg.net/estaticos/recursosgraficos/v1/img/app/los40_192.png"
+      "value": "https://radio12.pro-fhi.net/live/Hits%201%20radio",
+      "name": "Hits 1",
+      "genre": "contemporary hits, dance, electro, electronic...",
+      "country": "France",
+      "favicon": "https://www.hits1radio.com/wp-content/uploads/2019/03/cropped-1024-5-180x180.png"
     },
     {
-      "value": "https://icecast.unitedradio.it/Virgin.mp3",
-      "name": "Virgin Radio Italia",
-      "genre": "Pop/Rock",
-      "country": "Італія",
-      "favicon": "http://www.virginradio.it/favicon_2.ico?v=1722509813651"
+      "value": "https://rtr99.fluidstream.eu/rtr99_pooh.mp3",
+      "name": "RTR 99 Canale Pooh",
+      "genre": "italian pop, pop rock",
+      "country": "Italy",
+      "favicon": "https://www.rtr99.it/onair/CanalePooh/OnAir.jpg?x=9f2sj07zxxhpl2i1aocli"
     },
     {
-      "value": "https://22183.live.streamtheworld.com:443/SUPER_FM_SC",
-      "name": "Super FM",
+      "value": "https://stream.revma.ihrhls.com/zc8470",
+      "name": "Pop 99.1 Hawaii",
       "genre": "Pop",
-      "country": "Туреччина",
-      "favicon": "https://example.com/pop_logo.png"
+      "country": "США",
+      "favicon": "https://stream.revma.ihrhls.com/favicon.ico"
+    },
+    {
+      "value": "https://gr.fluidstream.eu/gr7.mp3",
+      "name": "Dolce la Vita",
+      "genre": "pop music",
+      "country": "Italy",
+      "favicon": "https://giornaleradio.fm/wp-content/uploads/2023/03/cropped-giornale-radio-logo-2-180x180.png"
+    },
+    {
+      "value": "https://stream.studio040.nl/studio040.mp3",
+      "name": "Studio040",
+      "genre": "pop",
+      "country": "The Netherlands",
+      "favicon": "https://studio040.nl/favicons/studio_040_favicon.png"
+    },
+    {
+      "value": "https://www.friskradio.com:8443/stream11",
+      "name": "Frisk Radio UK",
+      "genre": "dance, deep house, pop",
+      "country": "The United Kingdom Of Great Britain And Northern Ireland",
+      "favicon": "https://management.friskradio.com:7000/stations/logo?id=1"
+    },
+    {
+      "value": "https://stream1.hippynet.co.uk/stream/hotradio/dorset",
+      "name": "Hot Radio",
+      "genre": "00s, 2000s, 2010s, 2020s...",
+      "country": "The United Kingdom Of Great Britain And Northern Ireland",
+      "favicon": "https://mmo.aiircdn.com/406/601068617960a.png"
     },
     {
       "value": "https://25433.live.streamtheworld.com:443/LOS40_URBAN.mp3",
@@ -1407,32 +714,577 @@
       "favicon": "https://los40es00.epimg.net/iconos/v1.x/v1.0/promos/promo_og_los40.png"
     },
     {
-      "value": "https://radio.virginradio.co.uk/stream",
-      "name": "Virgin Radio UK",
-      "genre": "Pop/Rock",
-      "country": "Велика Британія",
-      "favicon": "https://example.com/default_logo.png"
+      "value": "https://live-kiss.sharp-stream.com/kiss100.mp3",
+      "name": "KISS UK",
+      "genre": "bauer radio, kiss, kiss fm, pop",
+      "country": "The United Kingdom Of Great Britain And Northern Ireland",
+      "favicon": "https://media.bauerradio.com/image/upload/c_crop,g_custom/v1678797505/brand_manager/stations/mahvph4fqjmnp4y8d6wt.png"
     },
     {
-      "value": "https://as-hls-ww-live.akamaized.net/pool_62063831/live/ww/bbc_radio_one_dance/bbc_radio_one_dance.isml/bbc_radio_one_dance-audio%3d128000.norewind.m3u8",
-      "name": "BBC Radio 1 Dance",
-      "genre": "Dance/Pop",
-      "country": "Велика Британія",
-      "favicon": "https://cdn-radiotime-logos.tunein.com/s24939q.png"
+      "value": "https://api.onlyhit.us/play",
+      "name": "OnlyHit",
+      "genre": "pop, top 40",
+      "country": "The United States Of America",
+      "favicon": "https://api.onlyhit.us/logo.png"
     },
     {
-      "value": "https://bytefm.stream18.radiohost.de/bytefm-mainhq_mp3-192",
-      "name": "ByteFM",
-      "genre": "Pop/Rock",
-      "country": "Німеччина",
-      "favicon": "https://www.byte.fm/static/favicon/favicon-96x96.png?v=2023.10.06.3159-4afa829"
+      "value": "https://stream.revma.ihrhls.com/zc2509",
+      "name": "Z100 - WHTZ-FM 100.3 New York",
+      "genre": "pop, top 40",
+      "country": "The United States Of America",
+      "favicon": "https://i.iheart.com/v3/re/assets.brands/5e7b5d50bee47a8a2b396059?ops=gravity(%22center%22),contain(360,360)&quality=80"
+    }
+  ],
+  "relax": [
+    {
+      "value": "http://54.38.43.201:8036/stream-128kmp3-IbizaRelax",
+      "name": "Ibiza Radios Relax",
+      "genre": "relaxing",
+      "country": "Spain",
+      "favicon": ""
     },
     {
-      "value": "https://f121.rndfnk.com/ard/wdr/1live/live/mp3/128/stream.mp3",
-      "name": "1LIVE",
-      "genre": "Pop/Rock",
-      "country": "Німеччина",
-      "favicon": "null"
+      "value": "https://stream.chillhouse-live.com/live",
+      "name": "Chillhouse Live",
+      "genre": "chill house, chillout, deep house, instrumental...",
+      "country": "Germany",
+      "favicon": "https://chillhouse-live.com/chillhouse-radio-logo.png"
+    },
+    {
+      "value": "https://stream.chillout.de/chillout-antenne-bayern/stream/aacp",
+      "name": "CHILLOUT ANTENNE Bayern",
+      "genre": "chillout, deep house",
+      "country": "Germany",
+      "favicon": "https://www.chillout.de/media/cache/3/version/176938/chillout-antenne-logo-digital-quadrat-ohne-outline-2026-1000px-v1.png/8207b63a449f95a3.webp"
+    },
+    {
+      "value": "https://chillharmonie.stream.laut.fm/chillharmonie",
+      "name": "Laut.FM Chillharmonie",
+      "genre": "classical, jazz, new age, piano...",
+      "country": "Germany",
+      "favicon": "https://lh3.ggpht.com/a4M_Oyz2Jek1bkcRe8I7v3A8clEOoOI8Y-NiYuuICuw0wOHwaZgMUit4rRgC18mGZMo_=w300"
+    },
+    {
+      "value": "https://edge126.rcs-rds.ro/profm/chillfm.mp3?1712405207687",
+      "name": "Chill FM",
+      "genre": "",
+      "country": "Romania",
+      "favicon": "https://www.chillfm.ro/images/logo-chillfm.png"
+    },
+    {
+      "value": "http://stream.cdm-chillout.com:8020/stream-mp3-Chill",
+      "name": "Costa del Mar - Chill Out",
+      "genre": "chill, chillout",
+      "country": "",
+      "favicon": "https://www.costadelmar-radio.com/wp-content/themes/cdm/favicon.png"
+    },
+    {
+      "value": "https://listen.radioking.com/radio/571682/stream/631712",
+      "name": "Sunset Chillout Lounge",
+      "genre": "chillout, lounge, sunset",
+      "country": "The United States Of America",
+      "favicon": "https://sunsetchilloutlounge.com/wp-content/uploads/2023/04/sunrise_sunset_captions_puns_quotes_instagram-7-300x225.jpg"
+    },
+    {
+      "value": "https://0n-chillout.radionetz.de/0n-chillout.mp3",
+      "name": "- 0 N - Chillout on Radio",
+      "genre": "ambient, chillout, easy listening, electro",
+      "country": "Germany",
+      "favicon": "https://www.0nradio.com/logos/0n-chillout_600x600.jpg"
+    },
+    {
+      "value": "http://sa46.scastream.com.au/live/chill-house.stream/playlist.m3u8",
+      "name": "LiSTNR - Chill House (HLS)",
+      "genre": "chill, house",
+      "country": "Australia",
+      "favicon": "https://i.ibb.co/RkgqxRWW/Li-STNR-Square-Tile-3000x3000-CHILL-HOUSE.jpg"
+    },
+    {
+      "value": "https://air.radioart.com/fVocal_lounge.mp3",
+      "name": "Radio Art - Vocal Lounge",
+      "genre": "music, vocal, vocal lounge",
+      "country": "Greece",
+      "favicon": "https://d1iyh67kzf6t3o.cloudfront.net/images/2021channels/115_vocal_lounge_RadioArt.com.webp"
+    },
+    {
+      "value": "http://stream.cdm-chillout.com:8020/stream-AAC-Chill",
+      "name": "Costa Del Mar - Chillout (AAC 96kbps)",
+      "genre": "chill, chillout",
+      "country": "Spain",
+      "favicon": "http://www.costadelmar-radio.com/favicon.ico"
+    },
+    {
+      "value": "https://live.radioart.com/fVocal_lounge.mp3",
+      "name": "Radio Art Vocal Lounge",
+      "genre": "lounge, vocal lounge",
+      "country": "The United States Of America",
+      "favicon": "https://radioart.com/favicon.ico"
+    },
+    {
+      "value": "https://air.radioart.com/fVocal_chillout.mp3",
+      "name": "Radio Art - Vocal Chillout",
+      "genre": "european music, music, vocal",
+      "country": "Greece",
+      "favicon": "https://d1iyh67kzf6t3o.cloudfront.net/images/2021channels/107_vocal_chillout_RadioArt.com.webp"
+    },
+    {
+      "value": "https://ice2.somafm.com/lush-128-mp3",
+      "name": "SomaFM Lush (128k MP3)",
+      "genre": "electronic, femalevocals, lounge, mellow...",
+      "country": "The United States Of America",
+      "favicon": "https://somafm.com/img3/lush-400.jpg"
+    },
+    {
+      "value": "https://ice5.somafm.com/lush-128-aac",
+      "name": "SomaFM Lush (128k AAC)",
+      "genre": "electronic, femalevocals, lounge, mellow...",
+      "country": "The United States Of America",
+      "favicon": "https://somafm.com/img3/lush-400.jpg"
+    },
+    {
+      "value": "https://air.radioart.com/fVocal_new_age.mp3",
+      "name": "Radio Art Vocal New Age",
+      "genre": "Unknown",
+      "country": "Greece",
+      "favicon": "https://d1iyh67kzf6t3o.cloudfront.net/images/2021channels/102_vocal_new_age_RadioArt.com.webp"
+    },
+    {
+      "value": "https://radio.webicdp.com/listen/fmvfitradiorelax/radio.mp3",
+      "name": "FMV FIT Radio Calm & Relax",
+      "genre": "Unknown",
+      "country": "Romania",
+      "favicon": "https://fmvfitradio.webicdp.com/favicon.png"
+    },
+    {
+      "value": "https://stream.relaxfm.ee/international",
+      "name": "Raadio Relax International",
+      "genre": "Unknown",
+      "country": "Estonia",
+      "favicon": ""
+    },
+    {
+      "value": "https://absolut-relax.live-sm.absolutradio.de/absolut-relax?__cb=130270101023249",
+      "name": "Absolut Relax",
+      "genre": "Unknown",
+      "country": "Germany",
+      "favicon": "https://absolutradio.de/images/stations/229_relax.png"
+    },
+    {
+      "value": "https://stream.thewaveradio.de/wave-live/mp3-128/radio-browser.info/",
+      "name": "the wave - relaxing radio",
+      "genre": "lounge, pop, relax, singer-songwriter...",
+      "country": "Germany",
+      "favicon": "https://www.thewaveradio.de/assets/icons/apple-touch-icon.png"
+    },
+    {
+      "value": "https://az1.mediacp.eu/listen/airport-lounge-radio/radio.mp3",
+      "name": "AIRPORT LOUNGE RADIO",
+      "genre": "aereoporto, airport, ambient, chill...",
+      "country": "Canada",
+      "favicon": "https://favicon-generator.org/favicon-generator/htdocs/favicons/2023-12-16/9274e8a4803971186ff5c45359ab77a4.ico.png"
+    },
+    {
+      "value": "https://stream.saw-musikwelt.de/saw-relax/stream.mp3",
+      "name": "Radio SAW - Relax",
+      "genre": "chillout, relax",
+      "country": "Germany",
+      "favicon": "https://www.radiosaw.de/radioplayer/images/webstreams/relax-90x90-1.png"
+    },
+    {
+      "value": "https://az1.mediacp.eu/listen/100coverslounge/radio.mp3",
+      "name": "100 % COVERS LOUNGE",
+      "genre": "ambient, ambient and relaxation music, bossa nova, canada...",
+      "country": "Canada",
+      "favicon": ""
+    },
+    {
+      "value": "https://live.cozyfm.ro:8010/live",
+      "name": "Cozy FM",
+      "genre": "chill, chillout, pop, relax...",
+      "country": "Romania",
+      "favicon": "https://www.cozyfm.ro/wordpress/wp-content/uploads/2020/05/cozy_square.jpg"
+    },
+    {
+      "value": "https://wdr-1live-chillout.icecast.wdr.de/wdr/1live/chillout/mp3/128/stream.mp3",
+      "name": "1LIVE Chillout",
+      "genre": "chillout",
+      "country": "Germany",
+      "favicon": "https://www1.wdr.de/radio/1live/resources-v5.143.2/img/favicon/apple-touch-icon.png"
+    },
+    {
+      "value": "https://vip2.fastcast4u.com/proxy/chillfla?mp=/1",
+      "name": "Chill Lounge Florida (USA) 128k mp3",
+      "genre": "ambient, chill, chillout, lounge",
+      "country": "The United States Of America",
+      "favicon": ""
+    },
+    {
+      "value": "https://0n-chillout.radionetz.de/0n-chillout.aac",
+      "name": "- 0 N - Chillout on Radio",
+      "genre": "ambient, chillout, easy listening, electro",
+      "country": "Germany",
+      "favicon": "https://www.0nradio.com/logos/0n-chillout_600x600.jpg"
+    },
+    {
+      "value": "https://listen1.myradio24.com/6262",
+      "name": "Спокойное радио",
+      "genre": "ambient, chillout, easy listening, jazz...",
+      "country": "The Russian Federation",
+      "favicon": "https://i.1.creatium.io/5f/9c/2c/4e16165627237138cbc3273f76782d56f9/196x196/favicon.png"
+    },
+    {
+      "value": "https://radio.musicradio.ai/listen/musicradio.ai/radio.mp3",
+      "name": "Music Radio",
+      "genre": "chillout, chillout+lounge, club house, cool jazz...",
+      "country": "France",
+      "favicon": "https://musicradio.ai/wp-content/uploads/2025/03/logo_musicradio.jpg"
+    },
+    {
+      "value": "https://play.charivari.com/relax/webmp3/",
+      "name": "Charivari Relax",
+      "genre": "relax",
+      "country": "Germany",
+      "favicon": "https://www.charivari.com/storage/thumbs/192x192/r:1607078039/47958.png"
+    },
+    {
+      "value": "https://1a-relax.radionetz.de/1a-relax.aac",
+      "name": "- 1 A - Relax von 1A Radio",
+      "genre": "ambient, chillout, easy listening, electro",
+      "country": "Germany",
+      "favicon": "https://www.1aradio.com/logos/1a-relax_600x600.jpg"
+    }
+  ],
+  "eksklusiv": [
+    {
+      "value": "http://stream.cdm-chillout.com:8020/stream-mp3-Chill",
+      "name": "Costa del Mar - Chill Out",
+      "genre": "chill, chillout",
+      "country": "",
+      "favicon": "https://www.costadelmar-radio.com/wp-content/themes/cdm/favicon.png"
+    },
+    {
+      "value": "https://stream.regenbogen.de/christmas/mp3-128/radiobrowser",
+      "name": "Radio Regenbogen Christmas Hits",
+      "genre": "christmas, christmas music, weihnachten, weihnachtslieder...",
+      "country": "Germany",
+      "favicon": "https://cdn.regenbogen.de/sites/default/files/scald/image/RR2_Christmas_Rock_600x600.jpg"
+    },
+    {
+      "value": "https://maestro.emfcdn.com/stream_for/k-love-christmas/airable/aac",
+      "name": "K-Love Christmas",
+      "genre": "christian, christmas",
+      "country": "The United States Of America",
+      "favicon": "https://cdn.corpemf.com/www/default-artwork/k-love-christmas/album-md.png"
+    },
+    {
+      "value": "https://0n-christmas.radionetz.de/0n-christmas.mp3",
+      "name": "- 0 N - Christmas on Radio",
+      "genre": "christmas, holiday, jazz, oldies...",
+      "country": "Germany",
+      "favicon": "https://www.0nradio.com/logos/0n-christmas_600x600.jpg"
+    },
+    {
+      "value": "https://icecast.walmradio.com:8443/christmas",
+      "name": "Christmas Vinyl HD",
+      "genre": "christian, christmas, easy listening, hd...",
+      "country": "The United States Of America",
+      "favicon": "https://icecast.walmradio.com:8443/christmas.png"
+    },
+    {
+      "value": "https://streaming.exclusive.radio/er/demilovato/icecast.audio",
+      "name": "Exclusively Demi Lovato",
+      "genre": "dance pop, electro pop, female vocalists, female vocals...",
+      "country": "The United Arab Emirates",
+      "favicon": "https://play.exclusive.radio/static/assets/img/apple-icon-120x120.png"
+    },
+    {
+      "value": "https://streaming.exclusive.radio/er/jamesblunt/icecast.audio",
+      "name": "Exclusively James Blunt",
+      "genre": "Unknown",
+      "country": "Unknown",
+      "favicon": ""
+    },
+    {
+      "value": "https://streaming.exclusive.radio/er/andreabocelli/icecast.audio",
+      "name": "Exclusively Andrea Bocelli",
+      "genre": "italian opera singers",
+      "country": "The United Arab Emirates",
+      "favicon": ""
+    },
+    {
+      "value": "https://streaming.exclusive.radio/er/roxettehits/icecast.audio",
+      "name": "Exclusively - Roxette Hits",
+      "genre": "exclusive, roxette hits",
+      "country": "The United Arab Emirates",
+      "favicon": ""
+    },
+    {
+      "value": "https://streaming.exclusive.radio/er/sia/icecast.audio",
+      "name": "Exclusively - Sia",
+      "genre": "exclusive, sia",
+      "country": "The United Arab Emirates",
+      "favicon": ""
+    },
+    {
+      "value": "https://streaming.exclusive.radio/er/christinaaguilera/icecast.audio",
+      "name": "Exclusively Christina Aguilera",
+      "genre": "adult contemporary, contemporary r&b, dance pop, female vocalists...",
+      "country": "The United Arab Emirates",
+      "favicon": "https://play.exclusive.radio/static/assets/img/apple-icon-120x120.png"
+    },
+    {
+      "value": "https://streaming.exclusive.radio/er/shakira/icecast.audio",
+      "name": "Exclusively Shakira",
+      "genre": "adult contemporany, club dance, dance pop, female vocalists...",
+      "country": "The United Arab Emirates",
+      "favicon": "https://play.exclusive.radio/static/assets/img/apple-icon-120x120.png"
+    },
+    {
+      "value": "https://2.mystreaming.net/er-app/ladygagahits/icecast.audio",
+      "name": "Exclusively Lady Gaga Hits",
+      "genre": "pop",
+      "country": "The United Arab Emirates",
+      "favicon": "https://you.radio/cdn-cgi/image/width=400,quality=75/https://manager.uber.radio/static/uploads/station/38250748-4c11-4757-9b2f-f653e43da704.jpg"
+    },
+    {
+      "value": "https://streaming.exclusive.radio/er/celinedionhits/icecast.audio",
+      "name": "Exclusively  Celine Dion Hits",
+      "genre": "soft rock",
+      "country": "The United Arab Emirates",
+      "favicon": ""
+    },
+    {
+      "value": "https://streaming.exclusive.radio/er-app/arianagrande/icecast.audio",
+      "name": "+Exclusively Ariana Grande",
+      "genre": "2010s, 2020s, ariana grande, exclusive...",
+      "country": "Mexico",
+      "favicon": "https://you.radio/cdn-cgi/image/width=400,quality=75/https://manager.uber.radio/static/uploads/station/a849f6da-317a-4e8c-955a-e1e5ec19ad51.jpg"
+    },
+    {
+      "value": "https://streaming.exclusive.radio/er-app/dualipa/icecast.audio",
+      "name": "+Exclusively Dua Lipa",
+      "genre": "2010s, 2020s, dua lipa, moi merino...",
+      "country": "Mexico",
+      "favicon": "https://you.radio/cdn-cgi/image/width=400,quality=75/https://manager.uber.radio/static/uploads/station/fea8173f-a85c-4052-8ee4-ca03a71e094d.jpg"
+    },
+    {
+      "value": "https://streaming.exclusive.radio/er/chilipeppers/icecast.audio",
+      "name": "Exclusively - Red Hot Chili Peppers",
+      "genre": "exclusive, red hot chili peppers",
+      "country": "The United Arab Emirates",
+      "favicon": ""
+    },
+    {
+      "value": "https://streaming.exclusive.radio/er/eminem/icecast.audio",
+      "name": "Exclusively - Eminem",
+      "genre": "eminem, exclusive",
+      "country": "The United Arab Emirates",
+      "favicon": ""
+    },
+    {
+      "value": "https://streaming.exclusive.radio/er/nirvana/icecast.audio",
+      "name": "Exclusively Nirvana",
+      "genre": "90s, alternative rock, grunge",
+      "country": "The United Arab Emirates",
+      "favicon": "https://play.exclusive.radio/static/assets/img/apple-icon-120x120.png"
+    },
+    {
+      "value": "https://streaming.exclusive.radio/er-app/adele/icecast.audio",
+      "name": "+Exclusively Adele",
+      "genre": "2000s, 2010s, 2020s, adele...",
+      "country": "Mexico",
+      "favicon": "https://you.radio/cdn-cgi/image/width=400,quality=75/https://manager.uber.radio/static/uploads/station/f045db74-8996-498a-a3a9-c0c677ece874.jpg"
+    },
+    {
+      "value": "https://streaming.exclusive.radio/er-app/imaginedragons/icecast.audio",
+      "name": "+Exclusively Imagine Dragons",
+      "genre": "2000s, 2010s, 2020s, exclusive...",
+      "country": "Mexico",
+      "favicon": "https://you.radio/cdn-cgi/image/width=400,quality=75/https://manager.uber.radio/static/uploads/station/b3ac78dc-a401-44fc-b474-9e4b90d38956.jpg"
+    },
+    {
+      "value": "https://streaming.exclusive.radio/er/coldplay/icecast.audio",
+      "name": "Exclusively Coldplay",
+      "genre": "classic rock, rock",
+      "country": "The United Arab Emirates",
+      "favicon": ""
+    },
+    {
+      "value": "https://streaming.exclusive.radio/er/lanadelrey/icecast.audio",
+      "name": "Exclusively Lana Del Rey",
+      "genre": "americana, ballads, beautiful music, cinematic...",
+      "country": "The United States Of America",
+      "favicon": "https://liveonlineradio.net/wp-content/uploads/2022/05/Exclusively-Lana-Del-Rey-220x108.webp"
+    },
+    {
+      "value": "https://streaming.exclusive.radio/er/sting/icecast.audio",
+      "name": "Exclusively Sting",
+      "genre": "adult contemporary, album rock, alternative pop rock, college rock...",
+      "country": "The United Arab Emirates",
+      "favicon": "https://play.exclusive.radio/static/assets/img/apple-icon-120x120.png"
+    },
+    {
+      "value": "https://streaming.exclusive.radio/er/taylorswift/icecast.audio",
+      "name": "Exclusively Taylor Swift",
+      "genre": "contemporary country, country, pop, singer-songwriter",
+      "country": "The United Arab Emirates",
+      "favicon": "https://play.exclusive.radio/static/assets/img/apple-icon-120x120.png"
+    },
+    {
+      "value": "https://streaming.exclusive.radio/er/adelehits/icecast.audio",
+      "name": "Exclusively Adele (Only Hits)",
+      "genre": "pop",
+      "country": "The United Arab Emirates",
+      "favicon": ""
+    },
+    {
+      "value": "https://streaming.exclusive.radio/er/pinkfloyd/icecast.audio",
+      "name": "Exclusively Pink Floyd",
+      "genre": "classic rock, pink floyd, rock",
+      "country": "The United Arab Emirates",
+      "favicon": ""
+    }
+  ],
+  "lounge": [
+    {
+      "value": "http://strm112.1.fm/deephouse_mobile_mp3",
+      "name": "1.FM - Deep House Radio",
+      "genre": "deep house, techno",
+      "country": "Switzerland",
+      "favicon": ""
+    },
+    {
+      "value": "https://0nlineradio.radioho.st/lounge-ibiza-chillout-lounge?ref=rb26",
+      "name": "IBIZA CHILLOUT LOUNGE - Ambient, Deep House, Balearic, Smooth Jazz, Acoustic, Chill House, Lo-Fi, Chillwave, Dream Pop, Electro, Tropical House, Sunset Chill, Café del Mar, Soft Electronica, Slow House, Ambient, Relax, Easy Listening, Beach Vibes, Summer",
+      "genre": "ambient, balearic, balearic house, beach...",
+      "country": "Germany",
+      "favicon": "https://i.ibb.co/jPkfdprq/rb-Ibiza.png"
+    },
+    {
+      "value": "https://play.ilovemusic.de/ilovechilloutbeats",
+      "name": "I Love Radio - Chillout Beats",
+      "genre": "afrobeats, chill, chillout, electronic...",
+      "country": "Germany",
+      "favicon": ""
+    },
+    {
+      "value": "https://iaradiolounge.ice.infomaniak.ch/iaradiolounge-128.mp3",
+      "name": "IAradio Lounge",
+      "genre": "lounge",
+      "country": "France",
+      "favicon": ""
+    },
+    {
+      "value": "https://play10.tikast.com/proxy/collounge?mp=/stream",
+      "name": "Colombia Lounge",
+      "genre": "chill, chillout, easy listening, electronic...",
+      "country": "Colombia",
+      "favicon": "https://colombiacrossover.com/wp-content/uploads/Logo-Colombia-Lounge-nueva-modified.png"
+    },
+    {
+      "value": "https://stream.epic-lounge.com/lounge-covers?ref=radiobrowser",
+      "name": "Epic Lounge - LOUNGE COVERS",
+      "genre": "ambient, classic hits, covers, hits...",
+      "country": "Germany",
+      "favicon": ""
+    },
+    {
+      "value": "https://paineldj.com.br:20184/stream",
+      "name": "Conecta FM - Marília",
+      "genre": "80s, 90s, alternative, classic hits...",
+      "country": "Brazil",
+      "favicon": "https://fmconecta.com.br/icon.png"
+    },
+    {
+      "value": "https://streaming.hotmixradio.com/hotmix-dinner-lounge-en-mp3?provider=radiobrowser",
+      "name": "Hotmix Dinner Lounge",
+      "genre": "chillout+lounge, dinner, dinner lounge, lounge",
+      "country": "France",
+      "favicon": "https://cdn.hotmixradio.com/hotmix-dinner_lounge-en-mp3.jpg"
+    },
+    {
+      "value": "https://oxygenmusic.hu:8443/oxygenlounge",
+      "name": "Oxygen Lounge",
+      "genre": "chill, easy listening, lounge music",
+      "country": "Hungary",
+      "favicon": ""
+    },
+    {
+      "value": "https://stream.laut.fm/riviera-lounge-radio",
+      "name": "Riviera Lounge",
+      "genre": "ambient, chillout+lounge, electronic",
+      "country": "Italy",
+      "favicon": ""
+    },
+    {
+      "value": "https://one.cloudstreaming.eu/proxy/lounge/stream",
+      "name": "Greca Lounge",
+      "genre": "lounge",
+      "country": "Greece",
+      "favicon": "https://greca994.gr/wp-content/uploads/2024/11/Greca-Lounge-Png-Official.png"
+    },
+    {
+      "value": "https://stream.laut.fm/milanolounge",
+      "name": "Milano Lounge",
+      "genre": "chillout, electronic, house, lounge",
+      "country": "Italy",
+      "favicon": "https://assets.laut.fm/e10ac7f5356ae96d32e6dfadb89b51c7?t=_640x640"
+    },
+    {
+      "value": "https://ambiento-adradio.radioca.st/128",
+      "name": "Ambiento",
+      "genre": "ambient, chillout, lounge",
+      "country": "Romania",
+      "favicon": ""
+    },
+    {
+      "value": "https://streamer.radio.co/sb748f24ad/listen",
+      "name": "Café del Mar CALM",
+      "genre": "ambient, chillout, electronic, ibiza",
+      "country": "Spain",
+      "favicon": "https://cafedelmar.com/apple-touch-icon.png"
+    },
+    {
+      "value": "https://str1.openstream.co/589",
+      "name": "ABC Lounge France",
+      "genre": "Unknown",
+      "country": "France",
+      "favicon": ""
+    },
+    {
+      "value": "https://streaming.live365.com/b05055_128mp3",
+      "name": "ABSOLUTE CHILLOUT",
+      "genre": "Unknown",
+      "country": "Spain",
+      "favicon": "https://www.absolutechillout.com/index_html_files/Absolute-Chillout-Splash.jpg"
+    },
+    {
+      "value": "https://stream.epic-lounge.com/coffee-bar-lounge?ref=radiobrowser",
+      "name": "Epic Lounge - COFFEE BAR LOUNGE",
+      "genre": "ambient, ambient and relaxation music, lounge, lounge music...",
+      "country": "Germany",
+      "favicon": ""
+    },
+    {
+      "value": "https://stream.thewaveradio.de/wave-live/mp3-128/radio-browser.info/",
+      "name": "the wave - relaxing radio",
+      "genre": "lounge, pop, relax, singer-songwriter...",
+      "country": "Germany",
+      "favicon": "https://www.thewaveradio.de/assets/icons/apple-touch-icon.png"
+    },
+    {
+      "value": "https://media-ssl.musicradio.com/CapitalChill",
+      "name": "CAPITAL CHILL: Non-stop chilled beats",
+      "genre": "ambient and relaxation music, capital, capital chill, chill...",
+      "country": "The United Kingdom Of Great Britain And Northern Ireland",
+      "favicon": "https://cdn-profiles.tunein.com/s323115/images/logod.jpg"
+    },
+    {
+      "value": "https://strm112.1.fm/chilloutlounge_mobile_mp3",
+      "name": "1.FM - Chillout Lounge Radio",
+      "genre": "chillout, lounge",
+      "country": "Switzerland",
+      "favicon": ""
     }
   ]
 }

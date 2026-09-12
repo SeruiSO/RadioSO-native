@@ -323,7 +323,7 @@ class MainActivity : ComponentActivity() {
     private var menuOpen by mutableStateOf(false)
     private var sleepMenu by mutableStateOf(false)
     private var btWatch by mutableStateOf(true)
-    private var sleepLabel by mutableStateOf(getString(R.string.sleep_timer))
+    private var sleepLabel by mutableStateOf("")  // set in onCreate
     private val sleepHandler = Handler(Looper.getMainLooper())
     private var sleepRunnable: Runnable? = null
 
@@ -378,6 +378,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         if (stationName.isEmpty()) stationName = getString(R.string.select_station)
         if (statusText.isEmpty()) statusText = getString(R.string.done)
+        if (sleepLabel.isEmpty()) sleepLabel = getString(R.string.sleep_timer)
         enableEdgeToEdge()
         askPermissions()
         maybeStartBtIfConnected()

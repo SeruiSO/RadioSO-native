@@ -38,7 +38,7 @@ public final class RadioNotificationFactory {
         NotificationCompat.Builder b = new NotificationCompat.Builder(ctx, channelId)
             .setContentTitle(name)
             .setContentText(body)
-            .setSmallIcon(android.R.drawable.ic_media_play)
+            .setSmallIcon(R.drawable.ic_notif_small)
             .setContentIntent(pi)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
@@ -54,10 +54,10 @@ public final class RadioNotificationFactory {
             if (mediaSession != null) style.setMediaSession(mediaSession.getSessionCompatToken());
         } catch (Exception ignored) {}
         b.setStyle(style);
-        b.addAction(android.R.drawable.ic_media_previous, "Назад", prevPi);
-        if (playing) b.addAction(android.R.drawable.ic_media_pause, "Пауза", pausePi);
-        else b.addAction(android.R.drawable.ic_media_play, "Грати", playPi);
-        b.addAction(android.R.drawable.ic_media_next, "Далі", nextPi);
+        b.addAction(R.drawable.ic_notif_prev, ctx.getString(R.string.prev_station), prevPi);
+        if (playing) b.addAction(R.drawable.ic_notif_pause, ctx.getString(R.string.cd_pause), pausePi);
+        else b.addAction(R.drawable.ic_notif_play, ctx.getString(R.string.cd_play), playPi);
+        b.addAction(R.drawable.ic_notif_next, ctx.getString(R.string.next_station), nextPi);
         return b.build();
     }
 

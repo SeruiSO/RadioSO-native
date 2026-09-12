@@ -176,6 +176,7 @@ import coil.imageLoader
 import coil.request.ImageRequest
 import androidx.palette.graphics.Palette as SwatchPalette
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.spring
@@ -1954,35 +1955,42 @@ fun StationScreen(
         ) {
             Box(modifier = Modifier.fillMaxWidth()) {
             val glowInf = rememberInfiniteTransition(label = "vizGlow")
-            val glowSc = glowInf.animateFloat(
+            // Стейти НЕ розіменовуємо (.value) тут, у тілі composable — інакше Compose
+            // перекомпоновує весь цей блок на кожен кадр анімації (~60 р/сек, поки грає).
+            // .value читаємо нижче, всередині graphicsLayer/drawBehind — це draw-фаза,
+            // перемальовується лише шар відмальовки, без recomposition.
+            val glowScState = glowInf.animateFloat(
                 0.94f, 1.14f,
                 infiniteRepeatable(tween(900, easing = FastOutSlowInEasing), RepeatMode.Reverse),
                 "vizGlowSc"
-            ).value
-            val glowA = glowInf.animateFloat(
+            )
+            val glowAState = glowInf.animateFloat(
                 0.55f, 0.92f,
                 infiniteRepeatable(tween(900, easing = FastOutSlowInEasing), RepeatMode.Reverse),
                 "vizGlowA"
-            ).value
+            )
             Box(
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
                     .padding(end = 6.dp)
                     .size(64.dp, 56.dp)
                     .graphicsLayer {
-                        val sc = if (playing) glowSc else 1f
+                        val sc = if (playing) glowScState.value else 1f
                         scaleX = sc; scaleY = sc
                         alpha = 1f
                     }
-                    .background(
-                        Brush.radialGradient(
-                            colors = listOf(
-                                acc.copy(alpha = if (playing) 0.58f else 0.28f),
-                                acc.copy(alpha = if (playing) (glowA * 0.58f) else 0.14f),
-                                acc.copy(alpha = 0f)
+                    .drawBehind {
+                        val a = glowAState.value
+                        drawRect(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    acc.copy(alpha = if (playing) 0.58f else 0.28f),
+                                    acc.copy(alpha = if (playing) (a * 0.58f) else 0.14f),
+                                    acc.copy(alpha = 0f)
+                                )
                             )
                         )
-                    )
+                    }
             )
             Row(
                 modifier = Modifier
@@ -2867,7 +2875,10 @@ fun StationScreen(
                                 radius = 1100f
                             )
                         )
-                        .blur(80.dp, BlurredEdgeTreatment.Unbounded)
+                        // 80dp+Unbounded було найважчим ефектом у застосунку (GPU blur на весь екран
+                        // кожен кадр, поки відкрито Now Playing). 36dp+Rectangle — той самий візуальний
+                        // ефект (розмите кольорове підсвічування), помітно дешевше для GPU.
+                        .blur(36.dp, BlurredEdgeTreatment.Rectangle)
                 )
                 Column(
                     modifier = Modifier

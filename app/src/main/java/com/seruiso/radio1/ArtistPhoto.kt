@@ -82,6 +82,8 @@ private val photoCache = object : LinkedHashMap<String, String>(64, 0.75f, true)
 }
 private val photoCacheLock = Any()
 @Volatile private var diskLoaded = false
+private const val PERSIST_MIN_INTERVAL_MS = 5000L
+@Volatile private var lastPersistMs = 0L
 
 private fun cacheKey(artist: String) = artist.trim().lowercase()
 
@@ -184,9 +186,21 @@ private suspend fun photoForSingleArtist(ctx: Context, artist: String): String? 
     synchronized(photoCacheLock) {
         photoCache[key] = photo ?: MISS
     }
-    // диск асинхронно — не блокуємо UI
-    try { persistDisk(ctx) } catch (_: Exception) {}
+    maybePersistDisk(ctx)
     return photo
+}
+
+/**
+ * Диск пишемо не частіше ніж раз на 5с (debounce), а не після кожного окремого
+ * артиста — трек на живому радіо може мінятись часто, і повний перезапис
+ * JSON-кешу на кожен lookup — зайве I/O. Це просто кеш, втрата останніх
+ * кількох секунд записів при різкому закритті процесу не критична.
+ */
+private fun maybePersistDisk(ctx: Context) {
+    val now = System.currentTimeMillis()
+    if (now - lastPersistMs < PERSIST_MIN_INTERVAL_MS) return
+    lastPersistMs = now
+    try { persistDisk(ctx) } catch (_: Exception) {}
 }
 
 @Composable

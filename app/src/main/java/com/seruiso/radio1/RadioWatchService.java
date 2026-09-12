@@ -115,6 +115,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
     private long pendingSeekMs = -1L;
     private android.os.Handler positionHandler;
     private Runnable positionTicker;
+    private int positionTickCount = 0;
 
     private final BroadcastReceiver noisyReceiver = new BroadcastReceiver() {
         @Override
@@ -1162,13 +1163,41 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         if (positionTicker != null) positionHandler.removeCallbacks(positionTicker);
         positionTicker = new Runnable() {
             @Override public void run() {
-                writeLocalPosition();
+                tickLocalPosition();
                 if (player != null && isLocalMode() && (player.isPlaying() || player.getPlayWhenReady())) {
-                    positionHandler.postDelayed(this, 400);
+                    positionHandler.postDelayed(this, 1000);
                 }
             }
         };
         positionHandler.post(positionTicker);
+    }
+
+    /**
+     * Легкий тик для UI-позиції під час локального відтворення: broadcast щосекунди
+     * (плавний seekbar), але запис у SharedPreferences (диск) — лише раз на 3 тики (~3с),
+     * бо похибка відновлення позиції після рестарту сервісу в 1-2с некритична.
+     * Менше диск-I/O і менше broadcast'ів → плавніше й економніше по батареї.
+     */
+    private void tickLocalPosition() {
+        if (player == null || !isLocalMode()) return;
+        try {
+            long pos = Math.max(0, player.getCurrentPosition());
+            long dur = player.getDuration();
+            if (dur < 0 || dur == androidx.media3.common.C.TIME_UNSET) dur = 0;
+            positionTickCount++;
+            if (positionTickCount % 3 == 0) {
+                getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE).edit()
+                    .putLong("localPositionMs", pos)
+                    .putLong("localDurationMs", dur)
+                    .apply();
+            }
+            Intent i = new Intent(ACTION_PLAYBACK_UI);
+            i.setPackage(getPackageName());
+            i.putExtra("playing", player.isPlaying());
+            i.putExtra("positionMs", pos);
+            i.putExtra("durationMs", dur);
+            sendBroadcast(i);
+        } catch (Exception ignored) {}
     }
 
     private void writeLocalPosition() {

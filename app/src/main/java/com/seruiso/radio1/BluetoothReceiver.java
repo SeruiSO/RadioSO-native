@@ -11,7 +11,8 @@ import android.os.Build;
 import android.util.Log;
 
 /**
- * Класичний BT (не AA): connect → ACTION_BT, disconnect/BT off → ACTION_PAUSE.
+ * Класичний BT (не AA): A2DP/Headset CONNECTED → ACTION_BT; disconnect/BT off → ACTION_PAUSE.
+ * ACL_CONNECTED лише mark timestamp (не play) — менше звуку з телефону / пинка.
  * AA: не чіпаємо маршрутизацію; pause skip лише коли KEY_AA_ACTIVE і BT ще увімкнений.
  */
 public class BluetoothReceiver extends BroadcastReceiver {
@@ -74,9 +75,11 @@ public class BluetoothReceiver extends BroadcastReceiver {
         }
 
         if (BluetoothDevice.ACTION_ACL_CONNECTED.equals(action)) {
+            // 0.13.73: ACL = лінка є, sink ще може не бути.
+            // Не стартуємо play — лише timestamp для handoff-вікна.
+            // Play лише з A2DP / Headset STATE_CONNECTED нижче.
             markA2dp(app);
-            if (!watchOn(app)) return;
-            startSvc(app, RadioWatchService.ACTION_BT);
+            Log.i(TAG, "ACL_CONNECTED — mark only, no play");
             return;
         }
         if (BluetoothDevice.ACTION_ACL_DISCONNECTED.equals(action)) {

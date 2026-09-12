@@ -1281,10 +1281,34 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
     private void forceStopPlayback(String reason) {
         android.util.Log.i("RadioWatch", "forceStopPlayback: " + reason);
         // VoIP (WhatsApp/Viber) через BT: A2DP→SCO дає ACTION_PAUSE від BluetoothReceiver.
-        // Не затираємо pausedByFocusLoss, інакше AUDIOFOCUS_GAIN після дзвінка не відновить ефір.
+        // Не затираємо intended, інакше AUDIOFOCUS_GAIN після дзвінка не відновить ефір.
+        // Але якщо пристрій реально зник (BT off / немає маршруту) — це не «дзвінок»,
+        // а вихід з авто: чистимо intent, щоб не resume на динамік телефону.
         if ("ACTION_PAUSE".equals(reason) && pausedByFocusLoss) {
-            android.util.Log.i("RadioWatch", "forceStopPlayback skipped — already paused by focus loss (likely call)");
-            return;
+            boolean stillBt = false;
+            try {
+                android.bluetooth.BluetoothAdapter a =
+                    android.bluetooth.BluetoothAdapter.getDefaultAdapter();
+                stillBt = a != null && a.isEnabled() && BtAudio.hasRoute(this);
+            } catch (Exception ignored) {}
+            if (stillBt) {
+                android.util.Log.i("RadioWatch",
+                    "forceStopPlayback soft — focus loss + BT still up (likely call/SCO)");
+                if (player != null) {
+                    try {
+                        player.setPlayWhenReady(false);
+                        player.pause();
+                    } catch (Exception e) {
+                        android.util.Log.w("RadioWatch", "forceStop soft player", e);
+                    }
+                }
+                writeActuallyPlaying(false);
+                notifyForeground();
+                notifyUiPlayback(false);
+                return;
+            }
+            android.util.Log.i("RadioWatch",
+                "forceStopPlayback full — focus loss but BT gone (left car during call)");
         }
         pausedByFocusLoss = false;
         ignoreNoisyUntilMs = 0L;
@@ -1370,7 +1394,10 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             } catch (Exception ignored) {}
             return;
         }
-        // Не чекаємо TYPE_A2DP: частина магнітол — HFP/BLE/ACL only. Один старт.
+        // Не чекаємо жорстко TYPE_A2DP (частина магнітол — HFP/Headset only).
+        // 0.13.73: 900 мс замість 500 — ACL уже не стартує play, тож A2DP/Headset
+        // CONNECTED майже завжди приходить раніше; зайві 400 мс зменшують шанс
+        // старту на динамік телефону без mute-хаків.
         btReadyTick = () -> {
             btReadyTick = null;
             if (alreadyPlayingLastUrl()) {
@@ -1380,41 +1407,61 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             try { if (player != null) player.setVolume(1f); } catch (Exception ignored) {}
             playLast();
         };
-        h.postDelayed(btReadyTick, 500);
+        h.postDelayed(btReadyTick, 900);
     }
 
+    /** Cold boot / пропущений receiver: кілька спроб, поки BT watch увімкнений. */
     private void scheduleWatchProbe() {
-        mainHandler.postDelayed(() -> {
-            try {
-                SharedPreferences sp = getSharedPreferences(
-                    BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE);
-                if (!sp.getBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, true)) return;
-                if (player != null && (player.isPlaying() || player.getPlayWhenReady())) return;
-                if (!BtAudio.hasRoute(this)) {
-                    // profile state fallback
-                    try {
-                        android.bluetooth.BluetoothAdapter a =
-                            android.bluetooth.BluetoothAdapter.getDefaultAdapter();
-                        if (a == null) return;
-                        int st = a.getProfileConnectionState(
-                            android.bluetooth.BluetoothProfile.A2DP);
-                        if (st != android.bluetooth.BluetoothProfile.STATE_CONNECTED) return;
-                    } catch (Exception ignored) {
+        final long[] delays = new long[] { 2500L, 6000L, 12000L };
+        for (int i = 0; i < delays.length; i++) {
+            final int attempt = i + 1;
+            final long delay = delays[i];
+            mainHandler.postDelayed(() -> {
+                try {
+                    SharedPreferences sp = getSharedPreferences(
+                        BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE);
+                    if (!sp.getBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, true)) return;
+                    if (player != null && (player.isPlaying() || player.getPlayWhenReady())) {
+                        android.util.Log.i("RadioWatch",
+                            "watch probe #" + attempt + " skip — already playing");
                         return;
                     }
+                    boolean routeOk = BtAudio.hasRoute(this);
+                    if (!routeOk) {
+                        try {
+                            android.bluetooth.BluetoothAdapter a =
+                                android.bluetooth.BluetoothAdapter.getDefaultAdapter();
+                            if (a == null) return;
+                            int pst = a.getProfileConnectionState(
+                                android.bluetooth.BluetoothProfile.A2DP);
+                            int hst = a.getProfileConnectionState(
+                                android.bluetooth.BluetoothProfile.HEADSET);
+                            routeOk = pst == android.bluetooth.BluetoothProfile.STATE_CONNECTED
+                                || hst == android.bluetooth.BluetoothProfile.STATE_CONNECTED;
+                        } catch (Exception ignored) {
+                            return;
+                        }
+                    }
+                    if (!routeOk) {
+                        android.util.Log.i("RadioWatch",
+                            "watch probe #" + attempt + " — no A2DP/Headset yet");
+                        return;
+                    }
+                    String url = sp.getString(BluetoothAutoPlayPlugin.KEY_URL, "");
+                    if (url == null || url.isEmpty()) {
+                        android.util.Log.i("RadioWatch",
+                            "watch probe #" + attempt + " — no last URL");
+                        return;
+                    }
+                    android.util.Log.i("RadioWatch",
+                        "watch probe #" + attempt + " — route up, start play");
+                    setIntendedPlaying(true);
+                    playLastWhenBtReady();
+                } catch (Exception e) {
+                    android.util.Log.e("RadioWatch", "watch probe #" + attempt, e);
                 }
-                String url = sp.getString(BluetoothAutoPlayPlugin.KEY_URL, "");
-                if (url == null || url.isEmpty()) {
-                    android.util.Log.i("RadioWatch", "watch probe — no last URL");
-                    return;
-                }
-                android.util.Log.i("RadioWatch", "watch probe — A2DP up, start play");
-                setIntendedPlaying(true);
-                playLastWhenBtReady();
-            } catch (Exception e) {
-                android.util.Log.e("RadioWatch", "watch probe", e);
-            }
-        }, 2500);
+            }, delay);
+        }
     }
 
     private void playLast() {
@@ -1544,7 +1591,9 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
      *  протягом цього вікна ігноруємо NOISY та transient focus loss, щоб не
      *  ставити паузу через "тишу після перемикання на BT". Було 10с — на
      *  повільніших головних пристроях цього не завжди вистачало. */
-    private static final long BT_HANDOFF_WINDOW_MS = 15000L;
+    /** Focus LOSS ігноруємо коротше: 6 с достатньо для handoff, але дзвінок
+     *  одразу після сідання вже має паузити радіо. NOISY settle — окремо (4 с). */
+    private static final long BT_HANDOFF_WINDOW_MS = 6000L;
     // timings → ReconnectPolicy
 
 

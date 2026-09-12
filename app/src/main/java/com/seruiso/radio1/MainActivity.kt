@@ -3102,7 +3102,7 @@ fun StationScreen(
                             contentPadding = PaddingValues(horizontal = hPad),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            itemsIndexed(arts) { i, u ->
+                            itemsIndexed(arts, key = { i, u -> "$i:$u" }) { i, u ->
                                 val label = when {
                                     nowLocal && i in nowLocalRows.indices -> nowLocalRows[i].title
                                     i in nowRadioRows.indices -> nowRadioRows[i].name

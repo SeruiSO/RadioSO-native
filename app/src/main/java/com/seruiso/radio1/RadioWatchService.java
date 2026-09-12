@@ -242,7 +242,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             private boolean withinBtSettle() {
                 if (System.currentTimeMillis() < ignoreNoisyUntilMs) return true;
                 long lastBt = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-                        .getLong("lastA2dpConnectMs", 0L);
+                        .getLong(BluetoothAutoPlayPlugin.KEY_LAST_A2DP_MS, 0L);
                 long ago = System.currentTimeMillis() - lastBt;
                 return ago >= 0 && ago < 4000;
             }
@@ -573,7 +573,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                 // Під час handoff на магнітолу стек інколи краде focus на секунду —
                 // не паузимо в цьому вікні (інакше «тиша після перемикання на BT»).
                 long lastBtFocus = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-                    .getLong("lastA2dpConnectMs", 0L);
+                    .getLong(BluetoothAutoPlayPlugin.KEY_LAST_A2DP_MS, 0L);
                 if (System.currentTimeMillis() - lastBtFocus < BT_HANDOFF_WINDOW_MS) {
                     android.util.Log.i("RadioWatch", "focus loss ignored — BT/AA handoff window");
                     break;
@@ -1069,7 +1069,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             } catch (Exception ignored) {}
             try {
                 getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-                    .edit().putLong("lastA2dpConnectMs", System.currentTimeMillis()).apply();
+                    .edit().putLong(BluetoothAutoPlayPlugin.KEY_LAST_A2DP_MS, System.currentTimeMillis()).apply();
             } catch (Exception ignored) {}
             if (BtAudio.isAndroidAutoActive(this)) {
                 if (player != null) BtAudio.clearPreferred(player);

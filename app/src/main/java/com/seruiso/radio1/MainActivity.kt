@@ -267,7 +267,7 @@ class MainActivity : ComponentActivity() {
         maybeStartBtIfConnected()
     }
 
-    private var stationName by mutableStateOf(getString(R.string.select_station))
+    private var stationName by mutableStateOf("")  // set in onCreate — Context not ready in <init>
     private var currentGenre by mutableStateOf("-")
     private var currentCountry by mutableStateOf("-")
     private var currentFavicon by mutableStateOf("")
@@ -295,7 +295,7 @@ class MainActivity : ComponentActivity() {
     }
     private var trackTitle by mutableStateOf("")
     private var isPlaying by mutableStateOf(false)
-    private var statusText by mutableStateOf(getString(R.string.done))
+    private var statusText by mutableStateOf("")  // set in onCreate
     private var tabIndex by mutableIntStateOf(0)
     // Нижні вкладки: "home" | "stations"(★) | "heart"(♥) | "music" | "search"
     private var bottomTab by mutableStateOf("home")
@@ -376,6 +376,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (stationName.isEmpty()) stationName = getString(R.string.select_station)
+        if (statusText.isEmpty()) statusText = getString(R.string.done)
         enableEdgeToEdge()
         askPermissions()
         maybeStartBtIfConnected()

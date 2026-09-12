@@ -247,14 +247,44 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                 return ago >= 0 && ago < 4000;
             }
 
-            @Override
-            public void play() {
+            /** Уже реально граємо / стартуємо — не смикати потік ще раз. */
+            private boolean alreadyOutputting() {
+                try {
+                    return player != null
+                        && (player.isPlaying() || player.getPlayWhenReady())
+                        && player.getPlaybackState() != Player.STATE_IDLE
+                        && player.getCurrentMediaItem() != null;
+                } catch (Exception e) {
+                    return false;
+                }
+            }
+
+            /**
+             * 0.13.74: AVRCP PLAY від магнітоли часто приходить КОЛИ вже 1–2 с
+             * грає в колонках. Повторний play()/prepare = реконект станції = пінок.
+             * Якщо вже outputting — тільки intended, без super.play() / playUrl.
+             * Якщо на паузі — звичайний resume.
+             */
+            private void playFromSessionSmart() {
                 setIntendedPlaying(true);
                 try {
                     getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
                         .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, true).apply();
                 } catch (Exception ignored) {}
+                if (alreadyOutputting()) {
+                    android.util.Log.i("RadioWatch",
+                        "session PLAY ignored — already playing (car AVRCP, no reconnect)");
+                    try {
+                        if (player != null) player.setVolume(1f);
+                    } catch (Exception ignored) {}
+                    return;
+                }
                 super.play();
+            }
+
+            @Override
+            public void play() {
+                playFromSessionSmart();
             }
 
             @Override
@@ -269,12 +299,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             @Override
             public void setPlayWhenReady(boolean playWhenReady) {
                 if (playWhenReady) {
-                    setIntendedPlaying(true);
-                    try {
-                        getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-                            .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, true).apply();
-                    } catch (Exception ignored) {}
-                    super.setPlayWhenReady(true);
+                    playFromSessionSmart();
                     return;
                 }
                 if (withinBtSettle()) {

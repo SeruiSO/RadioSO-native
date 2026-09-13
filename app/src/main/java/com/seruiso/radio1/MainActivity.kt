@@ -3107,14 +3107,14 @@ fun StationScreen(
                     )
                 }
                 // Нижня стрічка: ~5 іконок на екран + підпис; компактно по висоті
-                BoxWithConstraints(modifier = Modifier.fillMaxWidth().height(96.dp), contentAlignment = Alignment.Center) {
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth().height(108.dp), contentAlignment = Alignment.Center) {
                     if (arts.isNotEmpty()) {
-                        // ~360dp / 5 ≈ 72; з мін. зазором — 5 видно
+                        // клітинка = ширина підпису; іконка на всю ширину клітинки
                         val cell = 70.dp
                         val hPad = ((maxWidth - cell) / 2).coerceAtLeast(0.dp)
                         LazyRow(
                             state = stripState,
-                            modifier = Modifier.fillMaxWidth().height(96.dp),
+                            modifier = Modifier.fillMaxWidth().height(108.dp),
                             contentPadding = PaddingValues(horizontal = hPad),
                             horizontalArrangement = Arrangement.spacedBy(3.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -3138,8 +3138,9 @@ fun StationScreen(
                                             }
                                         }
                                 ) {
-                                    Box(modifier = Modifier.size(58.dp), contentAlignment = Alignment.Center) {
-                                        val target = if (i == curI) 56.dp else 48.dp
+                                    Box(modifier = Modifier.size(cell), contentAlignment = Alignment.Center) {
+                                        // іконка = ширина підпису (cell); обрана трохи більша візуально через alpha
+                                        val target = if (i == curI) 68.dp else 62.dp
                                         val sz by androidx.compose.animation.core.animateDpAsState(target, label = "stripSz")
                                         val alpha by androidx.compose.animation.core.animateFloatAsState(if (i == curI) 1f else 0.72f, label = "stripA")
                                         if (u.startsWith("http") || u.startsWith("content:")) {

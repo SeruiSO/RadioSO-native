@@ -1891,7 +1891,10 @@ fun StationScreen(
     LaunchedEffect(nowOpen) {
         if (nowOpen) {
             sheetShow = true
-            pullA.animateTo(0f, tween(420))
+            pullA.animateTo(
+                0f,
+                spring(dampingRatio = 0.85f, stiffness = 400f),
+            )
         } else if (!sheetShow) {
             pullA.snapTo(560f)
         }
@@ -2354,10 +2357,10 @@ fun StationScreen(
                         if (!nowOpen) {
                             sheetScope.launch {
                                 if (pullA.value < 300f) {
-                                    pullA.animateTo(0f, tween(280))
+                                    pullA.animateTo(0f, spring(dampingRatio = 0.85f, stiffness = 400f))
                                     onNow()
                                 } else {
-                                    pullA.animateTo(560f, tween(280))
+                                    pullA.animateTo(560f, tween(300))
                                     sheetShow = false
                                 }
                             }
@@ -2447,10 +2450,10 @@ fun StationScreen(
                 if (!nowOpen) {
                     sheetScope.launch {
                         if (pullA.value < 300f) {
-                            pullA.animateTo(0f, tween(280))
+                            pullA.animateTo(0f, spring(dampingRatio = 0.85f, stiffness = 400f))
                             onNow()
                         } else {
-                            pullA.animateTo(560f, tween(280))
+                            pullA.animateTo(560f, tween(300))
                             sheetShow = false
                         }
                     }
@@ -2854,8 +2857,10 @@ fun StationScreen(
                     .fillMaxHeight(0.78f)
                     .graphicsLayer {
                         translationY = pullA.value
-                        val sc = (1f - pullA.value / 900f).coerceIn(0.45f, 1f)
+                        val p = (pullA.value / 560f).coerceIn(0f, 1f)
+                        val sc = (1f - p * 0.08f).coerceIn(0.92f, 1f)
                         scaleX = sc; scaleY = sc
+                        alpha = 1f - p
                         transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 1f)
                     }
                     .clip(RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp))
@@ -2889,11 +2894,11 @@ fun StationScreen(
                             detectVerticalDragGestures(
                                 onDragEnd = {
                                     sheetScope.launch {
-                                        if (pullA.value > 140f) {
-                                            pullA.animateTo(560f, tween(280))
+                                        if (pullA.value > 180f) {
+                                            pullA.animateTo(560f, tween(300))
                                             sheetShow = false
                                             onNowClose()
-                                        } else pullA.animateTo(0f, tween(280))
+                                        } else pullA.animateTo(0f, spring(dampingRatio = 0.85f, stiffness = 400f))
                                     }
                                 }
                             ) { _, drag -> sheetScope.launch { pullA.snapTo((pullA.value + drag).coerceIn(0f, 560f)) } }
@@ -2910,11 +2915,11 @@ fun StationScreen(
                 ) {
                     HorizontalPager(
                         state = pagerState,
-                        contentPadding = PaddingValues(horizontal = 28.dp),
-                        pageSpacing = 16.dp,
+                        contentPadding = PaddingValues(horizontal = 14.dp),
+                        pageSpacing = 8.dp,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(308.dp),
+                            .height(340.dp),
                         key = { page ->
                             if (nowLocal) nowLocalRows.getOrNull(page)?.uri ?: "L$page"
                             else nowRadioRows.getOrNull(page)?.url ?: "R$page"
@@ -2922,15 +2927,15 @@ fun StationScreen(
                     ) { page ->
                         val dist = (pagerState.currentPage - page) + pagerState.currentPageOffsetFraction
                         val abs = kotlin.math.abs(dist).coerceIn(0f, 1f)
-                        val scale = 1f - 0.10f * abs
-                        val alpha = 1f - 0.32f * abs
+                        val scale = 1f - 0.06f * abs
+                        val alpha = 1f - 0.28f * abs
                         Box(
                             modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(300.dp)
+                                    .size(328.dp)
                                     .graphicsLayer {
                                         scaleX = scale
                                         scaleY = scale
@@ -2946,7 +2951,7 @@ fun StationScreen(
                             ) {
                             Box(
                                 modifier = Modifier
-                                    .size(300.dp)
+                                    .size(328.dp)
                                     .graphicsLayer {
                                         scaleX = scale
                                         scaleY = scale
@@ -2977,13 +2982,13 @@ fun StationScreen(
                                     photo != null -> AsyncImage(
                                         model = photo,
                                         contentDescription = null,
-                                        modifier = Modifier.size(300.dp).clip(AppShapes.card),
+                                        modifier = Modifier.size(328.dp).clip(AppShapes.card),
                                         contentScale = ContentScale.Crop
                                     )
                                     fallbackArt.startsWith("http") || fallbackArt.startsWith("content:") -> AsyncImage(
                                         model = fallbackArt,
                                         contentDescription = null,
-                                        modifier = Modifier.size(300.dp).clip(AppShapes.card),
+                                        modifier = Modifier.size(328.dp).clip(AppShapes.card),
                                         contentScale = ContentScale.Crop
                                     )
                                     else -> Icon(Icons.Filled.MusicNote, contentDescription = null, tint = muted, modifier = Modifier.size(96.dp))
@@ -3044,6 +3049,7 @@ fun StationScreen(
                             style = MaterialTheme.typography.titleLarge,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                             modifier = Modifier.weight(1f)
                         )
                         val isLocalCard = currentUrl.startsWith("content:")
@@ -3156,6 +3162,7 @@ fun StationScreen(
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
                                         style = MaterialTheme.typography.labelSmall,
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                                         modifier = Modifier.padding(top = 2.dp).fillMaxWidth()
                                     )
                                 }

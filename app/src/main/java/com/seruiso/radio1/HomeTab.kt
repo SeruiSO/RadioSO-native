@@ -118,7 +118,7 @@ private fun HomeWelcome(muted: Color, text: Color, acc: Color, onAllStations: ()
             .padding(20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Icon(Icons.Filled.Star, contentDescription = null, tint = acc, modifier = Modifier.size(28.dp))
+        Icon(Icons.Filled.Star, contentDescription = null, tint = acc, modifier = Modifier.size(32.dp))
         Text(stringResource(R.string.home_welcome_title), color = text, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp))
         Text(stringResource(R.string.home_welcome_sub), color = muted, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
         Text(
@@ -141,7 +141,7 @@ private fun HomeSectionHeader(title: String, acc: Color, text: Color, onAll: (()
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (icon != null) {
-            Icon(icon, contentDescription = null, tint = acc, modifier = Modifier.size(16.dp).padding(end = 6.dp))
+            Icon(icon, contentDescription = null, tint = acc, modifier = Modifier.size(22.dp).padding(end = 6.dp))
         }
         Text(title, color = text, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
         if (onAll != null) {

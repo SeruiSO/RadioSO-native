@@ -1463,7 +1463,7 @@ private fun MiniProgressBar(
         Box(
             modifier = Modifier
                 .weight(1f)
-                .height(40.dp)
+                .height(32.dp)
                 .pointerInput(d) {
                     detectTapGestures { off ->
                         if (d > 0L) {
@@ -2903,13 +2903,16 @@ fun StationScreen(
                         .fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    // Radio: велика картка як була. Local (серце/музика): компактніше під прогрес+мета.
+                    val npArt = if (nowLocal) 200.dp else 300.dp
+                    val npPagerH = if (nowLocal) 214.dp else 318.dp
                     HorizontalPager(
                         state = pagerState,
-                        contentPadding = PaddingValues(horizontal = 40.dp),
-                        pageSpacing = 12.dp,
+                        contentPadding = PaddingValues(horizontal = if (nowLocal) 48.dp else 40.dp),
+                        pageSpacing = if (nowLocal) 10.dp else 12.dp,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(318.dp),
+                            .height(npPagerH),
                         key = { page ->
                             if (nowLocal) nowLocalRows.getOrNull(page)?.uri ?: "L$page"
                             else nowRadioRows.getOrNull(page)?.url ?: "R$page"
@@ -2925,7 +2928,7 @@ fun StationScreen(
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(300.dp)
+                                    .size(npArt)
                                     .graphicsLayer {
                                         scaleX = scale
                                         scaleY = scale
@@ -2941,7 +2944,7 @@ fun StationScreen(
                             ) {
                             Box(
                                 modifier = Modifier
-                                    .size(300.dp)
+                                    .size(npArt)
                                     .graphicsLayer {
                                         scaleX = scale
                                         scaleY = scale
@@ -2972,13 +2975,13 @@ fun StationScreen(
                                     photo != null -> AsyncImage(
                                         model = photo,
                                         contentDescription = null,
-                                        modifier = Modifier.size(300.dp).clip(AppShapes.card),
+                                        modifier = Modifier.size(npArt).clip(AppShapes.card),
                                         contentScale = ContentScale.Crop
                                     )
                                     fallbackArt.startsWith("http") || fallbackArt.startsWith("content:") -> AsyncImage(
                                         model = fallbackArt,
                                         contentDescription = null,
-                                        modifier = Modifier.size(300.dp).clip(AppShapes.card),
+                                        modifier = Modifier.size(npArt).clip(AppShapes.card),
                                         contentScale = ContentScale.Crop
                                     )
                                     else -> Icon(Icons.Filled.MusicNote, contentDescription = null, tint = muted, modifier = Modifier.size(96.dp))
@@ -3093,25 +3096,35 @@ fun StationScreen(
                     )
                 }
                 if (isLocalNow || currentUrl.startsWith("content:")) {
-                    // shuffle | час | прогрес | тривалість | repeat — один ряд, без зайвої вертикалі
-                    MiniProgressBar(
-                        posMs, durMs, acc, muted, onSeek,
-                        onShuffle = onShuffle,
-                        onRepeat = onRepeat,
-                        controlsTint = text,
-                    )
+                    // компактніший прогрес — більше місця під назву/виконавця
+                    androidx.compose.foundation.layout.Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 2.dp, bottom = 2.dp)
+                    ) {
+                        MiniProgressBar(
+                            posMs, durMs, acc, muted, onSeek,
+                            onShuffle = onShuffle,
+                            onRepeat = onRepeat,
+                            controlsTint = text,
+                        )
+                    }
                 }
                 // Нижня стрічка: ~5 іконок на екран + підпис; компактно по висоті
-                BoxWithConstraints(modifier = Modifier.fillMaxWidth().height(108.dp), contentAlignment = Alignment.Center) {
+                // Стрічка: radio без змін; local — нижча, щоб видно артиста/трек над прогресом
+                val stripH = if (nowLocal) 86.dp else 108.dp
+                val stripCell = if (nowLocal) 56.dp else 70.dp
+                val stripSel = if (nowLocal) 52.dp else 68.dp
+                val stripUnsel = if (nowLocal) 46.dp else 62.dp
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth().height(stripH), contentAlignment = Alignment.Center) {
                     if (arts.isNotEmpty()) {
-                        // клітинка = ширина підпису; іконка на всю ширину клітинки
-                        val cell = 70.dp
+                        val cell = stripCell
                         val hPad = ((maxWidth - cell) / 2).coerceAtLeast(0.dp)
                         LazyRow(
                             state = stripState,
-                            modifier = Modifier.fillMaxWidth().height(108.dp),
+                            modifier = Modifier.fillMaxWidth().height(stripH),
                             contentPadding = PaddingValues(horizontal = hPad),
-                            horizontalArrangement = Arrangement.spacedBy(3.dp),
+                            horizontalArrangement = Arrangement.spacedBy(if (nowLocal) 4.dp else 3.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             itemsIndexed(arts, key = { i, u -> "$i:$u" }) { i, u ->
@@ -3135,7 +3148,7 @@ fun StationScreen(
                                 ) {
                                     Box(modifier = Modifier.size(cell), contentAlignment = Alignment.Center) {
                                         // іконка = ширина підпису (cell); обрана трохи більша візуально через alpha
-                                        val target = if (i == curI) 68.dp else 62.dp
+                                        val target = if (i == curI) stripSel else stripUnsel
                                         val sz by androidx.compose.animation.core.animateDpAsState(target, label = "stripSz")
                                         val alpha by androidx.compose.animation.core.animateFloatAsState(if (i == curI) 1f else 0.72f, label = "stripA")
                                         if (u.startsWith("http") || u.startsWith("content:")) {

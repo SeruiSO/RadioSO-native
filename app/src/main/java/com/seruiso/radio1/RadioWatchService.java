@@ -116,6 +116,9 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
     private android.os.Handler positionHandler;
     private Runnable positionTicker;
     private int positionTickCount = 0;
+    /** 0.13.77: відкладені watch-probe — скасовуємо на user pause. */
+    private final java.util.ArrayList<Runnable> probeRunnables = new java.util.ArrayList<>();
+
 
     private final BroadcastReceiver noisyReceiver = new BroadcastReceiver() {
         @Override
@@ -266,6 +269,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
              * Якщо на паузі — звичайний resume.
              */
             private void playFromSessionSmart() {
+                setUserPausedWhileBt(false);
                 setIntendedPlaying(true);
                 try {
                     getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
@@ -287,18 +291,33 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                 playFromSessionSmart();
             }
 
+            private void userPauseFromSession() {
+                pausedByFocusLoss = false;
+                setIntendedPlaying(false);
+                try {
+                    getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                        .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, false).apply();
+                } catch (Exception ignored) {}
+                markUserPausedIfBtConnected();
+                try { writeActuallyPlaying(false); } catch (Exception ignored) {}
+                android.util.Log.i("RadioWatch", "session PAUSE — intended cleared + userPausedWhileBt");
+                super.pause();
+                try { notifyForeground(); notifyUiPlayback(false); } catch (Exception ignored) {}
+            }
+
             @Override
             public void pause() {
                 if (withinBtSettle()) {
                     android.util.Log.i("RadioWatch", "session pause ignored — BT settle");
                     return;
                 }
-                super.pause();
+                userPauseFromSession();
             }
 
             @Override
             public void setPlayWhenReady(boolean playWhenReady) {
                 if (playWhenReady) {
+                    setUserPausedWhileBt(false);
                     playFromSessionSmart();
                     return;
                 }
@@ -306,7 +325,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                     android.util.Log.i("RadioWatch", "session pause(pwr) ignored — BT settle");
                     return;
                 }
-                super.setPlayWhenReady(false);
+                userPauseFromSession();
             }
 
             @Override
@@ -1019,6 +1038,55 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         PlaybackPrefs.clearIntent(this);
     }
 
+    private boolean isUserPausedWhileBt() {
+        try {
+            return getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                .getBoolean(BluetoothAutoPlayPlugin.KEY_USER_PAUSED_BT, false);
+        } catch (Exception e) { return false; }
+    }
+
+    private void setUserPausedWhileBt(boolean v) {
+        try {
+            getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_USER_PAUSED_BT, v).apply();
+        } catch (Exception ignored) {}
+    }
+
+    private void cancelWatchProbes() {
+        for (Runnable r : probeRunnables) {
+            try { mainHandler.removeCallbacks(r); } catch (Exception ignored) {}
+        }
+        probeRunnables.clear();
+    }
+
+    /** Пауза при живому BT — блокує ACTION_BT / probe до реального disconnect. */
+    private void markUserPausedIfBtConnected() {
+        boolean bt = false;
+        try {
+            bt = BtAudio.hasRoute(this);
+            if (!bt) {
+                android.bluetooth.BluetoothAdapter a =
+                    android.bluetooth.BluetoothAdapter.getDefaultAdapter();
+                if (a != null && a.isEnabled()) {
+                    int pst = a.getProfileConnectionState(android.bluetooth.BluetoothProfile.A2DP);
+                    int hst = a.getProfileConnectionState(android.bluetooth.BluetoothProfile.HEADSET);
+                    bt = pst == android.bluetooth.BluetoothProfile.STATE_CONNECTED
+                        || hst == android.bluetooth.BluetoothProfile.STATE_CONNECTED;
+                }
+            }
+        } catch (Exception ignored) {}
+        if (bt) {
+            setUserPausedWhileBt(true);
+            cancelWatchProbes();
+            cancelBtTicks();
+            android.util.Log.i("RadioWatch", "userPausedWhileBt=true (pause, BT still up)");
+        } else {
+            setUserPausedWhileBt(false);
+        }
+    }
+
+
+
     private void notifyUiPlayback(boolean playing) {
         Intent i = new Intent(ACTION_PLAYBACK_UI);
         i.setPackage(getPackageName());
@@ -1086,6 +1154,11 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                 notifyForeground();
                 return START_STICKY;
             }
+            if (spBt.getBoolean(BluetoothAutoPlayPlugin.KEY_USER_PAUSED_BT, false)) {
+                android.util.Log.i("RadioWatch", "ACTION_BT ignored — userPausedWhileBt");
+                notifyForeground();
+                return START_STICKY;
+            }
             setIntendedPlaying(true);
             ignoreNoisyUntilMs = System.currentTimeMillis() + 4000L;
             try {
@@ -1111,6 +1184,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         }
 
         if (ACTION_PLAY.equals(action) || ACTION_NOTIF_PLAY.equals(action)) {
+            setUserPausedWhileBt(false);
             setIntendedPlaying(true);
             playLast();
             return START_STICKY;
@@ -1126,6 +1200,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         }
 
         if (ACTION_PLAY_URL.equals(action) && intent != null) {
+            setUserPausedWhileBt(false);
             String url = intent.getStringExtra(EXTRA_URL);
             String name = intent.getStringExtra(EXTRA_NAME);
             SharedPreferences.Editor ed = getSharedPreferences(
@@ -1339,7 +1414,11 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         ignoreNoisyUntilMs = 0L;
         sawA2dpAfterBtStart = false;
         cancelBtTicks();
+        cancelWatchProbes();
         clearPlaybackIntent();
+        if ("ACTION_PAUSE".equals(reason) || (reason != null && reason.startsWith("NOISY"))) {
+            markUserPausedIfBtConnected();
+        }
         try {
             getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
                 .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, false).apply();
@@ -1399,6 +1478,10 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
     }
 
     private void playLastWhenBtReady() {
+        if (isUserPausedWhileBt()) {
+            android.util.Log.i("RadioWatch", "playLastWhenBtReady skip — userPausedWhileBt");
+            return;
+        }
         final android.os.Handler h = mainHandler;
         if (btReadyTick != null) {
             h.removeCallbacks(btReadyTick);
@@ -1435,59 +1518,77 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         h.postDelayed(btReadyTick, 900);
     }
 
-    /** Cold boot / пропущений receiver: кілька спроб, поки BT watch увімкнений. */
+    /** Cold boot / пропущений receiver. Скасовується на user pause. */
     private void scheduleWatchProbe() {
+        cancelWatchProbes();
         final long[] delays = new long[] { 2500L, 6000L, 12000L };
         for (int i = 0; i < delays.length; i++) {
             final int attempt = i + 1;
             final long delay = delays[i];
-            mainHandler.postDelayed(() -> {
-                try {
-                    SharedPreferences sp = getSharedPreferences(
-                        BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE);
-                    if (!sp.getBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, true)) return;
-                    if (player != null && (player.isPlaying() || player.getPlayWhenReady())) {
-                        android.util.Log.i("RadioWatch",
-                            "watch probe #" + attempt + " skip — already playing");
-                        return;
-                    }
-                    boolean routeOk = BtAudio.hasRoute(this);
-                    if (!routeOk) {
-                        try {
-                            android.bluetooth.BluetoothAdapter a =
-                                android.bluetooth.BluetoothAdapter.getDefaultAdapter();
-                            if (a == null) return;
-                            int pst = a.getProfileConnectionState(
-                                android.bluetooth.BluetoothProfile.A2DP);
-                            int hst = a.getProfileConnectionState(
-                                android.bluetooth.BluetoothProfile.HEADSET);
-                            routeOk = pst == android.bluetooth.BluetoothProfile.STATE_CONNECTED
-                                || hst == android.bluetooth.BluetoothProfile.STATE_CONNECTED;
-                        } catch (Exception ignored) {
+            final Runnable r = new Runnable() {
+                @Override public void run() {
+                    probeRunnables.remove(this);
+                    try {
+                        SharedPreferences sp = getSharedPreferences(
+                            BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE);
+                        if (!sp.getBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, true)) return;
+                        if (sp.getBoolean(BluetoothAutoPlayPlugin.KEY_USER_PAUSED_BT, false)) {
+                            android.util.Log.i("RadioWatch",
+                                "watch probe #" + attempt + " skip — userPausedWhileBt");
                             return;
                         }
-                    }
-                    if (!routeOk) {
+                        // Після UI-паузи KEY_PLAY=false — не піднімати станцію знову
+                        if (!sp.getBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, false)) {
+                            android.util.Log.i("RadioWatch",
+                                "watch probe #" + attempt + " skip — not intended");
+                            return;
+                        }
+                        if (player != null && (player.isPlaying() || player.getPlayWhenReady())) {
+                            android.util.Log.i("RadioWatch",
+                                "watch probe #" + attempt + " skip — already playing");
+                            return;
+                        }
+                        boolean routeOk = BtAudio.hasRoute(RadioWatchService.this);
+                        if (!routeOk) {
+                            try {
+                                android.bluetooth.BluetoothAdapter a =
+                                    android.bluetooth.BluetoothAdapter.getDefaultAdapter();
+                                if (a == null) return;
+                                int pst = a.getProfileConnectionState(
+                                    android.bluetooth.BluetoothProfile.A2DP);
+                                int hst = a.getProfileConnectionState(
+                                    android.bluetooth.BluetoothProfile.HEADSET);
+                                routeOk = pst == android.bluetooth.BluetoothProfile.STATE_CONNECTED
+                                    || hst == android.bluetooth.BluetoothProfile.STATE_CONNECTED;
+                            } catch (Exception ignored) {
+                                return;
+                            }
+                        }
+                        if (!routeOk) {
+                            android.util.Log.i("RadioWatch",
+                                "watch probe #" + attempt + " — no A2DP/Headset yet");
+                            return;
+                        }
+                        String url = sp.getString(BluetoothAutoPlayPlugin.KEY_URL, "");
+                        if (url == null || url.isEmpty()) {
+                            android.util.Log.i("RadioWatch",
+                                "watch probe #" + attempt + " — no last URL");
+                            return;
+                        }
                         android.util.Log.i("RadioWatch",
-                            "watch probe #" + attempt + " — no A2DP/Headset yet");
-                        return;
+                            "watch probe #" + attempt + " — route up, start play");
+                        setIntendedPlaying(true);
+                        playLastWhenBtReady();
+                    } catch (Exception e) {
+                        android.util.Log.e("RadioWatch", "watch probe #" + attempt, e);
                     }
-                    String url = sp.getString(BluetoothAutoPlayPlugin.KEY_URL, "");
-                    if (url == null || url.isEmpty()) {
-                        android.util.Log.i("RadioWatch",
-                            "watch probe #" + attempt + " — no last URL");
-                        return;
-                    }
-                    android.util.Log.i("RadioWatch",
-                        "watch probe #" + attempt + " — route up, start play");
-                    setIntendedPlaying(true);
-                    playLastWhenBtReady();
-                } catch (Exception e) {
-                    android.util.Log.e("RadioWatch", "watch probe #" + attempt, e);
                 }
-            }, delay);
+            };
+            probeRunnables.add(r);
+            mainHandler.postDelayed(r, delay);
         }
     }
+
 
     private void playLast() {
         SharedPreferences p = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE);

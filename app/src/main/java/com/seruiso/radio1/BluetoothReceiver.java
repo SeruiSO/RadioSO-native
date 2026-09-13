@@ -69,6 +69,10 @@ public class BluetoothReceiver extends BroadcastReceiver {
             if ((st == BluetoothAdapter.STATE_OFF || st == BluetoothAdapter.STATE_TURNING_OFF)
                     && watchOn(app)) {
                 // Вимкнули BT повністю — класичний стоп завжди
+                            try {
+                app.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)
+                    .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_USER_PAUSED_BT, false).apply();
+            } catch (Exception ignored) {}
                 startSvc(app, RadioWatchService.ACTION_PAUSE);
             }
             return;
@@ -89,6 +93,10 @@ public class BluetoothReceiver extends BroadcastReceiver {
                 Log.i(TAG, "ACL_DISCONNECTED skip — live AA");
                 return;
             }
+                        try {
+                app.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)
+                    .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_USER_PAUSED_BT, false).apply();
+            } catch (Exception ignored) {}
             startSvc(app, RadioWatchService.ACTION_PAUSE);
             return;
         }
@@ -111,6 +119,10 @@ public class BluetoothReceiver extends BroadcastReceiver {
                 return;
             }
             // A2DP disconnect = магнітола пішла (класичний режим)
+            try {
+                app.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)
+                    .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_USER_PAUSED_BT, false).apply();
+            } catch (Exception ignored) {}
             startSvc(app, RadioWatchService.ACTION_PAUSE);
         }
     }

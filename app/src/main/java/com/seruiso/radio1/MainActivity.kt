@@ -3106,14 +3106,15 @@ fun StationScreen(
                         controlsTint = text,
                     )
                 }
-                BoxWithConstraints(modifier = Modifier.fillMaxWidth().height(78.dp), contentAlignment = Alignment.Center) {
+                // Нижня стрічка станцій: більші іконки для яснішого вибору (решта UI як у 0.13.78)
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth().height(112.dp), contentAlignment = Alignment.Center) {
                     if (arts.isNotEmpty()) {
-                        val hPad = ((maxWidth - 64.dp) / 2).coerceAtLeast(0.dp)
+                        val hPad = ((maxWidth - 88.dp) / 2).coerceAtLeast(0.dp)
                         LazyRow(
                             state = stripState,
                             modifier = Modifier.fillMaxWidth(),
                             contentPadding = PaddingValues(horizontal = hPad),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             itemsIndexed(arts, key = { i, u -> "$i:$u" }) { i, u ->
                                 val label = when {
@@ -3125,7 +3126,7 @@ fun StationScreen(
                                 Column(
                                     horizontalAlignment = Alignment.CenterHorizontally,
                                     modifier = Modifier
-                                        .width(64.dp)
+                                        .width(88.dp)
                                         .clickable {
                                             if (nowLocal && i in nowLocalRows.indices) onPickLocal(nowLocalRows, i)
                                             else if (i in nowRadioRows.indices) {
@@ -3134,8 +3135,8 @@ fun StationScreen(
                                             }
                                         }
                                 ) {
-                                    Box(modifier = Modifier.size(56.dp), contentAlignment = Alignment.Center) {
-                                        val target = if (i == curI) 54.dp else 42.dp
+                                    Box(modifier = Modifier.size(80.dp), contentAlignment = Alignment.Center) {
+                                        val target = if (i == curI) 76.dp else 64.dp
                                         val sz by androidx.compose.animation.core.animateDpAsState(target, label = "stripSz")
                                         val alpha by androidx.compose.animation.core.animateFloatAsState(if (i == curI) 1f else 0.72f, label = "stripA")
                                         if (u.startsWith("http") || u.startsWith("content:")) {
@@ -3145,7 +3146,7 @@ fun StationScreen(
                                                 modifier = Modifier
                                                     .size(sz)
                                                     .graphicsLayer { this.alpha = alpha }
-                                                    .clip(RoundedCornerShape(10.dp)),
+                                                    .clip(RoundedCornerShape(12.dp)),
                                                 contentScale = ContentScale.Crop
                                             )
                                         } else Icon(Icons.Filled.MusicNote, contentDescription = null, tint = muted, modifier = Modifier.graphicsLayer { this.alpha = alpha })
@@ -3156,6 +3157,7 @@ fun StationScreen(
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
                                         style = MaterialTheme.typography.labelSmall,
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                                         modifier = Modifier.padding(top = 2.dp).fillMaxWidth()
                                     )
                                 }

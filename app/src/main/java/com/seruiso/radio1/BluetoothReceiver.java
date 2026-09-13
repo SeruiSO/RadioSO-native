@@ -71,7 +71,9 @@ public class BluetoothReceiver extends BroadcastReceiver {
                 // Вимкнули BT повністю — класичний стоп завжди
                             try {
                 app.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)
-                    .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_USER_PAUSED_BT, false).apply();
+                    .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_USER_PAUSED_BT, false)
+                    .putLong("userPausedWhileBtAt", 0L)
+                    .apply();
             } catch (Exception ignored) {}
                 startSvc(app, RadioWatchService.ACTION_PAUSE);
             }
@@ -95,7 +97,9 @@ public class BluetoothReceiver extends BroadcastReceiver {
             }
                         try {
                 app.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)
-                    .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_USER_PAUSED_BT, false).apply();
+                    .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_USER_PAUSED_BT, false)
+                    .putLong("userPausedWhileBtAt", 0L)
+                    .apply();
             } catch (Exception ignored) {}
             startSvc(app, RadioWatchService.ACTION_PAUSE);
             return;
@@ -121,7 +125,9 @@ public class BluetoothReceiver extends BroadcastReceiver {
             // A2DP disconnect = магнітола пішла (класичний режим)
             try {
                 app.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)
-                    .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_USER_PAUSED_BT, false).apply();
+                    .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_USER_PAUSED_BT, false)
+                    .putLong("userPausedWhileBtAt", 0L)
+                    .apply();
             } catch (Exception ignored) {}
             startSvc(app, RadioWatchService.ACTION_PAUSE);
         }

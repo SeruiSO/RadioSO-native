@@ -1047,8 +1047,10 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
 
     private void setUserPausedWhileBt(boolean v) {
         try {
-            getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-                .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_USER_PAUSED_BT, v).apply();
+            SharedPreferences.Editor ed = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE).edit()
+                .putBoolean(BluetoothAutoPlayPlugin.KEY_USER_PAUSED_BT, v);
+            if (!v) ed.putLong("userPausedWhileBtAt", 0L);
+            ed.apply();
         } catch (Exception ignored) {}
     }
 
@@ -1077,6 +1079,10 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         } catch (Exception ignored) {}
         if (bt) {
             setUserPausedWhileBt(true);
+            try {
+                getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                    .edit().putLong("userPausedWhileBtAt", System.currentTimeMillis()).apply();
+            } catch (Exception ignored) {}
             cancelWatchProbes();
             cancelBtTicks();
             android.util.Log.i("RadioWatch", "userPausedWhileBt=true (pause, BT still up)");
@@ -1154,11 +1160,21 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                 notifyForeground();
                 return START_STICKY;
             }
-            if (spBt.getBoolean(BluetoothAutoPlayPlugin.KEY_USER_PAUSED_BT, false)) {
-                android.util.Log.i("RadioWatch", "ACTION_BT ignored — userPausedWhileBt");
+            // 0.13.78: CONNECTED від системи = нове/повторне підключення профілю.
+            // Завжди автостарт; userPaused більше НЕ блокує ACTION_BT назавжди
+            // (інакше після паузи без «чистого» DISCONNECT автостарт мертвий).
+            // Захист від паузи при живому BT: cancelWatchProbes + KEY_PLAY=false +
+            // короткий debounce лише якщо CONNECTED прийшов одразу після паузи (<3с).
+            long pausedAt = spBt.getLong("userPausedWhileBtAt", 0L);
+            boolean userPaused = spBt.getBoolean(BluetoothAutoPlayPlugin.KEY_USER_PAUSED_BT, false);
+            long nowBt2 = System.currentTimeMillis();
+            if (userPaused && pausedAt > 0L && (nowBt2 - pausedAt) < 3000L) {
+                android.util.Log.i("RadioWatch",
+                    "ACTION_BT ignored — userPaused <3s ago (profile blip)");
                 notifyForeground();
                 return START_STICKY;
             }
+            setUserPausedWhileBt(false);
             setIntendedPlaying(true);
             ignoreNoisyUntilMs = System.currentTimeMillis() + 4000L;
             try {

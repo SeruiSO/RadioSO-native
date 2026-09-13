@@ -1881,6 +1881,22 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
 
     @Override
     public void onDestroy() {
+        // Зупинити self-rescheduling таймери / probes / art download (батарея)
+        if (silenceHandler != null) {
+            silenceHandler.removeCallbacksAndMessages(null);
+        }
+        if (positionHandler != null) {
+            positionHandler.removeCallbacksAndMessages(null);
+        }
+        if (mainHandler != null) {
+            mainHandler.removeCallbacksAndMessages(null);
+        }
+        cancelWatchProbes();
+        cancelBtTicks();
+        if (artConn != null) {
+            try { artConn.disconnect(); } catch (Exception ignored) {}
+            artConn = null;
+        }
         if (noisyRegistered) {
             try { unregisterReceiver(noisyReceiver); } catch (Exception ignored) {}
             noisyRegistered = false;

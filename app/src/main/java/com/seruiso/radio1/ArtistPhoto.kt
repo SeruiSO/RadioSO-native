@@ -7,9 +7,9 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -17,6 +17,7 @@ import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
+import java.util.concurrent.ConcurrentHashMap
 
 private val TITLE_SEPS = listOf(
     " - ", " – ", " — ", " | ",
@@ -74,22 +75,32 @@ private const val UA = "RadioSO/1.0 (+https://github.com/SeruiSO/RadioSO-native)
 private const val DISK_FILE = "artist_photo_cache.json"
 private const val TTL_MS = 14L * 24 * 60 * 60 * 1000 // 14 днів
 private const val MISS = "" // порожній URL = "не знайдено"
+private const val PERSIST_MIN_INTERVAL_MS = 5000L
 
-private val photoCache = object : LinkedHashMap<String, String>(64, 0.75f, true) {
-    override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, String>): Boolean {
+/** url + оригінальний ts додавання (не оновлюється при кожному persist). */
+private data class CacheEntry(val url: String, val ts: Long)
+
+private val photoCache = object : LinkedHashMap<String, CacheEntry>(64, 0.75f, true) {
+    override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, CacheEntry>): Boolean {
         return size > 200
     }
 }
 private val photoCacheLock = Any()
 @Volatile private var diskLoaded = false
-private const val PERSIST_MIN_INTERVAL_MS = 5000L
 @Volatile private var lastPersistMs = 0L
+
+/** In-flight: один мережевий пошук на ключ артиста. */
+private val inFlight = ConcurrentHashMap<String, Deferred<String?>>()
 
 private fun cacheKey(artist: String) = artist.trim().lowercase()
 
 private fun diskFile(ctx: Context): File = File(ctx.applicationContext.filesDir, DISK_FILE)
 
-/** Підвантажити диск → пам'ять один раз на процес. */
+private fun entryFresh(e: CacheEntry, now: Long = System.currentTimeMillis()): Boolean {
+    return e.ts <= 0L || now - e.ts <= TTL_MS
+}
+
+/** Підвантажити диск → пам'ять один раз на процес. Зберігає оригінальний ts. */
 private fun ensureDiskLoaded(ctx: Context) {
     if (diskLoaded) return
     synchronized(photoCacheLock) {
@@ -104,9 +115,9 @@ private fun ensureDiskLoaded(ctx: Context) {
                     val k = keys.next()
                     val o = root.optJSONObject(k) ?: continue
                     val ts = o.optLong("ts", 0L)
-                    if (ts > 0 && now - ts > TTL_MS) continue // прострочено
+                    if (ts > 0 && now - ts > TTL_MS) continue
                     val url = o.optString("url", MISS)
-                    photoCache[k] = url
+                    photoCache[k] = CacheEntry(url, if (ts > 0) ts else now)
                 }
             }
         } catch (_: Exception) {
@@ -115,16 +126,26 @@ private fun ensureDiskLoaded(ctx: Context) {
     }
 }
 
+/** Пише на диск оригінальні ts кожного запису (без «омолодження»). */
 private fun persistDisk(ctx: Context) {
     try {
         val root = JSONObject()
-        val now = System.currentTimeMillis()
         synchronized(photoCacheLock) {
-            for ((k, v) in photoCache) {
-                root.put(k, JSONObject().put("url", v).put("ts", now))
+            for ((k, e) in photoCache) {
+                root.put(k, JSONObject().put("url", e.url).put("ts", e.ts))
             }
         }
         diskFile(ctx).writeText(root.toString())
+    } catch (_: Exception) {
+    }
+}
+
+private fun schedulePersist(ctx: Context) {
+    val now = System.currentTimeMillis()
+    if (now - lastPersistMs < PERSIST_MIN_INTERVAL_MS) return
+    lastPersistMs = now
+    try {
+        persistDisk(ctx)
     } catch (_: Exception) {
     }
 }
@@ -136,9 +157,18 @@ private fun httpGetJson(urlStr: String, accept: String): String {
     conn.requestMethod = "GET"
     conn.setRequestProperty("User-Agent", UA)
     conn.setRequestProperty("Accept", accept)
-    val body = conn.inputStream.bufferedReader().use { it.readText() }
-    conn.disconnect()
-    return body
+    try {
+        val code = conn.responseCode
+        if (code != 200) {
+            throw java.io.IOException("HTTP $code for $urlStr")
+        }
+        return conn.inputStream.bufferedReader().use { it.readText() }
+    } finally {
+        try {
+            conn.disconnect()
+        } catch (_: Exception) {
+        }
+    }
 }
 
 private fun deezerArtistPhoto(artist: String): String? = try {
@@ -154,7 +184,7 @@ private fun deezerArtistPhoto(artist: String): String? = try {
     null
 }
 
-/** iTunes Search — без ключа, часто є те, чого немає в Deezer. */
+/** iTunes Search — fallback після Deezer. */
 private fun itunesArtistPhoto(artist: String): String? = try {
     val q = URLEncoder.encode(artist, "UTF-8")
     val body = httpGetJson(
@@ -175,32 +205,38 @@ private suspend fun photoForSingleArtist(ctx: Context, artist: String): String? 
     if (artist.isBlank() || looksLikeJunk(artist)) return null
     ensureDiskLoaded(ctx)
     val key = cacheKey(artist)
-    synchronized(photoCacheLock) {
-        photoCache[key]?.let { return it.ifBlank { null } }
-    }
-    val photo = coroutineScope {
-        val deezer = async { deezerArtistPhoto(artist) }
-        val itunes = async { itunesArtistPhoto(artist) }
-        deezer.await() ?: itunes.await()
-    }
-    synchronized(photoCacheLock) {
-        photoCache[key] = photo ?: MISS
-    }
-    maybePersistDisk(ctx)
-    return photo
-}
-
-/**
- * Диск пишемо не частіше ніж раз на 5с (debounce), а не після кожного окремого
- * артиста — трек на живому радіо може мінятись часто, і повний перезапис
- * JSON-кешу на кожен lookup — зайве I/O. Це просто кеш, втрата останніх
- * кількох секунд записів при різкому закритті процесу не критична.
- */
-private fun maybePersistDisk(ctx: Context) {
     val now = System.currentTimeMillis()
-    if (now - lastPersistMs < PERSIST_MIN_INTERVAL_MS) return
-    lastPersistMs = now
-    try { persistDisk(ctx) } catch (_: Exception) {}
+    synchronized(photoCacheLock) {
+        val e = photoCache[key]
+        if (e != null) {
+            if (entryFresh(e, now)) return e.url.ifBlank { null }
+            photoCache.remove(key)
+        }
+    }
+    // In-flight dedupe
+    inFlight[key]?.let { return it.await() }
+    val deferred = CompletableDeferred<String?>()
+    val prev = inFlight.putIfAbsent(key, deferred)
+    if (prev != null) return prev.await()
+    try {
+        // Послідовно: спочатку Deezer, iTunes лише як fallback
+        val photo = deezerArtistPhoto(artist) ?: itunesArtistPhoto(artist)
+        val urlStore = photo ?: MISS
+        synchronized(photoCacheLock) {
+            val old = photoCache[key]
+            if (old == null || old.url != urlStore) {
+                photoCache[key] = CacheEntry(urlStore, System.currentTimeMillis())
+            }
+            // якщо той самий url — ts не чіпаємо
+        }
+        schedulePersist(ctx)
+        deferred.complete(photo)
+    } catch (e: Exception) {
+        deferred.complete(null)
+    } finally {
+        inFlight.remove(key, deferred)
+    }
+    return deferred.await()
 }
 
 @Composable

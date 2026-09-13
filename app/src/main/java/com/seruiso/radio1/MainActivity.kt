@@ -3106,16 +3106,17 @@ fun StationScreen(
                         controlsTint = text,
                     )
                 }
-                // Нижня стрічка: компактна висота, іконки майже на всю панель, мін. зазор
-                BoxWithConstraints(modifier = Modifier.fillMaxWidth().height(92.dp), contentAlignment = Alignment.Center) {
+                // Нижня стрічка: ~5 іконок на екран + підпис; компактно по висоті
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth().height(96.dp), contentAlignment = Alignment.Center) {
                     if (arts.isNotEmpty()) {
-                        val cell = 84.dp
+                        // ~360dp / 5 ≈ 72; з мін. зазором — 5 видно
+                        val cell = 70.dp
                         val hPad = ((maxWidth - cell) / 2).coerceAtLeast(0.dp)
                         LazyRow(
                             state = stripState,
-                            modifier = Modifier.fillMaxWidth().height(92.dp),
+                            modifier = Modifier.fillMaxWidth().height(96.dp),
                             contentPadding = PaddingValues(horizontal = hPad),
-                            horizontalArrangement = Arrangement.spacedBy(2.dp),
+                            horizontalArrangement = Arrangement.spacedBy(3.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             itemsIndexed(arts, key = { i, u -> "$i:$u" }) { i, u ->
@@ -3125,40 +3126,50 @@ fun StationScreen(
                                     i in radioRows.indices -> radioRows[i].name
                                     else -> ""
                                 }
-                                Box(
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
                                     modifier = Modifier
-                                        .size(cell)
+                                        .width(cell)
                                         .clickable {
                                             if (nowLocal && i in nowLocalRows.indices) onPickLocal(nowLocalRows, i)
                                             else if (i in nowRadioRows.indices) {
                                                 if (skipMode == "temp") onPickOneRadio(nowRadioRows, i)
                                                 else onPickRadio(nowRadioRows, i)
                                             }
-                                        },
-                                    contentAlignment = Alignment.Center
+                                        }
                                 ) {
-                                    // обрана трохи більша; майже на всю висоту 92.dp
-                                    val target = if (i == curI) 88.dp else 78.dp
-                                    val sz by androidx.compose.animation.core.animateDpAsState(target, label = "stripSz")
-                                    val alpha by androidx.compose.animation.core.animateFloatAsState(if (i == curI) 1f else 0.72f, label = "stripA")
-                                    if (u.startsWith("http") || u.startsWith("content:")) {
-                                        AsyncImage(
-                                            model = u,
-                                            contentDescription = label.ifBlank { null },
-                                            modifier = Modifier
-                                                .size(sz)
-                                                .graphicsLayer { this.alpha = alpha }
-                                                .clip(RoundedCornerShape(12.dp)),
-                                            contentScale = ContentScale.Crop
-                                        )
-                                    } else {
-                                        Icon(
-                                            Icons.Filled.MusicNote,
-                                            contentDescription = label.ifBlank { null },
-                                            tint = muted,
-                                            modifier = Modifier.size(sz * 0.55f).graphicsLayer { this.alpha = alpha }
-                                        )
+                                    Box(modifier = Modifier.size(58.dp), contentAlignment = Alignment.Center) {
+                                        val target = if (i == curI) 56.dp else 48.dp
+                                        val sz by androidx.compose.animation.core.animateDpAsState(target, label = "stripSz")
+                                        val alpha by androidx.compose.animation.core.animateFloatAsState(if (i == curI) 1f else 0.72f, label = "stripA")
+                                        if (u.startsWith("http") || u.startsWith("content:")) {
+                                            AsyncImage(
+                                                model = u,
+                                                contentDescription = label.ifBlank { null },
+                                                modifier = Modifier
+                                                    .size(sz)
+                                                    .graphicsLayer { this.alpha = alpha }
+                                                    .clip(RoundedCornerShape(10.dp)),
+                                                contentScale = ContentScale.Crop
+                                            )
+                                        } else {
+                                            Icon(
+                                                Icons.Filled.MusicNote,
+                                                contentDescription = label.ifBlank { null },
+                                                tint = muted,
+                                                modifier = Modifier.size(sz * 0.55f).graphicsLayer { this.alpha = alpha }
+                                            )
+                                        }
                                     }
+                                    Text(
+                                        label,
+                                        color = if (i == curI) text else muted,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                        modifier = Modifier.padding(top = 2.dp).fillMaxWidth()
+                                    )
                                 }
                             }
                         }

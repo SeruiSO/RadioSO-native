@@ -2910,11 +2910,11 @@ fun StationScreen(
                 ) {
                     HorizontalPager(
                         state = pagerState,
-                        contentPadding = PaddingValues(horizontal = 40.dp),
-                        pageSpacing = 12.dp,
+                        contentPadding = PaddingValues(horizontal = 28.dp),
+                        pageSpacing = 16.dp,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(318.dp),
+                            .height(308.dp),
                         key = { page ->
                             if (nowLocal) nowLocalRows.getOrNull(page)?.uri ?: "L$page"
                             else nowRadioRows.getOrNull(page)?.url ?: "R$page"
@@ -2922,8 +2922,8 @@ fun StationScreen(
                     ) { page ->
                         val dist = (pagerState.currentPage - page) + pagerState.currentPageOffsetFraction
                         val abs = kotlin.math.abs(dist).coerceIn(0f, 1f)
-                        val scale = 1f - 0.14f * abs
-                        val alpha = 1f - 0.38f * abs
+                        val scale = 1f - 0.10f * abs
+                        val alpha = 1f - 0.32f * abs
                         Box(
                             modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center
@@ -2938,8 +2938,8 @@ fun StationScreen(
                                     }
                                     .background(
                                         Brush.radialGradient(
-                                            colors = listOf(acc.copy(alpha = 0.35f), Color.Transparent),
-                                            radius = 420f
+                                            colors = listOf(acc.copy(alpha = 0.18f), Color.Transparent),
+                                            radius = 380f
                                         )
                                     ),
                                 contentAlignment = Alignment.Center
@@ -3042,7 +3042,7 @@ fun StationScreen(
                             name,
                             color = text,
                             style = MaterialTheme.typography.titleLarge,
-                            maxLines = 2,
+                            maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f)
                         )
@@ -3087,7 +3087,7 @@ fun StationScreen(
                         }
                     }
                     Text(
-                        if (track.isBlank()) LocalContext.current.getString(R.string.track_unknown2) else track,
+                        if (track.isNotBlank()) track else if (genre.isNotBlank()) genre else "",
                         color = muted,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
@@ -3163,28 +3163,32 @@ fun StationScreen(
                         }
                     }
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(top = 4.dp, bottom = 6.dp)) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(20.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)
+                ) {
                     if (canSkip) {
                     Box(
                         modifier = Modifier
-                            .size(80.dp)
-                            .background(Palette.panel, RoundedCornerShape(16.dp))
+                            .size(68.dp)
+                            .background(Palette.panel.copy(alpha = 0.85f), RoundedCornerShape(16.dp))
                             .springPress { skipUi(false) },
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Filled.SkipPrevious, contentDescription = LocalContext.current.getString(R.string.prev_station), tint = text, modifier = Modifier.size(40.dp))
+                        Icon(Icons.Filled.SkipPrevious, contentDescription = LocalContext.current.getString(R.string.prev_station), tint = text, modifier = Modifier.size(32.dp))
                     }
                     }
-                    PlayBtn(playing = playing, status = status, sizeDp = 80.dp, onClick = onPlayPause)
+                    PlayBtn(playing = playing, status = status, sizeDp = 92.dp, onClick = onPlayPause)
                     if (canSkip) {
                     Box(
                         modifier = Modifier
-                            .size(80.dp)
-                            .background(Palette.panel, RoundedCornerShape(16.dp))
+                            .size(68.dp)
+                            .background(Palette.panel.copy(alpha = 0.85f), RoundedCornerShape(16.dp))
                             .springPress { skipUi(true) },
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Filled.SkipNext, contentDescription = LocalContext.current.getString(R.string.next_station), tint = text, modifier = Modifier.size(40.dp))
+                        Icon(Icons.Filled.SkipNext, contentDescription = LocalContext.current.getString(R.string.next_station), tint = text, modifier = Modifier.size(32.dp))
                     }
                     }
                 }

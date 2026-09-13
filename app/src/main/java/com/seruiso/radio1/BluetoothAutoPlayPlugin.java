@@ -44,6 +44,8 @@ public class BluetoothAutoPlayPlugin {
     public static final String KEY_ORDER_FAV = "order_fav";
     public static final String KEY_ORDER_BEST_URIS = "order_best_uris";
     public static final String KEY_LAST_A2DP_MS = "lastA2dpConnectMs";
+    /** Користувач натиснув паузу, поки BT ще підключений — не автостартити, доки BT не розʼєднається. */
+    public static final String KEY_USER_PAUSED_BT = "userPausedWhileBt";
     public static final String KEY_CURRENT_TAB = "currentTab";
     public static final String KEY_BOTTOM_TAB = "bottomTab";
     public static final String KEY_UI_LIGHT = "uiLightTheme";

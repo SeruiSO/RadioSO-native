@@ -1891,9 +1891,11 @@ fun StationScreen(
     LaunchedEffect(nowOpen) {
         if (nowOpen) {
             sheetShow = true
+            // Варіант B: старт з «міні»-висоти внизу, далі spring на повний sheet
+            if (pullA.value > 500f) pullA.snapTo(420f)
             pullA.animateTo(
                 0f,
-                spring(dampingRatio = 0.85f, stiffness = 400f),
+                spring(dampingRatio = 0.90f, stiffness = 380f),
             )
         } else if (!sheetShow) {
             pullA.snapTo(560f)
@@ -2357,7 +2359,7 @@ fun StationScreen(
                         if (!nowOpen) {
                             sheetScope.launch {
                                 if (pullA.value < 300f) {
-                                    pullA.animateTo(0f, spring(dampingRatio = 0.85f, stiffness = 400f))
+                                    pullA.animateTo(0f, spring(dampingRatio = 0.90f, stiffness = 380f))
                                     onNow()
                                 } else {
                                     pullA.animateTo(560f, tween(300))
@@ -2450,7 +2452,7 @@ fun StationScreen(
                 if (!nowOpen) {
                     sheetScope.launch {
                         if (pullA.value < 300f) {
-                            pullA.animateTo(0f, spring(dampingRatio = 0.85f, stiffness = 400f))
+                            pullA.animateTo(0f, spring(dampingRatio = 0.90f, stiffness = 380f))
                             onNow()
                         } else {
                             pullA.animateTo(560f, tween(300))
@@ -2856,11 +2858,12 @@ fun StationScreen(
                     .fillMaxWidth()
                     .fillMaxHeight(0.78f)
                     .graphicsLayer {
+                        // B: в основному зсув знизу; scale майже 1; легкий fade лише коли далеко
                         translationY = pullA.value
                         val p = (pullA.value / 560f).coerceIn(0f, 1f)
-                        val sc = (1f - p * 0.08f).coerceIn(0.92f, 1f)
+                        val sc = (1f - p * 0.02f).coerceIn(0.98f, 1f)
                         scaleX = sc; scaleY = sc
-                        alpha = 1f - p
+                        alpha = (1f - p * 0.25f).coerceIn(0.75f, 1f)
                         transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 1f)
                     }
                     .clip(RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp))
@@ -2898,7 +2901,7 @@ fun StationScreen(
                                             pullA.animateTo(560f, tween(300))
                                             sheetShow = false
                                             onNowClose()
-                                        } else pullA.animateTo(0f, spring(dampingRatio = 0.85f, stiffness = 400f))
+                                        } else pullA.animateTo(0f, spring(dampingRatio = 0.90f, stiffness = 380f))
                                     }
                                 }
                             ) { _, drag -> sheetScope.launch { pullA.snapTo((pullA.value + drag).coerceIn(0f, 560f)) } }
@@ -2915,11 +2918,11 @@ fun StationScreen(
                 ) {
                     HorizontalPager(
                         state = pagerState,
-                        contentPadding = PaddingValues(horizontal = 14.dp),
-                        pageSpacing = 8.dp,
+                        contentPadding = PaddingValues(horizontal = 10.dp),
+                        pageSpacing = 6.dp,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(340.dp),
+                            .height(380.dp),
                         key = { page ->
                             if (nowLocal) nowLocalRows.getOrNull(page)?.uri ?: "L$page"
                             else nowRadioRows.getOrNull(page)?.url ?: "R$page"
@@ -2935,7 +2938,7 @@ fun StationScreen(
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(328.dp)
+                                    .size(360.dp)
                                     .graphicsLayer {
                                         scaleX = scale
                                         scaleY = scale
@@ -2951,7 +2954,7 @@ fun StationScreen(
                             ) {
                             Box(
                                 modifier = Modifier
-                                    .size(328.dp)
+                                    .size(360.dp)
                                     .graphicsLayer {
                                         scaleX = scale
                                         scaleY = scale
@@ -2982,13 +2985,13 @@ fun StationScreen(
                                     photo != null -> AsyncImage(
                                         model = photo,
                                         contentDescription = null,
-                                        modifier = Modifier.size(328.dp).clip(AppShapes.card),
+                                        modifier = Modifier.size(360.dp).clip(AppShapes.card),
                                         contentScale = ContentScale.Crop
                                     )
                                     fallbackArt.startsWith("http") || fallbackArt.startsWith("content:") -> AsyncImage(
                                         model = fallbackArt,
                                         contentDescription = null,
-                                        modifier = Modifier.size(328.dp).clip(AppShapes.card),
+                                        modifier = Modifier.size(360.dp).clip(AppShapes.card),
                                         contentScale = ContentScale.Crop
                                     )
                                     else -> Icon(Icons.Filled.MusicNote, contentDescription = null, tint = muted, modifier = Modifier.size(96.dp))
@@ -3036,75 +3039,10 @@ fun StationScreen(
                             }
                         } else Modifier
 
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 4.dp)
-                            .then(pagerDragModifier),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            name,
-                            color = text,
-                            style = MaterialTheme.typography.titleLarge,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                            modifier = Modifier.weight(1f)
-                        )
-                        val isLocalCard = currentUrl.startsWith("content:")
-                        if (isLocalCard) {
-                            val on = bestUris.contains(currentUrl)
-                            Icon(
-                                if (on) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                                contentDescription = if (on) LocalContext.current.getString(R.string.remove_from_local_fav) else LocalContext.current.getString(R.string.add_to_local_fav),
-                                tint = acc,
-                                modifier = Modifier
-                                    .padding(start = 8.dp)
-                                    .size(28.dp)
-                                    .springPress(0.75f) {
-                                        val t = localRows.firstOrNull { it.uri == currentUrl }
-                                            ?: bestRows.firstOrNull { it.uri == currentUrl }
-                                        if (t != null) onToggleBest(t)
-                                    }
-                            )
-                        } else {
-                            val on = favUrls.contains(currentUrl)
-                            Icon(
-                                if (on) Icons.Filled.Star else Icons.Filled.StarBorder,
-                                contentDescription = if (on) LocalContext.current.getString(R.string.remove_from_favorites) else LocalContext.current.getString(R.string.add_to_favorites),
-                                tint = acc,
-                                modifier = Modifier
-                                    .padding(start = 8.dp)
-                                    .size(28.dp)
-                                    .springPress(0.75f) {
-                                        onToggleFav(
-                                            Station(
-                                                currentUrl,
-                                                name,
-                                                genre,
-                                                country,
-                                                favicon,
-                                                "fav"
-                                            )
-                                        )
-                                    }
-                            )
-                        }
-                    }
-                    Text(
-                        if (track.isNotBlank()) track else if (genre.isNotBlank()) genre else "",
-                        color = muted,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 2.dp, bottom = 2.dp)
-                            .then(pagerDragModifier)
-                    )
                 }
+                // Назву станції / ICY прибрано з sheet — видно в інфо-панелі. Місце → карусель.
+                // Local: повзунок + shuffle/repeat лишаються.
                 if (isLocalNow || currentUrl.startsWith("content:")) {
-                    // shuffle | час | прогрес | тривалість | repeat — один ряд, без зайвої вертикалі
                     MiniProgressBar(
                         posMs, durMs, acc, muted, onSeek,
                         onShuffle = onShuffle,

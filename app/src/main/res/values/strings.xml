@@ -153,4 +153,9 @@
     <string name="status_reconnect">повторне підключення</string>
     <string name="status_buffering">буферизація</string>
     <string name="notif_channel_desc">Відтворення радіо та стеження за Bluetooth</string>
+
+    <string name="notif_playing_prefix">Грає: %1$s</string>
+    <string name="notif_paused_bt_on">На паузі · BT стеження увімк</string>
+    <string name="notif_paused_bt_off">На паузі · BT стеження вимк</string>
 </resources>
+

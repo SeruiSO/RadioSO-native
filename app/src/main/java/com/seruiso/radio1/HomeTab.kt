@@ -14,8 +14,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -50,11 +48,6 @@ fun HomeTabContent(
     onPickOneRadio: (List<Station>, Int) -> Unit = { _, _ -> },
     onPlayNow: () -> Unit,
     currentUrl: String = "",
-    nowName: String = "",
-    nowGenre: String = "",
-    nowArt: String = "",
-    nowPlaying: Boolean = false,
-    onPlayPause: () -> Unit = {},
 ) {
     val recent10 = recent.take(10)
     val similar10 = similar.take(10)

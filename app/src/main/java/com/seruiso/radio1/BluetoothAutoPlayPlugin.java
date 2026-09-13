@@ -13,10 +13,8 @@ public class BluetoothAutoPlayPlugin {
     public static final String KEY_QUEUE_GENRES = "queueGenres";
     public static final String KEY_QUEUE_COUNTRIES = "queueCountries";
     public static final String KEY_BT_WATCH = "btWatchEnabled";
-    /** true, коли активна сесія Android Auto (RadioAutoService підключений браузером). */
+    /** true, коли активна сесія Android Auto (RadioWatchService підключений браузером). */
     public static final String KEY_AA_ACTIVE = "androidAutoActive";
-    /** @deprecated legacy alias of KEY_IS_PLAYING — do not read; still written by PlaybackPrefs. */
-    public static final String KEY_ACTUALLY_PLAYING = "actuallyPlaying";
     /** Canonical reported playing for UI/reconnect. */
     public static final String KEY_IS_PLAYING = "isPlaying";
     public static final String KEY_TRACK = "lastTrackTitle";

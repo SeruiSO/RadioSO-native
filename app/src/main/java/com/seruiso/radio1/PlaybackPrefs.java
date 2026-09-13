@@ -6,7 +6,6 @@ import android.content.SharedPreferences;
 /**
  * Single place for intended / reported playback flags.
  * KEY_PLAY = intended; KEY_IS_PLAYING = reported (canonical).
- * KEY_ACTUALLY_PLAYING — legacy alias, still written for old readers, do not use for new reads.
  */
 public final class PlaybackPrefs {
     private PlaybackPrefs() {}
@@ -25,12 +24,11 @@ public final class PlaybackPrefs {
         } catch (Exception ignored) {}
     }
 
-    /** Reported playing for UI. Writes canonical KEY_IS_PLAYING (+ legacy alias). */
+    /** Reported playing for UI (canonical KEY_IS_PLAYING). */
     public static void reportPlaying(Context ctx, boolean playing) {
         try {
             p(ctx).edit()
                 .putBoolean(BluetoothAutoPlayPlugin.KEY_IS_PLAYING, playing)
-                .putBoolean(BluetoothAutoPlayPlugin.KEY_ACTUALLY_PLAYING, playing) // legacy
                 .apply();
         } catch (Exception ignored) {}
     }
@@ -45,7 +43,6 @@ public final class PlaybackPrefs {
             p(ctx).edit()
                 .putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, false)
                 .putBoolean(BluetoothAutoPlayPlugin.KEY_IS_PLAYING, false)
-                .putBoolean(BluetoothAutoPlayPlugin.KEY_ACTUALLY_PLAYING, false)
                 .commit();
         } catch (Exception ignored) {}
     }

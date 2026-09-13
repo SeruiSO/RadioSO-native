@@ -30,9 +30,12 @@ public final class RadioNotificationFactory {
         String body;
         if (playing) {
             body = (lastTrackTitle != null && !lastTrackTitle.isEmpty())
-                ? name + " · " + lastTrackTitle : "Грає: " + name;
+                ? name + " · " + lastTrackTitle
+                : ctx.getString(R.string.notif_playing_prefix, name);
         } else {
-            body = btWatchEnabled ? "На паузі · BT стеження увімк" : "На паузі · BT стеження вимк";
+            body = btWatchEnabled
+                ? ctx.getString(R.string.notif_paused_bt_on)
+                : ctx.getString(R.string.notif_paused_bt_off);
         }
 
         NotificationCompat.Builder b = new NotificationCompat.Builder(ctx, channelId)

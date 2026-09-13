@@ -2101,11 +2101,6 @@ fun StationScreen(
                     onPickOneRadio = onPickOneRadio,
                     onPlayNow = { onCloseMenu(); onNow() },
                     currentUrl = currentUrl,
-                    nowName = name,
-                    nowGenre = genre,
-                    nowArt = favicon,
-                    nowPlaying = playing,
-                    onPlayPause = onPlayPause,
                 )
             }
         } else {

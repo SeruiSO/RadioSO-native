@@ -2904,8 +2904,8 @@ fun StationScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     // Radio: велика картка як була. Local (серце/музика): компактніше під прогрес+мета.
-                    val npArt = if (nowLocal) 200.dp else 300.dp
-                    val npPagerH = if (nowLocal) 214.dp else 318.dp
+                    val npArt = if (nowLocal) 248.dp else 300.dp
+                    val npPagerH = if (nowLocal) 262.dp else 318.dp
                     HorizontalPager(
                         state = pagerState,
                         contentPadding = PaddingValues(horizontal = if (nowLocal) 48.dp else 40.dp),

@@ -187,7 +187,7 @@ import androidx.compose.ui.text.font.FontWeight
 
 
 /** Підписи вкладок (UA) — top-level, щоб StationScreen теж бачив */
-private fun tabLabel(ctx: android.content.Context, tab: String): String = when (tab.lowercase()) {
+fun tabLabel(ctx: android.content.Context, tab: String): String = when (tab.lowercase()) {
     "fav" -> ctx.getString(R.string.favorites)
     "best" -> ctx.getString(R.string.local_best_short)
     "local" -> ctx.getString(R.string.tab_local)

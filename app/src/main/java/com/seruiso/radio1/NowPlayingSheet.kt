@@ -1,0 +1,378 @@
+package com.seruiso.radio1
+
+import android.graphics.drawable.BitmapDrawable
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.BlurredEdgeTreatment
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import coil.imageLoader
+import coil.request.ImageRequest
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import androidx.palette.graphics.Palette as SwatchPalette
+
+/**
+ * Now-playing bottom sheet: pullA/sheetShow + pager + meta + progress + strip + transport.
+ * Мутації pullA/sheetShow — через параметри (host тримає state, бо списки теж чіпають).
+ */
+@Composable
+fun NowPlayingSheet(
+    nowOpen: Boolean,
+    sheetShow: Boolean,
+    pullA: Animatable<Float, *>,
+    onSheetShow: (Boolean) -> Unit,
+    onNowClose: () -> Unit,
+    isLocalNow: Boolean,
+    currentUrl: String,
+    showLocal: Boolean,
+    localRows: List<LocalTrack>,
+    bestRows: List<LocalTrack>,
+    radioRows: List<Station>,
+    tempRows: List<Station>,
+    skipMode: String,
+    name: String,
+    track: String,
+    genre: String,
+    country: String,
+    favicon: String,
+    favUrls: Set<String>,
+    bestUris: Set<String>,
+    posMs: Long,
+    durMs: Long,
+    canSkip: Boolean,
+    playing: Boolean,
+    status: String,
+    acc: Color,
+    text: Color,
+    muted: Color,
+    onPickLocal: (List<LocalTrack>, Int) -> Unit,
+    onPickRadio: (List<Station>, Int) -> Unit,
+    onPickOneRadio: (List<Station>, Int) -> Unit,
+    onToggleFav: (Station) -> Unit,
+    onToggleBest: (LocalTrack) -> Unit,
+    onSeek: (Long) -> Unit,
+    onShuffle: (() -> Unit)?,
+    onRepeat: (() -> Unit)?,
+    onPlayPause: () -> Unit,
+    skipUi: (Boolean) -> Unit,
+) {
+    if (!(nowOpen || sheetShow)) return
+    val sheetScope = rememberCoroutineScope()
+    Box(modifier = Modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                // без затемнення — інфо-панель зверху лишається читабельною
+                .clickable {
+                    sheetScope.launch {
+                        pullA.animateTo(560f, tween(300))
+                        onSheetShow(false)
+                        onNowClose()
+                    }
+                }
+        )
+        val nowLocal = isLocalNow || currentUrl.startsWith("content:")
+        val nowLocalRows = when {
+            showLocal -> localRows
+            nowLocal && bestRows.isNotEmpty() -> bestRows
+            else -> localRows
+        }
+        val nowRadioRows = when {
+            // temp = ізольована черга (історія / схожі на Home) — skip лише по ній
+            skipMode == "temp" && tempRows.isNotEmpty() -> tempRows
+            else -> radioRows
+        }
+        val arts: List<String> = if (nowLocal) {
+            nowLocalRows.map { if (it.albumId.isNotBlank() && it.albumId != "0") "content://media/external/audio/albumart/${it.albumId}" else "" }
+        } else nowRadioRows.map { it.favicon }
+        val curI0 = if (nowLocal) nowLocalRows.indexOfFirst { it.uri == currentUrl }
+                    else nowRadioRows.indexOfFirst { it.url == currentUrl }
+        val curI = if (curI0 >= 0) curI0 else 0
+        // Динамічний колір з поточної обкладинки (як у Spotify) — для розмитого фону картки Now Playing
+        val artCtx = LocalContext.current
+        val currentArt = arts.getOrNull(curI) ?: ""
+        var dynamicArtColor by remember { mutableStateOf<Color?>(null) }
+        LaunchedEffect(currentArt) {
+            if (currentArt.startsWith("http") || currentArt.startsWith("content:")) {
+                try {
+                    val extracted = withContext(Dispatchers.IO) {
+                        val req = ImageRequest.Builder(artCtx).data(currentArt).allowHardware(false).size(120, 120).build()
+                        val result = artCtx.imageLoader.execute(req)
+                        val bmp = (result.drawable as? BitmapDrawable)?.bitmap
+                        if (bmp != null) {
+                            val sw = SwatchPalette.from(bmp).generate()
+                            val c = sw.vibrantSwatch?.rgb ?: sw.dominantSwatch?.rgb ?: sw.mutedSwatch?.rgb
+                            if (c != null) Color(c) else null
+                        } else null
+                    }
+                    dynamicArtColor = extracted
+                } catch (e: Exception) {
+                    dynamicArtColor = null
+                }
+            } else dynamicArtColor = null
+        }
+        val dynamicBg by animateColorAsState(
+            targetValue = dynamicArtColor ?: acc,
+            animationSpec = tween(650),
+            label = "dynamicBg"
+        )
+        val stripState = rememberLazyListState()
+        val pageCount = arts.size.coerceAtLeast(1)
+        val pagerState = rememberPagerState(
+            initialPage = curI.coerceIn(0, pageCount - 1)
+        ) { pageCount }
+        var pagerUserDrag by remember { mutableStateOf(false) }
+        var pagerIgnorePick by remember { mutableStateOf(true) }
+        // Зовнішня зміна / перше відкриття — snap БЕЗ play
+        LaunchedEffect(curI, pageCount) {
+            pagerIgnorePick = true
+            val target = curI.coerceIn(0, (pageCount - 1).coerceAtLeast(0))
+            if (pagerState.settledPage != target) {
+                pagerState.scrollToPage(target)
+            }
+            pagerIgnorePick = false
+        }
+        // Лише жест користувача по пейджеру змінює станцію
+        LaunchedEffect(pagerState.settledPage) {
+            if (pagerIgnorePick) return@LaunchedEffect
+            val i = pagerState.settledPage
+            if (i == curI) return@LaunchedEffect
+            if (arts.isEmpty()) return@LaunchedEffect
+            if (nowLocal) {
+                if (i in nowLocalRows.indices && nowLocalRows[i].uri != currentUrl) {
+                    onPickLocal(nowLocalRows, i)
+                }
+            } else if (i in nowRadioRows.indices && nowRadioRows[i].url != currentUrl) {
+                if (skipMode == "temp") onPickOneRadio(nowRadioRows, i)
+                else onPickRadio(nowRadioRows, i)
+            }
+        }
+        LaunchedEffect(curI, arts.size) {
+            if (arts.isNotEmpty()) stripState.animateScrollToItem(curI)
+        }
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .fillMaxHeight(0.78f)
+                .graphicsLayer {
+                    translationY = pullA.value
+                    val sc = (1f - pullA.value / 900f).coerceIn(0.45f, 1f)
+                    scaleX = sc; scaleY = sc
+                    transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 1f)
+                }
+                .clip(RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp))
+                .background(Palette.card)
+        ) {
+            // Розмитий кольоровий фон з поточної обкладинки (dynamic color, ефект як у Spotify)
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.radialGradient(
+                            colors = listOf(
+                                dynamicBg.copy(alpha = 0.55f),
+                                dynamicBg.copy(alpha = 0.20f),
+                                Color.Transparent
+                            ),
+                            radius = 1100f
+                        )
+                    )
+                    // 80dp+Unbounded було найважчим ефектом у застосунку (GPU blur на весь екран
+                    // кожен кадр, поки відкрито Now Playing). 36dp+Rectangle — той самий візуальний
+                    // ефект (розмите кольорове підсвічування), помітно дешевше для GPU.
+                    .blur(36.dp, BlurredEdgeTreatment.Rectangle)
+            )
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                    .pointerInput(Unit) {
+                        detectVerticalDragGestures(
+                            onDragEnd = {
+                                sheetScope.launch {
+                                    if (pullA.value > 140f) {
+                                        pullA.animateTo(560f, tween(280))
+                                        onSheetShow(false)
+                                        onNowClose()
+                                    } else pullA.animateTo(0f, tween(280))
+                                }
+                            }
+                        ) { _, drag -> sheetScope.launch { pullA.snapTo((pullA.value + drag).coerceIn(0f, 560f)) } }
+                    },
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(modifier = Modifier.padding(bottom = 8.dp).width(40.dp).height(4.dp).background(muted, RoundedCornerShape(2.dp)))
+                // Page-style: сусідні обкладинки видно, свайп як ViewPager
+                Column(
+                    modifier = Modifier
+                        .weight(1f, fill = true)
+                        .fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    val pageKeys = List(
+                        if (nowLocal) nowLocalRows.size else nowRadioRows.size
+                    ) { page ->
+                        if (nowLocal) nowLocalRows.getOrNull(page)?.uri ?: "L$page"
+                        else nowRadioRows.getOrNull(page)?.url ?: "R$page"
+                    }
+                    NowPlayingPager(
+                        pagerState = pagerState,
+                        nowLocal = nowLocal,
+                        pageKeys = pageKeys,
+                        arts = arts,
+                        currentUrl = currentUrl,
+                        track = track,
+                        pageArtistFor = { page ->
+                            if (nowLocal) nowLocalRows.getOrNull(page)?.artist ?: ""
+                            else artistFromTrackTitle(track)
+                        },
+                        acc = acc,
+                        muted = muted,
+                    )
+                    val pagerDragModifier: Modifier =
+                        if (!nowLocal && arts.isNotEmpty()) {
+                            Modifier.pointerInput(currentUrl, pageCount) {
+                                detectHorizontalDragGestures(
+                                    onDragStart = { pagerUserDrag = true },
+                                    onDragEnd = {
+                                        val page = pagerState.currentPage
+                                        val off = pagerState.currentPageOffsetFraction
+                                        val target = when {
+                                            off > 0.28f -> (page + 1).coerceAtMost(pageCount - 1)
+                                            off < -0.28f -> (page - 1).coerceAtLeast(0)
+                                            else -> page
+                                        }
+                                        sheetScope.launch {
+                                            pagerState.animateScrollToPage(target)
+                                            pagerUserDrag = false
+                                            // зміна станції лише після відпускання
+                                            if (nowLocal) {
+                                                if (target in nowLocalRows.indices && nowLocalRows[target].uri != currentUrl)
+                                                    onPickLocal(nowLocalRows, target)
+                                            } else if (target in nowRadioRows.indices && nowRadioRows[target].url != currentUrl) {
+                                                if (skipMode == "temp") onPickOneRadio(nowRadioRows, target)
+                                                else onPickRadio(nowRadioRows, target)
+                                            }
+                                        }
+                                    },
+                                    onDragCancel = {
+                                        sheetScope.launch {
+                                            pagerState.animateScrollToPage(pagerState.currentPage)
+                                            pagerUserDrag = false
+                                        }
+                                    }
+                                ) { _, drag ->
+                                    // синхронно за пальцем, без окремих launch-гонок
+                                    pagerState.dispatchRawDelta(-drag)
+                                }
+                            }
+                        } else Modifier
+
+                    NowPlayingMeta(
+                        name = name,
+                        track = track,
+                        currentUrl = currentUrl,
+                        isFavorite = favUrls.contains(currentUrl),
+                        isBest = bestUris.contains(currentUrl),
+                        acc = acc,
+                        text = text,
+                        muted = muted,
+                        pagerDragModifier = pagerDragModifier,
+                        onToggleFavorite = {
+                            onToggleFav(
+                                Station(currentUrl, name, genre, country, favicon, "fav")
+                            )
+                        },
+                        onToggleBest = {
+                            val tr = localRows.firstOrNull { it.uri == currentUrl }
+                                ?: bestRows.firstOrNull { it.uri == currentUrl }
+                            if (tr != null) onToggleBest(tr)
+                        },
+                    )
+                }
+                if (isLocalNow || currentUrl.startsWith("content:")) {
+                    NowPlayingLocalProgress(
+                        posMs = posMs,
+                        durMs = durMs,
+                        acc = acc,
+                        muted = muted,
+                        text = text,
+                        onSeek = onSeek,
+                        onShuffle = onShuffle,
+                        onRepeat = onRepeat,
+                    )
+                }
+                val stripLabels = List(arts.size) { i ->
+                    when {
+                        nowLocal && i in nowLocalRows.indices -> nowLocalRows[i].title
+                        i in nowRadioRows.indices -> nowRadioRows[i].name
+                        i in radioRows.indices -> radioRows[i].name
+                        else -> ""
+                    }
+                }
+                NowPlayingStrip(
+                    arts = arts,
+                    labels = stripLabels,
+                    curI = curI,
+                    nowLocal = nowLocal,
+                    stripState = stripState,
+                    muted = muted,
+                    text = text,
+                    onPick = { i ->
+                        if (nowLocal && i in nowLocalRows.indices) onPickLocal(nowLocalRows, i)
+                        else if (i in nowRadioRows.indices) {
+                            if (skipMode == "temp") onPickOneRadio(nowRadioRows, i)
+                            else onPickRadio(nowRadioRows, i)
+                        }
+                    },
+                )
+                NowPlayingTransport(
+                    canSkip = canSkip,
+                    playing = playing,
+                    status = status,
+                    acc = acc,
+                    text = text,
+                    onPlayPause = onPlayPause,
+                    onPrev = { skipUi(false) },
+                    onNext = { skipUi(true) },
+                )
+            }
+        }
+    }
+}

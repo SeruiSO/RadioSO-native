@@ -2198,6 +2198,7 @@ fun StationScreen(
         acc = acc,
         text = text,
     )
+    }
     if (pickStation != null) {
         AlertDialog(
             containerColor = card,

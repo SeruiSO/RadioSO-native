@@ -115,8 +115,9 @@ object TabStore {
         val name = rawNew.trim().lowercase()
         if (name.isEmpty()) return ctx.getString(R.string.err_enter_name)
         if (name == old) return null
-        if (name.length > 10 || !name.matches(Regex("^[a-z0-9_-]+$"))) {
-            return ctx.getString(R.string.err_tab_chars_en)
+        // латиниця + українські літери (як у addTab)
+        if (name.length > 10 || !name.matches(Regex("^[a-z0-9_а-яіїєґ-]+$"))) {
+            return ctx.getString(R.string.err_tab_chars)
         }
         val cur = customTabs(ctx).toMutableList()
         val builtInLower = builtInTabs.map { it.lowercase() }

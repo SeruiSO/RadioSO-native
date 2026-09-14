@@ -89,10 +89,17 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
                     .background(when { dropAt == index -> acc.copy(alpha = 0.40f); s.url == currentUrl -> acc.copy(alpha = 0.18f); else -> card }, RoundedCornerShape(12.dp))
                     .pointerInput(s.url, index) {
                         var accDrag = 0f
+                        var localDrop = index
                         detectDragGesturesAfterLongPress(
-                            onDragStart = { accDrag = 0f; onDropAt(index); onDragging(true); onDragStart() },
+                            onDragStart = {
+                                accDrag = 0f
+                                localDrop = index
+                                onDropAt(index)
+                                onDragging(true)
+                                onDragStart()
+                            },
                             onDragEnd = {
-                                val dest = dropAt.coerceIn(0, radioRows.lastIndex)
+                                val dest = localDrop.coerceIn(0, radioRows.lastIndex)
                                 if (dest != index) onMoveTo(index, dest)
                                 accDrag = 0f
                                 onDropAt(-1)
@@ -101,7 +108,8 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
                             onDragCancel = { accDrag = 0f; onDropAt(-1); onDragging(false) }
                         ) { _, drag ->
                             accDrag += drag.y
-                            onDropAt((index + (accDrag / 168f).toInt()).coerceIn(0, radioRows.lastIndex))
+                            localDrop = (index + (accDrag / 168f).toInt()).coerceIn(0, radioRows.lastIndex)
+                            onDropAt(localDrop)
                         }
                     }
                     .padding(10.dp),

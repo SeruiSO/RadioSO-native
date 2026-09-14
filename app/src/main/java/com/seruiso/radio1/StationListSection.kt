@@ -38,14 +38,34 @@ import coil.compose.AsyncImage
  * Список радіо-станцій (+ appendix local favorites для heart/library).
  * Reorder long-press: dropAt/dragging з host (спільні з local-списком).
  */
+
+/**
+ * Колбеки списків radio + local (окремо від даних).
+ * Один клас на обидва секції: local використовує підмножину.
+ */
+data class LibraryActions(
+    val onDropAt: (Int) -> Unit,
+    val onDragging: (Boolean) -> Unit,
+    val onDragStart: () -> Unit,
+    val onMoveTo: (Int, Int) -> Unit,
+    val onMoveLocalTo: (Int, Int) -> Unit,
+    val onPickRadio: (List<Station>, Int) -> Unit,
+    val onPickLocal: (List<LocalTrack>, Int) -> Unit,
+    val onNow: () -> Unit,
+    val onToggleFav: (Station) -> Unit,
+    val onAskDelete: (Station) -> Unit,
+    val onAddToTab: (Station) -> Unit,
+    val onMore: () -> Unit,
+    val onToggleBest: (LocalTrack) -> Unit,
+)
+
 @Composable
 fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
     radioRows: List<Station>,
     listState: LazyListState,
     dragging: Boolean,
     dropAt: Int,
-    onDropAt: (Int) -> Unit,
-    onDragging: (Boolean) -> Unit,
+    actions: LibraryActions,
     currentUrl: String,
     tabs: List<String>,
     tabIndex: Int,
@@ -57,16 +77,6 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
     muted: Color,
     text: Color,
     card: Color,
-    onDragStart: () -> Unit,
-    onMoveTo: (Int, Int) -> Unit,
-    onPickRadio: (List<Station>, Int) -> Unit,
-    onNow: () -> Unit,
-    onToggleFav: (Station) -> Unit,
-    onAskDelete: (Station) -> Unit,
-    onAddToTab: (Station) -> Unit,
-    onMore: () -> Unit,
-    onPickLocal: (List<LocalTrack>, Int) -> Unit,
-    onToggleBest: (LocalTrack) -> Unit,
 ) {
     LazyColumn(modifier = Modifier.weight(1f), state = listState, userScrollEnabled = !dragging) {
         if (radioRows.isEmpty()) {
@@ -94,22 +104,22 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
                             onDragStart = {
                                 accDrag = 0f
                                 localDrop = index
-                                onDropAt(index)
-                                onDragging(true)
-                                onDragStart()
+                                actions.onDropAt(index)
+                                actions.onDragging(true)
+                                actions.onDragStart()
                             },
                             onDragEnd = {
                                 val dest = localDrop.coerceIn(0, radioRows.lastIndex)
-                                if (dest != index) onMoveTo(index, dest)
+                                if (dest != index) actions.onMoveTo(index, dest)
                                 accDrag = 0f
-                                onDropAt(-1)
-                                onDragging(false)
+                                actions.onDropAt(-1)
+                                actions.onDragging(false)
                             },
-                            onDragCancel = { accDrag = 0f; onDropAt(-1); onDragging(false) }
+                            onDragCancel = { accDrag = 0f; actions.onDropAt(-1); actions.onDragging(false) }
                         ) { _, drag ->
                             accDrag += drag.y
                             localDrop = (index + (accDrag / 168f).toInt()).coerceIn(0, radioRows.lastIndex)
-                            onDropAt(localDrop)
+                            actions.onDropAt(localDrop)
                         }
                     }
                     .padding(10.dp),
@@ -120,8 +130,8 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
                     modifier = Modifier
                         .size(48.dp)
                         .clickable {
-                            if (s.url != currentUrl) onPickRadio(radioRows, index)
-                            onNow()
+                            if (s.url != currentUrl) actions.onPickRadio(radioRows, index)
+                            actions.onNow()
                         },
                     contentAlignment = Alignment.Center
                 ) {
@@ -134,33 +144,33 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
                     modifier = Modifier
                         .padding(start = 8.dp)
                         .weight(1f)
-                        .clickable { onPickRadio(radioRows, index) }
+                        .clickable { actions.onPickRadio(radioRows, index) }
                 ) {
                     Text(s.name, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text("${s.genre} · ${s.country}", color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
                 }
                 if (tabs.getOrNull(tabIndex) == "search") {
-                    Text("+", color = acc, modifier = Modifier.clickable { onAddToTab(s) }.padding(start = 8.dp), style = MaterialTheme.typography.headlineMedium)
+                    Text("+", color = acc, modifier = Modifier.clickable { actions.onAddToTab(s) }.padding(start = 8.dp), style = MaterialTheme.typography.headlineMedium)
                 } else {
                     Icon(
                         if (favUrls.contains(s.url)) Icons.Filled.Star else Icons.Filled.StarBorder,
                         contentDescription = if (favUrls.contains(s.url)) LocalContext.current.getString(R.string.remove_from_favorites) else LocalContext.current.getString(R.string.add_to_favorites),
                         tint = acc,
-                        modifier = Modifier.clickable { onToggleFav(s) }.padding(start = 8.dp, end = 2.dp).size(24.dp)
+                        modifier = Modifier.clickable { actions.onToggleFav(s) }.padding(start = 8.dp, end = 2.dp).size(24.dp)
                     )
                     if (tabs.getOrNull(tabIndex) != "fav") {
                         Icon(
                             Icons.Filled.Delete,
                             contentDescription = LocalContext.current.getString(R.string.delete_station),
                             tint = muted,
-                            modifier = Modifier.clickable { onAskDelete(s) }.padding(start = 8.dp, end = 0.dp).size(22.dp)
+                            modifier = Modifier.clickable { actions.onAskDelete(s) }.padding(start = 8.dp, end = 0.dp).size(22.dp)
                         )
                     }
                 }
             }
         }
         if (canMore) {
-            item { Button(onClick = onMore, modifier = Modifier.fillMaxWidth().padding(8.dp)) { Text(LocalContext.current.getString(R.string.more_100)) } }
+            item { Button(onClick = actions.onMore, modifier = Modifier.fillMaxWidth().padding(8.dp)) { Text(LocalContext.current.getString(R.string.more_100)) } }
         }
         // ===== heart/library: далі йдуть обрані локальні треки =====
         // Серце (heart): лише обрані локальні (best). Станції — на зірці (stations).
@@ -186,14 +196,14 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
                     muted,
                     text,
                     isBest = true,
-                    onToggleBest = { onToggleBest(item) },
+                    onToggleBest = { actions.onToggleBest(item) },
                     onArt = {
                         val i = bestRows.indexOfFirst { it.uri == item.uri }.coerceAtLeast(0)
-                        if (item.uri != currentUrl) onPickLocal(bestRows, i)
-                        onNow()
+                        if (item.uri != currentUrl) actions.onPickLocal(bestRows, i)
+                        actions.onNow()
                     },
                 ) {
-                    onPickLocal(bestRows, bestRows.indexOfFirst { it.uri == item.uri }.coerceAtLeast(0))
+                    actions.onPickLocal(bestRows, bestRows.indexOfFirst { it.uri == item.uri }.coerceAtLeast(0))
                 }
             }
         }

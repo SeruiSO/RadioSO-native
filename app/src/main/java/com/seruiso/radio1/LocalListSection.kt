@@ -42,8 +42,7 @@ fun androidx.compose.foundation.layout.ColumnScope.LocalListSection(
     listState: LazyListState,
     dragging: Boolean,
     dropAt: Int,
-    onDropAt: (Int) -> Unit,
-    onDragging: (Boolean) -> Unit,
+    actions: LibraryActions,
     currentUrl: String,
     tabs: List<String>,
     tabIndex: Int,
@@ -52,11 +51,6 @@ fun androidx.compose.foundation.layout.ColumnScope.LocalListSection(
     muted: Color,
     text: Color,
     card: Color,
-    onDragStart: () -> Unit,
-    onMoveLocalTo: (Int, Int) -> Unit,
-    onPickLocal: (List<LocalTrack>, Int) -> Unit,
-    onNow: () -> Unit,
-    onToggleBest: (LocalTrack) -> Unit,
 ) {
     if (localRows.isEmpty()) {
         EmptySlot(LocalContext.current.getString(R.string.no_tracks_scan), muted)
@@ -76,22 +70,22 @@ fun androidx.compose.foundation.layout.ColumnScope.LocalListSection(
                             onDragStart = {
                                 accDrag = 0f
                                 localDrop = index
-                                onDropAt(index)
-                                onDragging(true)
-                                onDragStart()
+                                actions.onDropAt(index)
+                                actions.onDragging(true)
+                                actions.onDragStart()
                             },
                             onDragEnd = {
                                 val dest = localDrop.coerceIn(0, localRows.lastIndex)
-                                if (dest != index) onMoveLocalTo(index, dest)
+                                if (dest != index) actions.onMoveLocalTo(index, dest)
                                 accDrag = 0f
-                                onDropAt(-1)
-                                onDragging(false)
+                                actions.onDropAt(-1)
+                                actions.onDragging(false)
                             },
-                            onDragCancel = { accDrag = 0f; onDropAt(-1); onDragging(false) }
+                            onDragCancel = { accDrag = 0f; actions.onDropAt(-1); actions.onDragging(false) }
                         ) { _, drag ->
                             accDrag += drag.y
                             localDrop = (index + (accDrag / 168f).toInt()).coerceIn(0, localRows.lastIndex)
-                            onDropAt(localDrop)
+                            actions.onDropAt(localDrop)
                         }
                     }
                     .padding(10.dp),
@@ -101,8 +95,8 @@ fun androidx.compose.foundation.layout.ColumnScope.LocalListSection(
                     modifier = Modifier
                         .size(48.dp)
                         .clickable {
-                            if (item.uri != currentUrl) onPickLocal(localRows, index)
-                            onNow()
+                            if (item.uri != currentUrl) actions.onPickLocal(localRows, index)
+                            actions.onNow()
                         },
                     contentAlignment = Alignment.Center
                 ) {
@@ -115,7 +109,7 @@ fun androidx.compose.foundation.layout.ColumnScope.LocalListSection(
                     modifier = Modifier
                         .weight(1f)
                         .padding(start = 8.dp)
-                        .clickable { onPickLocal(localRows, index) }
+                        .clickable { actions.onPickLocal(localRows, index) }
                 ) {
                     Text(item.title, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(item.artist, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
@@ -124,7 +118,7 @@ fun androidx.compose.foundation.layout.ColumnScope.LocalListSection(
                     if (bestUris.contains(item.uri)) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                     contentDescription = if (bestUris.contains(item.uri)) LocalContext.current.getString(R.string.remove_from_local_fav) else LocalContext.current.getString(R.string.add_to_local_fav_short),
                     tint = acc,
-                    modifier = Modifier.clickable { onToggleBest(item) }.padding(start = 10.dp, end = 2.dp).size(24.dp)
+                    modifier = Modifier.clickable { actions.onToggleBest(item) }.padding(start = 10.dp, end = 2.dp).size(24.dp)
                 )
             }
         }

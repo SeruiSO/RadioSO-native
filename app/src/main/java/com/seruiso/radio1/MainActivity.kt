@@ -1946,13 +1946,27 @@ fun StationScreen(
             )
         }
         if (showLocal) {
+            val libraryActions = LibraryActions(
+                onDropAt = { dropAt = it },
+                onDragging = { dragging = it },
+                onDragStart = onDragStart,
+                onMoveTo = onMoveTo,
+                onMoveLocalTo = onMoveLocalTo,
+                onPickRadio = onPickRadio,
+                onPickLocal = onPickLocal,
+                onNow = onNow,
+                onToggleFav = onToggleFav,
+                onAskDelete = onAskDelete,
+                onAddToTab = onAddToTab,
+                onMore = onMore,
+                onToggleBest = onToggleBest,
+            )
             LocalListSection(
                 localRows = localRows,
                 listState = listState,
                 dragging = dragging,
                 dropAt = dropAt,
-                onDropAt = { dropAt = it },
-                onDragging = { dragging = it },
+                actions = libraryActions,
                 currentUrl = currentUrl,
                 tabs = tabs,
                 tabIndex = tabIndex,
@@ -1961,20 +1975,29 @@ fun StationScreen(
                 muted = muted,
                 text = text,
                 card = card,
-                onDragStart = onDragStart,
-                onMoveLocalTo = onMoveLocalTo,
-                onPickLocal = onPickLocal,
-                onNow = onNow,
-                onToggleBest = onToggleBest,
             )
         } else {
+            val libraryActions = LibraryActions(
+                onDropAt = { dropAt = it },
+                onDragging = { dragging = it },
+                onDragStart = onDragStart,
+                onMoveTo = onMoveTo,
+                onMoveLocalTo = onMoveLocalTo,
+                onPickRadio = onPickRadio,
+                onPickLocal = onPickLocal,
+                onNow = onNow,
+                onToggleFav = onToggleFav,
+                onAskDelete = onAskDelete,
+                onAddToTab = onAddToTab,
+                onMore = onMore,
+                onToggleBest = onToggleBest,
+            )
             StationListSection(
                 radioRows = radioRows,
                 listState = listState,
                 dragging = dragging,
                 dropAt = dropAt,
-                onDropAt = { dropAt = it },
-                onDragging = { dragging = it },
+                actions = libraryActions,
                 currentUrl = currentUrl,
                 tabs = tabs,
                 tabIndex = tabIndex,
@@ -1986,16 +2009,6 @@ fun StationScreen(
                 muted = muted,
                 text = text,
                 card = card,
-                onDragStart = onDragStart,
-                onMoveTo = onMoveTo,
-                onPickRadio = onPickRadio,
-                onNow = onNow,
-                onToggleFav = onToggleFav,
-                onAskDelete = onAskDelete,
-                onAddToTab = onAddToTab,
-                onMore = onMore,
-                onPickLocal = onPickLocal,
-                onToggleBest = onToggleBest,
             )
         }
         }

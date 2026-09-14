@@ -242,12 +242,16 @@ private suspend fun photoForSingleArtist(ctx: Context, artist: String): String? 
 @Composable
 fun rememberArtistPhotoUrl(artist: String, bust: String = ""): State<String?> {
     val ctx = LocalContext.current.applicationContext
+    // Ключ remember по artist+bust — нова станція = новий state, без «старого» URL
     val result = remember(artist, bust) { mutableStateOf<String?>(null) }
     LaunchedEffect(artist, bust) {
-        result.value = null
-        if (artist.isBlank() || looksLikeJunk(artist)) return@LaunchedEffect
-        delay(250)
-        result.value = withContext(Dispatchers.IO) {
+        if (artist.isBlank() || looksLikeJunk(artist)) {
+            result.value = null
+            return@LaunchedEffect
+        }
+        // Коротка затримка лише для мережі; з кешу — майже одразу
+        delay(80)
+        val photo = withContext(Dispatchers.IO) {
             val split = splitArtists(artist)
             val list = buildList {
                 if (split.size >= 2) add(artist.trim())
@@ -255,11 +259,12 @@ fun rememberArtistPhotoUrl(artist: String, bust: String = ""): State<String?> {
                 if (isEmpty()) add(artist.trim())
             }.distinct().take(3)
             for (name in list) {
-                val photo = photoForSingleArtist(ctx, name)
-                if (photo != null) return@withContext photo
+                val p = photoForSingleArtist(ctx, name)
+                if (p != null) return@withContext p
             }
             null
         }
+        result.value = photo
     }
     return result
 }

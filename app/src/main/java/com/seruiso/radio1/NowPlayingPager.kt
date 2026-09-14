@@ -12,7 +12,10 @@ import androidx.compose.foundation.pager.PagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material3.Icon
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -86,33 +89,49 @@ fun NowPlayingPager(
                         },
                     contentAlignment = Alignment.Center
                 ) {
-                    val pageArtist = if (page != pagerState.currentPage) ""
-                    else pageArtistFor(page)
+                    // Фото виконавця лише для ПОТОЧНОЇ станції (currentUrl) і поточної сторінки.
+                    // Під час свайпу на сусіда — тільки fallback (favicon/album), без «залипання» старого фото.
+                    val isActivePage = page == pagerState.currentPage
+                    val pageArtist = if (isActivePage) pageArtistFor(page) else ""
                     val artistPhoto by rememberArtistPhotoUrl(
                         pageArtist,
-                        (if (nowLocal) "L" else "R") + currentUrl + page
+                        (if (nowLocal) "L" else "R") + currentUrl + "|" + page + "|" + pageArtist
                     )
-                    val photo = artistPhoto
+                    val photo = if (isActivePage && pageArtist.isNotBlank()) artistPhoto else null
                     val fallbackArt = arts.getOrNull(page) ?: ""
-                    when {
-                        photo != null -> AsyncImage(
-                            model = photo,
-                            contentDescription = null,
-                            modifier = Modifier.size(npArt).clip(AppShapes.card),
-                            contentScale = ContentScale.Crop
-                        )
-                        fallbackArt.startsWith("http") || fallbackArt.startsWith("content:") -> AsyncImage(
-                            model = fallbackArt,
-                            contentDescription = null,
-                            modifier = Modifier.size(npArt).clip(AppShapes.card),
-                            contentScale = ContentScale.Crop
-                        )
-                        else -> Icon(
-                            Icons.Filled.MusicNote,
-                            contentDescription = null,
-                            tint = muted,
-                            modifier = Modifier.size(96.dp)
-                        )
+                    // target: url фото / fallback / "" для іконки
+                    val visualKey = when {
+                        photo != null -> "p:$photo"
+                        fallbackArt.startsWith("http") || fallbackArt.startsWith("content:") -> "f:$fallbackArt"
+                        else -> "icon"
+                    }
+                    key(currentUrl, page) {
+                        Crossfade(
+                            targetState = visualKey,
+                            animationSpec = tween(320),
+                            label = "artCrossfade"
+                        ) { keyState ->
+                            when {
+                                keyState.startsWith("p:") -> AsyncImage(
+                                    model = keyState.removePrefix("p:"),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(npArt).clip(AppShapes.card),
+                                    contentScale = ContentScale.Crop
+                                )
+                                keyState.startsWith("f:") -> AsyncImage(
+                                    model = keyState.removePrefix("f:"),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(npArt).clip(AppShapes.card),
+                                    contentScale = ContentScale.Crop
+                                )
+                                else -> Icon(
+                                    Icons.Filled.MusicNote,
+                                    contentDescription = null,
+                                    tint = muted,
+                                    modifier = Modifier.size(96.dp)
+                                )
+                            }
+                        }
                     }
                 }
             }

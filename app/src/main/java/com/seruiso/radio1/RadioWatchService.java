@@ -1441,6 +1441,15 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         } catch (Exception ignored) {}
         if (player != null) {
             try {
+                if (isLocalMode()) {
+                    try {
+                        long pos = player.getCurrentPosition();
+                        if (pos > 0L) {
+                            getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                                .edit().putLong("localPositionMs", pos).apply();
+                        }
+                    } catch (Exception ignored) {}
+                }
                 player.setPlayWhenReady(false);
                 player.pause();
             } catch (Exception e) {
@@ -1606,11 +1615,58 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
     }
 
 
+    /**
+     * Local (і радіо на паузі): той самий MediaItem уже в плеєрі — лише resume,
+     * без setMediaItem(resetPosition) (інакше трек з 0:00).
+     */
+    private boolean tryResumeSameItem(String url) {
+        if (player == null || url == null || url.isEmpty()) return false;
+        try {
+            if (player.getMediaItemCount() <= 0 || player.getCurrentMediaItem() == null
+                    || player.getCurrentMediaItem().localConfiguration == null) {
+                return false;
+            }
+            String cur = player.getCurrentMediaItem().localConfiguration.uri.toString();
+            if (!url.equals(cur)) return false;
+            // Вже грає — нічого не робити
+            if (player.isPlaying() || player.getPlayWhenReady()) {
+                return true;
+            }
+            if (!requestFocus()) {
+                android.util.Log.w("RadioWatch", "tryResumeSameItem: no audio focus");
+            }
+            // Підстрахування позиції для local після forceStop/pause
+            if (isLocalMode()) {
+                long pos = player.getCurrentPosition();
+                long saved = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                        .getLong("localPositionMs", 0L);
+                if (pos < 400L && saved > 400L) {
+                    try { player.seekTo(saved); } catch (Exception ignored) {}
+                }
+            }
+            if (player.getPlaybackState() == Player.STATE_IDLE) {
+                player.prepare();
+            }
+            player.setPlayWhenReady(true);
+            player.play();
+            if (isLocalMode()) armPositionTicker();
+            writeActuallyPlaying(true);
+            notifyForeground();
+            notifyUiPlayback(true);
+            android.util.Log.i("RadioWatch", "resume same item (no reset): " + url);
+            return true;
+        } catch (Exception e) {
+            android.util.Log.w("RadioWatch", "tryResumeSameItem", e);
+            return false;
+        }
+    }
+
     private void playLast() {
         SharedPreferences p = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE);
         String url = p.getString(BluetoothAutoPlayPlugin.KEY_URL, "");
         String name = p.getString(BluetoothAutoPlayPlugin.KEY_NAME, "Radio S O");
         if (name != null && !name.isEmpty()) currentName = name;
+        if (tryResumeSameItem(url)) return;
         playUrl(url);
     }
 
@@ -1639,6 +1695,12 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                         .edit().putString(BluetoothAutoPlayPlugin.KEY_URL, url).commit();
                 } catch (Exception ignored) {}
                 notifyForeground();
+                return;
+            }
+            // Той самий URI на паузі — resume без setMediaItem(reset) (local 0:00 bug)
+            if (sameAsCurrent && tryResumeSameItem(url)) {
+                currentPlayUrl = url;
+                lastPlayMs = now;
                 return;
             }
 

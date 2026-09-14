@@ -49,13 +49,31 @@ import androidx.palette.graphics.Palette as SwatchPalette
  * Now-playing bottom sheet: pullA/sheetShow + pager + meta + progress + strip + transport.
  * Мутації pullA/sheetShow — через параметри (host тримає state, бо списки теж чіпають).
  */
+
+/**
+ * Колбеки now-playing sheet (окремо від даних — стабільніший lifecycle).
+ */
+data class NowPlayingActions(
+    val onSheetShow: (Boolean) -> Unit,
+    val onNowClose: () -> Unit,
+    val onPickLocal: (List<LocalTrack>, Int) -> Unit,
+    val onPickRadio: (List<Station>, Int) -> Unit,
+    val onPickOneRadio: (List<Station>, Int) -> Unit,
+    val onToggleFav: (Station) -> Unit,
+    val onToggleBest: (LocalTrack) -> Unit,
+    val onSeek: (Long) -> Unit,
+    val onShuffle: (() -> Unit)?,
+    val onRepeat: (() -> Unit)?,
+    val onPlayPause: () -> Unit,
+    val skipUi: (Boolean) -> Unit,
+)
+
 @Composable
 fun NowPlayingSheet(
     nowOpen: Boolean,
     sheetShow: Boolean,
     pullA: Animatable<Float, *>,
-    onSheetShow: (Boolean) -> Unit,
-    onNowClose: () -> Unit,
+    actions: NowPlayingActions,
     isLocalNow: Boolean,
     currentUrl: String,
     showLocal: Boolean,
@@ -79,16 +97,6 @@ fun NowPlayingSheet(
     acc: Color,
     text: Color,
     muted: Color,
-    onPickLocal: (List<LocalTrack>, Int) -> Unit,
-    onPickRadio: (List<Station>, Int) -> Unit,
-    onPickOneRadio: (List<Station>, Int) -> Unit,
-    onToggleFav: (Station) -> Unit,
-    onToggleBest: (LocalTrack) -> Unit,
-    onSeek: (Long) -> Unit,
-    onShuffle: (() -> Unit)?,
-    onRepeat: (() -> Unit)?,
-    onPlayPause: () -> Unit,
-    skipUi: (Boolean) -> Unit,
 ) {
     if (!(nowOpen || sheetShow)) return
     val sheetScope = rememberCoroutineScope()
@@ -100,8 +108,8 @@ fun NowPlayingSheet(
                 .clickable {
                     sheetScope.launch {
                         pullA.animateTo(560f, tween(300))
-                        onSheetShow(false)
-                        onNowClose()
+                        actions.onSheetShow(false)
+                        actions.onNowClose()
                     }
                 }
         )
@@ -174,11 +182,11 @@ fun NowPlayingSheet(
             if (arts.isEmpty()) return@LaunchedEffect
             if (nowLocal) {
                 if (i in nowLocalRows.indices && nowLocalRows[i].uri != currentUrl) {
-                    onPickLocal(nowLocalRows, i)
+                    actions.onPickLocal(nowLocalRows, i)
                 }
             } else if (i in nowRadioRows.indices && nowRadioRows[i].url != currentUrl) {
-                if (skipMode == "temp") onPickOneRadio(nowRadioRows, i)
-                else onPickRadio(nowRadioRows, i)
+                if (skipMode == "temp") actions.onPickOneRadio(nowRadioRows, i)
+                else actions.onPickRadio(nowRadioRows, i)
             }
         }
         LaunchedEffect(curI, arts.size) {
@@ -228,8 +236,8 @@ fun NowPlayingSheet(
                                 sheetScope.launch {
                                     if (pullA.value > 140f) {
                                         pullA.animateTo(560f, tween(280))
-                                        onSheetShow(false)
-                                        onNowClose()
+                                        actions.onSheetShow(false)
+                                        actions.onNowClose()
                                     } else pullA.animateTo(0f, tween(280))
                                 }
                             }
@@ -284,10 +292,10 @@ fun NowPlayingSheet(
                                             // зміна станції лише після відпускання
                                             if (nowLocal) {
                                                 if (target in nowLocalRows.indices && nowLocalRows[target].uri != currentUrl)
-                                                    onPickLocal(nowLocalRows, target)
+                                                    actions.onPickLocal(nowLocalRows, target)
                                             } else if (target in nowRadioRows.indices && nowRadioRows[target].url != currentUrl) {
-                                                if (skipMode == "temp") onPickOneRadio(nowRadioRows, target)
-                                                else onPickRadio(nowRadioRows, target)
+                                                if (skipMode == "temp") actions.onPickOneRadio(nowRadioRows, target)
+                                                else actions.onPickRadio(nowRadioRows, target)
                                             }
                                         }
                                     },
@@ -315,14 +323,14 @@ fun NowPlayingSheet(
                         muted = muted,
                         pagerDragModifier = pagerDragModifier,
                         onToggleFavorite = {
-                            onToggleFav(
+                            actions.onToggleFav(
                                 Station(currentUrl, name, genre, country, favicon, "fav")
                             )
                         },
                         onToggleBest = {
                             val tr = localRows.firstOrNull { it.uri == currentUrl }
                                 ?: bestRows.firstOrNull { it.uri == currentUrl }
-                            if (tr != null) onToggleBest(tr)
+                            if (tr != null) actions.onToggleBest(tr)
                         },
                     )
                 }
@@ -333,9 +341,9 @@ fun NowPlayingSheet(
                         acc = acc,
                         muted = muted,
                         text = text,
-                        onSeek = onSeek,
-                        onShuffle = onShuffle,
-                        onRepeat = onRepeat,
+                        onSeek = actions.onSeek,
+                        onShuffle = actions.onShuffle,
+                        onRepeat = actions.onRepeat,
                     )
                 }
                 val stripLabels = List(arts.size) { i ->
@@ -355,10 +363,10 @@ fun NowPlayingSheet(
                     muted = muted,
                     text = text,
                     onPick = { i ->
-                        if (nowLocal && i in nowLocalRows.indices) onPickLocal(nowLocalRows, i)
+                        if (nowLocal && i in nowLocalRows.indices) actions.onPickLocal(nowLocalRows, i)
                         else if (i in nowRadioRows.indices) {
-                            if (skipMode == "temp") onPickOneRadio(nowRadioRows, i)
-                            else onPickRadio(nowRadioRows, i)
+                            if (skipMode == "temp") actions.onPickOneRadio(nowRadioRows, i)
+                            else actions.onPickRadio(nowRadioRows, i)
                         }
                     },
                 )
@@ -368,9 +376,9 @@ fun NowPlayingSheet(
                     status = status,
                     acc = acc,
                     text = text,
-                    onPlayPause = onPlayPause,
-                    onPrev = { skipUi(false) },
-                    onNext = { skipUi(true) },
+                    onPlayPause = actions.onPlayPause,
+                    onPrev = { actions.skipUi(false) },
+                    onNext = { actions.skipUi(true) },
                 )
             }
         }

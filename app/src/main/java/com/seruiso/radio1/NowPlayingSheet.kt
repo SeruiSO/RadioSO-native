@@ -68,36 +68,67 @@ data class NowPlayingActions(
     val skipUi: (Boolean) -> Unit,
 )
 
+/**
+ * Дані now-playing sheet (без open/close/pullA і без actions).
+ */
+data class NowPlayingUi(
+    val isLocalNow: Boolean,
+    val currentUrl: String,
+    val showLocal: Boolean,
+    val localRows: List<LocalTrack>,
+    val bestRows: List<LocalTrack>,
+    val radioRows: List<Station>,
+    val tempRows: List<Station>,
+    val skipMode: String,
+    val name: String,
+    val track: String,
+    val genre: String,
+    val country: String,
+    val favicon: String,
+    val favUrls: Set<String>,
+    val bestUris: Set<String>,
+    val posMs: Long,
+    val durMs: Long,
+    val canSkip: Boolean,
+    val playing: Boolean,
+    val status: String,
+    val acc: Color,
+    val text: Color,
+    val muted: Color,
+)
+
+
 @Composable
 fun NowPlayingSheet(
     nowOpen: Boolean,
     sheetShow: Boolean,
     pullA: Animatable<Float, *>,
     actions: NowPlayingActions,
-    isLocalNow: Boolean,
-    currentUrl: String,
-    showLocal: Boolean,
-    localRows: List<LocalTrack>,
-    bestRows: List<LocalTrack>,
-    radioRows: List<Station>,
-    tempRows: List<Station>,
-    skipMode: String,
-    name: String,
-    track: String,
-    genre: String,
-    country: String,
-    favicon: String,
-    favUrls: Set<String>,
-    bestUris: Set<String>,
-    posMs: Long,
-    durMs: Long,
-    canSkip: Boolean,
-    playing: Boolean,
-    status: String,
-    acc: Color,
-    text: Color,
-    muted: Color,
+    ui: NowPlayingUi,
 ) {
+    val isLocalNow = ui.isLocalNow
+    val currentUrl = ui.currentUrl
+    val showLocal = ui.showLocal
+    val localRows = ui.localRows
+    val bestRows = ui.bestRows
+    val radioRows = ui.radioRows
+    val tempRows = ui.tempRows
+    val skipMode = ui.skipMode
+    val name = ui.name
+    val track = ui.track
+    val genre = ui.genre
+    val country = ui.country
+    val favicon = ui.favicon
+    val favUrls = ui.favUrls
+    val bestUris = ui.bestUris
+    val posMs = ui.posMs
+    val durMs = ui.durMs
+    val canSkip = ui.canSkip
+    val playing = ui.playing
+    val status = ui.status
+    val acc = ui.acc
+    val text = ui.text
+    val muted = ui.muted
     if (!(nowOpen || sheetShow)) return
     val sheetScope = rememberCoroutineScope()
     Box(modifier = Modifier.fillMaxSize()) {

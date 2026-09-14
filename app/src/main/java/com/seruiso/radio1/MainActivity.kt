@@ -1418,108 +1418,6 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun MiniProgressBar(
-    posMs: Long,
-    durMs: Long,
-    accent: Color,
-    muted: Color,
-    onSeek: (Long) -> Unit,
-    onShuffle: (() -> Unit)? = null,
-    onRepeat: (() -> Unit)? = null,
-    controlsTint: Color = muted,
-) {
-    val d = if (durMs > 0) durMs else 1L
-    var slide by remember { mutableStateOf(-1f) }
-    val frac = (if (slide >= 0f) slide else posMs.toFloat() / d).coerceIn(0f, 1f)
-    fun fmt(ms: Long): String {
-        val sec = (ms / 1000).coerceAtLeast(0)
-        return "%d:%02d".format(sec / 60, sec % 60)
-    }
-    // Один ряд: [shuffle] час |——прогрес——| час [repeat]
-    // Кнопки лише якщо передані (локальний Now Playing); в інших місцях — як раніше без них.
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 2.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        if (onShuffle != null) {
-            Icon(
-                Icons.Filled.Shuffle,
-                contentDescription = LocalContext.current.getString(R.string.shuffle),
-                tint = controlsTint,
-                modifier = Modifier
-                    .padding(end = 6.dp)
-                    .size(20.dp)
-                    .clickable { onShuffle() }
-            )
-        }
-        Text(
-            fmt(posMs),
-            color = muted,
-            style = MaterialTheme.typography.labelSmall,
-            modifier = Modifier.padding(end = 6.dp)
-        )
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .height(32.dp)
-                .pointerInput(d) {
-                    detectTapGestures { off ->
-                        if (d > 0L) {
-                            val f = (off.x / size.width.toFloat()).coerceIn(0f, 1f)
-                            onSeek((d * f).toLong())
-                        }
-                    }
-                }
-                .pointerInput(d) {
-                    detectHorizontalDragGestures(
-                        onDragEnd = {
-                            if (durMs > 0 && slide >= 0f) onSeek((slide * durMs).toLong())
-                            slide = -1f
-                        },
-                        onDragCancel = { slide = -1f },
-                        onHorizontalDrag = { change, _ ->
-                            change.consume()
-                            val w = size.width.toFloat().coerceAtLeast(1f)
-                            slide = change.position.x.coerceIn(0f, w) / w
-                        }
-                    )
-                },
-            contentAlignment = Alignment.CenterStart
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(8.dp)
-                    .background(muted.copy(alpha = 0.28f), RoundedCornerShape(4.dp))
-            )
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(frac)
-                    .height(8.dp)
-                    .background(accent, RoundedCornerShape(4.dp))
-            )
-        }
-        Text(
-            fmt(durMs),
-            color = muted,
-            style = MaterialTheme.typography.labelSmall,
-            modifier = Modifier.padding(start = 6.dp)
-        )
-        if (onRepeat != null) {
-            Icon(
-                Icons.Filled.Repeat,
-                contentDescription = LocalContext.current.getString(R.string.repeat),
-                tint = controlsTint,
-                modifier = Modifier
-                    .padding(start = 6.dp)
-                    .size(20.dp)
-                    .clickable { onRepeat() }
-            )
-        }
-    }
-}
 
 // Рядок локального треку — перевикористовується у вкладці LocalContext.current.getString(R.string.favorites_plural)
 // для секцій LocalContext.current.getString(R.string.local_favorites) та LocalContext.current.getString(R.string.local_music).
@@ -2885,86 +2783,39 @@ fun StationScreen(
                             }
                         } else Modifier
 
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 4.dp)
-                            .then(pagerDragModifier),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            name,
-                            color = text,
-                            style = MaterialTheme.typography.titleLarge,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f)
-                        )
-                        val isLocalCard = currentUrl.startsWith("content:")
-                        if (isLocalCard) {
-                            val on = bestUris.contains(currentUrl)
-                            Icon(
-                                if (on) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                                contentDescription = if (on) LocalContext.current.getString(R.string.remove_from_local_fav) else LocalContext.current.getString(R.string.add_to_local_fav),
-                                tint = acc,
-                                modifier = Modifier
-                                    .padding(start = 8.dp)
-                                    .size(28.dp)
-                                    .springPress(0.75f) {
-                                        val t = localRows.firstOrNull { it.uri == currentUrl }
-                                            ?: bestRows.firstOrNull { it.uri == currentUrl }
-                                        if (t != null) onToggleBest(t)
-                                    }
+                    NowPlayingMeta(
+                        name = name,
+                        track = track,
+                        currentUrl = currentUrl,
+                        isFavorite = favUrls.contains(currentUrl),
+                        isBest = bestUris.contains(currentUrl),
+                        acc = acc,
+                        text = text,
+                        muted = muted,
+                        pagerDragModifier = pagerDragModifier,
+                        onToggleFavorite = {
+                            onToggleFav(
+                                Station(currentUrl, name, genre, country, favicon, "fav")
                             )
-                        } else {
-                            val on = favUrls.contains(currentUrl)
-                            Icon(
-                                if (on) Icons.Filled.Star else Icons.Filled.StarBorder,
-                                contentDescription = if (on) LocalContext.current.getString(R.string.remove_from_favorites) else LocalContext.current.getString(R.string.add_to_favorites),
-                                tint = acc,
-                                modifier = Modifier
-                                    .padding(start = 8.dp)
-                                    .size(28.dp)
-                                    .springPress(0.75f) {
-                                        onToggleFav(
-                                            Station(
-                                                currentUrl,
-                                                name,
-                                                genre,
-                                                country,
-                                                favicon,
-                                                "fav"
-                                            )
-                                        )
-                                    }
-                            )
-                        }
-                    }
-                    Text(
-                        if (track.isBlank()) LocalContext.current.getString(R.string.track_unknown2) else track,
-                        color = muted,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 2.dp, bottom = 2.dp)
-                            .then(pagerDragModifier)
+                        },
+                        onToggleBest = {
+                            val tr = localRows.firstOrNull { it.uri == currentUrl }
+                                ?: bestRows.firstOrNull { it.uri == currentUrl }
+                            if (tr != null) onToggleBest(tr)
+                        },
                     )
                 }
                 if (isLocalNow || currentUrl.startsWith("content:")) {
-                    // компактніший прогрес — більше місця під назву/виконавця
-                    androidx.compose.foundation.layout.Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 2.dp, bottom = 2.dp)
-                    ) {
-                        MiniProgressBar(
-                            posMs, durMs, acc, muted, onSeek,
-                            onShuffle = onShuffle,
-                            onRepeat = onRepeat,
-                            controlsTint = text,
-                        )
-                    }
+                    NowPlayingLocalProgress(
+                        posMs = posMs,
+                        durMs = durMs,
+                        acc = acc,
+                        muted = muted,
+                        text = text,
+                        onSeek = onSeek,
+                        onShuffle = onShuffle,
+                        onRepeat = onRepeat,
+                    )
                 }
                 val stripLabels = List(arts.size) { i ->
                     when {
@@ -2990,31 +2841,16 @@ fun StationScreen(
                         }
                     },
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(top = 4.dp, bottom = 6.dp)) {
-                    if (canSkip) {
-                    Box(
-                        modifier = Modifier
-                            .size(80.dp)
-                            .background(Palette.panel, RoundedCornerShape(16.dp))
-                            .springPress { skipUi(false) },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Filled.SkipPrevious, contentDescription = LocalContext.current.getString(R.string.prev_station), tint = text, modifier = Modifier.size(40.dp))
-                    }
-                    }
-                    PlayBtn(playing = playing, status = status, sizeDp = 80.dp, onClick = onPlayPause, accent = acc)
-                    if (canSkip) {
-                    Box(
-                        modifier = Modifier
-                            .size(80.dp)
-                            .background(Palette.panel, RoundedCornerShape(16.dp))
-                            .springPress { skipUi(true) },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Filled.SkipNext, contentDescription = LocalContext.current.getString(R.string.next_station), tint = text, modifier = Modifier.size(40.dp))
-                    }
-                    }
-                }
+                NowPlayingTransport(
+                    canSkip = canSkip,
+                    playing = playing,
+                    status = status,
+                    acc = acc,
+                    text = text,
+                    onPlayPause = onPlayPause,
+                    onPrev = { skipUi(false) },
+                    onNext = { skipUi(true) },
+                )
                 }
             }
         }

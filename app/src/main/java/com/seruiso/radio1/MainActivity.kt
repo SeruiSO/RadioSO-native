@@ -1417,8 +1417,6 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@Composable
-
 // Рядок локального треку — перевикористовується у вкладці LocalContext.current.getString(R.string.favorites_plural)
 // для секцій LocalContext.current.getString(R.string.local_favorites) та LocalContext.current.getString(R.string.local_music).
 @Composable

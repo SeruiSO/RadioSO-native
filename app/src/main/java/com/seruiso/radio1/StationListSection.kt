@@ -59,25 +59,50 @@ data class LibraryActions(
     val onToggleBest: (LocalTrack) -> Unit,
 )
 
+/**
+ * Дані списків radio + local (без listState і без actions).
+ * listState лишається окремим параметром — живий Compose scroll state.
+ */
+data class LibraryUi(
+    val radioRows: List<Station>,
+    val localRows: List<LocalTrack>,
+    val bestRows: List<LocalTrack>,
+    val dragging: Boolean,
+    val dropAt: Int,
+    val currentUrl: String,
+    val tabs: List<String>,
+    val tabIndex: Int,
+    val bottomTab: String,
+    val favUrls: Set<String>,
+    val bestUris: Set<String>,
+    val canMore: Boolean,
+    val acc: Color,
+    val muted: Color,
+    val text: Color,
+    val card: Color,
+)
+
+
 @Composable
 fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
-    radioRows: List<Station>,
+    ui: LibraryUi,
     listState: LazyListState,
-    dragging: Boolean,
-    dropAt: Int,
     actions: LibraryActions,
-    currentUrl: String,
-    tabs: List<String>,
-    tabIndex: Int,
-    bottomTab: String,
-    favUrls: Set<String>,
-    canMore: Boolean,
-    bestRows: List<LocalTrack>,
-    acc: Color,
-    muted: Color,
-    text: Color,
-    card: Color,
 ) {
+    val radioRows = ui.radioRows
+    val bestRows = ui.bestRows
+    val dragging = ui.dragging
+    val dropAt = ui.dropAt
+    val currentUrl = ui.currentUrl
+    val tabs = ui.tabs
+    val tabIndex = ui.tabIndex
+    val bottomTab = ui.bottomTab
+    val favUrls = ui.favUrls
+    val canMore = ui.canMore
+    val acc = ui.acc
+    val muted = ui.muted
+    val text = ui.text
+    val card = ui.card
     LazyColumn(modifier = Modifier.weight(1f), state = listState, userScrollEnabled = !dragging) {
         if (radioRows.isEmpty()) {
             item {

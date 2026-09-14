@@ -38,20 +38,21 @@ import coil.compose.AsyncImage
  */
 @Composable
 fun androidx.compose.foundation.layout.ColumnScope.LocalListSection(
-    localRows: List<LocalTrack>,
+    ui: LibraryUi,
     listState: LazyListState,
-    dragging: Boolean,
-    dropAt: Int,
     actions: LibraryActions,
-    currentUrl: String,
-    tabs: List<String>,
-    tabIndex: Int,
-    bestUris: Set<String>,
-    acc: Color,
-    muted: Color,
-    text: Color,
-    card: Color,
 ) {
+    val localRows = ui.localRows
+    val dragging = ui.dragging
+    val dropAt = ui.dropAt
+    val currentUrl = ui.currentUrl
+    val tabs = ui.tabs
+    val tabIndex = ui.tabIndex
+    val bestUris = ui.bestUris
+    val acc = ui.acc
+    val muted = ui.muted
+    val text = ui.text
+    val card = ui.card
     if (localRows.isEmpty()) {
         EmptySlot(LocalContext.current.getString(R.string.no_tracks_scan), muted)
     }

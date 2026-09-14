@@ -1945,6 +1945,24 @@ fun StationScreen(
                 card = card,
             )
         }
+        val libraryUi = LibraryUi(
+            radioRows = radioRows,
+            localRows = localRows,
+            bestRows = bestRows,
+            dragging = dragging,
+            dropAt = dropAt,
+            currentUrl = currentUrl,
+            tabs = tabs,
+            tabIndex = tabIndex,
+            bottomTab = bottomTab,
+            favUrls = favUrls,
+            bestUris = bestUris,
+            canMore = canMore,
+            acc = acc,
+            muted = muted,
+            text = text,
+            card = card,
+        )
         if (showLocal) {
             val libraryActions = LibraryActions(
                 onDropAt = { dropAt = it },
@@ -1962,19 +1980,9 @@ fun StationScreen(
                 onToggleBest = onToggleBest,
             )
             LocalListSection(
-                localRows = localRows,
+                ui = libraryUi,
                 listState = listState,
-                dragging = dragging,
-                dropAt = dropAt,
                 actions = libraryActions,
-                currentUrl = currentUrl,
-                tabs = tabs,
-                tabIndex = tabIndex,
-                bestUris = bestUris,
-                acc = acc,
-                muted = muted,
-                text = text,
-                card = card,
             )
         } else {
             val libraryActions = LibraryActions(
@@ -1993,22 +2001,9 @@ fun StationScreen(
                 onToggleBest = onToggleBest,
             )
             StationListSection(
-                radioRows = radioRows,
+                ui = libraryUi,
                 listState = listState,
-                dragging = dragging,
-                dropAt = dropAt,
                 actions = libraryActions,
-                currentUrl = currentUrl,
-                tabs = tabs,
-                tabIndex = tabIndex,
-                bottomTab = bottomTab,
-                favUrls = favUrls,
-                canMore = canMore,
-                bestRows = bestRows,
-                acc = acc,
-                muted = muted,
-                text = text,
-                card = card,
             )
         }
         }

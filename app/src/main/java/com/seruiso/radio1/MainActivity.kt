@@ -2199,104 +2199,47 @@ fun StationScreen(
         text = text,
     )
     }
-    if (pickStation != null) {
-        AlertDialog(
-            containerColor = card,
-            onDismissRequest = onCancelPick,
-            title = { Text(LocalContext.current.getString(R.string.select_tab), color = text) },
-            text = {
-                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                    targetTabs.forEach { tab ->
-                        Text(
-                            tabLabel(LocalContext.current, tab),
-                            color = text,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp)
-                                .background(Palette.panel, RoundedCornerShape(12.dp))
-                                .clickable { onPickTabForStation(tab) }
-                                .padding(horizontal = 14.dp, vertical = 12.dp)
-                        )
-                    }
-                }
-            },
-            confirmButton = {},
-            dismissButton = { TextButton(onClick = onCancelPick) { Text(LocalContext.current.getString(R.string.cancel), color = muted) } }
-        )
-    }
-    if (newTabOpen) {
-        AlertDialog(
-            containerColor = card,
-            onDismissRequest = onCancelNewTab,
-            title = { Text(LocalContext.current.getString(R.string.create_new_tab), color = text) },
-            text = {
-                Column {
-                    OutlinedTextField(
-                        value = newTabName,
-                        onValueChange = onNewTabName,
-                        singleLine = true,
-                        label = { Text(LocalContext.current.getString(R.string.name_label)) },
-                        supportingText = {
-                            Text(LocalContext.current.getString(R.string.hint_tab_name))
-                        }
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = onCreateTab,
-                    colors = ButtonDefaults.buttonColors(containerColor = acc, contentColor = Color(0xFF0A0A0C))
-                ) { Text(LocalContext.current.getString(R.string.create)) }
-            },
-            dismissButton = { TextButton(onClick = onCancelNewTab) { Text(LocalContext.current.getString(R.string.cancel), color = muted) } }
-        )
-    }
-    if (editTab != null) {
-        AlertDialog(
-            containerColor = card,
-            onDismissRequest = onCancelEdit,
-            title = { Text(LocalContext.current.getString(R.string.tab_edit, editTab), color = text) },
-            text = {
-                Column {
-                    OutlinedTextField(value = editName, onValueChange = onEditName, singleLine = true)
-                    androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(10.dp))
-                    Button(
-                        onClick = onRenameTab,
-                        modifier = Modifier.fillMaxWidth().height(44.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = acc, contentColor = Color(0xFF0A0A0C))
-                    ) { Text(LocalContext.current.getString(R.string.rename)) }
-                }
-            },
-            confirmButton = {
-                if (deleteArmed)
-                    Button(
-                        onClick = onDeleteTab,
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC62828), contentColor = Color.White)
-                    ) { Text(LocalContext.current.getString(R.string.delete_confirm)) }
-                else
-                    TextButton(onClick = onDeleteTab) { Text(LocalContext.current.getString(R.string.delete), color = Color(0xFFE53935)) }
-            },
-            dismissButton = { TextButton(onClick = onCancelEdit) { Text(LocalContext.current.getString(R.string.cancel), color = muted) } }
-        )
-    }
-    if (pendingDelete != null) {
-        AlertDialog(
-            containerColor = card,
-            onDismissRequest = onCancelDelete,
-            title = { Text(LocalContext.current.getString(R.string.delete_station_q), color = text) },
-            text = { Text(pendingDelete?.name ?: "", color = muted) },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        pendingDelete?.let { onDeleteStation(it) }
-                        onCancelDelete()
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC62828), contentColor = Color.White)
-                ) { Text(LocalContext.current.getString(R.string.delete)) }
-            },
-            dismissButton = { TextButton(onClick = onCancelDelete) { Text(LocalContext.current.getString(R.string.cancel), color = muted) } }
-        )
-    }
+    PickStationTabDialog(
+        pickStation = pickStation,
+        targetTabs = targetTabs,
+        onPickTabForStation = onPickTabForStation,
+        onCancelPick = onCancelPick,
+        muted = muted,
+        text = text,
+        card = card,
+    )
+    NewTabDialog(
+        open = newTabOpen,
+        newTabName = newTabName,
+        onNewTabName = onNewTabName,
+        onCreateTab = onCreateTab,
+        onCancelNewTab = onCancelNewTab,
+        acc = acc,
+        muted = muted,
+        text = text,
+        card = card,
+    )
+    EditTabDialog(
+        editTab = editTab,
+        editName = editName,
+        onEditName = onEditName,
+        onRenameTab = onRenameTab,
+        onDeleteTab = onDeleteTab,
+        onCancelEdit = onCancelEdit,
+        deleteArmed = deleteArmed,
+        acc = acc,
+        muted = muted,
+        text = text,
+        card = card,
+    )
+    DeleteStationDialog(
+        pendingDelete = pendingDelete,
+        onDeleteStation = onDeleteStation,
+        onCancelDelete = onCancelDelete,
+        muted = muted,
+        text = text,
+        card = card,
+    )
     NowPlayingSheet(
         nowOpen = nowOpen,
         sheetShow = sheetShow,

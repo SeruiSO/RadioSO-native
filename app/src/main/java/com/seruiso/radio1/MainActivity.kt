@@ -1733,14 +1733,6 @@ fun StationScreen(
     onExport: () -> Unit,
     onImport: () -> Unit,
 ) {
-    fun artUrl(raw: String): String {
-        if (raw.startsWith("http")) return raw
-        if (raw.isNotBlank() && raw != "0" && raw.all { it.isDigit() }) {
-            return "content://media/external/audio/albumart/$raw"
-        }
-        return raw
-    }
-
     val acc = Color(accent)
     val bg = Palette.bg
     val card = Palette.card
@@ -1748,75 +1740,6 @@ fun StationScreen(
     val muted = Palette.muted
     val logoFont = FontFamily(Font(R.font.space_grotesk_bold, FontWeight.Bold))
 
-    @Composable
-    fun PlayBtn(
-        playing: Boolean,
-        status: String,
-        sizeDp: androidx.compose.ui.unit.Dp,
-        onClick: () -> Unit,
-        shape: androidx.compose.ui.graphics.Shape = AppShapes.hero,
-    ) {
-        val st = status.lowercase()
-        val busy = !playing && (
-            st.contains("підключ") || st.contains(LocalContext.current.getString(R.string.buffer)) || st == "запуск"
-        )
-        val pulseOn = playing || busy
-        val infinite = rememberInfiniteTransition(label = "playPulse")
-        val pulse by infinite.animateFloat(
-            initialValue = 1f,
-            targetValue = if (busy) 1.09f else 1.06f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(if (busy) 420 else 900, easing = FastOutSlowInEasing),
-                repeatMode = RepeatMode.Reverse
-            ),
-            label = "playPulseSc"
-        )
-        val interaction = androidx.compose.runtime.remember { MutableInteractionSource() }
-        val pressed by interaction.collectIsPressedAsState()
-        val pressSc by animateFloatAsState(
-            if (pressed) 0.86f else 1f,
-            animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
-            label = "playPress"
-        )
-        val sc = (if (pulseOn) pulse else 1f) * pressSc
-        Box(
-            modifier = Modifier
-                .size(sizeDp)
-                .graphicsLayer { scaleX = sc; scaleY = sc }
-                .background(acc, shape)
-                .clickable(
-                    interactionSource = interaction,
-                    indication = null
-                ) { onClick() },
-            contentAlignment = Alignment.Center
-        ) {
-            when {
-                busy -> CircularProgressIndicator(
-                    modifier = Modifier.size(sizeDp * 0.38f),
-                    color = Color(0xFF0A0A0C),
-                    strokeWidth = 2.5.dp
-                )
-                playing -> Icon(Icons.Filled.Pause, contentDescription = LocalContext.current.getString(R.string.pause), tint = Color(0xFF0A0A0C), modifier = Modifier.size(sizeDp * 0.42f))
-                else -> Icon(Icons.Filled.PlayArrow, contentDescription = LocalContext.current.getString(R.string.play), tint = Color(0xFF0A0A0C), modifier = Modifier.size(sizeDp * 0.42f))
-            }
-        }
-    }
-
-    // Спружинена мікроанімація натискання — легкий "bounce" замість плаского tween,
-    // перевикористовується на кнопках Попередня/Наступна, Перемішати/Повторити, Обране.
-    @Composable
-    fun Modifier.springPress(pressedScale: Float = 0.88f, onClick: () -> Unit): Modifier {
-        val interaction = androidx.compose.runtime.remember { MutableInteractionSource() }
-        val pressed by interaction.collectIsPressedAsState()
-        val sc by animateFloatAsState(
-            if (pressed) pressedScale else 1f,
-            animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
-            label = "springPress"
-        )
-        return this
-            .graphicsLayer { scaleX = sc; scaleY = sc }
-            .clickable(interactionSource = interaction, indication = null, onClick = onClick)
-    }
     var dropAt by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(-1) }
     var dragging by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     val listState = rememberLazyListState()
@@ -2389,7 +2312,7 @@ fun StationScreen(
                 )
             }
             }
-            PlayBtn(playing = playing, status = status, sizeDp = 60.dp, onClick = onPlayPause, shape = RoundedCornerShape(14.dp))
+            PlayBtn(playing = playing, status = status, sizeDp = 60.dp, onClick = onPlayPause, accent = acc, shape = RoundedCornerShape(14.dp))
             if (canSkip) {
             Box(
                 modifier = Modifier.fillMaxHeight().width(52.dp).background(card, RoundedCornerShape(20.dp)).clickable { skipUi(true) },
@@ -3196,7 +3119,7 @@ fun StationScreen(
                         Icon(Icons.Filled.SkipPrevious, contentDescription = LocalContext.current.getString(R.string.prev_station), tint = text, modifier = Modifier.size(40.dp))
                     }
                     }
-                    PlayBtn(playing = playing, status = status, sizeDp = 80.dp, onClick = onPlayPause)
+                    PlayBtn(playing = playing, status = status, sizeDp = 80.dp, onClick = onPlayPause, accent = acc)
                     if (canSkip) {
                     Box(
                         modifier = Modifier

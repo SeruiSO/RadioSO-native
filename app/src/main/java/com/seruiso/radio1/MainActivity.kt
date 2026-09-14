@@ -1924,49 +1924,26 @@ fun StationScreen(
             }
         } else {
         if (tabs.getOrNull(tabIndex) == "search") {
-            Column(modifier = Modifier.padding(vertical = 4.dp).background(card, RoundedCornerShape(16.dp)).padding(10.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().clickable { onSearchOpen() }.padding(bottom = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(Icons.Filled.Search, contentDescription = LocalContext.current.getString(R.string.nav_search), tint = text, modifier = Modifier.size(18.dp))
-                    Text(LocalContext.current.getString(R.string.search_ellipsis2), color = text, modifier = Modifier.weight(1f))
-                    Text(if (searchOpen) "▴" else "▾", color = muted)
-                }
-                if (searchOpen) {
-                @Composable fun field(v: String, set: (String) -> Unit, lab: String, key: String, hints: List<String>) {
-                    OutlinedTextField(
-                        value = v,
-                        onValueChange = set,
-                        singleLine = true,
-                        label = { Text(lab) },
-                        modifier = Modifier.fillMaxWidth(),
-                        trailingIcon = {
-                            Text("▾", color = acc, modifier = Modifier.clickable { onSuggestFor(if (suggestFor == key) "" else key) }.padding(8.dp))
-                        }
-                    )
-                    if (suggestFor == key) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(max = 200.dp)
-                                .verticalScroll(rememberScrollState())
-                                .background(card, RoundedCornerShape(12.dp))
-                                .padding(6.dp)
-                        ) {
-                            hints.distinct().take(24).forEach { h ->
-                                Text(h, color = text, modifier = Modifier.fillMaxWidth().clickable { set(h); onSuggestFor("") }.padding(6.dp))
-                            }
-                        }
-                    }
-                }
-                field(qName, onName, LocalContext.current.getString(R.string.name_label), "name", nameHints)
-                field(qCountry, onCountry, LocalContext.current.getString(R.string.country), "country", countryHints)
-                field(qGenre, onGenre, LocalContext.current.getString(R.string.genre), "genre", genreHints)
-                Button(onClick = onSearch, modifier = Modifier.fillMaxWidth().padding(top = 8.dp).height(44.dp),
-                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = acc, contentColor = Color(0xFF0A0A0C))) { Text(LocalContext.current.getString(R.string.find)) }
-                }
-            }
+            SearchSection(
+                searchOpen = searchOpen,
+                onSearchOpen = onSearchOpen,
+                qName = qName,
+                onName = onName,
+                qCountry = qCountry,
+                onCountry = onCountry,
+                qGenre = qGenre,
+                onGenre = onGenre,
+                suggestFor = suggestFor,
+                onSuggestFor = onSuggestFor,
+                nameHints = nameHints,
+                countryHints = countryHints,
+                genreHints = genreHints,
+                onSearch = onSearch,
+                acc = acc,
+                muted = muted,
+                text = text,
+                card = card,
+            )
         }
         if (showLocal) {
             LocalListSection(

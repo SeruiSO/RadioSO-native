@@ -15,10 +15,7 @@
     <string name="cd_play">Грати</string>
 
     <!-- Tabs / nav -->
-    <string name="tab_fav">Обране</string>
-    <string name="tab_best">Топ</string>
     <string name="tab_local">Локальні</string>
-    <string name="tab_search">Пошук</string>
     <string name="nav_home">Дім</string>
     <string name="nav_music">Музика</string>
     <string name="nav_stations">Станції</string>
@@ -135,7 +132,6 @@
     <!-- TabStore messages -->
     <string name="err_enter_name">Введи назву</string>
     <string name="err_tab_chars">Літери (ua/en), цифри, _ - ; до 10 символів</string>
-    <string name="err_tab_chars_en">Лише a-z 0-9 _ - до 10 символів</string>
     <string name="err_tab_exists">Така вкладка вже є</string>
     <string name="err_tab_max">Максимум 7 кастомних</string>
     <string name="err_tab_no">Немає вкладки</string>

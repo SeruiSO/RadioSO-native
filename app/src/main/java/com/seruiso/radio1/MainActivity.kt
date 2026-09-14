@@ -1420,7 +1420,7 @@ class MainActivity : ComponentActivity() {
 // Рядок локального треку — перевикористовується у вкладці LocalContext.current.getString(R.string.favorites_plural)
 // для секцій LocalContext.current.getString(R.string.local_favorites) та LocalContext.current.getString(R.string.local_music).
 @Composable
-private fun LocalTrackRow(
+fun LocalTrackRow(
     item: LocalTrack,
     isCurrent: Boolean,
     acc: Color,
@@ -2031,129 +2031,36 @@ fun StationScreen(
                 }
             }
         } else {
-            LazyColumn(modifier = Modifier.weight(1f), state = listState, userScrollEnabled = !dragging) {
-                if (radioRows.isEmpty()) {
-                    item {
-                        EmptySlot(
-                            when {
-                                tabs.getOrNull(tabIndex) == "search" || bottomTab == "search" -> LocalContext.current.getString(R.string.nothing_found)
-                                tabs.getOrNull(tabIndex) == "fav" || bottomTab == "stations" -> LocalContext.current.getString(R.string.fav_hint_long)
-                                else -> LocalContext.current.getString(R.string.empty_for_now)
-                            },
-                            muted
-                        )
-                    }
-                }
-                itemsIndexed(radioRows, key = { i, s -> s.tab + s.url + i }) { index, s ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 6.dp, vertical = 3.dp)
-                            .background(when { dropAt == index -> acc.copy(alpha = 0.40f); s.url == currentUrl -> acc.copy(alpha = 0.18f); else -> card }, RoundedCornerShape(12.dp))
-                            .pointerInput(s.url, index) {
-                                var acc = 0f
-                                detectDragGesturesAfterLongPress(
-                                    onDragStart = { acc = 0f; dropAt = index; dragging = true; onDragStart() },
-                                    onDragEnd = {
-                                        val dest = dropAt.coerceIn(0, radioRows.lastIndex)
-                                        if (dest != index) onMoveTo(index, dest)
-                                        acc = 0f
-                                        dropAt = -1
-                                        dragging = false
-                                    },
-                                    onDragCancel = { acc = 0f; dropAt = -1; dragging = false }
-                                ) { _, drag ->
-                                    acc += drag.y
-                                    dropAt = (index + (acc / 168f).toInt()).coerceIn(0, radioRows.lastIndex)
-                                }
-                            }
-                            .padding(10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // іконка → відтворення + відкрити нижню картку
-                        Box(
-                            modifier = Modifier
-                                .size(48.dp)
-                                .clickable {
-                                    if (s.url != currentUrl) onPickRadio(radioRows, index)
-                                    onNow()
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if (s.favicon.startsWith("http") && !s.favicon.contains("example.com")) {
-                                AsyncImage(model = s.favicon, contentDescription = null, modifier = Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop)
-                            } else Icon(Icons.Filled.MusicNote, contentDescription = LocalContext.current.getString(R.string.no_cover), tint = muted)
-                        }
-                        // рядок (назва) → лише відтворення, без нижньої картки
-                        Column(
-                            modifier = Modifier
-                                .padding(start = 8.dp)
-                                .weight(1f)
-                                .clickable { onPickRadio(radioRows, index) }
-                        ) {
-                            Text(s.name, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text("${s.genre} · ${s.country}", color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
-                        }
-                        if (tabs.getOrNull(tabIndex) == "search") {
-                            Text("+", color = acc, modifier = Modifier.clickable { onAddToTab(s) }.padding(start = 8.dp), style = MaterialTheme.typography.headlineMedium)
-                        } else {
-                            Icon(
-                                if (favUrls.contains(s.url)) Icons.Filled.Star else Icons.Filled.StarBorder,
-                                contentDescription = if (favUrls.contains(s.url)) LocalContext.current.getString(R.string.remove_from_favorites) else LocalContext.current.getString(R.string.add_to_favorites),
-                                tint = acc,
-                                modifier = Modifier.clickable { onToggleFav(s) }.padding(start = 8.dp, end = 2.dp).size(24.dp)
-                            )
-                            if (tabs.getOrNull(tabIndex) != "fav") {
-                                Icon(
-                                    Icons.Filled.Delete,
-                                    contentDescription = LocalContext.current.getString(R.string.delete_station),
-                                    tint = muted,
-                                    modifier = Modifier.clickable { onAskDelete(s) }.padding(start = 8.dp, end = 0.dp).size(22.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-                if (canMore) {
-                    item { Button(onClick = onMore, modifier = Modifier.fillMaxWidth().padding(8.dp)) { Text(LocalContext.current.getString(R.string.more_100)) } }
-                }
-                // ===== Вкладка LocalContext.current.getString(R.string.favorites_plural): далі йдуть обрані локальні треки та вся локальна музика =====
-                // Серце (heart): лише обрані локальні (best). Станції — на зірці (stations).
-                if (bottomTab == "heart" || bottomTab == "library") {
-                    item {
-                        Text(
-                            LocalContext.current.getString(R.string.local_favorites),
-                            color = muted,
-                            style = MaterialTheme.typography.labelLarge,
-                            modifier = Modifier.padding(top = 16.dp, bottom = 4.dp)
-                        )
-                    }
-                    if (bestRows.isEmpty()) {
-                        item {
-                            EmptySlot(LocalContext.current.getString(R.string.local_hint_long), muted)
-                        }
-                    }
-                    itemsIndexed(bestRows, key = { i, x -> "best-" + x.uri + i }) { _, item ->
-                        LocalTrackRow(
-                            item,
-                            item.uri == currentUrl,
-                            acc,
-                            muted,
-                            text,
-                            isBest = true,
-                            onToggleBest = { onToggleBest(item) },
-                            onArt = {
-                                val i = bestRows.indexOfFirst { it.uri == item.uri }.coerceAtLeast(0)
-                                if (item.uri != currentUrl) onPickLocal(bestRows, i)
-                                onNow()
-                            },
-                        ) {
-                            onPickLocal(bestRows, bestRows.indexOfFirst { it.uri == item.uri }.coerceAtLeast(0))
-                        }
-                    }
-                }
-            }
-        }
+            StationListSection(
+                radioRows = radioRows,
+                listState = listState,
+                dragging = dragging,
+                dropAt = dropAt,
+                onDropAt = { dropAt = it },
+                onDragging = { dragging = it },
+                currentUrl = currentUrl,
+                tabs = tabs,
+                tabIndex = tabIndex,
+                bottomTab = bottomTab,
+                favUrls = favUrls,
+                canMore = canMore,
+                bestRows = bestRows,
+                acc = acc,
+                muted = muted,
+                text = text,
+                card = card,
+                onDragStart = onDragStart,
+                onMoveTo = onMoveTo,
+                onPickRadio = onPickRadio,
+                onNow = onNow,
+                onToggleFav = onToggleFav,
+                onAskDelete = onAskDelete,
+                onAddToTab = onAddToTab,
+                onMore = onMore,
+                onPickLocal = onPickLocal,
+                onToggleBest = onToggleBest,
+            )
+
         }
         // Рядок жанрових вкладок перенесено у праву панель (RightTabsPanel).
         Box(
@@ -2613,7 +2520,7 @@ fun StationScreen(
 }
 
 @Composable
-private fun EmptySlot(hint: String, muted: Color) {
+fun EmptySlot(hint: String, muted: Color) {
     Box(
         modifier = Modifier
             .fillMaxWidth()

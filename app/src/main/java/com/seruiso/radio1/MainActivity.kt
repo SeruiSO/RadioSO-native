@@ -2060,7 +2060,7 @@ fun StationScreen(
                 onPickLocal = onPickLocal,
                 onToggleBest = onToggleBest,
             )
-
+        }
         }
         // Рядок жанрових вкладок перенесено у праву панель (RightTabsPanel).
         Box(
@@ -2516,6 +2516,8 @@ fun StationScreen(
         onPlayPause = onPlayPause,
         skipUi = { skipUi(it) },
     )
+
+}
 
 }
 

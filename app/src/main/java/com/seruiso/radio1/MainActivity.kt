@@ -2519,8 +2519,6 @@ fun StationScreen(
 
 }
 
-}
-
 @Composable
 fun EmptySlot(hint: String, muted: Color) {
     Box(

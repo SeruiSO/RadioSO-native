@@ -47,6 +47,8 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import kotlinx.coroutines.delay
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.mutableIntStateOf

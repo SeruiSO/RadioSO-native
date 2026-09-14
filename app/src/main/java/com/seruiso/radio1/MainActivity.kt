@@ -3033,80 +3033,30 @@ fun StationScreen(
                         )
                     }
                 }
-                // Нижня стрічка: ~5 іконок на екран + підпис; компактно по висоті
-                // Стрічка: radio без змін; local — нижча, щоб видно артиста/трек над прогресом
-                val stripH = if (nowLocal) 86.dp else 108.dp
-                val stripCell = if (nowLocal) 56.dp else 70.dp
-                val stripSel = if (nowLocal) 52.dp else 68.dp
-                val stripUnsel = if (nowLocal) 46.dp else 62.dp
-                BoxWithConstraints(modifier = Modifier.fillMaxWidth().height(stripH), contentAlignment = Alignment.Center) {
-                    if (arts.isNotEmpty()) {
-                        val cell = stripCell
-                        val hPad = ((maxWidth - cell) / 2).coerceAtLeast(0.dp)
-                        LazyRow(
-                            state = stripState,
-                            modifier = Modifier.fillMaxWidth().height(stripH),
-                            contentPadding = PaddingValues(horizontal = hPad),
-                            horizontalArrangement = Arrangement.spacedBy(if (nowLocal) 4.dp else 3.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            itemsIndexed(arts, key = { i, u -> "$i:$u" }) { i, u ->
-                                val label = when {
-                                    nowLocal && i in nowLocalRows.indices -> nowLocalRows[i].title
-                                    i in nowRadioRows.indices -> nowRadioRows[i].name
-                                    i in radioRows.indices -> radioRows[i].name
-                                    else -> ""
-                                }
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    modifier = Modifier
-                                        .width(cell)
-                                        .clickable {
-                                            if (nowLocal && i in nowLocalRows.indices) onPickLocal(nowLocalRows, i)
-                                            else if (i in nowRadioRows.indices) {
-                                                if (skipMode == "temp") onPickOneRadio(nowRadioRows, i)
-                                                else onPickRadio(nowRadioRows, i)
-                                            }
-                                        }
-                                ) {
-                                    Box(modifier = Modifier.size(cell), contentAlignment = Alignment.Center) {
-                                        // іконка = ширина підпису (cell); обрана трохи більша візуально через alpha
-                                        val target = if (i == curI) stripSel else stripUnsel
-                                        val sz by androidx.compose.animation.core.animateDpAsState(target, label = "stripSz")
-                                        val alpha by androidx.compose.animation.core.animateFloatAsState(if (i == curI) 1f else 0.72f, label = "stripA")
-                                        if (u.startsWith("http") || u.startsWith("content:")) {
-                                            AsyncImage(
-                                                model = u,
-                                                contentDescription = label.ifBlank { null },
-                                                modifier = Modifier
-                                                    .size(sz)
-                                                    .graphicsLayer { this.alpha = alpha }
-                                                    .clip(RoundedCornerShape(10.dp)),
-                                                contentScale = ContentScale.Crop
-                                            )
-                                        } else {
-                                            Icon(
-                                                Icons.Filled.MusicNote,
-                                                contentDescription = label.ifBlank { null },
-                                                tint = muted,
-                                                modifier = Modifier.size(sz * 0.55f).graphicsLayer { this.alpha = alpha }
-                                            )
-                                        }
-                                    }
-                                    Text(
-                                        label,
-                                        color = if (i == curI) text else muted,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                        modifier = Modifier.padding(top = 2.dp).fillMaxWidth()
-                                    )
-                                }
-                            }
-                        }
+                val stripLabels = List(arts.size) { i ->
+                    when {
+                        nowLocal && i in nowLocalRows.indices -> nowLocalRows[i].title
+                        i in nowRadioRows.indices -> nowRadioRows[i].name
+                        i in radioRows.indices -> radioRows[i].name
+                        else -> ""
                     }
                 }
+                NowPlayingStrip(
+                    arts = arts,
+                    labels = stripLabels,
+                    curI = curI,
+                    nowLocal = nowLocal,
+                    stripState = stripState,
+                    muted = muted,
+                    text = text,
+                    onPick = { i ->
+                        if (nowLocal && i in nowLocalRows.indices) onPickLocal(nowLocalRows, i)
+                        else if (i in nowRadioRows.indices) {
+                            if (skipMode == "temp") onPickOneRadio(nowRadioRows, i)
+                            else onPickRadio(nowRadioRows, i)
+                        }
+                    },
+                )
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(top = 4.dp, bottom = 6.dp)) {
                     if (canSkip) {
                     Box(

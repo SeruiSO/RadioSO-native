@@ -31,6 +31,20 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextOverflow
+import coil.compose.AsyncImage
 
 /** Album art / favicon URL (http or MediaStore albumId). */
 fun artUrl(raw: String): String {
@@ -119,4 +133,131 @@ fun Modifier.springPress(pressedScale: Float = 0.88f, onClick: () -> Unit): Modi
     return this
         .graphicsLayer { scaleX = sc; scaleY = sc }
         .clickable(interactionSource = interaction, indication = null, onClick = onClick)
+}
+
+/** Підписи вкладок (UA) — top-level, щоб StationScreen теж бачив */
+fun tabLabel(ctx: android.content.Context, tab: String): String = when (tab.lowercase()) {
+    "fav" -> ctx.getString(R.string.favorites)
+    "best" -> ctx.getString(R.string.local_best_short)
+    "local" -> ctx.getString(R.string.tab_local)
+    "search" -> ctx.getString(R.string.nav_search)
+    "ukraine", "ua" -> "UA"
+    "techno" -> "Techno"
+    "trance" -> "Trance"
+    "pop" -> "Pop"
+    else -> tab.replaceFirstChar { it.uppercase() }
+}
+
+/** Статус ефіру для інфо-панелі; решта йде в тост. */
+fun playbackInfoText(ctx: android.content.Context, status: String): String? {
+    val x = status.trim().lowercase()
+    if (x.isEmpty() || x == ctx.getString(R.string.done)) return null
+    return when {
+        x.startsWith("відтвор") -> ctx.getString(R.string.playing_cap)
+        x == "пауза" || x.contains(ctx.getString(R.string.sleep_pause)) -> ctx.getString(R.string.pause)
+        x.startsWith("стоп") -> ctx.getString(R.string.stop)
+        x.contains(ctx.getString(R.string.buffer)) -> ctx.getString(R.string.buffer_cap)
+        x.startsWith("підключ") -> ctx.getString(R.string.connecting_cap)
+        x == "запуск" -> ctx.getString(R.string.start)
+        x.contains("#") -> status.trim()
+        else -> null
+    }
+}
+
+
+/** Злити два знімки станції: непорожній favicon/genre/country ніколи не затирається порожнім. */
+fun preferRichStation(a: Station, b: Station): Station {
+    val favicon = when {
+        a.favicon.isNotBlank() && b.favicon.isNotBlank() ->
+            // обидва є — лишаємо довший/http (часто краща якість)
+            if (b.favicon.startsWith("http") && !a.favicon.startsWith("http")) b.favicon
+            else if (b.favicon.length > a.favicon.length) b.favicon
+            else a.favicon
+        a.favicon.isNotBlank() -> a.favicon
+        else -> b.favicon
+    }
+    val name = if (b.name.length > a.name.length) b.name else a.name
+    val genre = a.genre.ifBlank { b.genre }
+    val country = a.country.ifBlank { b.country }
+    return Station(a.url, name, genre.ifBlank { b.genre }, country.ifBlank { b.country }, favicon, a.tab)
+}
+
+/** distinctBy збагаченням meta замість «перший виграв». Порядок першої появи зберігається. */
+fun mergeStationsRich(list: List<Station>): List<Station> {
+    val map = linkedMapOf<String, Station>()
+    for (s in list) {
+        val prev = map[s.url]
+        map[s.url] = if (prev == null) s else preferRichStation(prev, s)
+    }
+    return map.values.toList()
+}
+
+// Рядок локального треку — перевикористовується у вкладці LocalContext.current.getString(R.string.favorites_plural)
+// для секцій LocalContext.current.getString(R.string.local_favorites) та LocalContext.current.getString(R.string.local_music).
+@Composable
+fun LocalTrackRow(
+    item: LocalTrack,
+    isCurrent: Boolean,
+    acc: Color,
+    muted: Color,
+    text: Color,
+    isBest: Boolean = false,
+    onToggleBest: (() -> Unit)? = null,
+    onArt: () -> Unit = {},
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 6.dp, vertical = 3.dp)
+            .background(if (isCurrent) acc.copy(alpha = 0.18f) else Palette.card, RoundedCornerShape(12.dp))
+            .padding(10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier.size(48.dp).clickable { onArt() },
+            contentAlignment = Alignment.Center
+        ) {
+            val a = if (item.albumId.isNotBlank() && item.albumId != "0")
+                "content://media/external/audio/albumart/${item.albumId}" else ""
+            if (a.isNotEmpty()) AsyncImage(model = a, contentDescription = null, modifier = Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop)
+            else Icon(Icons.Filled.MusicNote, contentDescription = LocalContext.current.getString(R.string.no_cover), tint = muted)
+        }
+        Column(modifier = Modifier.weight(1f).padding(start = 8.dp).clickable { onClick() }) {
+            Text(item.title, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(item.artist, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
+        }
+        if (onToggleBest != null) {
+            Icon(
+                if (isBest) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                contentDescription = if (isBest) LocalContext.current.getString(R.string.remove_from_local_fav) else LocalContext.current.getString(R.string.add_to_local_fav_short),
+                tint = acc,
+                modifier = Modifier
+                    .clickable { onToggleBest() }
+                    .padding(start = 8.dp, end = 2.dp)
+                    .size(24.dp)
+            )
+        }
+    }
+}
+
+
+@Composable
+fun EmptySlot(hint: String, muted: Color) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 8.dp)
+            .background(Palette.panel.copy(alpha = 0.55f), RoundedCornerShape(12.dp))
+            .border(1.dp, muted.copy(alpha = 0.28f), RoundedCornerShape(12.dp))
+            .padding(horizontal = 14.dp, vertical = 14.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            hint,
+            color = muted,
+            style = MaterialTheme.typography.bodySmall,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+        )
+    }
 }

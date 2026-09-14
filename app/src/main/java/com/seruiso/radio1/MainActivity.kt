@@ -2610,7 +2610,7 @@ fun StationScreen(
         skipUi = { skipUi(it) },
     )
 
-
+}
 
 @Composable
 private fun EmptySlot(hint: String, muted: Color) {

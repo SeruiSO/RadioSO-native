@@ -2826,93 +2826,26 @@ fun StationScreen(
                         .fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Radio: велика картка як була. Local (серце/музика): компактніше під прогрес+мета.
-                    val npArt = if (nowLocal) 248.dp else 300.dp
-                    val npPagerH = if (nowLocal) 262.dp else 318.dp
-                    HorizontalPager(
-                        state = pagerState,
-                        contentPadding = PaddingValues(horizontal = if (nowLocal) 48.dp else 40.dp),
-                        pageSpacing = if (nowLocal) 10.dp else 12.dp,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(npPagerH),
-                        key = { page ->
-                            if (nowLocal) nowLocalRows.getOrNull(page)?.uri ?: "L$page"
-                            else nowRadioRows.getOrNull(page)?.url ?: "R$page"
-                        }
+                    val pageKeys = List(
+                        if (nowLocal) nowLocalRows.size else nowRadioRows.size
                     ) { page ->
-                        val dist = (pagerState.currentPage - page) + pagerState.currentPageOffsetFraction
-                        val abs = kotlin.math.abs(dist).coerceIn(0f, 1f)
-                        val scale = 1f - 0.14f * abs
-                        val alpha = 1f - 0.38f * abs
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(npArt)
-                                    .graphicsLayer {
-                                        scaleX = scale
-                                        scaleY = scale
-                                        this.alpha = alpha
-                                    }
-                                    .background(
-                                        Brush.radialGradient(
-                                            colors = listOf(acc.copy(alpha = 0.35f), Color.Transparent),
-                                            radius = 420f
-                                        )
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(npArt)
-                                    .graphicsLayer {
-                                        scaleX = scale
-                                        scaleY = scale
-                                        this.alpha = alpha
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                // Спочатку — звичайна іконка. Якщо відомий виконавець (для
-                                // локального треку — з тегів, для радіо — з ICY на сторінці, що
-                                // зараз грає), підміняємо іконку на його фото з відкритого API.
-                                // Фавікон станції у великій обкладинці більше не показуємо.
-                                // Спочатку -- іконка/фавікон станції. Якщо відомий виконавець (для
-                                // локального треку -- з тегів, для радіо -- з ICY на сторінці, що
-                                // зараз грає), підміняємо на його фото з відкритого API.
-                                val pageArtist = if (page != pagerState.currentPage) ""
-                                else if (nowLocal) {
-                                    nowLocalRows.getOrNull(page)?.artist ?: ""
-                                } else {
-                                    artistFromTrackTitle(track)
-                                }
-                                val artistPhoto by rememberArtistPhotoUrl(
-                                    pageArtist,
-                                    (if (nowLocal) "L" else "R") + currentUrl + page
-                                )
-                                val photo = artistPhoto
-                                val fallbackArt = arts.getOrNull(page) ?: ""
-                                when {
-                                    photo != null -> AsyncImage(
-                                        model = photo,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(npArt).clip(AppShapes.card),
-                                        contentScale = ContentScale.Crop
-                                    )
-                                    fallbackArt.startsWith("http") || fallbackArt.startsWith("content:") -> AsyncImage(
-                                        model = fallbackArt,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(npArt).clip(AppShapes.card),
-                                        contentScale = ContentScale.Crop
-                                    )
-                                    else -> Icon(Icons.Filled.MusicNote, contentDescription = null, tint = muted, modifier = Modifier.size(96.dp))
-                                }
-                            }
-                            }
-                        }
+                        if (nowLocal) nowLocalRows.getOrNull(page)?.uri ?: "L$page"
+                        else nowRadioRows.getOrNull(page)?.url ?: "R$page"
                     }
+                    NowPlayingPager(
+                        pagerState = pagerState,
+                        nowLocal = nowLocal,
+                        pageKeys = pageKeys,
+                        arts = arts,
+                        currentUrl = currentUrl,
+                        track = track,
+                        pageArtistFor = { page ->
+                            if (nowLocal) nowLocalRows.getOrNull(page)?.artist ?: ""
+                            else artistFromTrackTitle(track)
+                        },
+                        acc = acc,
+                        muted = muted,
+                    )
                     val pagerDragModifier: Modifier =
                         if (!nowLocal && arts.isNotEmpty()) {
                             Modifier.pointerInput(currentUrl, pageCount) {

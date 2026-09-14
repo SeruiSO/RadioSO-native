@@ -12,10 +12,11 @@ import androidx.compose.foundation.pager.PagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material3.Icon
-import androidx.compose.animation.Crossfade
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.key
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -89,48 +90,51 @@ fun NowPlayingPager(
                         },
                     contentAlignment = Alignment.Center
                 ) {
-                    // Фото виконавця лише для ПОТОЧНОЇ станції (currentUrl) і поточної сторінки.
-                    // Під час свайпу на сусіда — тільки fallback (favicon/album), без «залипання» старого фото.
-                    val isActivePage = page == pagerState.currentPage
-                    val pageArtist = if (isActivePage) pageArtistFor(page) else ""
+                    // Базовий шар = arts[page] (favicon/альбом ЦІЄЇ сторінки) — одразу, без crossfade зі старою станцією.
+                    // Фото виконавця лише ЗВЕРХУ і лише коли pageKey == currentUrl і свайп закінчено.
+                    val pageKey = pageKeys.getOrNull(page) ?: ""
+                    val isPlayingStation = pageKey.isNotEmpty() && pageKey == currentUrl
+                    val scrolling = pagerState.isScrollInProgress
+                    val pageArtist = if (isPlayingStation && !scrolling) pageArtistFor(page) else ""
                     val artistPhoto by rememberArtistPhotoUrl(
                         pageArtist,
-                        (if (nowLocal) "L" else "R") + currentUrl + "|" + page + "|" + pageArtist
+                        (if (nowLocal) "L" else "R") + pageKey + "|" + pageArtist
                     )
-                    val photo = if (isActivePage && pageArtist.isNotBlank()) artistPhoto else null
+                    // Показувати photo тільки для реальної поточної станції (не під час fling)
+                    val photo = if (isPlayingStation && !scrolling && pageArtist.isNotBlank()) artistPhoto else null
                     val fallbackArt = arts.getOrNull(page) ?: ""
-                    // target: url фото / fallback / "" для іконки
-                    val visualKey = when {
-                        photo != null -> "p:$photo"
-                        fallbackArt.startsWith("http") || fallbackArt.startsWith("content:") -> "f:$fallbackArt"
-                        else -> "icon"
-                    }
-                    key(currentUrl, page) {
-                        Crossfade(
-                            targetState = visualKey,
-                            animationSpec = tween(320),
-                            label = "artCrossfade"
-                        ) { keyState ->
-                            when {
-                                keyState.startsWith("p:") -> AsyncImage(
-                                    model = keyState.removePrefix("p:"),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(npArt).clip(AppShapes.card),
-                                    contentScale = ContentScale.Crop
-                                )
-                                keyState.startsWith("f:") -> AsyncImage(
-                                    model = keyState.removePrefix("f:"),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(npArt).clip(AppShapes.card),
-                                    contentScale = ContentScale.Crop
-                                )
-                                else -> Icon(
-                                    Icons.Filled.MusicNote,
-                                    contentDescription = null,
-                                    tint = muted,
-                                    modifier = Modifier.size(96.dp)
-                                )
-                            }
+
+                    Box(
+                        modifier = Modifier.size(npArt),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        // 1) Завжди іконка/арт саме цієї сторінки
+                        when {
+                            fallbackArt.startsWith("http") || fallbackArt.startsWith("content:") -> AsyncImage(
+                                model = fallbackArt,
+                                contentDescription = null,
+                                modifier = Modifier.size(npArt).clip(AppShapes.card),
+                                contentScale = ContentScale.Crop
+                            )
+                            else -> Icon(
+                                Icons.Filled.MusicNote,
+                                contentDescription = null,
+                                tint = muted,
+                                modifier = Modifier.size(96.dp)
+                            )
+                        }
+                        // 2) Фото виконавця з’являється fade-in поверх; при зміні станції зникає одразу (visible=false)
+                        AnimatedVisibility(
+                            visible = photo != null,
+                            enter = fadeIn(animationSpec = tween(300)),
+                            exit = fadeOut(animationSpec = tween(120)),
+                        ) {
+                            AsyncImage(
+                                model = photo,
+                                contentDescription = null,
+                                modifier = Modifier.size(npArt).clip(AppShapes.card),
+                                contentScale = ContentScale.Crop
+                            )
                         }
                     }
                 }

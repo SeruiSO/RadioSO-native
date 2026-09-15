@@ -35,7 +35,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.Radio
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MoreVert
@@ -96,14 +96,32 @@ fun BottomNavBar(
     onPull: (Float) -> Unit = {},
     onPullEnd: () -> Unit = {},
 ) {
-    val items = listOf(
-        Triple("home", LocalContext.current.getString(R.string.nav_home), Icons.Filled.Home),
-        Triple("stations", LocalContext.current.getString(R.string.nav_stations), Icons.Filled.Star),
-        Triple("heart", LocalContext.current.getString(R.string.favorites_plural), Icons.Filled.Favorite),
-        Triple("music", LocalContext.current.getString(R.string.nav_music), Icons.Filled.LibraryMusic),
-        Triple("tabs", LocalContext.current.getString(R.string.tabs), Icons.Filled.Category),
-        Triple("search", LocalContext.current.getString(R.string.nav_search), Icons.Filled.Search),
-    )
+    val ctx = LocalContext.current
+    @Composable
+    fun NavIco(key: String, icon: androidx.compose.ui.graphics.vector.ImageVector, desc: String) {
+        val selected = current == key
+        Icon(
+            icon,
+            contentDescription = desc,
+            tint = if (selected) acc else muted,
+            modifier = Modifier
+                .clickable { onSelect(key) }
+                .padding(horizontal = 8.dp, vertical = 6.dp)
+                .size(34.dp)
+        )
+    }
+    @Composable
+    fun Capsule(active: Boolean, content: @Composable () -> Unit) {
+        Row(
+            modifier = Modifier
+                .background(
+                    if (active) acc.copy(alpha = 0.14f) else muted.copy(alpha = 0.08f),
+                    RoundedCornerShape(16.dp)
+                )
+                .padding(horizontal = 2.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) { content() }
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -118,21 +136,20 @@ fun BottomNavBar(
                     else onPull(drag)
                 }
             }
-            .padding(vertical = 3.dp),
+            .padding(horizontal = 8.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        items.forEach { (key, label, icon) ->
-            val selected = current == key
-            Column(
-                modifier = Modifier
-                    .clickable { onSelect(key) }
-                    .padding(horizontal = 2.dp, vertical = 2.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Icon(icon, contentDescription = label, tint = if (selected) acc else muted, modifier = Modifier.size(28.dp))
-                Text(label, color = if (selected) acc else muted, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 0.dp))
-            }
+        // [★ | 📻] · Дім · Пошук · [♥ | ♫]
+        Capsule(current == "stations" || current == "tabs") {
+            NavIco("stations", Icons.Filled.Star, ctx.getString(R.string.nav_stations))
+            NavIco("tabs", Icons.Filled.Radio, ctx.getString(R.string.tabs))
+        }
+        NavIco("home", Icons.Filled.Home, ctx.getString(R.string.nav_home))
+        NavIco("search", Icons.Filled.Search, ctx.getString(R.string.nav_search))
+        Capsule(current == "heart" || current == "music") {
+            NavIco("heart", Icons.Filled.Favorite, ctx.getString(R.string.favorites_plural))
+            NavIco("music", Icons.Filled.LibraryMusic, ctx.getString(R.string.nav_music))
         }
     }
 }

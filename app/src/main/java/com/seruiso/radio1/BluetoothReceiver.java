@@ -11,7 +11,7 @@ import android.os.Build;
 import android.util.Log;
 
 /**
- * Класичний BT (не AA): A2DP/Headset CONNECTED → ACTION_BT; disconnect/BT off → ACTION_PAUSE.
+ * Класичний BT (не AA): A2DP/Headset CONNECTED → ACTION_BT; disconnect/BT off → ACTION_ROUTE_LOST.
  * ACL_CONNECTED лише mark timestamp (не play) — менше звуку з телефону / пинка.
  * AA: не чіпаємо маршрутизацію; pause skip лише коли KEY_AA_ACTIVE і BT ще увімкнений.
  */
@@ -75,7 +75,7 @@ public class BluetoothReceiver extends BroadcastReceiver {
                     .putLong("userPausedWhileBtAt", 0L)
                     .apply();
             } catch (Exception ignored) {}
-                startSvc(app, RadioWatchService.ACTION_PAUSE);
+                startSvc(app, RadioWatchService.ACTION_ROUTE_LOST);
             }
             return;
         }
@@ -101,7 +101,7 @@ public class BluetoothReceiver extends BroadcastReceiver {
                     .putLong("userPausedWhileBtAt", 0L)
                     .apply();
             } catch (Exception ignored) {}
-            startSvc(app, RadioWatchService.ACTION_PAUSE);
+            startSvc(app, RadioWatchService.ACTION_ROUTE_LOST);
             return;
         }
 
@@ -129,7 +129,7 @@ public class BluetoothReceiver extends BroadcastReceiver {
                     .putLong("userPausedWhileBtAt", 0L)
                     .apply();
             } catch (Exception ignored) {}
-            startSvc(app, RadioWatchService.ACTION_PAUSE);
+            startSvc(app, RadioWatchService.ACTION_ROUTE_LOST);
         }
     }
 }

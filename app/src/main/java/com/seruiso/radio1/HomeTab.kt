@@ -199,17 +199,31 @@ private fun HomeSectionHeader(title: String, acc: Color, text: Color, onAll: (()
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (icon != null) {
-            Icon(icon, contentDescription = null, tint = acc, modifier = Modifier.size(16.dp).padding(end = 4.dp))
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = acc,
+                modifier = Modifier
+                    .padding(end = 6.dp)
+                    .size(22.dp),
+            )
         }
-        Text(title, color = text, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(
+            title,
+            color = text,
+            style = MaterialTheme.typography.titleSmall,
+            modifier = Modifier.weight(1f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
         if (onAll != null) {
             Text(
                 stringResource(R.string.home_all),
                 color = acc,
-                style = MaterialTheme.typography.labelMedium,
+                style = MaterialTheme.typography.titleSmall,
                 modifier = Modifier
                     .clickable { onAll() }
-                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
             )
         }
     }

@@ -17,6 +17,9 @@ object RadioBrowser {
     val countries = SearchHints.countries
     val genres = SearchHints.genres
 
+    fun searchQuiet(name: String, country: String, genre: String): List<Station>? =
+        search(name, country, genre, gen = -1)
+
     fun search(name: String, country: String, genre: String, gen: Int): List<Station>? {
         val n = name.trim()
         val c = country.trim()
@@ -39,7 +42,7 @@ object RadioBrowser {
 
     private fun fetch(path: String, gen: Int): List<Station>? {
         for (host in hosts) {
-            if (gen != activeGen) return null
+            if (gen >= 0 && gen != activeGen) return null
             try {
                 val conn = URL("https://$host$path").openConnection() as HttpURLConnection
                 conn.connectTimeout = 10000
@@ -49,7 +52,7 @@ object RadioBrowser {
                 if (conn.responseCode != 200) { conn.disconnect(); continue }
                 val body = conn.inputStream.bufferedReader().use { it.readText() }
                 conn.disconnect()
-                if (gen != activeGen) return null
+                if (gen >= 0 && gen != activeGen) return null
                 val arr = JSONArray(body)
                 val out = mutableListOf<Station>()
                 for (i in 0 until arr.length()) {

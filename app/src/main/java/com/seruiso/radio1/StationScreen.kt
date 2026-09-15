@@ -205,6 +205,9 @@ fun StationScreen(
     searchRows: List<Station> = emptyList(),
     allRadio: List<Station> = emptyList(),
     recentStations: List<Station> = emptyList(),
+    homeNearby: List<Station> = emptyList(),
+    homeSimilarRb: List<Station> = emptyList(),
+    onGenreChip: (String) -> Unit = {},
     localRows: List<LocalTrack>,
     allLocal: List<LocalTrack> = emptyList(),
     showLocal: Boolean,
@@ -530,23 +533,18 @@ fun StationScreen(
         } // end info Column
         androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(8.dp))
         if (bottomTab == "home") {
-            val poolAll = (if (allRadio.isNotEmpty()) allRadio else radioRows).filter { it.url != currentUrl }
-            val similarHome: List<Station> = run {
-                val same = if (genre.isNotBlank())
-                    poolAll.filter {
-                        it.genre.contains(genre, ignoreCase = true) ||
-                            (it.genre.isNotBlank() && genre.contains(it.genre, ignoreCase = true))
-                    }
-                else emptyList()
-                (same + poolAll.filter { st -> same.none { it.url == st.url } })
-            }
             Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
                 HomeTabContent(
                     favRows = favRows,
                     heartRows = bestRows,
-                    similar = similarHome,
+                    similar = homeSimilarRb,
                     similarTitle = if (genre.isNotBlank()) LocalContext.current.getString(R.string.similar_genre, genre) else LocalContext.current.getString(R.string.home_similar),
                     recent = recentStations,
+                    nearby = homeNearby,
+                    genreChips = SearchHints.homeGenres,
+                    favUrls = favUrls,
+                    currentName = name,
+                    currentFavicon = favicon,
                     acc = acc, muted = muted, text = text,
                     onAllStations = { onBottomTab("stations") },
                     onAllHeart = { onBottomTab("heart") },
@@ -554,6 +552,9 @@ fun StationScreen(
                     onPickLocal = onPickLocal,
                     onPickOneRadio = onPickOneRadio,
                     onPlayNow = { onCloseMenu(); onNow() },
+                    onToggleFav = onToggleFav,
+                    onAddToTab = onAddToTab,
+                    onGenreChip = onGenreChip,
                     currentUrl = currentUrl,
                 )
             }
@@ -894,6 +895,7 @@ fun StationScreen(
             onPickRadio = onPickRadio,
             onPickOneRadio = onPickOneRadio,
             onToggleFav = onToggleFav,
+            onAddToTab = onAddToTab,
             onToggleBest = onToggleBest,
             onSeek = onSeek,
             onShuffle = onShuffle,

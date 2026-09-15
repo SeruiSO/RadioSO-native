@@ -3,10 +3,12 @@
     <string name="app_name">Radio S O</string>
 
     <!-- Home (already used) -->
-    <string name="home_recent">Нещодавно</string>
-    <string name="home_favorites">Улюблені</string>
-    <string name="home_local_fav">Обране локальне</string>
-    <string name="home_similar">Близьке за жанром</string>
+    <string name="home_recent">Недавно ти слухав</string>
+    <string name="home_favorites">Улюблені радіостанції</string>
+    <string name="home_local_fav">Обрана локальна музика</string>
+    <string name="home_similar">Схожі за жанром</string>
+    <string name="home_nearby">Слухають в твоїй країні</string>
+    <string name="home_genres">Жанри для пошуку станцій</string>
     <string name="home_all">Усі</string>
     <string name="home_welcome_title">Додай станції зіркою</string>
     <string name="home_welcome_sub">Тоді вони з’являться тут</string>

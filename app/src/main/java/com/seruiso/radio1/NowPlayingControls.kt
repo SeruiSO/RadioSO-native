@@ -50,11 +50,12 @@ fun NowPlayingMeta(
     pagerDragModifier: Modifier,
     onToggleFavorite: () -> Unit,
     onToggleBest: () -> Unit,
+    onAddToTab: () -> Unit = {},
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 4.dp)
+            .padding(top = 2.dp)
             .then(pagerDragModifier),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -89,16 +90,57 @@ fun NowPlayingMeta(
                     .size(28.dp)
                     .springPress(0.75f, onToggleFavorite)
             )
+            Text(
+                "+",
+                color = acc,
+                style = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier
+                    .padding(start = 10.dp)
+                    .springPress(0.75f, onAddToTab)
+            )
         }
     }
+    // виконавець + трек одразу під назвою станції (мінімальні відступи)
+    val raw = track.trim()
+    val (artistLine, titleLine) = run {
+        if (raw.isBlank()) {
+            "" to LocalContext.current.getString(R.string.track_unknown2)
+        } else {
+            var a = ""
+            var t = raw
+            for (sep in listOf(" - ", " – ", " — ", " | ")) {
+                val i = raw.indexOf(sep)
+                if (i > 0) {
+                    a = raw.substring(0, i).trim()
+                    t = raw.substring(i + sep.length).trim()
+                    break
+                }
+            }
+            a to t.ifBlank { raw }
+        }
+    }
+    if (artistLine.isNotBlank()) {
+        Text(
+            artistLine,
+            color = muted,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 0.dp, bottom = 0.dp)
+                .then(pagerDragModifier)
+        )
+    }
     Text(
-        if (track.isBlank()) LocalContext.current.getString(R.string.track_unknown2) else track,
-        color = muted,
-        maxLines = 2,
+        titleLine,
+        color = text,
+        maxLines = 1,
         overflow = TextOverflow.Ellipsis,
+        style = MaterialTheme.typography.titleMedium,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 2.dp, bottom = 2.dp)
+            .padding(top = 0.dp, bottom = 4.dp)
             .then(pagerDragModifier)
     )
 }

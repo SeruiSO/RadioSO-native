@@ -74,6 +74,10 @@ class MainActivity : ComponentActivity() {
     private var accent by mutableStateOf(0xFF00E676)
     private var nowOpen by mutableStateOf(false)
     private var recentStations by mutableStateOf<List<Station>>(emptyList())
+    private var homeNearby by mutableStateOf<List<Station>>(emptyList())
+    private var homeSimilarRb by mutableStateOf<List<Station>>(emptyList())
+    private var homeRailsGen = 0
+    private var lastRailsKey = ""
     private var pendingDelete by mutableStateOf<Station?>(null)
     private var holdSeek by mutableStateOf(false)
     private var posMs by mutableStateOf(0L)
@@ -146,6 +150,13 @@ class MainActivity : ComponentActivity() {
         if (recentStations.isEmpty()) recentStations = loadRecentStations()
                     isPlaying = intent.getBooleanExtra("playing", false)
                     if (isPlaying) softStatus( getString(R.string.playing))
+                    if (bottomTab == "home") {
+                        val railsKey = "$currentUrl|$currentGenre"
+                        if (railsKey != lastRailsKey) {
+                            lastRailsKey = railsKey
+                            refreshHomeRails()
+                        }
+                    }
                     else if (statusText == getString(R.string.playing)) statusText = "пауза"
                     isLocalNow = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
                         .getString(LocalMusicPlugin.KEY_MODE, "radio") == "local"
@@ -191,6 +202,7 @@ class MainActivity : ComponentActivity() {
         reloadLocal()
         readPrefs()
         recentStations = loadRecentStations()
+        refreshHomeRails()
         val lastTab = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE).getString("currentTab", "fav")
         val idx = uiTabs.indexOf(lastTab)
         if (idx >= 0) tabIndex = idx
@@ -332,6 +344,24 @@ class MainActivity : ComponentActivity() {
                         searchRows = searchRows,
                         allRadio = allRadioMemo,
                         recentStations = recentStations,
+                        homeNearby = homeNearby,
+                        homeSimilarRb = homeSimilarRb,
+                        onGenreChip = { g ->
+                            qName = ""
+                            qCountry = ""
+                            qGenre = g
+                            // без selectBottomTab("search") — інакше autoSearchByGeo зітре жанр
+                            bottomTab = "search"
+                            getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                                .edit().putString("bottomTab", "search").apply()
+                            val i = uiTabs.indexOf("search")
+                            if (i >= 0) {
+                                tabIndex = i
+                                getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                                    .edit().putString("currentTab", "search").apply()
+                            }
+                            runSearch()
+                        },
                         localRows = localRowsMemo,
                         allLocal = localTracks,
                         showLocal = tab == "local" || tab == "best",
@@ -666,6 +696,71 @@ class MainActivity : ComponentActivity() {
      * 1) кеш / Locale → одразу пошук
      * 2) IP (і GPS якщо є дозвіл) → уточнити й перезапустити, якщо країна інша
      */
+
+        /** «Поруч» + «Схожі» — тільки коли відкритий Дім. */
+    private fun refreshHomeRails() {
+        if (bottomTab != "home") return
+        val genreSnap = currentGenre.trim()
+        val urlSnap = currentUrl
+        Thread {
+            var country = countryFromCache()
+            if (country.isBlank()) country = countryFromLocale()
+            if (country.isBlank()) {
+                try { country = countryFromIp() } catch (_: Exception) {}
+            }
+            val nearby = try {
+                if (country.isNotBlank())
+                    RadioBrowser.searchQuiet("", country, "")
+                        ?.filter { it.url != urlSnap }
+                        ?.distinctBy { it.url }
+                        ?.take(10)
+                        ?: emptyList()
+                else emptyList()
+            } catch (_: Exception) { emptyList() }
+
+            val tags = genreSnap
+                .split(',', ';', '/', '|')
+                .map { it.trim() }
+                .filter { it.isNotBlank() && it != "-" && it.length >= 2 }
+            val known = SearchHints.homeGenres.map { it.lowercase() }.toSet()
+            val ordered = (tags.filter { it.lowercase() in known } + tags).distinct()
+            var similar = emptyList<Station>()
+            for (tag in ordered) {
+                try {
+                    val found = RadioBrowser.searchQuiet("", "", tag)
+                        ?.filter { it.url != urlSnap }
+                        ?.distinctBy { it.url }
+                        ?: emptyList()
+                    if (found.isNotEmpty()) {
+                        similar = found.take(10)
+                        break
+                    }
+                } catch (_: Exception) { }
+            }
+            if (similar.isEmpty() && ordered.isNotEmpty()) {
+                val firstWord = ordered.first().split(" ").map { it.trim() }.firstOrNull { it.length >= 3 }
+                if (!firstWord.isNullOrBlank()) {
+                    try {
+                        similar = RadioBrowser.searchQuiet("", "", firstWord)
+                            ?.filter { it.url != urlSnap }
+                            ?.distinctBy { it.url }
+                            ?.take(10)
+                            ?: emptyList()
+                    } catch (_: Exception) { }
+                }
+            }
+
+            runOnUiThread {
+                if (bottomTab != "home") return@runOnUiThread
+                homeNearby = nearby
+                homeSimilarRb = similar
+            }
+        }.start()
+    }
+
+
+
+
     private fun autoSearchByGeo() {
         val cached = countryFromCache()
         val localeC = countryFromLocale()

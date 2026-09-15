@@ -174,23 +174,21 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
                     Text(s.name, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text("${s.genre} · ${s.country}", color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
                 }
+                Icon(
+                    if (favUrls.contains(s.url)) Icons.Filled.Star else Icons.Filled.StarBorder,
+                    contentDescription = if (favUrls.contains(s.url)) LocalContext.current.getString(R.string.remove_from_favorites) else LocalContext.current.getString(R.string.add_to_favorites),
+                    tint = acc,
+                    modifier = Modifier.clickable { actions.onToggleFav(s) }.padding(start = 8.dp, end = 2.dp).size(24.dp)
+                )
                 if (tabs.getOrNull(tabIndex) == "search") {
-                    Text("+", color = acc, modifier = Modifier.clickable { actions.onAddToTab(s) }.padding(start = 8.dp), style = MaterialTheme.typography.headlineMedium)
-                } else {
+                    Text("+", color = acc, modifier = Modifier.clickable { actions.onAddToTab(s) }.padding(start = 4.dp), style = MaterialTheme.typography.headlineMedium)
+                } else if (tabs.getOrNull(tabIndex) != "fav") {
                     Icon(
-                        if (favUrls.contains(s.url)) Icons.Filled.Star else Icons.Filled.StarBorder,
-                        contentDescription = if (favUrls.contains(s.url)) LocalContext.current.getString(R.string.remove_from_favorites) else LocalContext.current.getString(R.string.add_to_favorites),
-                        tint = acc,
-                        modifier = Modifier.clickable { actions.onToggleFav(s) }.padding(start = 8.dp, end = 2.dp).size(24.dp)
+                        Icons.Filled.Delete,
+                        contentDescription = LocalContext.current.getString(R.string.delete_station),
+                        tint = muted,
+                        modifier = Modifier.clickable { actions.onAskDelete(s) }.padding(start = 8.dp, end = 0.dp).size(22.dp)
                     )
-                    if (tabs.getOrNull(tabIndex) != "fav") {
-                        Icon(
-                            Icons.Filled.Delete,
-                            contentDescription = LocalContext.current.getString(R.string.delete_station),
-                            tint = muted,
-                            modifier = Modifier.clickable { actions.onAskDelete(s) }.padding(start = 8.dp, end = 0.dp).size(22.dp)
-                        )
-                    }
                 }
             }
         }

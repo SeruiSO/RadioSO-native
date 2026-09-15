@@ -10,10 +10,14 @@ object SearchHints {
         "Poland", "Ukraine", "Canada", "United States", "Australia", "Japan",
         "South Korea", "New Zealand"
     )
-    val genres = listOf(
-        "Pop", "Rock", "Dance", "Electronic", "Techno", "Trance", "House",
-        "EDM", "Hip-Hop", "Rap", "Jazz", "Classical", "Country", "Reggae",
-        "Blues", "Folk", "Metal", "R&B", "Soul", "Ambient"
+    /** Перші — чіпи на Дім. Решта — підказки в полі жанру пошуку. */
+    val homeGenres = listOf(
+        "Pop", "Dance", "Techno", "Trance", "House", "Rock", "Chill",
+        "Lounge", "Ambient", "Jazz", "Hip-Hop", "Classical", "News",
+    )
+    val genres = homeGenres + listOf(
+        "Electronic", "EDM", "Rap", "Country", "Reggae",
+        "Blues", "Folk", "Metal", "R&B", "Soul", "Indie", "Synthwave",
     )
     val names = emptyList<String>()
 

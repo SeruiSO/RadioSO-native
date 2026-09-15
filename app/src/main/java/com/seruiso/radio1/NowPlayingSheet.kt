@@ -60,6 +60,7 @@ data class NowPlayingActions(
     val onPickRadio: (List<Station>, Int) -> Unit,
     val onPickOneRadio: (List<Station>, Int) -> Unit,
     val onToggleFav: (Station) -> Unit,
+    val onAddToTab: (Station) -> Unit = {},
     val onToggleBest: (LocalTrack) -> Unit,
     val onSeek: (Long) -> Unit,
     val onShuffle: (() -> Unit)?,
@@ -362,6 +363,13 @@ fun NowPlayingSheet(
                             val tr = localRows.firstOrNull { it.uri == currentUrl }
                                 ?: bestRows.firstOrNull { it.uri == currentUrl }
                             if (tr != null) actions.onToggleBest(tr)
+                        },
+                        onAddToTab = {
+                            if (currentUrl.isNotBlank() && !currentUrl.startsWith("content:")) {
+                                actions.onAddToTab(
+                                    Station(currentUrl, name, genre, country, favicon, "")
+                                )
+                            }
                         },
                     )
                 }

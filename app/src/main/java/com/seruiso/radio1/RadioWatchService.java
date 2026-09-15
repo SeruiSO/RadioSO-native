@@ -562,6 +562,9 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         }
         lastReconnectTriggerMs = now;
         android.util.Log.i("RadioWatch", "attemptReconnect: " + reason + " immediate=" + immediate);
+        try {
+            notifyUiStatus(getString(R.string.status_reconnect), reconnectAttempt + 1);
+        } catch (Exception ignored) {}
         if (immediate) {
             forceNetworkReconnect();
         } else {
@@ -1208,6 +1211,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             PlaybackPrefs.setPauseReason(this, PlaybackPrefs.REASON_NONE);
             setIntendedPlaying(true);
             ignoreNoisyUntilMs = System.currentTimeMillis() + 4000L;
+            try { notifyUiStatus(getString(R.string.connecting), 0); } catch (Exception ignored) {}
             try {
                 getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
                     .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, true).apply();
@@ -1653,6 +1657,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                         }
                         android.util.Log.i("RadioWatch",
                             "watch probe #" + attempt + " — route up, start play");
+                        try { notifyUiStatus(getString(R.string.connecting), attempt); } catch (Exception ignored) {}
                         setIntendedPlaying(true);
                         playLastWhenBtReady();
                     } catch (Exception e) {

@@ -151,16 +151,28 @@ fun tabLabel(ctx: android.content.Context, tab: String): String = when (tab.lowe
 
 /** Статус ефіру для інфо-панелі; решта йде в тост. */
 fun playbackInfoText(ctx: android.content.Context, status: String): String? {
-    val x = status.trim().lowercase()
-    if (x.isEmpty() || x == ctx.getString(R.string.done)) return null
+    val raw = status.trim()
+    val x = raw.lowercase()
+    if (x.isEmpty() || x == ctx.getString(R.string.done).lowercase()) return null
+    val attempt = Regex("""#\s*(\d+)""").find(raw)?.groupValues?.getOrNull(1)
+    fun withAttempt(label: String): String =
+        if (attempt != null) "$label #$attempt" else label
     return when {
         x.startsWith("відтвор") -> ctx.getString(R.string.playing_cap)
-        x == "пауза" || x.contains(ctx.getString(R.string.sleep_pause)) -> ctx.getString(R.string.pause)
+        x == "пауза" || x.contains(ctx.getString(R.string.sleep_pause).lowercase()) ->
+            ctx.getString(R.string.pause)
         x.startsWith("стоп") -> ctx.getString(R.string.stop)
-        x.contains(ctx.getString(R.string.buffer)) -> ctx.getString(R.string.buffer_cap)
-        x.startsWith("підключ") -> ctx.getString(R.string.connecting_cap)
+        x.contains("буфер") || x.contains(ctx.getString(R.string.status_buffering).lowercase()) ->
+            withAttempt(ctx.getString(R.string.buffer_cap))
+        x.contains("повторн") || x.contains(ctx.getString(R.string.status_reconnect).lowercase()) ->
+            withAttempt(ctx.getString(R.string.status_reconnect))
+        x.contains("немає мереж") || x.contains(ctx.getString(R.string.status_no_network).lowercase()) ->
+            withAttempt(ctx.getString(R.string.status_no_network))
+        x.startsWith("підключ") || x.contains(ctx.getString(R.string.connecting).lowercase()) ->
+            withAttempt(ctx.getString(R.string.connecting_cap))
         x == "запуск" -> ctx.getString(R.string.start)
-        x.contains("#") -> status.trim()
+        x.contains("#") -> raw
+        raw.length in 1..48 -> raw
         else -> null
     }
 }

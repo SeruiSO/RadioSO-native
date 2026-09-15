@@ -1299,6 +1299,10 @@ class MainActivity : ComponentActivity() {
     private fun playLocal(list: List<LocalTrack>, index: Int) {
         if (index !in list.indices) return
         val t = list[index]
+        if (t.uri == currentUrl && isLocalNow) {
+            sendAction(RadioWatchService.ACTION_PLAY)
+            return
+        }
         stationName = t.title
         trackTitle = t.artist
         val uris = JSONArray(); val titles = JSONArray()
@@ -1324,6 +1328,7 @@ class MainActivity : ComponentActivity() {
             .putString(BluetoothAutoPlayPlugin.KEY_TRACK, t.artist)
             .putString(BluetoothAutoPlayPlugin.KEY_FAVICON, t.albumId)
             .putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, true)
+            .putLong("localPositionMs", 0L)
             .apply()
         startPlay(t.uri, t.title)
     }

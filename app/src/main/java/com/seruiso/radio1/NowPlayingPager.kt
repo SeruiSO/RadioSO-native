@@ -1,5 +1,8 @@
 package com.seruiso.radio1
 
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -21,8 +24,10 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import kotlin.math.abs
 
 /**
@@ -94,25 +99,41 @@ fun NowPlayingPager(
                     )
                     val photo = artistPhoto
                     val fallbackArt = arts.getOrNull(page) ?: ""
-                    when {
-                        photo != null -> AsyncImage(
-                            model = photo,
-                            contentDescription = null,
-                            modifier = Modifier.size(npArt).clip(AppShapes.card),
-                            contentScale = ContentScale.Crop
-                        )
-                        fallbackArt.startsWith("http") || fallbackArt.startsWith("content:") -> AsyncImage(
-                            model = fallbackArt,
-                            contentDescription = null,
-                            modifier = Modifier.size(npArt).clip(AppShapes.card),
-                            contentScale = ContentScale.Crop
-                        )
-                        else -> Icon(
-                            Icons.Filled.MusicNote,
-                            contentDescription = null,
-                            tint = muted,
-                            modifier = Modifier.size(96.dp)
-                        )
+                    val shown = photo
+                        ?: fallbackArt.takeIf { it.startsWith("http") || it.startsWith("content:") }
+                        ?: ""
+                    val zoom by animateFloatAsState(
+                        targetValue = if (photo != null) 1f else 0.985f,
+                        animationSpec = tween(420),
+                        label = "artZoom",
+                    )
+                    val ctx = LocalContext.current
+                    Crossfade(
+                        targetState = shown,
+                        animationSpec = tween(420),
+                        label = "artXf",
+                    ) { src ->
+                        if (src.isNotEmpty()) {
+                            AsyncImage(
+                                model = ImageRequest.Builder(ctx)
+                                    .data(src)
+                                    .crossfade(false)
+                                    .build(),
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .size(npArt)
+                                    .graphicsLayer { scaleX = zoom; scaleY = zoom }
+                                    .clip(AppShapes.card),
+                                contentScale = ContentScale.Crop,
+                            )
+                        } else {
+                            Icon(
+                                Icons.Filled.MusicNote,
+                                contentDescription = null,
+                                tint = muted,
+                                modifier = Modifier.size(96.dp),
+                            )
+                        }
                     }
                 }
             }

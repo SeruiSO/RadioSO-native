@@ -408,7 +408,10 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             public void onPlaybackStateChanged(int state) {
                 if (state == Player.STATE_READY && isLocalMode()) {
                     if (pendingSeekMs >= 0 && player != null) {
-                        player.seekTo(pendingSeekMs);
+                        long dur = player.getDuration();
+                        long seek = pendingSeekMs;
+                        if (dur > 0 && seek > Math.max(0L, dur - 1500L)) seek = 0L;
+                        player.seekTo(seek);
                         pendingSeekMs = -1L;
                     }
                     writeLocalPosition();
@@ -745,6 +748,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                 String title = idx < titles.length() ? titles.optString(idx, "Local") : "Local";
                 String artist = idx < artists.length() ? artists.optString(idx, "") : "";
                 String albumId = idx < albumIds.length() ? albumIds.optString(idx, "0") : "0";
+                pendingSeekMs = -1L;
                 p.edit()
                     .putInt(LocalMusicPlugin.KEY_LOCAL_INDEX, idx)
                     .putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, true)
@@ -752,6 +756,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                     .putString(BluetoothAutoPlayPlugin.KEY_NAME, title)
                     .putString(BluetoothAutoPlayPlugin.KEY_TRACK, artist)
                     .putString(BluetoothAutoPlayPlugin.KEY_FAVICON, albumId)
+                    .putLong("localPositionMs", 0L)
                     .commit();
                 currentName = title;
                 lastTrackTitle = artist != null ? artist : "";
@@ -1235,11 +1240,9 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                     .getString(BluetoothAutoPlayPlugin.KEY_FAVICON, "0");
                 loadLocalAlbumArt(albumId);
             }
-            playUrl(url);
             long seekPos = intent.getLongExtra(EXTRA_POSITION_MS, -1L);
-            if (seekPos >= 0 && player != null) {
-                player.seekTo(seekPos);
-            }
+            if (seekPos >= 0) pendingSeekMs = seekPos;
+            playUrl(url);
             return START_STICKY;
         }
 
@@ -1629,16 +1632,25 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             // lastPlayedUrl НЕ порівнюємо — інакше швидкий A→B→A або зміна
             // під час буфера блокує новий play.
             boolean sameAsCurrent = currentUri != null && url.equals(currentUri);
-            if (sameAsCurrent
-                    && (player.isPlaying() || player.getPlayWhenReady())
-                    && (now - lastPlayMs < 4000)) {
-                android.util.Log.d("RadioWatch", "playUrl skip duplicate: " + url);
+            int stNow = player.getPlaybackState();
+            if (sameAsCurrent && stNow != Player.STATE_IDLE) {
                 currentPlayUrl = url;
+                lastPlayMs = now;
+                lastPlayedUrl = url;
                 try {
                     getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-                        .edit().putString(BluetoothAutoPlayPlugin.KEY_URL, url).commit();
+                        .edit().putString(BluetoothAutoPlayPlugin.KEY_URL, url)
+                        .putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, true).commit();
                 } catch (Exception ignored) {}
+                if (stNow == Player.STATE_ENDED) {
+                    pendingSeekMs = 0L;
+                    try { player.seekTo(0); } catch (Exception ignored) {}
+                }
+                player.setVolume(1f);
+                player.setPlayWhenReady(true);
+                if (isLocalMode()) armPositionTicker();
                 notifyForeground();
+                android.util.Log.i("RadioWatch", "playUrl resume same item st=" + stNow);
                 return;
             }
 
@@ -1683,6 +1695,14 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                     .build())
                 .build();
             // Заміна потоку без stop()/clear — ExoPlayer сам кине попередній load
+            if (localMode && pendingSeekMs < 0) {
+                long saved = 0L;
+                try {
+                    saved = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                        .getLong("localPositionMs", 0L);
+                } catch (Exception ignored) {}
+                if (saved > 400L) pendingSeekMs = saved;
+            }
             player.setMediaItem(item, /* resetPosition= */ true);
             player.prepare();
             player.setVolume(1f);

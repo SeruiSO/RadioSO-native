@@ -242,9 +242,8 @@ private suspend fun photoForSingleArtist(ctx: Context, artist: String): String? 
 @Composable
 fun rememberArtistPhotoUrl(artist: String, bust: String = ""): State<String?> {
     val ctx = LocalContext.current.applicationContext
-    val result = remember(artist, bust) { mutableStateOf<String?>(null) }
+    val result = remember { mutableStateOf<String?>(null) }
     LaunchedEffect(artist, bust) {
-        result.value = null
         if (artist.isBlank() || looksLikeJunk(artist)) return@LaunchedEffect
         delay(250)
         result.value = withContext(Dispatchers.IO) {

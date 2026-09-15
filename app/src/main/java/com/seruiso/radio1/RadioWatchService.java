@@ -999,20 +999,41 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                             || st == Player.STATE_IDLE
                             || st == Player.STATE_ENDED)) {
                         bufferingTicks++;
+                        // Soft ladder (3s ticks): status → soft reconnect → hard reconnect
+                        // 1 ≈ 3s status, 4 ≈ 12s status, 7 ≈ 21s soft, 12 ≈ 36s hard
                         if (bufferingTicks == 1) {
                             notifyUiStatus(getString(R.string.status_buffering), reconnectAttempt);
-                        }
-                        if (bufferingTicks >= 8) { // ~8 * 3s ≈ 24s
-                            android.util.Log.w("RadioWatch", "silence/buffer timeout → reconnect");
+                        } else if (bufferingTicks == 4) {
+                            notifyUiStatus(getString(R.string.status_reconnect), reconnectAttempt);
+                        } else if (bufferingTicks == 7) {
+                            android.util.Log.w("RadioWatch", "silence soft timeout → reconnect (~21s)");
+                            try {
+                                PlaybackPrefs.setPauseReason(RadioWatchService.this,
+                                    PlaybackPrefs.REASON_NETWORK);
+                            } catch (Exception ignored) {}
+                            attemptReconnect("buffer-soft", false);
+                        } else if (bufferingTicks >= 12) {
+                            android.util.Log.w("RadioWatch", "silence hard timeout → reconnect (~36s)");
                             bufferingTicks = 0;
                             lastPlayedUrl = "";
                             lastPlayMs = 0;
-                            attemptReconnect("buffer-timeout", false);
+                            try {
+                                PlaybackPrefs.setPauseReason(RadioWatchService.this,
+                                    PlaybackPrefs.REASON_NETWORK);
+                            } catch (Exception ignored) {}
+                            attemptReconnect("buffer-hard", false);
                             return;
                         }
                     } else if (playing) {
                         if (bufferingTicks > 0) notifyUiStatus(getString(R.string.playing), 0);
                         bufferingTicks = 0;
+                        try {
+                            if (PlaybackPrefs.REASON_NETWORK.equals(
+                                    PlaybackPrefs.getPauseReason(RadioWatchService.this))) {
+                                PlaybackPrefs.setPauseReason(RadioWatchService.this,
+                                    PlaybackPrefs.REASON_NONE);
+                            }
+                        } catch (Exception ignored) {}
                     }
                 } catch (Exception e) {
                     android.util.Log.w("RadioWatch", "silenceCheck", e);

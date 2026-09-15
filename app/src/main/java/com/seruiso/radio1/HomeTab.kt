@@ -72,6 +72,7 @@ fun HomeTabContent(
     ) {
         // 1) чіпи завжди зверху
         if (genreChips.isNotEmpty()) {
+
                 HomeSectionHeader(stringResource(R.string.home_genres), acc, text, onAll = null)
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -90,12 +91,14 @@ fun HomeTabContent(
                     }
                 }
                 Spacer(Modifier.height(6.dp))
+            
         }
 
         if (emptyAll) {
+ HomeWelcome(muted, text, acc, onAllStations) 
         } else {
             if (recent10.isNotEmpty()) {
-                item {
+    
                     HomeSectionHeader(stringResource(R.string.home_recent), acc, text, onAll = null)
                     HomeStationRow(
                         recent10, currentUrl, favUrls, muted, text, acc, tile,
@@ -108,10 +111,10 @@ fun HomeTabContent(
                         onPlus = onAddToTab,
                     )
                     Spacer(Modifier.height(10.dp))
-                }
+                
             }
             if (favRows.isNotEmpty()) {
-                item {
+    
                     HomeSectionHeader(stringResource(R.string.home_favorites), acc, text, onAll = onAllStations, icon = Icons.Filled.Star)
                     HomeStationRow(
                         favRows.distinctBy { it.url }, currentUrl, favUrls, muted, text, acc, tile,
@@ -124,10 +127,10 @@ fun HomeTabContent(
                         onPlus = onAddToTab,
                     )
                     Spacer(Modifier.height(10.dp))
-                }
+                
             }
             if (heartRows.isNotEmpty()) {
-                item {
+    
                     HomeSectionHeader(stringResource(R.string.home_local_fav), acc, text, onAll = onAllHeart, icon = Icons.Filled.Favorite)
                     HomeLocalGrid(heartRows, currentUrl, muted, text, tile = 72.dp) { t ->
                         val i = heartRows.indexOfFirst { it.uri == t.uri }
@@ -135,10 +138,10 @@ fun HomeTabContent(
                         onPlayNow()
                     }
                     Spacer(Modifier.height(10.dp))
-                }
+                
             }
             if (nearby10.isNotEmpty()) {
-                item {
+    
                     HomeSectionHeader(stringResource(R.string.home_nearby), acc, text, onAll = null)
                     HomeStationRow(
                         nearby10, currentUrl, favUrls, muted, text, acc, tile,
@@ -151,10 +154,10 @@ fun HomeTabContent(
                         onPlus = onAddToTab,
                     )
                     Spacer(Modifier.height(10.dp))
-                }
+                
             }
             if (similar10.isNotEmpty()) {
-                item {
+    
                     HomeSectionHeader(
                         if (similarTitle.isBlank()) stringResource(R.string.home_similar) else similarTitle,
                         acc, text, onAll = null,
@@ -169,8 +172,9 @@ fun HomeTabContent(
                         onStar = onToggleFav,
                         onPlus = onAddToTab,
                     )
-                }
+                
             }
+        }
     }
 }
 

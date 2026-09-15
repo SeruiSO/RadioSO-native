@@ -56,6 +56,8 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
     public static final String ACTION_STOP = "com.seruiso.radio1.STOP";
     public static final String ACTION_PLAY = "com.seruiso.radio1.PLAY";
     public static final String ACTION_PAUSE = "com.seruiso.radio1.PAUSE";
+    /** BT/profile gone — not user pause (auto-resume on next ACTION_BT). */
+    public static final String ACTION_ROUTE_LOST = "com.seruiso.radio1.ROUTE_LOST";
     public static final String ACTION_PLAY_URL = "com.seruiso.radio1.PLAY_URL";
     public static final String ACTION_MEDIA_NEXT = "com.seruiso.radio1.MEDIA_NEXT";
     public static final String ACTION_MEDIA_PREV = "com.seruiso.radio1.MEDIA_PREV";
@@ -270,6 +272,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
              */
             private void playFromSessionSmart() {
                 setUserPausedWhileBt(false);
+                PlaybackPrefs.setPauseReason(RadioWatchService.this, PlaybackPrefs.REASON_NONE);
                 setIntendedPlaying(true);
                 try {
                     getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
@@ -294,6 +297,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             private void userPauseFromSession() {
                 pausedByFocusLoss = false;
                 setIntendedPlaying(false);
+                PlaybackPrefs.setPauseReason(RadioWatchService.this, PlaybackPrefs.REASON_USER);
                 try {
                     getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
                         .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, false).apply();
@@ -1142,8 +1146,13 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             return START_NOT_STICKY;
         }
 
+        if (ACTION_ROUTE_LOST.equals(action)) {
+            forceStopPlayback("ROUTE_LOST");
+            return START_STICKY;
+        }
+
         if (ACTION_PAUSE.equals(action) || ACTION_NOTIF_PAUSE.equals(action)) {
-            forceStopPlayback("ACTION_PAUSE");
+            forceStopPlayback("USER_PAUSE");
             return START_STICKY;
         }
 
@@ -1175,6 +1184,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                 return START_STICKY;
             }
             setUserPausedWhileBt(false);
+            PlaybackPrefs.setPauseReason(this, PlaybackPrefs.REASON_NONE);
             setIntendedPlaying(true);
             ignoreNoisyUntilMs = System.currentTimeMillis() + 4000L;
             try {
@@ -1396,11 +1406,11 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
 
     private void forceStopPlayback(String reason) {
         android.util.Log.i("RadioWatch", "forceStopPlayback: " + reason);
-        // VoIP (WhatsApp/Viber) через BT: A2DP→SCO дає ACTION_PAUSE від BluetoothReceiver.
-        // Не затираємо intended, інакше AUDIOFOCUS_GAIN після дзвінка не відновить ефір.
-        // Але якщо пристрій реально зник (BT off / немає маршруту) — це не «дзвінок»,
-        // а вихід з авто: чистимо intent, щоб не resume на динамік телефону.
-        if ("ACTION_PAUSE".equals(reason) && pausedByFocusLoss) {
+        // VoIP (WhatsApp/Viber) через BT: A2DP→SCO може дати pause.
+        // Не затираємо intended при soft focus, інакше AUDIOFOCUS_GAIN не відновить ефір.
+        // ROUTE_LOST (disconnect) ≠ USER_PAUSE (палець) — інакше «вийшов→сів» ламається.
+        boolean asUser = "USER_PAUSE".equals(reason) || "ACTION_PAUSE".equals(reason);
+        if (asUser && pausedByFocusLoss) {
             boolean stillBt = false;
             try {
                 android.bluetooth.BluetoothAdapter a =
@@ -1418,9 +1428,11 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                         android.util.Log.w("RadioWatch", "forceStop soft player", e);
                     }
                 }
+                PlaybackPrefs.setPauseReason(this, PlaybackPrefs.REASON_FOCUS);
                 writeActuallyPlaying(false);
                 notifyForeground();
                 notifyUiPlayback(false);
+                try { notifyUiStatus(getString(R.string.pause), 0); } catch (Exception ignored) {}
                 return;
             }
             android.util.Log.i("RadioWatch",
@@ -1431,9 +1443,26 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         sawA2dpAfterBtStart = false;
         cancelBtTicks();
         cancelWatchProbes();
-        clearPlaybackIntent();
-        if ("ACTION_PAUSE".equals(reason) || (reason != null && reason.startsWith("NOISY"))) {
+
+        boolean routeLost = "ROUTE_LOST".equals(reason)
+            || (reason != null && (reason.startsWith("NOISY")
+                || reason.contains("DISCONNECTED")
+                || reason.contains("a2dp-route-lost")));
+        boolean userPause = asUser && !routeLost;
+
+        if (routeLost) {
+            setUserPausedWhileBt(false);
+            PlaybackPrefs.setPauseReason(this, PlaybackPrefs.REASON_ROUTE);
+            clearPlaybackIntent();
+        } else if (userPause) {
+            PlaybackPrefs.setPauseReason(this, PlaybackPrefs.REASON_USER);
+            clearPlaybackIntent();
             markUserPausedIfBtConnected();
+        } else {
+            clearPlaybackIntent();
+            if (reason != null && reason.startsWith("NOISY")) {
+                markUserPausedIfBtConnected();
+            }
         }
         try {
             getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
@@ -1459,6 +1488,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         writeActuallyPlaying(false);
         notifyForeground();
         notifyUiPlayback(false);
+        try { notifyUiStatus(getString(R.string.pause), 0); } catch (Exception ignored) {}
     }
 
     private void armA2dpRouteWatch() {

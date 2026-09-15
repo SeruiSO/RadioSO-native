@@ -696,7 +696,7 @@ class MainActivity : ComponentActivity() {
         val genreSnap = currentGenre.trim()
         val urlSnap = currentUrl
         lastRailsKey = "$urlSnap|$genreSnap"
-        val token = ++homeRailsToken
+        val token = ++homeRailsGen
         Thread {
             var country = countryFromCache()
             if (country.isBlank()) country = countryFromLocale()
@@ -747,7 +747,7 @@ class MainActivity : ComponentActivity() {
 
             runOnUiThread {
                 if (bottomTab != "home") return@runOnUiThread
-                if (token != homeRailsToken) return@runOnUiThread
+                if (token != homeRailsGen) return@runOnUiThread
                 homeNearby = nearby
                 homeSimilarRb = similar
             }

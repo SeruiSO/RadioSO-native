@@ -150,13 +150,6 @@ class MainActivity : ComponentActivity() {
         if (recentStations.isEmpty()) recentStations = loadRecentStations()
                     isPlaying = intent.getBooleanExtra("playing", false)
                     if (isPlaying) softStatus( getString(R.string.playing))
-                    if (bottomTab == "home") {
-                        val railsKey = "$currentUrl|$currentGenre"
-                        if (railsKey != lastRailsKey) {
-                            lastRailsKey = railsKey
-                            refreshHomeRails()
-                        }
-                    }
                     else if (statusText == getString(R.string.playing)) statusText = "пауза"
                     isLocalNow = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
                         .getString(LocalMusicPlugin.KEY_MODE, "radio") == "local"
@@ -202,7 +195,6 @@ class MainActivity : ComponentActivity() {
         reloadLocal()
         readPrefs()
         recentStations = loadRecentStations()
-        refreshHomeRails()
         val lastTab = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE).getString("currentTab", "fav")
         val idx = uiTabs.indexOf(lastTab)
         if (idx >= 0) tabIndex = idx
@@ -211,6 +203,7 @@ class MainActivity : ComponentActivity() {
         if (lastBottom in listOf("home", "stations", "heart", "music", "tabs", "search", "library")) {
             bottomTab = if (lastBottom == "library") "stations" else lastBottom
         }
+        if (bottomTab == "home") refreshHomeRails()
 
         setContent {
             RadioSOTheme(accent = Color(accent)) {
@@ -418,7 +411,7 @@ class MainActivity : ComponentActivity() {
                         onPickRadio = { list, index -> menuOpen = false; playRadio(list, index, asQueue = true) },
                         onPickOneRadio = { list, i -> menuOpen = false; playRadio(list, i, asQueue = false) },
                         onPickLocal = { list, index -> menuOpen = false; playLocal(list, index) },
-                        onToggleFav = { s -> toggleFav(s.url) },
+                        onToggleFav = { s -> toggleFav(s) },
                         onAddToTab = { s -> pickStation = s },
                         onDragStart = { vibrateTick() },
                         onMoveTo = { from, to -> moveRadioTo(from, to) },
@@ -697,11 +690,13 @@ class MainActivity : ComponentActivity() {
      * 2) IP (і GPS якщо є дозвіл) → уточнити й перезапустити, якщо країна інша
      */
 
-        /** «Поруч» + «Схожі» — тільки коли відкритий Дім. */
+        /** «Поруч» + «Схожі» — лише при вході на Дім (не під час skip на інших вкладках). */
     private fun refreshHomeRails() {
         if (bottomTab != "home") return
         val genreSnap = currentGenre.trim()
         val urlSnap = currentUrl
+        lastRailsKey = "$urlSnap|$genreSnap"
+        val token = ++homeRailsToken
         Thread {
             var country = countryFromCache()
             if (country.isBlank()) country = countryFromLocale()
@@ -752,6 +747,7 @@ class MainActivity : ComponentActivity() {
 
             runOnUiThread {
                 if (bottomTab != "home") return@runOnUiThread
+                if (token != homeRailsToken) return@runOnUiThread
                 homeNearby = nearby
                 homeSimilarRb = similar
             }
@@ -861,6 +857,7 @@ class MainActivity : ComponentActivity() {
             }
         }
         if (t == "search") autoSearchByGeo()
+        if (t == "home") refreshHomeRails()
         persistVisibleQueue()
     }
 

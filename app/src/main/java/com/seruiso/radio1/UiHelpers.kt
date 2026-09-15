@@ -150,6 +150,7 @@ fun tabLabel(ctx: android.content.Context, tab: String): String = when (tab.lowe
 }
 
 /** Статус ефіру для інфо-панелі; решта йде в тост. */
+/** Статус ефіру для інфо-панелі; усе інше (пошук, вкладки, тема…) — тост. */
 fun playbackInfoText(ctx: android.content.Context, status: String): String? {
     val raw = status.trim()
     val x = raw.lowercase()
@@ -171,8 +172,7 @@ fun playbackInfoText(ctx: android.content.Context, status: String): String? {
         x.startsWith("підключ") || x.contains(ctx.getString(R.string.connecting).lowercase()) ->
             withAttempt(ctx.getString(R.string.connecting_cap))
         x == "запуск" -> ctx.getString(R.string.start)
-        x.contains("#") -> raw
-        raw.length in 1..48 -> raw
+        // номер спроби лише разом з відомим ефірним статусом уже оброблено вище
         else -> null
     }
 }

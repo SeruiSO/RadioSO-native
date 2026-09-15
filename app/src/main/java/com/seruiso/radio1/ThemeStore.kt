@@ -17,6 +17,12 @@ object ThemeStore {
         Theme("aurora-haze", 0xFF64FFDA),
         Theme("starlit-amethyst", 0xFFB388FF),
         Theme("lunar-frost", 0xFF40C4FF),
+        // чоловічі акценти
+        Theme("steel-forge", 0xFF4A7C9B),   // сталевий синьо-сірий
+        Theme("cobalt-depth", 0xFF2962FF),  // глибокий кобальт
+        Theme("olive-ridge", 0xFF7CB342),   // олива / military
+        Theme("bronze-ingot", 0xFFC9A227),  // бронза
+        Theme("slate-iron", 0xFF78909C),    // сланець / залізо
     )
     fun get(ctx: Context): Theme {
         val id = ctx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)

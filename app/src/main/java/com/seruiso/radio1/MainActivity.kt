@@ -151,6 +151,13 @@ class MainActivity : ComponentActivity() {
                     isPlaying = intent.getBooleanExtra("playing", false)
                     if (isPlaying) softStatus( getString(R.string.playing))
                     else if (statusText == getString(R.string.playing)) statusText = "пауза"
+                    // На Домі: skip / нова станція → нові «Схожі» (на інших вкладках не шукаємо)
+                    if (bottomTab == "home") {
+                        val railsKey = "$currentUrl|$currentGenre"
+                        if (railsKey != lastRailsKey) {
+                            refreshHomeRails()
+                        }
+                    }
                     isLocalNow = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
                         .getString(LocalMusicPlugin.KEY_MODE, "radio") == "local"
                     if (isLocalNow) {
@@ -690,7 +697,7 @@ class MainActivity : ComponentActivity() {
      * 2) IP (і GPS якщо є дозвіл) → уточнити й перезапустити, якщо країна інша
      */
 
-        /** «Поруч» + «Схожі» — лише при вході на Дім (не під час skip на інших вкладках). */
+        /** «Поруч» + «Схожі»: вхід на Дім або зміна станції, коли вже на Домі. */
     private fun refreshHomeRails() {
         if (bottomTab != "home") return
         val genreSnap = currentGenre.trim()
@@ -1204,6 +1211,7 @@ class MainActivity : ComponentActivity() {
         currentFavicon = s.favicon
         currentUrl = s.url
         currentGenre = s.genre
+        if (bottomTab == "home") refreshHomeRails()
         currentCountry = s.country
         isLocalNow = false
         skipMode = if (asQueue) "radio" else "temp"

@@ -100,8 +100,8 @@ fun HomeTabContent(
                     HomeStationRow(
                         recent10, currentUrl, favUrls, muted, text, acc, tile,
                         onTap = { s ->
-                            if (s.url != currentUrl)
-                                onPickOneRadio(recent10, recent10.indexOfFirst { it.url == s.url }.coerceAtLeast(0))
+                            val i = recent10.indexOfFirst { it.url == s.url }.coerceAtLeast(0)
+                            if (s.url != currentUrl) onPickRadio(recent10, i)
                             onPlayNow()
                         },
                         onStar = onToggleFav,
@@ -143,8 +143,8 @@ fun HomeTabContent(
                     HomeStationRow(
                         nearby10, currentUrl, favUrls, muted, text, acc, tile,
                         onTap = { s ->
-                            if (s.url != currentUrl)
-                                onPickOneRadio(nearby10, nearby10.indexOfFirst { it.url == s.url }.coerceAtLeast(0))
+                            val i = nearby10.indexOfFirst { it.url == s.url }.coerceAtLeast(0)
+                            if (s.url != currentUrl) onPickRadio(nearby10, i)
                             onPlayNow()
                         },
                         onStar = onToggleFav,
@@ -162,8 +162,8 @@ fun HomeTabContent(
                     HomeStationRow(
                         similar10, currentUrl, favUrls, muted, text, acc, tile,
                         onTap = { s ->
-                            if (s.url != currentUrl)
-                                onPickOneRadio(similar10, similar10.indexOfFirst { it.url == s.url }.coerceAtLeast(0))
+                            val i = similar10.indexOfFirst { it.url == s.url }.coerceAtLeast(0)
+                            if (s.url != currentUrl) onPickRadio(similar10, i)
                             onPlayNow()
                         },
                         onStar = onToggleFav,
@@ -207,7 +207,9 @@ private fun HomeSectionHeader(title: String, acc: Color, text: Color, onAll: (()
                 stringResource(R.string.home_all),
                 color = acc,
                 style = MaterialTheme.typography.labelMedium,
-                modifier = Modifier.clickable { onAll() },
+                modifier = Modifier
+                    .clickable { onAll() }
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
             )
         }
     }

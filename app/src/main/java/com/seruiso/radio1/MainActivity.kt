@@ -844,6 +844,11 @@ class MainActivity : ComponentActivity() {
     // зарезервованою вкладкою, щоб перевикористати вже готову логіку списків.
     private fun selectBottomTab(t: String) {
         bottomTab = t
+        if (t != "home") {
+            // «Усі» з Дому → показати список, не now-playing поверх
+            nowOpen = false
+            menuOpen = false
+        }
         getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
             .edit().putString("bottomTab", t).apply()
         val wantTab = when (t) {
@@ -1214,8 +1219,14 @@ class MainActivity : ComponentActivity() {
         if (bottomTab == "home") refreshHomeRails()
         currentCountry = s.country
         isLocalNow = false
-        skipMode = if (asQueue) "radio" else "temp"
-        if (!asQueue) tempStations = list
+        // На Домі немає «видимого» tab-queue — skip має крутити саме list (10 з секції / обрані).
+        if (bottomTab == "home") {
+            skipMode = "temp"
+            tempStations = list
+        } else {
+            skipMode = if (asQueue) "radio" else "temp"
+            if (!asQueue) tempStations = list
+        }
         val ed = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE).edit()
             .putString(LocalMusicPlugin.KEY_MODE, "radio")
             .putString(BluetoothAutoPlayPlugin.KEY_SKIP_MODE, skipMode)

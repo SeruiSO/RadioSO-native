@@ -533,7 +533,13 @@ fun StationScreen(
         } // end info Column
         androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(8.dp))
         if (bottomTab == "home") {
-            Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
+            // weight + fillMaxSize: список сам скролить, без боротьби з parent drag
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .fillMaxSize()
+            ) {
                 HomeTabContent(
                     favRows = favRows,
                     heartRows = bestRows,

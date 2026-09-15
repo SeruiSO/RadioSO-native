@@ -64,8 +64,9 @@ fun HomeTabContent(
         && similar10.isEmpty() && nearby10.isEmpty() && currentUrl.isBlank()
 
     LazyColumn(
-        modifier = Modifier.fillMaxWidth().fillMaxHeight(),
-        contentPadding = PaddingValues(bottom = 20.dp),
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(bottom = 24.dp),
+        userScrollEnabled = true,
     ) {
         // 1) чіпи завжди зверху
         if (genreChips.isNotEmpty()) {

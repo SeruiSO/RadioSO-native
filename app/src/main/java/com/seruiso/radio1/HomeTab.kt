@@ -4,7 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -63,14 +64,14 @@ fun HomeTabContent(
     val emptyAll = favRows.isEmpty() && heartRows.isEmpty() && recent10.isEmpty()
         && similar10.isEmpty() && nearby10.isEmpty() && currentUrl.isBlank()
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 24.dp),
-        userScrollEnabled = true,
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(bottom = 24.dp),
     ) {
         // 1) чіпи завжди зверху
         if (genreChips.isNotEmpty()) {
-            item {
                 HomeSectionHeader(stringResource(R.string.home_genres), acc, text, onAll = null)
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -89,11 +90,9 @@ fun HomeTabContent(
                     }
                 }
                 Spacer(Modifier.height(6.dp))
-            }
         }
 
         if (emptyAll) {
-            item { HomeWelcome(muted, text, acc, onAllStations) }
         } else {
             if (recent10.isNotEmpty()) {
                 item {
@@ -172,7 +171,6 @@ fun HomeTabContent(
                     )
                 }
             }
-        }
     }
 }
 

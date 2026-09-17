@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -46,6 +47,7 @@ import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import kotlinx.coroutines.delay
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
@@ -74,6 +76,7 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.text.font.Font
@@ -368,6 +371,38 @@ fun StationScreen(
             toastOn = false
         }
     }
+    var lastBackAt by remember { mutableStateOf(0L) }
+    BackHandler {
+        when {
+            pickStation != null -> onCancelPick()
+            newTabOpen -> onCancelNewTab()
+            editTab != null -> onCancelEdit()
+            pendingDelete != null -> onCancelDelete()
+            menuOpen -> onCloseMenu()
+            sleepMenu -> onSleepMenu()
+            topSleepOpen -> topSleepOpen = false
+            topThemeOpen -> topThemeOpen = false
+            nowOpen || sheetShow -> {
+                sheetScope.launch {
+                    pullA.stop()
+                    pullA.animateTo(560f, tween(280))
+                    sheetShow = false
+                    onNowClose()
+                }
+            }
+            rightShow -> closeRightSheet()
+            else -> {
+                val t = System.currentTimeMillis()
+                if (t - lastBackAt < 2000L) {
+                    (ctxToast as? android.app.Activity)?.moveTaskToBack(true)
+                } else {
+                    lastBackAt = t
+                    toastTxt = ctxToast.getString(R.string.back_again)
+                    toastOn = true
+                }
+            }
+        }
+    }
     Box(modifier = Modifier.fillMaxSize().background(bg).navigationBarsPadding()) {
     Column(
         modifier = Modifier
@@ -402,133 +437,131 @@ fun StationScreen(
                 ) { Icon(Icons.Filled.MoreVert, contentDescription = LocalContext.current.getString(R.string.more_settings), tint = text) }
             }
         }
-        // Інфо-панель: тап → Now Playing (верхню картку прибрано)
+        // Інфо-панель: іконки на всю висоту, пульс як Play, жанр+країна
+        val infoArtist = artistFromTrackTitle(track)
+        val infoPhoto by rememberArtistPhotoUrl(infoArtist, bust = currentUrl)
+        val infoH = 100.dp
+        val infoBusy = !playing && run {
+            val stt = status.lowercase()
+            stt.contains("підключ") || stt.contains("буфер") || stt == "запуск"
+        }
+        val glowInf = rememberInfiniteTransition(label = "infoPulse")
+        val pulseState = glowInf.animateFloat(
+            1f,
+            if (infoBusy) 1.09f else 1.06f,
+            infiniteRepeatable(
+                tween(if (infoBusy) 420 else 900, easing = FastOutSlowInEasing),
+                RepeatMode.Reverse,
+            ),
+            "infoPulseSc",
+        )
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(card, RoundedCornerShape(12.dp))
+                .clip(RoundedCornerShape(14.dp))
+                .background(card)
+                .clickable(onClick = { onCloseMenu(); onNow() })
         ) {
-            Box(modifier = Modifier.fillMaxWidth()) {
-            val glowInf = rememberInfiniteTransition(label = "vizGlow")
-            // Стейти НЕ розіменовуємо (.value) тут, у тілі composable — інакше Compose
-            // перекомпоновує весь цей блок на кожен кадр анімації (~60 р/сек, поки грає).
-            // .value читаємо нижче, всередині graphicsLayer/drawBehind — це draw-фаза,
-            // перемальовується лише шар відмальовки, без recomposition.
-            val glowScState = glowInf.animateFloat(
-                0.94f, 1.14f,
-                infiniteRepeatable(tween(900, easing = FastOutSlowInEasing), RepeatMode.Reverse),
-                "vizGlowSc"
-            )
-            val glowAState = glowInf.animateFloat(
-                0.55f, 0.92f,
-                infiniteRepeatable(tween(900, easing = FastOutSlowInEasing), RepeatMode.Reverse),
-                "vizGlowA"
-            )
-            Box(
-                modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .padding(end = 6.dp)
-                    .size(64.dp, 56.dp)
-                    .graphicsLayer {
-                        val sc = if (playing) glowScState.value else 1f
-                        scaleX = sc; scaleY = sc
-                        alpha = 1f
+            Row(
+                modifier = Modifier.fillMaxWidth().height(infoH),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(infoH)
+                        .graphicsLayer {
+                            val sc = if (playing || infoBusy) pulseState.value else 1f
+                            scaleX = sc; scaleY = sc
+                        }
+                        .clip(RoundedCornerShape(topStart = 14.dp, bottomStart = 14.dp))
+                        .background(Palette.panel2),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (artUrl(favicon).startsWith("http") || artUrl(favicon).startsWith("content:")) {
+                        AsyncImage(
+                            model = artUrl(favicon),
+                            contentDescription = name,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop,
+                        )
+                    } else {
+                        Icon(Icons.Filled.MusicNote, contentDescription = null, tint = muted, modifier = Modifier.size(32.dp))
                     }
-                    .drawBehind {
-                        val a = glowAState.value
-                        drawRect(
-                            brush = Brush.radialGradient(
-                                colors = listOf(
-                                    acc.copy(alpha = if (playing) 0.58f else 0.28f),
-                                    acc.copy(alpha = if (playing) (a * 0.58f) else 0.14f),
-                                    acc.copy(alpha = 0f)
-                                )
-                            )
+                }
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                        .fillMaxHeight(),
+                    verticalArrangement = Arrangement.spacedBy(1.dp),
+                ) {
+                    Text(
+                        name.uppercase(),
+                        color = acc,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.titleSmall.copy(
+                            letterSpacing = 0.8.sp,
+                            fontWeight = FontWeight.SemiBold,
+                        ),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Text(
+                        if (track.isNotBlank()) track else LocalContext.current.getString(R.string.track_unknown),
+                        color = text,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    val ctry = country.trim().let { if (it.isNotBlank() && it != "-") it else "" }
+                    val gen = genre.trim().let { if (it.isNotBlank() && it != "-") it else "" }
+                    if (ctry.isNotEmpty()) {
+                        Text(
+                            ctry,
+                            color = muted,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.fillMaxWidth(),
                         )
                     }
-            )
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 6.dp, end = 62.dp, top = 6.dp, bottom = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-            // іконка → нижня картка
-            Box(
-                modifier = Modifier
-                    .size(88.dp)
-                    .background(Palette.panel2, AppShapes.hero)
-                    .clickable { onCloseMenu(); onNow() },
-                contentAlignment = Alignment.Center
-            ) {
-                if (artUrl(favicon).startsWith("http") || artUrl(favicon).startsWith("content:")) {
-                    AsyncImage(model = artUrl(favicon), contentDescription = null, modifier = Modifier.size(88.dp).clip(AppShapes.card), contentScale = ContentScale.Crop)
-                } else {
-                    Icon(Icons.Filled.MusicNote, contentDescription = LocalContext.current.getString(R.string.no_cover), tint = muted)
-                }
-            }
-            // текст інфо → верхня картка
-            Column(
-                modifier = Modifier
-                    .padding(start = 10.dp, end = 4.dp)
-                    .weight(1f)
-                    .height(88.dp)
-                    .clipToBounds()
-                    .clickable { onCloseMenu(); onNow() },
-                verticalArrangement = Arrangement.spacedBy(0.dp)
-            ) {
-                Text(
-                    name,
-                    color = text,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.titleSmall,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                if (genre.isNotBlank()) {
-                    Text(
-                        genre,
-                        color = muted,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-                if (country.isNotBlank()) {
-                    Text(
-                        country,
-                        color = muted,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-                Text(
-                    if (track.isBlank()) LocalContext.current.getString(R.string.track_unknown) else track,
-                    color = text,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                val playInfo = playbackInfoText(LocalContext.current, status)
-                if (playInfo != null) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(5.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Box(modifier = Modifier.size(5.dp).background(acc, CircleShape))
-                        Text(playInfo, color = acc, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                    if (gen.isNotEmpty()) {
+                        Text(
+                            gen,
+                            color = muted,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                    val playInfo = playbackInfoText(LocalContext.current, status)
+                    if (playInfo != null) {
+                        Text(
+                            playInfo,
+                            color = acc,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
                     }
                 }
+                if (!infoPhoto.isNullOrBlank()) {
+                    AsyncImage(
+                        model = infoPhoto,
+                        contentDescription = infoArtist,
+                        modifier = Modifier
+                            .size(infoH)
+                            .clip(RoundedCornerShape(topEnd = 14.dp, bottomEnd = 14.dp))
+                            .background(Palette.panel2),
+                        contentScale = ContentScale.Crop,
+                    )
+                }
             }
-            // vis replaced by glow overlay
-            } // end info Row
-            } // end info Box overlay
-        } // end info Column
+        }
+
         androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(8.dp))
         if (bottomTab == "home") {
             // weight + fillMaxSize: список сам скролить, без боротьби з parent drag

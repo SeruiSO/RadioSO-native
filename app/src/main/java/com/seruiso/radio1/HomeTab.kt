@@ -10,11 +10,9 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -26,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -58,7 +57,6 @@ fun HomeTabContent(
     val recent10 = recent.distinctBy { it.url }.take(10)
     val similar10 = similar.distinctBy { it.url }.take(10)
     val nearby10 = nearby.distinctBy { it.url }.take(10)
-    val tile = 88.dp
     val emptyAll = favRows.isEmpty() && heartRows.isEmpty() && recent10.isEmpty()
         && similar10.isEmpty() && nearby10.isEmpty() && currentUrl.isBlank()
 
@@ -66,15 +64,15 @@ fun HomeTabContent(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(bottom = 24.dp),
+            .padding(bottom = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        // 1) чіпи завжди зверху
         if (genreChips.isNotEmpty()) {
-
+            HomeCard {
                 HomeSectionHeader(stringResource(R.string.home_genres), acc, text, onAll = null)
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(end = 8.dp, bottom = 6.dp),
+                    contentPadding = PaddingValues(bottom = 2.dp),
                 ) {
                     items(genreChips, key = { it }) { g ->
                         Text(
@@ -88,101 +86,86 @@ fun HomeTabContent(
                         )
                     }
                 }
-                Spacer(Modifier.height(6.dp))
-            
+            }
         }
-
         if (emptyAll) {
- HomeWelcome(muted, text, acc, onAllStations) 
+            HomeCard { HomeWelcome(muted, text, acc, onAllStations) }
         } else {
             if (recent10.isNotEmpty()) {
-    
+                HomeCard {
                     HomeSectionHeader(stringResource(R.string.home_recent), acc, text, onAll = null)
-                    HomeStationRow(
-                        recent10, currentUrl, favUrls, muted, text, acc, tile,
-                        onTap = { s ->
-                            val i = recent10.indexOfFirst { it.url == s.url }.coerceAtLeast(0)
-                            if (s.url != currentUrl) onPickRadio(recent10, i)
-                            onPlayNow()
-                        },
-                        onStar = onToggleFav,
-                        onPlus = onAddToTab,
-                    )
-                    Spacer(Modifier.height(10.dp))
-                
+                    HomeStationRow(recent10, currentUrl, muted, text, acc, 80.dp) { s ->
+                        val i = recent10.indexOfFirst { it.url == s.url }.coerceAtLeast(0)
+                        if (s.url != currentUrl) onPickRadio(recent10, i)
+                        onPlayNow()
+                    }
+                }
             }
             if (favRows.isNotEmpty()) {
-    
+                HomeCard {
                     HomeSectionHeader(stringResource(R.string.home_favorites), acc, text, onAll = onAllStations, icon = Icons.Filled.Star)
-                    HomeStationRow(
-                        favRows.distinctBy { it.url }, currentUrl, favUrls, muted, text, acc, tile,
-                        onTap = { s ->
-                            val i = favRows.indexOfFirst { it.url == s.url }
-                            if (s.url != currentUrl) onPickRadio(favRows, if (i >= 0) i else 0)
-                            onPlayNow()
-                        },
-                        onStar = onToggleFav,
-                        onPlus = onAddToTab,
-                    )
-                    Spacer(Modifier.height(10.dp))
-                
+                    HomeStationRow(favRows.distinctBy { it.url }, currentUrl, muted, text, acc, 72.dp) { s ->
+                        val i = favRows.indexOfFirst { it.url == s.url }
+                        if (s.url != currentUrl) onPickRadio(favRows, if (i >= 0) i else 0)
+                        onPlayNow()
+                    }
+                }
             }
             if (heartRows.isNotEmpty()) {
-    
+                HomeCard {
                     HomeSectionHeader(stringResource(R.string.home_local_fav), acc, text, onAll = onAllHeart, icon = Icons.Filled.Favorite)
-                    HomeLocalGrid(heartRows, currentUrl, muted, text, tile = 72.dp) { t ->
+                    HomeLocalGrid(heartRows, currentUrl, muted, text, 64.dp) { t ->
                         val i = heartRows.indexOfFirst { it.uri == t.uri }
                         if (t.uri != currentUrl) onPickLocal(heartRows, if (i >= 0) i else 0)
                         onPlayNow()
                     }
-                    Spacer(Modifier.height(10.dp))
-                
-            }
-            if (nearby10.isNotEmpty()) {
-    
-                    HomeSectionHeader(stringResource(R.string.home_nearby), acc, text, onAll = null)
-                    HomeStationRow(
-                        nearby10, currentUrl, favUrls, muted, text, acc, tile,
-                        onTap = { s ->
-                            val i = nearby10.indexOfFirst { it.url == s.url }.coerceAtLeast(0)
-                            if (s.url != currentUrl) onPickRadio(nearby10, i)
-                            onPlayNow()
-                        },
-                        onStar = onToggleFav,
-                        onPlus = onAddToTab,
-                    )
-                    Spacer(Modifier.height(10.dp))
-                
+                }
             }
             if (similar10.isNotEmpty()) {
-    
+                HomeCard {
                     HomeSectionHeader(
                         if (similarTitle.isBlank()) stringResource(R.string.home_similar) else similarTitle,
                         acc, text, onAll = null,
                     )
-                    HomeStationRow(
-                        similar10, currentUrl, favUrls, muted, text, acc, tile,
-                        onTap = { s ->
-                            val i = similar10.indexOfFirst { it.url == s.url }.coerceAtLeast(0)
-                            if (s.url != currentUrl) onPickRadio(similar10, i)
-                            onPlayNow()
-                        },
-                        onStar = onToggleFav,
-                        onPlus = onAddToTab,
-                    )
-                
+                    HomeStationRow(similar10, currentUrl, muted, text, acc, 72.dp) { s ->
+                        val i = similar10.indexOfFirst { it.url == s.url }.coerceAtLeast(0)
+                        if (s.url != currentUrl) onPickRadio(similar10, i)
+                        onPlayNow()
+                    }
+                }
+            }
+            if (nearby10.isNotEmpty()) {
+                HomeCard {
+                    HomeSectionHeader(stringResource(R.string.home_nearby), acc, text, onAll = null)
+                    HomeStationRow(nearby10, currentUrl, muted, text, acc, 72.dp) { s ->
+                        val i = nearby10.indexOfFirst { it.url == s.url }.coerceAtLeast(0)
+                        if (s.url != currentUrl) onPickRadio(nearby10, i)
+                        onPlayNow()
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
+private fun HomeCard(content: @Composable ColumnScope.() -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Palette.card, RoundedCornerShape(20.dp))
+            .padding(horizontal = 12.dp, vertical = 12.dp),
+        content = content,
+    )
+}
+
+@Composable
 private fun HomeWelcome(muted: Color, text: Color, acc: Color, onAllStations: () -> Unit) {
     Column(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(stringResource(R.string.home_welcome_title), color = text, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp))
+        Text(stringResource(R.string.home_welcome_title), color = text, style = MaterialTheme.typography.titleSmall)
         Text(stringResource(R.string.home_welcome_sub), color = muted, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
         Text(
             stringResource(R.string.home_welcome_cta),
@@ -196,23 +179,17 @@ private fun HomeWelcome(muted: Color, text: Color, acc: Color, onAllStations: ()
 @Composable
 private fun HomeSectionHeader(title: String, acc: Color, text: Color, onAll: (() -> Unit)?, icon: ImageVector? = null) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp, top = 2.dp),
+        modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (icon != null) {
-            Icon(
-                icon,
-                contentDescription = null,
-                tint = acc,
-                modifier = Modifier
-                    .padding(end = 6.dp)
-                    .size(22.dp),
-            )
+            Icon(icon, null, tint = acc, modifier = Modifier.padding(end = 6.dp).size(20.dp))
         }
         Text(
             title,
             color = text,
             style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
             modifier = Modifier.weight(1f),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -222,9 +199,7 @@ private fun HomeSectionHeader(title: String, acc: Color, text: Color, onAll: (()
                 stringResource(R.string.home_all),
                 color = acc,
                 style = MaterialTheme.typography.titleSmall,
-                modifier = Modifier
-                    .clickable { onAll() }
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                modifier = Modifier.clickable { onAll() }.padding(horizontal = 10.dp, vertical = 8.dp),
             )
         }
     }
@@ -234,55 +209,26 @@ private fun HomeSectionHeader(title: String, acc: Color, text: Color, onAll: (()
 private fun HomeStationRow(
     list: List<Station>,
     currentUrl: String,
-    favUrls: Set<String>,
     muted: Color,
     text: Color,
     acc: Color,
     tile: Dp,
     onTap: (Station) -> Unit,
-    onStar: (Station) -> Unit,
-    onPlus: (Station) -> Unit,
 ) {
     LazyRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
-        contentPadding = PaddingValues(end = 8.dp),
+        contentPadding = PaddingValues(end = 4.dp),
     ) {
         items(list.distinctBy { it.url }, key = { it.url }) { s ->
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.width(tile).clickable { onTap(s) },
             ) {
-                Box {
-                    HomeArt(s.favicon, s.name, tile, muted, s.url == currentUrl, acc)
-                    Row(
-                        modifier = Modifier.align(Alignment.TopEnd).padding(4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(2.dp),
-                    ) {
-                        Icon(
-                            if (favUrls.contains(s.url)) Icons.Filled.Star else Icons.Filled.StarBorder,
-                            contentDescription = null,
-                            tint = if (favUrls.contains(s.url)) acc else Color.White.copy(alpha = 0.9f),
-                            modifier = Modifier
-                                .size(22.dp)
-                                .background(Color.Black.copy(alpha = 0.35f), RoundedCornerShape(6.dp))
-                                .clickable { onStar(s) }
-                                .padding(2.dp),
-                        )
-                        Icon(
-                            Icons.Filled.Add,
-                            contentDescription = null,
-                            tint = Color.White.copy(alpha = 0.9f),
-                            modifier = Modifier
-                                .size(22.dp)
-                                .background(Color.Black.copy(alpha = 0.35f), RoundedCornerShape(6.dp))
-                                .clickable { onPlus(s) }
-                                .padding(2.dp),
-                        )
-                    }
-                }
+                HomeArt(s.favicon, s.name, tile, muted, s.url == currentUrl, acc)
                 Text(
                     s.name,
                     color = text,
+                    minLines = 2,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.labelSmall,
@@ -304,7 +250,7 @@ private fun HomeLocalGrid(
 ) {
     LazyRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
-        contentPadding = PaddingValues(end = 8.dp),
+        contentPadding = PaddingValues(end = 4.dp),
     ) {
         items(list.distinctBy { it.uri }, key = { it.uri }) { t ->
             val art = if (t.albumId.isNotBlank() && t.albumId != "0")
@@ -317,6 +263,7 @@ private fun HomeLocalGrid(
                 Text(
                     t.title,
                     color = text,
+                    minLines = 2,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.labelSmall,
@@ -348,7 +295,7 @@ private fun HomeArt(art: String, key: String, size: Dp, muted: Color, current: B
         val ok = resolved.startsWith("http") || resolved.startsWith("content:")
         if (ok) AsyncImage(
             model = resolved,
-            contentDescription = null,
+            contentDescription = key,
             modifier = Modifier.size(size).clip(shape),
             contentScale = ContentScale.Crop,
         ) else Icon(Icons.Filled.MusicNote, contentDescription = null, tint = muted)

@@ -36,14 +36,8 @@ public class BluetoothReceiver extends BroadcastReceiver {
             else c.startService(i);
             Log.i(TAG, "startSvc " + action);
         } catch (Exception e) {
-            Log.e(TAG, "startSvc fail " + action, e);
-            try {
-                Intent i = new Intent(c, RadioWatchService.class);
-                i.setAction(action);
-                c.startService(i);
-            } catch (Exception e2) {
-                Log.e(TAG, "startService fail", e2);
-            }
+            // Android 15+: FGS з фону — не крашимось і не робимо startService (теж ріже)
+            Log.w(TAG, "startSvc denied " + action + " " + e.getClass().getSimpleName());
         }
     }
 
@@ -113,6 +107,10 @@ public class BluetoothReceiver extends BroadcastReceiver {
         if (state == BluetoothProfile.STATE_CONNECTED) {
             markA2dp(app);
             if (!watchOn(app)) return;
+            try {
+                app.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)
+                    .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_PENDING_BT_AFTER_BOOT, false).apply();
+            } catch (Exception ignored) {}
             startSvc(app, RadioWatchService.ACTION_BT);
             return;
         }

@@ -41,8 +41,6 @@ fun HomeTabContent(
     nearby: List<Station> = emptyList(),
     genreChips: List<String> = emptyList(),
     favUrls: Set<String> = emptySet(),
-    currentName: String = "",
-    currentFavicon: String = "",
     acc: Color,
     muted: Color,
     text: Color,

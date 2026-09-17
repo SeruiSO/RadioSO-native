@@ -155,7 +155,7 @@ class MainActivity : ComponentActivity() {
                     if (bottomTab == "home") {
                         val railsKey = "$currentUrl|$currentGenre"
                         if (railsKey != lastRailsKey) {
-                            refreshHomeRails()
+                            refreshHomeRails(wantSimilar = true)
                         }
                     }
                     isLocalNow = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
@@ -210,7 +210,7 @@ class MainActivity : ComponentActivity() {
         if (lastBottom in listOf("home", "stations", "heart", "music", "tabs", "search", "library")) {
             bottomTab = if (lastBottom == "library") "stations" else lastBottom
         }
-        if (bottomTab == "home") refreshHomeRails()
+        if (bottomTab == "home") refreshHomeRails(wantSimilar = true)
 
         setContent {
             RadioSOTheme(accent = Color(accent)) {
@@ -379,7 +379,6 @@ class MainActivity : ComponentActivity() {
                             posHandler.post(posTick)
                         },
                         onNowClose = { nowOpen = false },
-                        onTheme = { /* picker inside StationScreen */ },
                         onPickTheme = { id ->
                             val n = ThemeStore.set(this, id)
                             themeId = n.id
@@ -697,71 +696,117 @@ class MainActivity : ComponentActivity() {
      * 2) IP (і GPS якщо є дозвіл) → уточнити й перезапустити, якщо країна інша
      */
 
-        /** «Поруч» + «Схожі»: вхід на Дім або зміна станції, коли вже на Домі. */
-    private fun refreshHomeRails() {
+        
+    /** Дім: «поруч» раз на 10 днів.
+     *  «Схожі» (макс 10): захід на Дім уже з радіо, і кожен скіп на Домі.
+     *  Пошук не чіпаємо. */
+    private val nearbyTtlMs = 10L * 24 * 60 * 60 * 1000
+
+    private fun loadCachedNearby(): List<Station> {
+        val p = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+        val raw = p.getString(BluetoothAutoPlayPlugin.KEY_HOME_NEARBY_JSON, "") ?: ""
+        if (raw.isBlank()) return emptyList()
+        return try {
+            val arr = org.json.JSONArray(raw)
+            (0 until arr.length()).mapNotNull { idx ->
+                val o = arr.optJSONObject(idx) ?: return@mapNotNull null
+                val url = o.optString("url")
+                val name = o.optString("name")
+                if (url.isBlank() || name.isBlank()) null
+                else Station(url, name, o.optString("genre"), o.optString("country"), o.optString("favicon"), "search")
+            }
+        } catch (_: Exception) { emptyList() }
+    }
+
+    private fun saveCachedNearby(list: List<Station>) {
+        val arr = org.json.JSONArray()
+        list.take(10).forEach { st ->
+            arr.put(org.json.JSONObject()
+                .put("url", st.url).put("name", st.name)
+                .put("genre", st.genre).put("country", st.country)
+                .put("favicon", st.favicon))
+        }
+        getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE).edit()
+            .putString(BluetoothAutoPlayPlugin.KEY_HOME_NEARBY_JSON, arr.toString())
+            .putLong(BluetoothAutoPlayPlugin.KEY_HOME_NEARBY_AT, System.currentTimeMillis())
+            .apply()
+    }
+
+    private fun nearbyCacheFresh(): Boolean {
+        val at = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+            .getLong(BluetoothAutoPlayPlugin.KEY_HOME_NEARBY_AT, 0L)
+        return at > 0L && System.currentTimeMillis() - at < nearbyTtlMs
+    }
+
+    private fun refreshHomeRails(wantSimilar: Boolean = true) {
         if (bottomTab != "home") return
         val genreSnap = currentGenre.trim()
         val urlSnap = currentUrl
-        lastRailsKey = "$urlSnap|$genreSnap"
+        val key = "$urlSnap|$genreSnap"
+        val stationChanged = key != lastRailsKey
+        lastRailsKey = key
         val token = ++homeRailsGen
+        val cached = loadCachedNearby()
+        if (cached.isNotEmpty() && homeNearby.isEmpty()) homeNearby = cached
+        val needNearbyNet = !nearbyCacheFresh()
+        val isRadio = urlSnap.isNotBlank() && !urlSnap.startsWith("content:")
+        val needSimilar = wantSimilar && isRadio && (stationChanged || homeSimilarRb.isEmpty())
+        if (!needNearbyNet && !needSimilar) {
+            if (cached.isNotEmpty()) homeNearby = cached
+            return
+        }
         Thread {
-            var country = countryFromCache()
-            if (country.isBlank()) country = countryFromLocale()
-            if (country.isBlank()) {
-                try { country = countryFromIp() } catch (_: Exception) {}
-            }
-            val nearby = try {
-                if (country.isNotBlank())
-                    RadioBrowser.searchQuiet("", country, "")
-                        ?.filter { it.url != urlSnap }
-                        ?.distinctBy { it.url }
-                        ?.take(10)
-                        ?: emptyList()
-                else emptyList()
-            } catch (_: Exception) { emptyList() }
-
-            val tags = genreSnap
-                .split(',', ';', '/', '|')
-                .map { it.trim() }
-                .filter { it.isNotBlank() && it != "-" && it.length >= 2 }
-            val known = SearchHints.homeGenres.map { it.lowercase() }.toSet()
-            val ordered = (tags.filter { it.lowercase() in known } + tags).distinct()
-            var similar = emptyList<Station>()
-            for (tag in ordered) {
-                try {
-                    val found = RadioBrowser.searchQuiet("", "", tag)
-                        ?.filter { it.url != urlSnap }
-                        ?.distinctBy { it.url }
-                        ?: emptyList()
-                    if (found.isNotEmpty()) {
-                        similar = found.take(10)
-                        break
-                    }
-                } catch (_: Exception) { }
-            }
-            if (similar.isEmpty() && ordered.isNotEmpty()) {
-                val firstWord = ordered.first().split(" ").map { it.trim() }.firstOrNull { it.length >= 3 }
-                if (!firstWord.isNullOrBlank()) {
-                    try {
-                        similar = RadioBrowser.searchQuiet("", "", firstWord)
+            var nearby = cached
+            if (needNearbyNet) {
+                var country = countryFromCache()
+                if (country.isBlank()) country = countryFromLocale()
+                if (country.isBlank()) {
+                    try { country = countryFromIp() } catch (_: Exception) {}
+                }
+                nearby = try {
+                    if (country.isNotBlank())
+                        RadioBrowser.searchQuiet("", country, "", limit = 30)
                             ?.filter { it.url != urlSnap }
                             ?.distinctBy { it.url }
                             ?.take(10)
                             ?: emptyList()
+                    else emptyList()
+                } catch (_: Exception) { cached }
+                if (nearby.isNotEmpty()) saveCachedNearby(nearby)
+                else if (cached.isNotEmpty()) nearby = cached
+            }
+            var similar = emptyList<Station>()
+            if (needSimilar) {
+                val tags = genreSnap
+                    .split(',', ';', '/', '|')
+                    .map { it.trim() }
+                    .filter { it.isNotBlank() && it != "-" && it.length >= 2 }
+                val known = SearchHints.homeGenres.map { it.lowercase() }.toSet()
+                val ordered = (tags.filter { it.lowercase() in known } + tags).distinct()
+                for (tag in ordered) {
+                    try {
+                        val found = RadioBrowser.searchQuiet("", "", tag, limit = 30)
+                            ?.filter { it.url != urlSnap }
+                            ?.distinctBy { it.url }
+                            ?: emptyList()
+                        if (found.isNotEmpty()) {
+                            similar = found.take(10)
+                            break
+                        }
                     } catch (_: Exception) { }
                 }
             }
-
             runOnUiThread {
                 if (bottomTab != "home") return@runOnUiThread
                 if (token != homeRailsGen) return@runOnUiThread
-                homeNearby = nearby
-                homeSimilarRb = similar
+                if (needNearbyNet) homeNearby = nearby
+                else if (cached.isNotEmpty()) homeNearby = cached
+                if (needSimilar) homeSimilarRb = similar
             }
         }.start()
     }
 
-
+    
 
 
     private fun autoSearchByGeo() {
@@ -869,7 +914,7 @@ class MainActivity : ComponentActivity() {
             }
         }
         if (t == "search") autoSearchByGeo()
-        if (t == "home") refreshHomeRails()
+        if (t == "home") refreshHomeRails(wantSimilar = true)
         persistVisibleQueue()
     }
 
@@ -1079,14 +1124,21 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun startFg(i: Intent) {
+        try {
+            startForegroundService(i)
+        } catch (e: Exception) {
+            android.util.Log.w("RadioSO", "startFg " + e.javaClass.simpleName)
+        }
+    }
+
     private fun maybeStartBtIfConnected() {
         val sp = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
         if (!sp.getBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, true)) return
-        try {
-            val i = Intent(this, RadioWatchService::class.java)
-            i.action = RadioWatchService.ACTION_START
-            startForegroundService(i)
-        } catch (_: Exception) {}
+        sp.edit().putBoolean(BluetoothAutoPlayPlugin.KEY_PENDING_BT_AFTER_BOOT, false).apply()
+        val i = Intent(this, RadioWatchService::class.java)
+        i.action = RadioWatchService.ACTION_START
+        startFg(i)
     }
 
     private fun askPermissions() {
@@ -1216,7 +1268,7 @@ class MainActivity : ComponentActivity() {
         currentFavicon = s.favicon
         currentUrl = s.url
         currentGenre = s.genre
-        if (bottomTab == "home") refreshHomeRails()
+        if (bottomTab == "home") refreshHomeRails(wantSimilar = true)
         currentCountry = s.country
         isLocalNow = false
         // На Домі немає «видимого» tab-queue — skip має крутити саме list (10 з секції / обрані).
@@ -1299,7 +1351,7 @@ class MainActivity : ComponentActivity() {
         i.action = RadioWatchService.ACTION_PLAY_URL
         i.putExtra(RadioWatchService.EXTRA_URL, url)
         i.putExtra(RadioWatchService.EXTRA_NAME, name)
-        startForegroundService(i)
+        startFg(i)
         statusText = "запуск"
         isLocalNow = url.startsWith("content:")
         if (nowOpen || url.startsWith("content:")) { posHandler.removeCallbacks(posTick); posHandler.post(posTick) }
@@ -1313,13 +1365,13 @@ class MainActivity : ComponentActivity() {
         val i = Intent(this, RadioWatchService::class.java)
         i.action = RadioWatchService.ACTION_SEEK
         i.putExtra(RadioWatchService.EXTRA_POSITION_MS, pos)
-        startForegroundService(i)
+        startFg(i)
         posHandler.postDelayed({ holdSeek = false }, 400)
     }
 
     private fun sendAction(action: String) {
         val i = Intent(this, RadioWatchService::class.java)
         i.action = action
-        startForegroundService(i)
+        startFg(i)
     }
 }

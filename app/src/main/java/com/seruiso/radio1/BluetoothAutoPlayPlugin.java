@@ -13,6 +13,8 @@ public class BluetoothAutoPlayPlugin {
     public static final String KEY_QUEUE_GENRES = "queueGenres";
     public static final String KEY_QUEUE_COUNTRIES = "queueCountries";
     public static final String KEY_BT_WATCH = "btWatchEnabled";
+    /** після BOOT: не стартувати FGS, лише намір — старт з A2DP або відкриття додатка. */
+    public static final String KEY_PENDING_BT_AFTER_BOOT = "pendingBtWatchAfterBoot";
     /** true, коли активна сесія Android Auto (RadioWatchService підключений браузером). */
     public static final String KEY_AA_ACTIVE = "androidAutoActive";
     /** Canonical reported playing for UI/reconnect. */
@@ -50,4 +52,6 @@ public class BluetoothAutoPlayPlugin {
     public static final String KEY_RECENT = "recentStations";
     public static final String KEY_LOCAL_POS_MS = "localPositionMs";
     public static final String KEY_PAST_SEARCHES = "pastSearches";
+    public static final String KEY_HOME_NEARBY_JSON = "homeNearbyJson";
+    public static final String KEY_HOME_NEARBY_AT = "homeNearbyAt";
 }

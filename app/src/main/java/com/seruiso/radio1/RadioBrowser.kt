@@ -17,15 +17,16 @@ object RadioBrowser {
     val countries = SearchHints.countries
     val genres = SearchHints.genres
 
-    fun searchQuiet(name: String, country: String, genre: String): List<Station>? =
-        search(name, country, genre, gen = -1)
+    fun searchQuiet(name: String, country: String, genre: String, limit: Int = 500): List<Station>? =
+        search(name, country, genre, gen = -1, limit = limit)
 
-    fun search(name: String, country: String, genre: String, gen: Int): List<Station>? {
+    fun search(name: String, country: String, genre: String, gen: Int, limit: Int = 500): List<Station>? {
         val n = name.trim()
         val c = country.trim()
         val g = genre.trim()
         if (n.isEmpty() && c.isEmpty() && g.isEmpty()) return emptyList()
-        val params = StringBuilder("hidebroken=true&limit=500&order=clickcount&reverse=true")
+        val lim = limit.coerceIn(10, 500)
+        val params = StringBuilder("hidebroken=true&limit=$lim&order=clickcount&reverse=true")
         if (n.isNotEmpty()) params.append("&name=").append(URLEncoder.encode(n, "UTF-8"))
         if (c.isNotEmpty()) params.append("&country=").append(URLEncoder.encode(c, "UTF-8"))
         if (g.isNotEmpty()) {
@@ -33,8 +34,8 @@ object RadioBrowser {
             params.append("&tagExact=false")
         }
         var out = fetch("/json/stations/search?$params", gen)
-        if (out != null && out.size < 15 && g.isNotEmpty() && n.isEmpty()) {
-            val extra = fetch("/json/stations/bytag/" + URLEncoder.encode(g.lowercase(), "UTF-8") + "?hidebroken=true&limit=500&order=clickcount&reverse=true", gen)
+        if (lim >= 100 && out != null && out.size < 15 && g.isNotEmpty() && n.isEmpty()) {
+            val extra = fetch("/json/stations/bytag/" + URLEncoder.encode(g.lowercase(), "UTF-8") + "?hidebroken=true&limit=$lim&order=clickcount&reverse=true", gen)
             if (extra != null) out = (out + extra).distinctBy { it.url }
         }
         return out

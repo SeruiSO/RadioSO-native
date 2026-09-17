@@ -4,12 +4,12 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.os.Build;
 import android.util.Log;
 
 /**
- * 0.9.51: after boot start watch FGS (ACTION_START) if BT watch enabled.
- * Does NOT autoplay — A2DP CONNECTED / service one-shot check starts station.
+ * Після буту НЕ стартуємо FGS (Android 15+ кидає ForegroundServiceStartNotAllowed).
+ * Лише прапорець: реальний старт — A2DP (BluetoothReceiver) або відкриття UI
+ * (MainActivity.maybeStartBtIfConnected).
  */
 public class BootReceiver extends BroadcastReceiver {
     @Override
@@ -26,17 +26,10 @@ public class BootReceiver extends BroadcastReceiver {
                 Log.i("BootReceiver", "boot — BT watch off, skip");
                 return;
             }
-            Context app = context.getApplicationContext();
-            Intent svc = new Intent(app, RadioWatchService.class);
-            svc.setAction(RadioWatchService.ACTION_START);
-            if (Build.VERSION.SDK_INT >= 26) {
-                app.startForegroundService(svc);
-            } else {
-                app.startService(svc);
-            }
-            Log.i("BootReceiver", "boot — started ACTION_START watch");
+            p.edit().putBoolean(BluetoothAutoPlayPlugin.KEY_PENDING_BT_AFTER_BOOT, true).apply();
+            Log.i("BootReceiver", "boot — pendingBtWatchAfterBoot=true (no FGS)");
         } catch (Exception e) {
-            Log.e("BootReceiver", "boot start failed", e);
+            Log.e("BootReceiver", "boot flag failed", e);
         }
     }
 }

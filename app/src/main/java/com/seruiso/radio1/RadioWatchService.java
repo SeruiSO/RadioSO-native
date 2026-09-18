@@ -115,6 +115,11 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
     private android.os.Handler silenceHandler;
     private Runnable silenceCheck;
     private int bufferingTicks = 0;
+    /** false до першого реального isPlaying по current URL */
+    private boolean hasEverPlayedThisUrl = false;
+    /** ms коли почали load цього URL (startup grace) */
+    private long streamStartMs = 0L;
+    private long lastBufferedMs = 0L;
     private long pendingSeekMs = -1L;
     private android.os.Handler positionHandler;
     private Runnable positionTicker;
@@ -1023,49 +1028,35 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                         bufferingTicks = 0;
                         return;
                     }
-                    int st = player.getPlaybackState();
                     if (withinBtSettle()) {
-                    bufferingTicks = 0;
-                    return;
-                }
-                boolean playing = player.isPlaying();
-                long buf = 0L;
-                try { buf = player.getTotalBufferedDuration(); } catch (Exception ignored) {}
-                boolean silentZombie = player.getPlayWhenReady() && !isLocalMode()
-                        && st == Player.STATE_READY && playing && buf < 400L;
-                if (silentZombie
-                        || (!playing && (st == Player.STATE_BUFFERING
-                        || st == Player.STATE_IDLE
-                        || st == Player.STATE_ENDED
-                        || player.getPlayWhenReady()))) {
-                        bufferingTicks++;
-                        // Soft ladder (3s ticks): status → soft reconnect → hard reconnect
-                        // 1 ≈ 3s status, 4 ≈ 12s status, 7 ≈ 21s soft, 12 ≈ 36s hard
-                        if (bufferingTicks == 1) {
-                            notifyUiStatus(getString(R.string.status_buffering), reconnectAttempt);
-                        } else if (bufferingTicks == 4) {
-                            notifyUiStatus(getString(R.string.status_reconnect), reconnectAttempt);
-                        } else if (bufferingTicks == 2) {
-                            android.util.Log.w("RadioWatch", "silence soft timeout → reconnect (~6s)");
-                            try {
-                                PlaybackPrefs.setPauseReason(RadioWatchService.this,
-                                    PlaybackPrefs.REASON_NETWORK);
-                            } catch (Exception ignored) {}
-                            attemptReconnect("buffer-soft", false);
-                        } else if (bufferingTicks >= 4) {
-                            android.util.Log.w("RadioWatch", "silence hard timeout → reconnect (~12s)");
-                            bufferingTicks = 0;
-                            lastPlayedUrl = "";
-                            lastPlayMs = 0;
-                            try {
-                                PlaybackPrefs.setPauseReason(RadioWatchService.this,
-                                    PlaybackPrefs.REASON_NETWORK);
-                            } catch (Exception ignored) {}
-                            attemptReconnect("buffer-hard", true);
-                            return;
+                        bufferingTicks = 0;
+                        return;
+                    }
+                    int st = player.getPlaybackState();
+                    boolean playing = player.isPlaying();
+                    long buf = 0L;
+                    try { buf = player.getTotalBufferedDuration(); } catch (Exception ignored) {}
+                    long now = System.currentTimeMillis();
+                    long sinceStart = streamStartMs > 0L ? (now - streamStartMs) : 0L;
+
+                    // Перший реальний звук по цьому URL → після цього коротший watchdog
+                    if (playing && st == Player.STATE_READY && buf >= 400L) {
+                        hasEverPlayedThisUrl = true;
+                    }
+
+                    // BUFFERING з ростом буфера = прогрес, не dead stream
+                    boolean bufferGrowing = buf > lastBufferedMs + 50L;
+                    lastBufferedMs = Math.max(lastBufferedMs, buf);
+
+                    // Startup grace ~27s: не reconnect лише через BUFFERING
+                    final long STARTUP_GRACE_MS = 27_000L;
+                    boolean inStartup = !hasEverPlayedThisUrl && sinceStart < STARTUP_GRACE_MS;
+
+                    if (playing && st == Player.STATE_READY && !isLocalMode()) {
+                        // здорове відтворення (або майже)
+                        if (bufferingTicks > 0) {
+                            try { notifyUiStatus(getString(R.string.playing), 0); } catch (Exception ignored) {}
                         }
-                    } else if (playing) {
-                        if (bufferingTicks > 0) notifyUiStatus(getString(R.string.playing), 0);
                         bufferingTicks = 0;
                         try {
                             if (PlaybackPrefs.REASON_NETWORK.equals(
@@ -1074,6 +1065,75 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                                     PlaybackPrefs.REASON_NONE);
                             }
                         } catch (Exception ignored) {}
+                    } else if (st == Player.STATE_BUFFERING && (bufferGrowing || inStartup)) {
+                        // Чекаємо перші байти / добираємо буфер — без reconnect
+                        bufferingTicks = 0;
+                        if (inStartup || buf < 1500L) {
+                            try {
+                                notifyUiStatus(getString(R.string.status_buffering), reconnectAttempt);
+                            } catch (Exception ignored) {}
+                        }
+                    } else {
+                        // Кандидат на stall: IDLE/ENDED, або BUFFERING без прогресу після grace,
+                        // або «zombie» READY майже без буфера при playWhenReady
+                        boolean silentZombie = player.getPlayWhenReady() && !isLocalMode()
+                                && st == Player.STATE_READY && playing && buf < 400L;
+                        boolean stalled = silentZombie
+                                || st == Player.STATE_IDLE
+                                || st == Player.STATE_ENDED
+                                || (st == Player.STATE_BUFFERING && !bufferGrowing && !inStartup)
+                                || (!playing && player.getPlayWhenReady()
+                                    && st != Player.STATE_BUFFERING && !inStartup);
+
+                        if (!stalled) {
+                            // ще в межах норми
+                        } else {
+                            bufferingTicks++;
+                            // Після hasEverPlayed: soft ~18s (6*3), hard ~36s (12*3)
+                            // Під час/після вичерпаного startup без play: soft не раніше ~27s+
+                            int softAt = hasEverPlayedThisUrl ? 6 : 10;  // ~18s / ~30s
+                            int hardAt = hasEverPlayedThisUrl ? 12 : 16; // ~36s / ~48s
+
+                            if (bufferingTicks == 1) {
+                                try {
+                                    notifyUiStatus(getString(R.string.status_buffering), reconnectAttempt);
+                                } catch (Exception ignored) {}
+                            } else if (bufferingTicks == Math.max(2, softAt / 2)) {
+                                try {
+                                    notifyUiStatus(getString(R.string.status_reconnect), reconnectAttempt);
+                                } catch (Exception ignored) {}
+                            }
+
+                            if (bufferingTicks == softAt) {
+                                android.util.Log.w("RadioWatch",
+                                    "silence soft → reconnect (ticks=" + bufferingTicks
+                                        + " everPlayed=" + hasEverPlayedThisUrl
+                                        + " sinceStart=" + sinceStart + "ms buf=" + buf + ")");
+                                try {
+                                    PlaybackPrefs.setPauseReason(RadioWatchService.this,
+                                        PlaybackPrefs.REASON_NETWORK);
+                                } catch (Exception ignored) {}
+                                // soft: БЕЗ lastPlayMs=0 — attemptReconnect може resume/schedule
+                                attemptReconnect("buffer-soft", false);
+                            } else if (bufferingTicks >= hardAt) {
+                                android.util.Log.w("RadioWatch",
+                                    "silence hard → reconnect (ticks=" + bufferingTicks
+                                        + " everPlayed=" + hasEverPlayedThisUrl + ")");
+                                bufferingTicks = 0;
+                                // hard: дозволити повний playUrl path
+                                lastPlayedUrl = "";
+                                lastPlayMs = 0;
+                                hasEverPlayedThisUrl = false;
+                                streamStartMs = now;
+                                lastBufferedMs = 0L;
+                                try {
+                                    PlaybackPrefs.setPauseReason(RadioWatchService.this,
+                                        PlaybackPrefs.REASON_NETWORK);
+                                } catch (Exception ignored) {}
+                                attemptReconnect("buffer-hard", true);
+                                return;
+                            }
+                        }
                     }
                 } catch (Exception e) {
                     android.util.Log.w("RadioWatch", "silenceCheck", e);
@@ -1871,6 +1931,9 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             loadStationArtAsync();
             notifyUiStatus(getString(R.string.connecting), 0);
             bufferingTicks = 0;
+            hasEverPlayedThisUrl = false;
+            streamStartMs = System.currentTimeMillis();
+            lastBufferedMs = 0L;
             if (!isLocalMode()) armSilenceWatch(); // лише для радіо-потоків
             notifyForeground();
         } catch (Exception e) {

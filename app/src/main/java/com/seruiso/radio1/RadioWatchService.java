@@ -189,7 +189,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                 .setBufferDurationsMs(
                     12_000,  /* minBufferMs — було 30с, для 320kbps це зайве навантаження */
                     60_000,  /* maxBufferMs — достатньо для live, без гігантського запасу */
-                    2_500,   /* bufferForPlaybackMs */
+                    1_000,   /* bufferForPlaybackMs — швидший перший звук (було 2500) */
                     1_000    /* bufferForPlaybackAfterRebufferMs */
                 )
                 .build();

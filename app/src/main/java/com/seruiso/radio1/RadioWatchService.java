@@ -249,20 +249,16 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             }
 
             private boolean withinBtSettle() {
-                if (System.currentTimeMillis() < ignoreNoisyUntilMs) return true;
-                long lastBt = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-                        .getLong(BluetoothAutoPlayPlugin.KEY_LAST_A2DP_MS, 0L);
-                long ago = System.currentTimeMillis() - lastBt;
-                return ago >= 0 && ago < 4000;
+                return RadioWatchService.this.withinBtSettle();
             }
 
             /** Уже реально граємо / стартуємо — не смикати потік ще раз. */
             private boolean alreadyOutputting() {
                 try {
-                    return player != null
-                        && (player.isPlaying() || player.getPlayWhenReady())
-                        && player.getPlaybackState() != Player.STATE_IDLE
-                        && player.getCurrentMediaItem() != null;
+                    if (player == null || player.getCurrentMediaItem() == null) return false;
+                    if (RadioWatchService.this.withinBtSettle()) return true;
+                    return player.isPlaying()
+                        && player.getPlaybackState() == Player.STATE_READY;
                 } catch (Exception e) {
                     return false;
                 }
@@ -284,9 +280,12 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                 } catch (Exception ignored) {}
                 if (alreadyOutputting()) {
                     android.util.Log.i("RadioWatch",
-                        "session PLAY ignored — already playing (car AVRCP, no reconnect)");
+                        "session PLAY ignored — already playing / BT settle");
                     try {
-                        if (player != null) player.setVolume(1f);
+                        if (player != null) {
+                            player.setVolume(1f);
+                            player.setPlayWhenReady(true);
+                        }
                     } catch (Exception ignored) {}
                     return;
                 }
@@ -567,7 +566,12 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             android.util.Log.i("RadioWatch", "attemptReconnect(" + reason + ") skip — not intended");
             return;
         }
-        if (player != null && player.isPlaying()) {
+        if (withinBtSettle()) {
+            android.util.Log.i("RadioWatch", "attemptReconnect(" + reason + ") skip — BT settle");
+            return;
+        }
+        if (player != null && player.isPlaying()
+                && player.getPlaybackState() == Player.STATE_READY) {
             reconnectAttempt = 0;
             reconnectWindowStart = 0L;
             notifyUiStatus(getString(R.string.playing), 0);
@@ -682,7 +686,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                     pausedByFocusLoss = false;
                     pausedByFocusAtMs = 0L;
                     int stGain = player.getPlaybackState();
-                    boolean stale = pausedFor > 18_000L
+                    boolean stale = pausedFor > 8_000L
                             || stGain == Player.STATE_IDLE
                             || stGain == Player.STATE_ENDED
                             || player.getCurrentMediaItem() == null;
@@ -1020,11 +1024,20 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                         return;
                     }
                     int st = player.getPlaybackState();
-                    boolean playing = player.isPlaying();
-                    // «тиша» / довгий buffering при intended play
-                    if (!playing && (st == Player.STATE_BUFFERING
-                            || st == Player.STATE_IDLE
-                            || st == Player.STATE_ENDED)) {
+                    if (withinBtSettle()) {
+                    bufferingTicks = 0;
+                    return;
+                }
+                boolean playing = player.isPlaying();
+                long buf = 0L;
+                try { buf = player.getTotalBufferedDuration(); } catch (Exception ignored) {}
+                boolean silentZombie = player.getPlayWhenReady() && !isLocalMode()
+                        && st == Player.STATE_READY && playing && buf < 400L;
+                if (silentZombie
+                        || (!playing && (st == Player.STATE_BUFFERING
+                        || st == Player.STATE_IDLE
+                        || st == Player.STATE_ENDED
+                        || player.getPlayWhenReady()))) {
                         bufferingTicks++;
                         // Soft ladder (3s ticks): status → soft reconnect → hard reconnect
                         // 1 ≈ 3s status, 4 ≈ 12s status, 7 ≈ 21s soft, 12 ≈ 36s hard
@@ -1032,15 +1045,15 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                             notifyUiStatus(getString(R.string.status_buffering), reconnectAttempt);
                         } else if (bufferingTicks == 4) {
                             notifyUiStatus(getString(R.string.status_reconnect), reconnectAttempt);
-                        } else if (bufferingTicks == 7) {
-                            android.util.Log.w("RadioWatch", "silence soft timeout → reconnect (~21s)");
+                        } else if (bufferingTicks == 2) {
+                            android.util.Log.w("RadioWatch", "silence soft timeout → reconnect (~6s)");
                             try {
                                 PlaybackPrefs.setPauseReason(RadioWatchService.this,
                                     PlaybackPrefs.REASON_NETWORK);
                             } catch (Exception ignored) {}
                             attemptReconnect("buffer-soft", false);
-                        } else if (bufferingTicks >= 12) {
-                            android.util.Log.w("RadioWatch", "silence hard timeout → reconnect (~36s)");
+                        } else if (bufferingTicks >= 4) {
+                            android.util.Log.w("RadioWatch", "silence hard timeout → reconnect (~12s)");
                             bufferingTicks = 0;
                             lastPlayedUrl = "";
                             lastPlayMs = 0;
@@ -1048,7 +1061,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                                 PlaybackPrefs.setPauseReason(RadioWatchService.this,
                                     PlaybackPrefs.REASON_NETWORK);
                             } catch (Exception ignored) {}
-                            attemptReconnect("buffer-hard", false);
+                            attemptReconnect("buffer-hard", true);
                             return;
                         }
                     } else if (playing) {
@@ -1234,7 +1247,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             setUserPausedWhileBt(false);
             PlaybackPrefs.setPauseReason(this, PlaybackPrefs.REASON_NONE);
             setIntendedPlaying(true);
-            ignoreNoisyUntilMs = System.currentTimeMillis() + 4000L;
+            ignoreNoisyUntilMs = System.currentTimeMillis() + 8000L;
             try { notifyUiStatus(getString(R.string.connecting), 0); } catch (Exception ignored) {}
             try {
                 getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
@@ -1423,9 +1436,26 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
 
     private Runnable btReadyTick;
 
+    private boolean withinBtSettle() {
+        long nowS = System.currentTimeMillis();
+        if (nowS < ignoreNoisyUntilMs) return true;
+        long lastBt = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                .getLong(BluetoothAutoPlayPlugin.KEY_LAST_A2DP_MS, 0L);
+        long ago = nowS - lastBt;
+        return ago >= 0 && ago < BT_HANDOFF_WINDOW_MS;
+    }
+
     private boolean alreadyPlayingLastUrl() {
         if (player == null) return false;
-        if (!player.isPlaying() && !player.getPlayWhenReady()) return false;
+        if (withinBtSettle() && player.getCurrentMediaItem() != null) {
+            try {
+                String want0 = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                        .getString(BluetoothAutoPlayPlugin.KEY_URL, "");
+                String cur0 = player.getCurrentMediaItem().localConfiguration.uri.toString();
+                if (want0 != null && want0.equals(cur0)) return true;
+            } catch (Exception ignored) {}
+        }
+        if (!player.isPlaying() || player.getPlaybackState() != Player.STATE_READY) return false;
         try {
             String want = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
                     .getString(BluetoothAutoPlayPlugin.KEY_URL, "");
@@ -1591,7 +1621,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             h.removeCallbacks(btReadyTick);
             btReadyTick = null;
         }
-        ignoreNoisyUntilMs = System.currentTimeMillis() + 4000L;
+        ignoreNoisyUntilMs = System.currentTimeMillis() + 8000L;
         try {
             getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
                 .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, true).apply();
@@ -1709,9 +1739,15 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             String cur = player.getCurrentMediaItem().localConfiguration.uri.toString();
             if (!url.equals(cur)) return false;
             // Вже грає — нічого не робити
-            if (player.isPlaying() || player.getPlayWhenReady()) {
-                return true;
-            }
+                    if (withinBtSettle()) {
+            return player.isPlaying() || player.getPlayWhenReady()
+                    || player.getPlaybackState() != Player.STATE_IDLE;
+        }
+        if (player.isPlaying() && player.getPlaybackState() == Player.STATE_READY) {
+            return true;
+        }
+        if (!isLocalMode()) return false;
+
             if (!requestFocus()) {
                 android.util.Log.w("RadioWatch", "tryResumeSameItem: no audio focus");
             }
@@ -1877,7 +1913,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
      *  повільніших головних пристроях цього не завжди вистачало. */
     /** Focus LOSS ігноруємо коротше: 6 с достатньо для handoff, але дзвінок
      *  одразу після сідання вже має паузити радіо. NOISY settle — окремо (4 с). */
-    private static final long BT_HANDOFF_WINDOW_MS = 6000L;
+    private static final long BT_HANDOFF_WINDOW_MS = 8000L;
     // timings → ReconnectPolicy
 
 
@@ -1978,13 +2014,6 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             }
             if (!hasInternet()) {
                 notifyUiStatus(getString(R.string.status_no_network), attempt + 1);
-                scheduleReconnect();
-                return;
-            }
-            if (player.getPlayWhenReady()
-                    && player.getPlaybackState() == Player.STATE_BUFFERING
-                    && attempt < 3) {
-                android.util.Log.i("RadioWatch", "reconnect wait — exo still buffering");
                 scheduleReconnect();
                 return;
             }

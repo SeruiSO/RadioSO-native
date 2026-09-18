@@ -11,7 +11,7 @@ import android.os.Build;
 import android.util.Log;
 
 /**
- * Класичний BT (не AA): A2DP/Headset CONNECTED → ACTION_BT; disconnect/BT off → ACTION_ROUTE_LOST.
+ * Класичний BT (не AA): CONNECTED → ACTION_BT; disconnect → ACTION_ROUTE_LOST (service: ~4s grace).
  * ACL_CONNECTED лише mark timestamp (не play) — менше звуку з телефону / пинка.
  * AA: не чіпаємо маршрутизацію; pause skip лише коли KEY_AA_ACTIVE і BT ще увімкнений.
  */

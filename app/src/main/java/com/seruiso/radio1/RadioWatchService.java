@@ -108,6 +108,9 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
     private long ignoreNoisyUntilMs = 0L;
     private boolean sawA2dpAfterBtStart = false;
     private Runnable routeWatchTick;
+    /** Відкладений ROUTE_LOST (BT handoff 3–5 с) */
+    private Runnable routeLostRunnable;
+    private int a2dpMissTicks = 0;
     private ConnectivityManager connectivityManager;
     private ConnectivityManager.NetworkCallback networkCallback;
     private boolean networkCallbackRegistered = false;
@@ -1268,7 +1271,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         }
 
         if (ACTION_ROUTE_LOST.equals(action)) {
-            forceStopPlayback("ROUTE_LOST");
+            scheduleRouteLostGrace("receiver");
             return START_STICKY;
         }
 
@@ -1278,6 +1281,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         }
 
         if (ACTION_BT.equals(action)) {
+            cancelRouteLostGrace();
             long nowBt = System.currentTimeMillis();
             if (nowBt - lastBtActionMs < 1500L) {
                 android.util.Log.i("RadioWatch", "ACTION_BT debounced");
@@ -1630,12 +1634,77 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         try { notifyUiStatus(getString(R.string.pause), 0); } catch (Exception ignored) {}
     }
 
+
+    private void cancelRouteLostGrace() {
+        if (routeLostRunnable != null) {
+            try { mainHandler.removeCallbacks(routeLostRunnable); } catch (Exception ignored) {}
+            routeLostRunnable = null;
+        }
+    }
+
+    /**
+     * BT ACL/profile disconnect часто 1–3 с під час handoff телефону→авто.
+     * Не forceStop одразу: soft-pause, intended лишається; якщо A2DP знову є — resume.
+     */
+    private void scheduleRouteLostGrace(String why) {
+        android.util.Log.i("RadioWatch", "ROUTE_LOST grace start (" + why + ")");
+        cancelRouteLostGrace();
+        try {
+            PlaybackPrefs.setPauseReason(this, PlaybackPrefs.REASON_ROUTE);
+        } catch (Exception ignored) {}
+        // intended НЕ чистимо — це не USER_STOP
+        try {
+            if (player != null) {
+                player.setPlayWhenReady(false);
+            }
+        } catch (Exception e) {
+            android.util.Log.w("RadioWatch", "route grace soft pause", e);
+        }
+        try { writeActuallyPlaying(false); } catch (Exception ignored) {}
+        try { notifyUiPlayback(false); } catch (Exception ignored) {}
+        try { notifyUiStatus(getString(R.string.pause), 0); } catch (Exception ignored) {}
+
+        final long GRACE_MS = 4_000L;
+        routeLostRunnable = new Runnable() {
+            @Override public void run() {
+                routeLostRunnable = null;
+                boolean back = false;
+                try {
+                    back = BtAudio.hasRoute(RadioWatchService.this)
+                        || BtAudio.hasA2dpOutput(RadioWatchService.this);
+                } catch (Exception ignored) {}
+                if (back) {
+                    android.util.Log.i("RadioWatch", "ROUTE_LOST grace cancelled — BT/A2DP back");
+                    if (PlaybackPrefs.isIntended(RadioWatchService.this)) {
+                        try {
+                            requestFocus();
+                            if (player != null) {
+                                player.setVolume(1f);
+                                player.setPlayWhenReady(true);
+                            }
+                            PlaybackPrefs.setPauseReason(RadioWatchService.this, PlaybackPrefs.REASON_NONE);
+                            notifyUiPlayback(true);
+                            notifyUiStatus(getString(R.string.playing), 0);
+                        } catch (Exception e) {
+                            android.util.Log.w("RadioWatch", "route grace resume", e);
+                        }
+                    }
+                    return;
+                }
+                android.util.Log.i("RadioWatch", "ROUTE_LOST grace expired — real stop");
+                forceStopPlayback("ROUTE_LOST");
+            }
+        };
+        mainHandler.postDelayed(routeLostRunnable, GRACE_MS);
+    }
+
     private void armA2dpRouteWatch() {
         if (routeWatchTick != null) {
             mainHandler.removeCallbacks(routeWatchTick);
             routeWatchTick = null;
         }
         sawA2dpAfterBtStart = BtAudio.hasA2dpOutput(this);
+        a2dpMissTicks = 0;
         routeWatchTick = new Runnable() {
             @Override public void run() {
                 try {
@@ -1654,11 +1723,19 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                         return;
                     }
                     boolean a2dp = BtAudio.hasA2dpOutput(RadioWatchService.this);
-                    if (a2dp) sawA2dpAfterBtStart = true;
-                    else if (sawA2dpAfterBtStart) {
-                        forceStopPlayback("a2dp-route-lost");
-                        routeWatchTick = null;
-                        return;
+                    if (a2dp) {
+                        sawA2dpAfterBtStart = true;
+                        a2dpMissTicks = 0;
+                    } else if (sawA2dpAfterBtStart) {
+                        a2dpMissTicks++;
+                        // ~3 * 1.5s ≈ 4.5s без A2DP після того як уже бачили route
+                        if (a2dpMissTicks >= 3) {
+                            android.util.Log.i("RadioWatch", "A2DP lost confirmed after debounce");
+                            a2dpMissTicks = 0;
+                            scheduleRouteLostGrace("a2dp-watch");
+                            routeWatchTick = null;
+                            return;
+                        }
                     }
                     mainHandler.postDelayed(this, 1500);
                 } catch (Exception e) {

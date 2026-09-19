@@ -36,6 +36,7 @@ import kotlin.math.abs
 @Composable
 fun NowPlayingPager(
     pagerState: PagerState,
+    userScrollEnabled: Boolean = true,
     nowLocal: Boolean,
     pageKeys: List<String>,
     arts: List<String>,
@@ -49,6 +50,7 @@ fun NowPlayingPager(
     val npPagerH = if (nowLocal) 262.dp else 318.dp
     HorizontalPager(
         state = pagerState,
+        userScrollEnabled = userScrollEnabled,
         contentPadding = PaddingValues(horizontal = if (nowLocal) 48.dp else 40.dp),
         pageSpacing = if (nowLocal) 10.dp else 12.dp,
         modifier = Modifier

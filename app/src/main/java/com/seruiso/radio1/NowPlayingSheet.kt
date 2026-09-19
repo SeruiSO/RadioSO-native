@@ -197,6 +197,9 @@ fun NowPlayingSheet(
         ) { pageCount }
         var pagerUserDrag by remember { mutableStateOf(false) }
         var pagerIgnorePick by remember { mutableStateOf(true) }
+        // під час свайпу вниз (закриття) — не чіпати pager / зміну станції
+        var sheetVerticalDrag by remember { mutableStateOf(false) }
+        val blockPagerSwipe = sheetVerticalDrag || pullA.value > 24f
         // Зовнішня зміна / перше відкриття — snap БЕЗ play
         LaunchedEffect(curI, pageCount) {
             pagerIgnorePick = true
@@ -264,16 +267,25 @@ fun NowPlayingSheet(
                     .padding(horizontal = 12.dp, vertical = 8.dp)
                     .pointerInput(Unit) {
                         detectVerticalDragGestures(
+                            onDragStart = { sheetVerticalDrag = true },
                             onDragEnd = {
                                 sheetScope.launch {
                                     if (pullA.value > 140f) {
                                         pullA.animateTo(560f, tween(280))
+                                        sheetVerticalDrag = false
                                         actions.onSheetShow(false)
                                         actions.onNowClose()
-                                    } else pullA.animateTo(0f, tween(280))
+                                    } else {
+                                        pullA.animateTo(0f, tween(280))
+                                        sheetVerticalDrag = false
+                                    }
                                 }
-                            }
-                        ) { _, drag -> sheetScope.launch { pullA.snapTo((pullA.value + drag).coerceIn(0f, 560f)) } }
+                            },
+                            onDragCancel = { sheetVerticalDrag = false },
+                        ) { _, drag ->
+                            sheetVerticalDrag = true
+                            sheetScope.launch { pullA.snapTo((pullA.value + drag).coerceIn(0f, 560f)) }
+                        }
                     },
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
@@ -293,6 +305,7 @@ fun NowPlayingSheet(
                     }
                     NowPlayingPager(
                         pagerState = pagerState,
+                        userScrollEnabled = !blockPagerSwipe,
                         nowLocal = nowLocal,
                         pageKeys = pageKeys,
                         arts = arts,
@@ -306,10 +319,13 @@ fun NowPlayingSheet(
                         muted = muted,
                     )
                     val pagerDragModifier: Modifier =
-                        if (!nowLocal && arts.isNotEmpty()) {
-                            Modifier.pointerInput(currentUrl, pageCount) {
+                        if (!nowLocal && arts.isNotEmpty() && !blockPagerSwipe) {
+                            Modifier.pointerInput(currentUrl, pageCount, blockPagerSwipe) {
                                 detectHorizontalDragGestures(
-                                    onDragStart = { pagerUserDrag = true },
+                                    onDragStart = {
+                                        if (blockPagerSwipe) return@detectHorizontalDragGestures
+                                        pagerUserDrag = true
+                                    },
                                     onDragEnd = {
                                         val page = pagerState.currentPage
                                         val off = pagerState.currentPageOffsetFraction

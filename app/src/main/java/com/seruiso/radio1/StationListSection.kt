@@ -24,6 +24,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.delay
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -104,7 +108,39 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
     val muted = ui.muted
     val text = ui.text
     val card = ui.card
-    // Поточна станція завжди в полі зору (скіп з керма / фон / зміна вкладки)
+    // edge auto-scroll під час long-press drag (px накопичення + індекс старту)
+    val edgeHold = remember { floatArrayOf(0f, 0f) } // [0]=edgeScrollPx, [1]=unused
+    val dragStartIndex = remember { intArrayOf(-1) }
+    val dragAccPx = remember { floatArrayOf(0f) }
+
+    LaunchedEffect(dragging, dropAt, radioRows.size) {
+        if (!dragging || dropAt < 0 || radioRows.isEmpty()) return@LaunchedEffect
+        while (isActive && dragging) {
+            val info = listState.layoutInfo
+            val first = info.visibleItemsInfo.firstOrNull()?.index ?: break
+            val last = info.visibleItemsInfo.lastOrNull()?.index ?: break
+            val speed = 36f
+            when {
+                dropAt <= first + 1 && listState.canScrollBackward -> {
+                    listState.dispatchRawDelta(-speed)
+                    edgeHold[0] -= speed
+                }
+                dropAt >= last - 1 && listState.canScrollForward -> {
+                    listState.dispatchRawDelta(speed)
+                    edgeHold[0] += speed
+                }
+            }
+            // перерахунок drop з урахуванням автоскролу
+            if (dragStartIndex[0] >= 0) {
+                val dest = (dragStartIndex[0] + ((dragAccPx[0] + edgeHold[0]) / 168f).toInt())
+                    .coerceIn(0, radioRows.lastIndex)
+                if (dest != dropAt) actions.onDropAt(dest)
+            }
+            delay(16)
+        }
+    }
+
+    // Поточна станція завжди в полі зору (скіп з керма / фон / зміна вкладки) (скіп з керма / фон / зміна вкладки)
     LaunchedEffect(currentUrl, radioRows, bestRows, bottomTab, canMore, dragging) {
         if (dragging) return@LaunchedEffect
         suspend fun scrollIfNeeded(index: Int) {
@@ -156,21 +192,37 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
                             onDragStart = {
                                 accDrag = 0f
                                 localDrop = index
+                                dragStartIndex[0] = index
+                                dragAccPx[0] = 0f
+                                edgeHold[0] = 0f
                                 actions.onDropAt(index)
                                 actions.onDragging(true)
                                 actions.onDragStart()
                             },
                             onDragEnd = {
-                                val dest = localDrop.coerceIn(0, radioRows.lastIndex)
+                                val dest = (dragStartIndex[0] + ((dragAccPx[0] + edgeHold[0]) / 168f).toInt())
+                                    .coerceIn(0, radioRows.lastIndex)
                                 if (dest != index) actions.onMoveTo(index, dest)
                                 accDrag = 0f
+                                dragAccPx[0] = 0f
+                                edgeHold[0] = 0f
+                                dragStartIndex[0] = -1
                                 actions.onDropAt(-1)
                                 actions.onDragging(false)
                             },
-                            onDragCancel = { accDrag = 0f; actions.onDropAt(-1); actions.onDragging(false) }
+                            onDragCancel = {
+                                accDrag = 0f
+                                dragAccPx[0] = 0f
+                                edgeHold[0] = 0f
+                                dragStartIndex[0] = -1
+                                actions.onDropAt(-1)
+                                actions.onDragging(false)
+                            }
                         ) { _, drag ->
                             accDrag += drag.y
-                            localDrop = (index + (accDrag / 168f).toInt()).coerceIn(0, radioRows.lastIndex)
+                            dragAccPx[0] = accDrag
+                            localDrop = (index + ((accDrag + edgeHold[0]) / 168f).toInt())
+                                .coerceIn(0, radioRows.lastIndex)
                             actions.onDropAt(localDrop)
                         }
                     }

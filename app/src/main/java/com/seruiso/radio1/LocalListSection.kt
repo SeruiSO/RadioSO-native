@@ -21,6 +21,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.delay
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -53,6 +56,36 @@ fun androidx.compose.foundation.layout.ColumnScope.LocalListSection(
     val muted = ui.muted
     val text = ui.text
     val card = ui.card
+    val edgeHold = remember { floatArrayOf(0f) }
+    val dragStartIndex = remember { intArrayOf(-1) }
+    val dragAccPx = remember { floatArrayOf(0f) }
+
+    LaunchedEffect(dragging, dropAt, localRows.size) {
+        if (!dragging || dropAt < 0 || localRows.isEmpty()) return@LaunchedEffect
+        while (isActive && dragging) {
+            val info = listState.layoutInfo
+            val first = info.visibleItemsInfo.firstOrNull()?.index ?: break
+            val last = info.visibleItemsInfo.lastOrNull()?.index ?: break
+            val speed = 36f
+            when {
+                dropAt <= first + 1 && listState.canScrollBackward -> {
+                    listState.dispatchRawDelta(-speed)
+                    edgeHold[0] -= speed
+                }
+                dropAt >= last - 1 && listState.canScrollForward -> {
+                    listState.dispatchRawDelta(speed)
+                    edgeHold[0] += speed
+                }
+            }
+            if (dragStartIndex[0] >= 0) {
+                val dest = (dragStartIndex[0] + ((dragAccPx[0] + edgeHold[0]) / 168f).toInt())
+                    .coerceIn(0, localRows.lastIndex)
+                if (dest != dropAt) actions.onDropAt(dest)
+            }
+            delay(16)
+        }
+    }
+
     if (localRows.isEmpty()) {
         EmptySlot(LocalContext.current.getString(R.string.no_tracks_scan), muted)
     }
@@ -80,21 +113,37 @@ fun androidx.compose.foundation.layout.ColumnScope.LocalListSection(
                             onDragStart = {
                                 accDrag = 0f
                                 localDrop = index
+                                dragStartIndex[0] = index
+                                dragAccPx[0] = 0f
+                                edgeHold[0] = 0f
                                 actions.onDropAt(index)
                                 actions.onDragging(true)
                                 actions.onDragStart()
                             },
                             onDragEnd = {
-                                val dest = localDrop.coerceIn(0, localRows.lastIndex)
+                                val dest = (dragStartIndex[0] + ((dragAccPx[0] + edgeHold[0]) / 168f).toInt())
+                                    .coerceIn(0, localRows.lastIndex)
                                 if (dest != index) actions.onMoveLocalTo(index, dest)
                                 accDrag = 0f
+                                dragAccPx[0] = 0f
+                                edgeHold[0] = 0f
+                                dragStartIndex[0] = -1
                                 actions.onDropAt(-1)
                                 actions.onDragging(false)
                             },
-                            onDragCancel = { accDrag = 0f; actions.onDropAt(-1); actions.onDragging(false) }
+                            onDragCancel = {
+                                accDrag = 0f
+                                dragAccPx[0] = 0f
+                                edgeHold[0] = 0f
+                                dragStartIndex[0] = -1
+                                actions.onDropAt(-1)
+                                actions.onDragging(false)
+                            }
                         ) { _, drag ->
                             accDrag += drag.y
-                            localDrop = (index + (accDrag / 168f).toInt()).coerceIn(0, localRows.lastIndex)
+                            dragAccPx[0] = accDrag
+                            localDrop = (index + ((accDrag + edgeHold[0]) / 168f).toInt())
+                                .coerceIn(0, localRows.lastIndex)
                             actions.onDropAt(localDrop)
                         }
                     }

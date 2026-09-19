@@ -21,6 +21,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -55,6 +56,15 @@ fun androidx.compose.foundation.layout.ColumnScope.LocalListSection(
     if (localRows.isEmpty()) {
         EmptySlot(LocalContext.current.getString(R.string.no_tracks_scan), muted)
     }
+    LaunchedEffect(currentUrl, localRows, dragging) {
+        if (dragging) return@LaunchedEffect
+        val i = localRows.indexOfFirst { it.uri == currentUrl }
+        if (i < 0) return@LaunchedEffect
+        val vis = listState.layoutInfo.visibleItemsInfo
+        if (vis.any { it.index == i }) return@LaunchedEffect
+        listState.animateScrollToItem(i)
+    }
+
     LazyColumn(modifier = Modifier.weight(1f), state = listState, userScrollEnabled = !dragging) {
         itemsIndexed(localRows, key = { _, x -> x.uri }) { index, item ->
             Row(

@@ -23,6 +23,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -103,6 +104,32 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
     val muted = ui.muted
     val text = ui.text
     val card = ui.card
+    // Поточна станція завжди в полі зору (скіп з керма / фон / зміна вкладки)
+    LaunchedEffect(currentUrl, radioRows, bestRows, bottomTab, canMore, dragging) {
+        if (dragging) return@LaunchedEffect
+        suspend fun scrollIfNeeded(index: Int) {
+            if (index < 0) return
+            val vis = listState.layoutInfo.visibleItemsInfo
+            if (vis.any { it.index == index }) return
+            listState.animateScrollToItem(index)
+        }
+        val radioIdx = radioRows.indexOfFirst { it.url == currentUrl }
+        if (radioIdx >= 0) {
+            // empty placeholder займає item 0 лише коли список порожній
+            scrollIfNeeded(radioIdx)
+            return@LaunchedEffect
+        }
+        if (bottomTab == "heart" || bottomTab == "library") {
+            val bi = bestRows.indexOfFirst { it.uri == currentUrl }
+            if (bi >= 0) {
+                var base = if (radioRows.isEmpty()) 1 else radioRows.size // empty slot або рядки
+                if (canMore) base += 1
+                base += 1 // заголовок «локальні обрані»
+                scrollIfNeeded(base + bi)
+            }
+        }
+    }
+
     LazyColumn(modifier = Modifier.weight(1f), state = listState, userScrollEnabled = !dragging) {
         if (radioRows.isEmpty()) {
             item {

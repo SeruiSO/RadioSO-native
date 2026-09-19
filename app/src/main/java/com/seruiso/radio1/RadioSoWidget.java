@@ -10,14 +10,19 @@ import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.PorterDuff;
+import android.graphics.PorterDuffColorFilter;
 import android.graphics.PorterDuffXfermode;
 import android.graphics.Rect;
 import android.graphics.RectF;
+import android.graphics.drawable.Drawable;
 import android.os.Handler;
 import android.os.Looper;
 import android.widget.RemoteViews;
+
+import androidx.core.content.ContextCompat;
 
 import java.io.InputStream;
 import java.net.HttpURLConnection;
@@ -37,7 +42,6 @@ public class RadioSoWidget extends AppWidgetProvider {
         push(ctx, mgr, ids);
     }
 
-    /** Оновити всі екземпляри з сервісу (play / pause / скіп / мета). */
     public static void refresh(Context ctx) {
         try {
             AppWidgetManager mgr = AppWidgetManager.getInstance(ctx);
@@ -66,18 +70,26 @@ public class RadioSoWidget extends AppWidgetProvider {
             art = lastFavBmp;
         }
 
+        // play/pause icon dark on gold button
+        Bitmap playBmp = tintedIcon(ctx,
+            playing ? R.drawable.ic_notif_pause : R.drawable.ic_notif_play,
+            0xFF1A1A1A);
+        Bitmap prevBmp = tintedIcon(ctx, R.drawable.ic_notif_prev, 0xFFFFFFFF);
+        Bitmap nextBmp = tintedIcon(ctx, R.drawable.ic_notif_next, 0xFFFFFFFF);
+
         for (int id : ids) {
             RemoteViews rv = new RemoteViews(ctx.getPackageName(), R.layout.widget_player);
             rv.setTextViewText(R.id.widget_name, name);
             rv.setTextViewText(R.id.widget_track, track.isEmpty() ? "—" : track);
-            rv.setImageViewResource(R.id.widget_play,
-                playing ? R.drawable.ic_notif_pause : R.drawable.ic_notif_play);
 
-            if (art != null) {
-                rv.setImageViewBitmap(R.id.widget_art, art);
-            } else {
-                rv.setImageViewResource(R.id.widget_art, R.mipmap.ic_launcher);
-            }
+            if (playBmp != null) rv.setImageViewBitmap(R.id.widget_play, playBmp);
+            else rv.setImageViewResource(R.id.widget_play,
+                playing ? R.drawable.ic_notif_pause : R.drawable.ic_notif_play);
+            if (prevBmp != null) rv.setImageViewBitmap(R.id.widget_prev, prevBmp);
+            if (nextBmp != null) rv.setImageViewBitmap(R.id.widget_next, nextBmp);
+
+            if (art != null) rv.setImageViewBitmap(R.id.widget_art, art);
+            else rv.setImageViewResource(R.id.widget_art, R.mipmap.ic_launcher);
 
             Intent open = new Intent(ctx, MainActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
@@ -97,13 +109,30 @@ public class RadioSoWidget extends AppWidgetProvider {
         if (!fav.isEmpty() && !fav.equals(lastFavUrl)) {
             final String urlLoad = fav;
             EXEC.execute(() -> {
-                Bitmap bmp = loadRounded(urlLoad, 152);
+                Bitmap bmp = loadRounded(urlLoad, 176);
                 if (bmp != null) {
                     lastFavUrl = urlLoad;
                     lastFavBmp = bmp;
                     MAIN.post(() -> refresh(ctx));
                 }
             });
+        }
+    }
+
+    private static Bitmap tintedIcon(Context ctx, int resId, int color) {
+        try {
+            Drawable d = ContextCompat.getDrawable(ctx, resId);
+            if (d == null) return null;
+            int s = 72;
+            Bitmap b = Bitmap.createBitmap(s, s, Bitmap.Config.ARGB_8888);
+            Canvas c = new Canvas(b);
+            d.setBounds(0, 0, s, s);
+            d.setColorFilter(new PorterDuffColorFilter(color, PorterDuff.Mode.SRC_IN));
+            d.draw(c);
+            d.setColorFilter(null);
+            return b;
+        } catch (Exception e) {
+            return null;
         }
     }
 

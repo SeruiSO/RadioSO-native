@@ -8,19 +8,15 @@
     android:padding="12dp"
     android:background="@drawable/widget_bg">
 
-    <FrameLayout
-        android:layout_width="76dp"
-        android:layout_height="76dp">
-
-        <ImageView
-            android:id="@+id/widget_art"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:scaleType="centerCrop"
-            android:src="@mipmap/ic_launcher"
-            android:contentDescription="@string/app_name"
-            android:background="@drawable/widget_art_bg" />
-    </FrameLayout>
+    <ImageView
+        android:id="@+id/widget_art"
+        android:layout_width="88dp"
+        android:layout_height="88dp"
+        android:scaleType="centerCrop"
+        android:src="@mipmap/ic_launcher"
+        android:contentDescription="@string/app_name"
+        android:background="@drawable/widget_art_bg"
+        android:clipToOutline="true" />
 
     <LinearLayout
         android:layout_width="0dp"
@@ -28,17 +24,18 @@
         android:layout_weight="1"
         android:orientation="vertical"
         android:gravity="center_vertical"
-        android:paddingStart="12dp"
-        android:paddingEnd="4dp">
+        android:paddingStart="14dp"
+        android:paddingEnd="2dp">
 
         <TextView
             android:id="@+id/widget_name"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/app_name"
-            android:textColor="#E8C36A"
-            android:textSize="15sp"
+            android:textColor="#F0D78A"
+            android:textSize="16sp"
             android:textStyle="bold"
+            android:fontFamily="sans-serif-medium"
             android:maxLines="1"
             android:ellipsize="end" />
 
@@ -47,18 +44,19 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="—"
-            android:textColor="#BDBDBD"
+            android:textColor="#A8A8A8"
             android:textSize="12sp"
+            android:fontFamily="sans-serif"
             android:maxLines="1"
             android:ellipsize="end"
-            android:paddingTop="2dp" />
+            android:paddingTop="3dp" />
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:paddingTop="8dp">
+            android:paddingTop="10dp">
 
             <ImageButton
                 android:id="@+id/widget_prev"
@@ -68,19 +66,19 @@
                 android:src="@drawable/ic_notif_prev"
                 android:contentDescription="@string/prev_station"
                 android:scaleType="centerInside"
-                android:padding="10dp" />
+                android:padding="11dp" />
 
             <ImageButton
                 android:id="@+id/widget_play"
-                android:layout_width="54dp"
-                android:layout_height="54dp"
-                android:layout_marginStart="6dp"
-                android:layout_marginEnd="6dp"
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:layout_marginStart="8dp"
+                android:layout_marginEnd="8dp"
                 android:background="@drawable/widget_btn_play_bg"
                 android:src="@drawable/ic_notif_play"
                 android:contentDescription="@string/cd_play"
                 android:scaleType="centerInside"
-                android:padding="10dp" />
+                android:padding="12dp" />
 
             <ImageButton
                 android:id="@+id/widget_next"
@@ -90,7 +88,7 @@
                 android:src="@drawable/ic_notif_next"
                 android:contentDescription="@string/next_station"
                 android:scaleType="centerInside"
-                android:padding="10dp" />
+                android:padding="11dp" />
         </LinearLayout>
     </LinearLayout>
 </LinearLayout>

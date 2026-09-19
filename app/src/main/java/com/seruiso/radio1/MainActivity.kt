@@ -524,7 +524,7 @@ class MainActivity : ComponentActivity() {
             val result = try { RadioBrowser.search(n, c, g, gen) } catch (_: Exception) { emptyList() }
             runOnUiThread {
                 if (gen != RadioBrowser.activeGen) return@runOnUiThread
-                searchAll = result ?: emptyList()
+                searchAll = dedupeStationsByStream(result ?: emptyList())
                 searchShown = minOf(100, searchAll.size)
                 searchRows = searchAll.take(searchShown)
                 holdStatus(if (searchAll.isEmpty()) getString(R.string.nothing_found) else getString(R.string.search_found, searchAll.size))

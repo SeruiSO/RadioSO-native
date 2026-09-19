@@ -196,13 +196,59 @@ fun preferRichStation(a: Station, b: Station): Station {
 }
 
 /** distinctBy збагаченням meta замість «перший виграв». Порядок першої появи зберігається. */
-fun mergeStationsRich(list: List<Station>): List<Station> {
+/**
+ * Ключ потоку: той самий Icecast/HTTP з http↔https, слешем, :80/:443, /; —
+ * вважаємо однією станцією. Шлях лишаємо (різні /stream vs /128).
+ */
+fun streamIdentity(url: String): String {
+    var u = url.trim()
+    if (u.isEmpty()) return ""
+    try {
+        val uri = android.net.Uri.parse(u)
+        val scheme = (uri.scheme ?: "http").lowercase()
+        var host = (uri.host ?: "").lowercase().removePrefix("www.")
+        var port = uri.port
+        if (port == 80 && scheme == "http") port = -1
+        if (port == 443 && scheme == "https") port = -1
+        var path = uri.path ?: ""
+        while (path.endsWith("/")) path = path.dropLast(1)
+        if (path.endsWith("/;")) path = path.dropLast(2)
+        if (path == ";") path = ""
+        val portPart = if (port > 0) ":$port" else ""
+        return host + portPart + path.lowercase()
+    } catch (_: Exception) {
+        u = u.lowercase()
+        u = u.removePrefix("https://").removePrefix("http://").removePrefix("www.")
+        u = u.replace(":80/", "/").replace(":443/", "/")
+        val q = u.indexOf('?')
+        if (q >= 0) u = u.substring(0, q)
+        val h = u.indexOf('#')
+        if (h >= 0) u = u.substring(0, h)
+        while (u.endsWith("/")) u = u.dropLast(1)
+        if (u.endsWith("/;")) u = u.dropLast(2)
+        return u
+    }
+}
+
+/** Одна позиція на потік. Якщо є дубль — беремо той, у кого є favicon. */
+fun dedupeStationsByStream(list: List<Station>): List<Station> {
     val map = linkedMapOf<String, Station>()
     for (s in list) {
-        val prev = map[s.url]
-        map[s.url] = if (prev == null) s else preferRichStation(prev, s)
+        val k = streamIdentity(s.url)
+        if (k.isBlank()) continue
+        val prev = map[k]
+        map[k] = when {
+            prev == null -> s
+            prev.favicon.isBlank() && s.favicon.isNotBlank() -> s
+            prev.favicon.isNotBlank() && s.favicon.isBlank() -> prev
+            else -> preferRichStation(prev, s)
+        }
     }
     return map.values.toList()
+}
+
+fun mergeStationsRich(list: List<Station>): List<Station> {
+    return dedupeStationsByStream(list)
 }
 
 // Рядок локального треку — перевикористовується у вкладці LocalContext.current.getString(R.string.favorites_plural)

@@ -36,7 +36,7 @@ object RadioBrowser {
         var out = fetch("/json/stations/search?$params", gen)
         if (lim >= 100 && out != null && out.size < 15 && g.isNotEmpty() && n.isEmpty()) {
             val extra = fetch("/json/stations/bytag/" + URLEncoder.encode(g.lowercase(), "UTF-8") + "?hidebroken=true&limit=$lim&order=clickcount&reverse=true", gen)
-            if (extra != null) out = (out + extra).distinctBy { it.url }
+            if (extra != null) out = dedupeStationsByStream(out + extra)
         }
         return out
     }
@@ -67,7 +67,7 @@ object RadioBrowser {
                     val short = if (tags.size > 4) tags.take(4).joinToString(", ") + "..." else tags.joinToString(", ")
                     out.add(Station(url, title, short, o.optString("country"), o.optString("favicon"), "search"))
                 }
-                return out
+                return dedupeStationsByStream(out)
             } catch (_: Exception) { }
         }
         return emptyList()

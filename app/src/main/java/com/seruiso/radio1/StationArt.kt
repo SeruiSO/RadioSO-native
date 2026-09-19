@@ -17,7 +17,8 @@ fun isStationArtUrl(raw: String?): Boolean {
 }
 
 /**
- * Єдина заглушка радіо: є favicon → воно; немає / помилка завантаження → іконка додатку.
+ * Єдина заглушка радіо: є favicon → воно; немає / помилка → іконка додатку (PNG foreground).
+ * Не використовувати R.mipmap.ic_launcher (adaptive XML) — Compose painterResource падає.
  */
 @Composable
 fun StationArt(
@@ -26,7 +27,8 @@ fun StationArt(
     contentDescription: String? = null,
     contentScale: ContentScale = ContentScale.Crop,
 ) {
-    val launcher = painterResource(R.mipmap.ic_launcher)
+    // raster PNG у mipmap-*; adaptive ic_launcher.xml не підтримується painterResource
+    val launcher = painterResource(R.mipmap.ic_launcher_foreground)
     if (isStationArtUrl(url)) {
         AsyncImage(
             model = url,

@@ -35,11 +35,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 /**
- * Overflow ⋯ меню + діалоги сну/теми з хедера.
+ * Overflow меню (гамбургер) + діалоги сну/теми з хедера.
  */
 @Composable
 fun AppOverflowMenu(
@@ -68,85 +70,45 @@ fun AppOverflowMenu(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(top = 76.dp, end = 12.dp)
-                    .width(220.dp)
-                    .background(Palette.panel2, RoundedCornerShape(12.dp))
-                    .padding(8.dp)
+                    .width(280.dp)
+                    .background(Palette.panel2, RoundedCornerShape(16.dp))
+                    .border(1.dp, text.copy(alpha = 0.08f), RoundedCornerShape(16.dp))
+                    .padding(10.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                val ctxForTheme = LocalContext.current
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { Palette.toggle(ctxForTheme) }
-                        .padding(8.dp)
-                ) {
-                    Icon(
-                        if (Palette.isLight) Icons.Filled.LightMode else Icons.Filled.DarkMode,
-                        contentDescription = if (Palette.isLight) LocalContext.current.getString(R.string.theme_light)
-                        else LocalContext.current.getString(R.string.theme_dark),
-                        tint = text,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Text(
-                        if (Palette.isLight) LocalContext.current.getString(R.string.theme_light)
-                        else LocalContext.current.getString(R.string.theme_dark),
-                        color = text
-                    )
-                }
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onBt(); onCloseMenu() }
-                        .padding(8.dp)
-                ) {
-                    Icon(
-                        if (btWatch) Icons.Filled.Bluetooth else Icons.Filled.BluetoothDisabled,
-                        contentDescription = if (btWatch) LocalContext.current.getString(R.string.bt_watch_on_long)
-                        else LocalContext.current.getString(R.string.bt_watch_off_long),
-                        tint = text,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Text(
-                        if (btWatch) LocalContext.current.getString(R.string.bt_on)
-                        else LocalContext.current.getString(R.string.bt_off),
-                        color = text
-                    )
-                }
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onSleepMenu() }
-                        .padding(8.dp)
-                ) {
-                    Icon(
-                        Icons.Filled.Timer,
-                        contentDescription = LocalContext.current.getString(R.string.sleep_timer),
-                        tint = text,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Text(sleepLabel, color = text)
-                }
+                MenuRow(
+                    icon = if (btWatch) Icons.Filled.Bluetooth else Icons.Filled.BluetoothDisabled,
+                    label = if (btWatch) LocalContext.current.getString(R.string.bt_on)
+                    else LocalContext.current.getString(R.string.bt_off),
+                    selected = btWatch,
+                    acc = acc,
+                    text = text,
+                    onClick = { onBt(); onCloseMenu() },
+                )
+                MenuRow(
+                    icon = Icons.Filled.Timer,
+                    label = sleepLabel,
+                    selected = sleepMenu,
+                    acc = acc,
+                    text = text,
+                    onClick = { onSleepMenu() },
+                )
                 if (sleepMenu) {
                     Column(
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                        modifier = Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, bottom = 6.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         listOf(15 to 30, 60 to 0).forEach { (a, b) ->
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 listOf(a, b).forEach { m ->
                                     Box(
                                         modifier = Modifier
                                             .weight(1f)
-                                            .height(36.dp)
-                                            .background(Palette.panel, RoundedCornerShape(10.dp))
+                                            .height(44.dp)
+                                            .background(Palette.panel, RoundedCornerShape(12.dp))
                                             .clickable { onSleep(m); onCloseMenu() },
                                         contentAlignment = Alignment.Center
                                     ) {
@@ -154,7 +116,7 @@ fun AppOverflowMenu(
                                             if (m == 0) LocalContext.current.getString(R.string.off)
                                             else LocalContext.current.getString(R.string.mins_short, m),
                                             color = acc,
-                                            style = MaterialTheme.typography.labelSmall
+                                            style = MaterialTheme.typography.labelLarge
                                         )
                                     }
                                 }
@@ -162,40 +124,60 @@ fun AppOverflowMenu(
                         }
                     }
                 }
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onExport() }
-                        .padding(8.dp)
-                ) {
-                    Icon(
-                        Icons.Filled.FileUpload,
-                        contentDescription = LocalContext.current.getString(R.string.export_settings),
-                        tint = text,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Text(LocalContext.current.getString(R.string.export), color = text)
-                }
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onImport() }
-                        .padding(8.dp)
-                ) {
-                    Icon(
-                        Icons.Filled.FileDownload,
-                        contentDescription = LocalContext.current.getString(R.string.import_settings),
-                        tint = text,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Text(LocalContext.current.getString(R.string.import_label), color = text)
-                }
+                MenuRow(
+                    icon = Icons.Filled.FileUpload,
+                    label = LocalContext.current.getString(R.string.export),
+                    selected = false,
+                    acc = acc,
+                    text = text,
+                    onClick = { onExport() },
+                )
+                MenuRow(
+                    icon = Icons.Filled.FileDownload,
+                    label = LocalContext.current.getString(R.string.import_label),
+                    selected = false,
+                    acc = acc,
+                    text = text,
+                    onClick = { onImport() },
+                )
             }
         }
+    }
+}
+
+@Composable
+private fun MenuRow(
+    icon: ImageVector,
+    label: String,
+    selected: Boolean,
+    acc: Color,
+    text: Color,
+    onClick: () -> Unit,
+) {
+    val shape = RoundedCornerShape(12.dp)
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(52.dp)
+            .background(
+                if (selected) acc.copy(alpha = 0.18f) else Color.Transparent,
+                shape
+            )
+            .then(
+                if (selected) Modifier.border(1.dp, acc.copy(alpha = 0.45f), shape)
+                else Modifier
+            )
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp)
+    ) {
+        Icon(icon, contentDescription = label, tint = if (selected) acc else text, modifier = Modifier.size(26.dp))
+        Text(
+            label,
+            color = if (selected) acc else text,
+            style = MaterialTheme.typography.titleMedium.copy(fontSize = 16.sp)
+        )
     }
 }
 
@@ -268,36 +250,84 @@ fun AppThemeDialog(
     onDismiss: () -> Unit,
     themeName: String,
     onPickTheme: (String) -> Unit,
+    acc: Color,
     muted: Color,
     text: Color,
     card: Color,
 ) {
     if (!open) return
+    val ctx = LocalContext.current
     AlertDialog(
         containerColor = card,
         onDismissRequest = onDismiss,
         title = { Text(LocalContext.current.getString(R.string.theme), color = text) },
         text = {
-            Column {
-                // 4 в ряд
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Text(
+                    LocalContext.current.getString(R.string.theme_title),
+                    color = muted,
+                    style = MaterialTheme.typography.labelLarge
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    listOf(
+                        false to (Icons.Filled.DarkMode to R.string.theme_dark),
+                        true to (Icons.Filled.LightMode to R.string.theme_light),
+                    ).forEach { (light, pair) ->
+                        val (ico, strRes) = pair
+                        val selected = Palette.isLight == light
+                        val shape = RoundedCornerShape(14.dp)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(52.dp)
+                                .background(
+                                    if (selected) acc.copy(alpha = 0.22f) else Palette.panel,
+                                    shape
+                                )
+                                .border(
+                                    1.5.dp,
+                                    if (selected) acc else muted.copy(alpha = 0.2f),
+                                    shape
+                                )
+                                .clickable { Palette.setLight(ctx, light) }
+                                .padding(horizontal = 12.dp)
+                        ) {
+                            Icon(ico, contentDescription = null, tint = if (selected) acc else text, modifier = Modifier.size(24.dp))
+                            Text(
+                                LocalContext.current.getString(strRes),
+                                color = if (selected) acc else text,
+                                style = MaterialTheme.typography.titleSmall
+                            )
+                        }
+                    }
+                }
+                Text(
+                    LocalContext.current.getString(R.string.theme),
+                    color = muted,
+                    style = MaterialTheme.typography.labelLarge
+                )
                 ThemeStore.all.chunked(4).forEach { row ->
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                         horizontalArrangement = Arrangement.SpaceEvenly
                     ) {
                         row.forEach { th ->
                             val selected = th.id == themeName
                             Box(
                                 modifier = Modifier
-                                    .size(44.dp)
-                                    .background(Color(th.accent), RoundedCornerShape(12.dp))
+                                    .size(48.dp)
+                                    .background(Color(th.accent), RoundedCornerShape(14.dp))
                                     .then(
-                                        if (selected) Modifier.border(2.dp, text, RoundedCornerShape(12.dp))
-                                        else Modifier
+                                        if (selected) Modifier.border(3.dp, text, RoundedCornerShape(14.dp))
+                                        else Modifier.border(1.dp, muted.copy(alpha = 0.2f), RoundedCornerShape(14.dp))
                                     )
                                     .clickable {
                                         onPickTheme(th.id)
-                                        onDismiss()
                                     }
                             )
                         }

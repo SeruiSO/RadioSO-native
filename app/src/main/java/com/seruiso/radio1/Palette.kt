@@ -24,7 +24,12 @@ object Palette {
     }
 
     fun toggle(ctx: Context) {
-        isLight = !isLight
+        setLight(ctx, !isLight)
+    }
+
+    fun setLight(ctx: Context, light: Boolean) {
+        if (isLight == light) return
+        isLight = light
         ctx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)
             .edit().putBoolean(KEY, isLight).apply()
     }

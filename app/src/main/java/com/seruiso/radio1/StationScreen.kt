@@ -40,7 +40,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Radio
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
@@ -494,7 +494,7 @@ fun StationScreen(
                 Box(
                     modifier = Modifier.size(40.dp).background(card, AppShapes.chip).springPress(0.9f) { onMenu() },
                     contentAlignment = Alignment.Center
-                ) { Icon(Icons.Filled.MoreVert, contentDescription = LocalContext.current.getString(R.string.more_settings), tint = text) }
+                ) { Icon(Icons.Filled.Menu, contentDescription = LocalContext.current.getString(R.string.more_settings), tint = text) }
             }
         }
         // Інфо-панель: іконки на всю висоту, пульс як Play, жанр+країна
@@ -1184,6 +1184,7 @@ fun StationScreen(
         onDismiss = { topThemeOpen = false },
         themeName = themeName,
         onPickTheme = onPickTheme,
+        acc = acc,
         muted = muted,
         text = text,
         card = card,

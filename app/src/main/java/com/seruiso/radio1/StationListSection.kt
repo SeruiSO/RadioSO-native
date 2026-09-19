@@ -108,8 +108,8 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
     val muted = ui.muted
     val text = ui.text
     val card = ui.card
-    // edge auto-scroll під час long-press drag (px накопичення + індекс старту)
-    val edgeHold = remember { floatArrayOf(0f, 0f) } // [0]=edgeScrollPx, [1]=unused
+    // edge auto-scroll: повільно, кроками індексу (без стрибка на початок)
+    val edgeSteps = remember { intArrayOf(0) }
     val dragStartIndex = remember { intArrayOf(-1) }
     val dragAccPx = remember { floatArrayOf(0f) }
 
@@ -119,24 +119,26 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
             val info = listState.layoutInfo
             val first = info.visibleItemsInfo.firstOrNull()?.index ?: break
             val last = info.visibleItemsInfo.lastOrNull()?.index ?: break
-            val speed = 36f
+            val speed = 8f
+            var stepped = false
             when {
-                dropAt <= first + 1 && listState.canScrollBackward -> {
+                dropAt <= first && listState.canScrollBackward -> {
                     listState.dispatchRawDelta(-speed)
-                    edgeHold[0] -= speed
+                    edgeSteps[0] -= 1
+                    stepped = true
                 }
-                dropAt >= last - 1 && listState.canScrollForward -> {
+                dropAt >= last && listState.canScrollForward -> {
                     listState.dispatchRawDelta(speed)
-                    edgeHold[0] += speed
+                    edgeSteps[0] += 1
+                    stepped = true
                 }
             }
-            // перерахунок drop з урахуванням автоскролу
-            if (dragStartIndex[0] >= 0) {
-                val dest = (dragStartIndex[0] + ((dragAccPx[0] + edgeHold[0]) / 168f).toInt())
+            if (stepped && dragStartIndex[0] >= 0) {
+                val dest = (dragStartIndex[0] + (dragAccPx[0] / 200f).toInt() + edgeSteps[0])
                     .coerceIn(0, radioRows.lastIndex)
                 if (dest != dropAt) actions.onDropAt(dest)
             }
-            delay(16)
+            delay(48)
         }
     }
 
@@ -194,18 +196,18 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
                                 localDrop = index
                                 dragStartIndex[0] = index
                                 dragAccPx[0] = 0f
-                                edgeHold[0] = 0f
+                                edgeSteps[0] = 0
                                 actions.onDropAt(index)
                                 actions.onDragging(true)
                                 actions.onDragStart()
                             },
                             onDragEnd = {
-                                val dest = (dragStartIndex[0] + ((dragAccPx[0] + edgeHold[0]) / 168f).toInt())
+                                val dest = (dragStartIndex[0] + (dragAccPx[0] / 200f).toInt() + edgeSteps[0])
                                     .coerceIn(0, radioRows.lastIndex)
                                 if (dest != index) actions.onMoveTo(index, dest)
                                 accDrag = 0f
                                 dragAccPx[0] = 0f
-                                edgeHold[0] = 0f
+                                edgeSteps[0] = 0
                                 dragStartIndex[0] = -1
                                 actions.onDropAt(-1)
                                 actions.onDragging(false)
@@ -213,7 +215,7 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
                             onDragCancel = {
                                 accDrag = 0f
                                 dragAccPx[0] = 0f
-                                edgeHold[0] = 0f
+                                edgeSteps[0] = 0
                                 dragStartIndex[0] = -1
                                 actions.onDropAt(-1)
                                 actions.onDragging(false)
@@ -221,7 +223,7 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
                         ) { _, drag ->
                             accDrag += drag.y
                             dragAccPx[0] = accDrag
-                            localDrop = (index + ((accDrag + edgeHold[0]) / 168f).toInt())
+                            localDrop = (index + (accDrag / 200f).toInt() + edgeSteps[0])
                                 .coerceIn(0, radioRows.lastIndex)
                             actions.onDropAt(localDrop)
                         }

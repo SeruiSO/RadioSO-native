@@ -108,37 +108,46 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
     val muted = ui.muted
     val text = ui.text
     val card = ui.card
-    // edge auto-scroll: повільно, кроками індексу (без стрибка на початок)
-    val edgeSteps = remember { intArrayOf(0) }
-    val dragStartIndex = remember { intArrayOf(-1) }
-    val dragAccPx = remember { floatArrayOf(0f) }
+    // Reorder: жест на рівні списку (не на рядку) — скрол не скасовує drag
+    val dragFrom = remember { intArrayOf(-1) }
+    val dropHold = remember { intArrayOf(-1) }
+    val fingerY = remember { floatArrayOf(-1f) }
 
-    LaunchedEffect(dragging, dropAt, radioRows.size) {
-        if (!dragging || dropAt < 0 || radioRows.isEmpty()) return@LaunchedEffect
+    fun radioIndexUnderY(y: Float): Int {
+        if (radioRows.isEmpty()) return -1
+        val info = listState.layoutInfo
+        val yi = y.toInt()
+        val hit = info.visibleItemsInfo.firstOrNull { yi >= it.offset && yi < it.offset + it.size }
+            ?: info.visibleItemsInfo.minByOrNull {
+                val c = it.offset + it.size / 2
+                kotlin.math.abs(c - yi)
+            }
+        val idx = hit?.index ?: return -1
+        // лише радіо-рядки (не empty/more/best appendix)
+        return if (idx in radioRows.indices) idx else -1
+    }
+
+    // автоскрол краю, поки палець утримується (ключ лише dragging — без рестарту на dropAt)
+    LaunchedEffect(dragging) {
+        if (!dragging) return@LaunchedEffect
         while (isActive && dragging) {
-            val info = listState.layoutInfo
-            val first = info.visibleItemsInfo.firstOrNull()?.index ?: break
-            val last = info.visibleItemsInfo.lastOrNull()?.index ?: break
-            val speed = 8f
-            var stepped = false
-            when {
-                dropAt <= first && listState.canScrollBackward -> {
-                    listState.dispatchRawDelta(-speed)
-                    edgeSteps[0] -= 1
-                    stepped = true
+            val y = fingerY[0]
+            if (y >= 0f && radioRows.isNotEmpty()) {
+                val info = listState.layoutInfo
+                val h = (info.viewportEndOffset - info.viewportStartOffset).toFloat().coerceAtLeast(1f)
+                val edge = 96f
+                val speed = 14f
+                when {
+                    y < edge && listState.canScrollBackward -> listState.dispatchRawDelta(-speed)
+                    y > h - edge && listState.canScrollForward -> listState.dispatchRawDelta(speed)
                 }
-                dropAt >= last && listState.canScrollForward -> {
-                    listState.dispatchRawDelta(speed)
-                    edgeSteps[0] += 1
-                    stepped = true
+                val under = radioIndexUnderY(y)
+                if (under >= 0 && under != dropHold[0]) {
+                    dropHold[0] = under
+                    actions.onDropAt(under)
                 }
             }
-            if (stepped && dragStartIndex[0] >= 0) {
-                val dest = (dragStartIndex[0] + (dragAccPx[0] / 200f).toInt() + edgeSteps[0])
-                    .coerceIn(0, radioRows.lastIndex)
-                if (dest != dropAt) actions.onDropAt(dest)
-            }
-            delay(48)
+            delay(32)
         }
     }
 
@@ -168,7 +177,59 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
         }
     }
 
-    LazyColumn(modifier = Modifier.weight(1f), state = listState, userScrollEnabled = !dragging) {
+    LazyColumn(
+        modifier = Modifier
+            .weight(1f)
+            .pointerInput(radioRows.size) {
+                detectDragGesturesAfterLongPress(
+                    onDragStart = { offset ->
+                        val idx = radioIndexUnderY(offset.y)
+                        if (idx < 0) return@detectDragGesturesAfterLongPress
+                        dragFrom[0] = idx
+                        dropHold[0] = idx
+                        fingerY[0] = offset.y
+                        actions.onDropAt(idx)
+                        actions.onDragging(true)
+                        actions.onDragStart()
+                    },
+                    onDragEnd = {
+                        val from = dragFrom[0]
+                        val to = dropHold[0]
+                        if (from >= 0 && to >= 0 && from != to) actions.onMoveTo(from, to)
+                        dragFrom[0] = -1
+                        dropHold[0] = -1
+                        fingerY[0] = -1f
+                        actions.onDropAt(-1)
+                        actions.onDragging(false)
+                    },
+                    onDragCancel = {
+                        dragFrom[0] = -1
+                        dropHold[0] = -1
+                        fingerY[0] = -1f
+                        actions.onDropAt(-1)
+                        actions.onDragging(false)
+                    },
+                ) { change, _ ->
+                    fingerY[0] = change.position.y
+                    val under = radioIndexUnderY(change.position.y)
+                    if (under >= 0) {
+                        dropHold[0] = under
+                        actions.onDropAt(under)
+                    }
+                    val info = listState.layoutInfo
+                    val h = (info.viewportEndOffset - info.viewportStartOffset).toFloat().coerceAtLeast(1f)
+                    val edge = 96f
+                    val speed = 14f
+                    val y = change.position.y
+                    when {
+                        y < edge && listState.canScrollBackward -> listState.dispatchRawDelta(-speed)
+                        y > h - edge && listState.canScrollForward -> listState.dispatchRawDelta(speed)
+                    }
+                }
+            },
+        state = listState,
+        userScrollEnabled = !dragging,
+    ) {
         if (radioRows.isEmpty()) {
             item {
                 EmptySlot(
@@ -187,47 +248,7 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
                     .fillMaxWidth()
                     .padding(horizontal = 6.dp, vertical = 3.dp)
                     .background(when { dropAt == index -> acc.copy(alpha = 0.40f); s.url == currentUrl -> acc.copy(alpha = 0.18f); else -> card }, RoundedCornerShape(12.dp))
-                    .pointerInput(s.url, index) {
-                        var accDrag = 0f
-                        var localDrop = index
-                        detectDragGesturesAfterLongPress(
-                            onDragStart = {
-                                accDrag = 0f
-                                localDrop = index
-                                dragStartIndex[0] = index
-                                dragAccPx[0] = 0f
-                                edgeSteps[0] = 0
-                                actions.onDropAt(index)
-                                actions.onDragging(true)
-                                actions.onDragStart()
-                            },
-                            onDragEnd = {
-                                val dest = (dragStartIndex[0] + (dragAccPx[0] / 200f).toInt() + edgeSteps[0])
-                                    .coerceIn(0, radioRows.lastIndex)
-                                if (dest != index) actions.onMoveTo(index, dest)
-                                accDrag = 0f
-                                dragAccPx[0] = 0f
-                                edgeSteps[0] = 0
-                                dragStartIndex[0] = -1
-                                actions.onDropAt(-1)
-                                actions.onDragging(false)
-                            },
-                            onDragCancel = {
-                                accDrag = 0f
-                                dragAccPx[0] = 0f
-                                edgeSteps[0] = 0
-                                dragStartIndex[0] = -1
-                                actions.onDropAt(-1)
-                                actions.onDragging(false)
-                            }
-                        ) { _, drag ->
-                            accDrag += drag.y
-                            dragAccPx[0] = accDrag
-                            localDrop = (index + (accDrag / 200f).toInt() + edgeSteps[0])
-                                .coerceIn(0, radioRows.lastIndex)
-                            actions.onDropAt(localDrop)
-                        }
-                    }
+                    
                     .padding(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {

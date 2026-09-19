@@ -56,33 +56,44 @@ fun androidx.compose.foundation.layout.ColumnScope.LocalListSection(
     val muted = ui.muted
     val text = ui.text
     val card = ui.card
-    val edgeHold = remember { floatArrayOf(0f) }
-    val dragStartIndex = remember { intArrayOf(-1) }
-    val dragAccPx = remember { floatArrayOf(0f) }
+    // Reorder на рівні списку
+    val dragFrom = remember { intArrayOf(-1) }
+    val dropHold = remember { intArrayOf(-1) }
+    val fingerY = remember { floatArrayOf(-1f) }
 
-    LaunchedEffect(dragging, dropAt, localRows.size) {
-        if (!dragging || dropAt < 0 || localRows.isEmpty()) return@LaunchedEffect
+    fun localIndexUnderY(y: Float): Int {
+        if (localRows.isEmpty()) return -1
+        val info = listState.layoutInfo
+        val yi = y.toInt()
+        val hit = info.visibleItemsInfo.firstOrNull { yi >= it.offset && yi < it.offset + it.size }
+            ?: info.visibleItemsInfo.minByOrNull {
+                val c = it.offset + it.size / 2
+                kotlin.math.abs(c - yi)
+            }
+        val idx = hit?.index ?: return -1
+        return if (idx in localRows.indices) idx else -1
+    }
+
+    LaunchedEffect(dragging) {
+        if (!dragging) return@LaunchedEffect
         while (isActive && dragging) {
-            val info = listState.layoutInfo
-            val first = info.visibleItemsInfo.firstOrNull()?.index ?: break
-            val last = info.visibleItemsInfo.lastOrNull()?.index ?: break
-            val speed = 36f
-            when {
-                dropAt <= first + 1 && listState.canScrollBackward -> {
-                    listState.dispatchRawDelta(-speed)
-                    edgeHold[0] -= speed
+            val y = fingerY[0]
+            if (y >= 0f && localRows.isNotEmpty()) {
+                val info = listState.layoutInfo
+                val h = (info.viewportEndOffset - info.viewportStartOffset).toFloat().coerceAtLeast(1f)
+                val edge = 96f
+                val speed = 14f
+                when {
+                    y < edge && listState.canScrollBackward -> listState.dispatchRawDelta(-speed)
+                    y > h - edge && listState.canScrollForward -> listState.dispatchRawDelta(speed)
                 }
-                dropAt >= last - 1 && listState.canScrollForward -> {
-                    listState.dispatchRawDelta(speed)
-                    edgeHold[0] += speed
+                val under = localIndexUnderY(y)
+                if (under >= 0 && under != dropHold[0]) {
+                    dropHold[0] = under
+                    actions.onDropAt(under)
                 }
             }
-            if (dragStartIndex[0] >= 0) {
-                val dest = (dragStartIndex[0] + ((dragAccPx[0] + edgeHold[0]) / 168f).toInt())
-                    .coerceIn(0, localRows.lastIndex)
-                if (dest != dropAt) actions.onDropAt(dest)
-            }
-            delay(16)
+            delay(32)
         }
     }
 
@@ -98,55 +109,68 @@ fun androidx.compose.foundation.layout.ColumnScope.LocalListSection(
         listState.animateScrollToItem(i)
     }
 
-    LazyColumn(modifier = Modifier.weight(1f), state = listState, userScrollEnabled = !dragging) {
+    LazyColumn(
+        modifier = Modifier
+            .weight(1f)
+            .pointerInput(localRows.size, tabs.getOrNull(tabIndex)) {
+                // reorder лише на вкладці best
+                if (tabs.getOrNull(tabIndex) != "best") return@pointerInput
+                detectDragGesturesAfterLongPress(
+                    onDragStart = { offset ->
+                        val idx = localIndexUnderY(offset.y)
+                        if (idx < 0) return@detectDragGesturesAfterLongPress
+                        dragFrom[0] = idx
+                        dropHold[0] = idx
+                        fingerY[0] = offset.y
+                        actions.onDropAt(idx)
+                        actions.onDragging(true)
+                        actions.onDragStart()
+                    },
+                    onDragEnd = {
+                        val from = dragFrom[0]
+                        val to = dropHold[0]
+                        if (from >= 0 && to >= 0 && from != to) actions.onMoveLocalTo(from, to)
+                        dragFrom[0] = -1
+                        dropHold[0] = -1
+                        fingerY[0] = -1f
+                        actions.onDropAt(-1)
+                        actions.onDragging(false)
+                    },
+                    onDragCancel = {
+                        dragFrom[0] = -1
+                        dropHold[0] = -1
+                        fingerY[0] = -1f
+                        actions.onDropAt(-1)
+                        actions.onDragging(false)
+                    },
+                ) { change, _ ->
+                    fingerY[0] = change.position.y
+                    val under = localIndexUnderY(change.position.y)
+                    if (under >= 0) {
+                        dropHold[0] = under
+                        actions.onDropAt(under)
+                    }
+                    val info = listState.layoutInfo
+                    val h = (info.viewportEndOffset - info.viewportStartOffset).toFloat().coerceAtLeast(1f)
+                    val edge = 96f
+                    val speed = 14f
+                    val y = change.position.y
+                    when {
+                        y < edge && listState.canScrollBackward -> listState.dispatchRawDelta(-speed)
+                        y > h - edge && listState.canScrollForward -> listState.dispatchRawDelta(speed)
+                    }
+                }
+            },
+        state = listState,
+        userScrollEnabled = !dragging,
+    ) {
         itemsIndexed(localRows, key = { _, x -> x.uri }) { index, item ->
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 6.dp, vertical = 3.dp)
                     .background(when { dropAt == index -> acc.copy(alpha = 0.40f); item.uri == currentUrl -> acc.copy(alpha = 0.18f); else -> card }, RoundedCornerShape(12.dp))
-                    .pointerInput(item.uri, index, tabs.getOrNull(tabIndex)) {
-                        if (tabs.getOrNull(tabIndex) != "best") return@pointerInput
-                        var accDrag = 0f
-                        var localDrop = index
-                        detectDragGesturesAfterLongPress(
-                            onDragStart = {
-                                accDrag = 0f
-                                localDrop = index
-                                dragStartIndex[0] = index
-                                dragAccPx[0] = 0f
-                                edgeHold[0] = 0f
-                                actions.onDropAt(index)
-                                actions.onDragging(true)
-                                actions.onDragStart()
-                            },
-                            onDragEnd = {
-                                val dest = (dragStartIndex[0] + ((dragAccPx[0] + edgeHold[0]) / 168f).toInt())
-                                    .coerceIn(0, localRows.lastIndex)
-                                if (dest != index) actions.onMoveLocalTo(index, dest)
-                                accDrag = 0f
-                                dragAccPx[0] = 0f
-                                edgeHold[0] = 0f
-                                dragStartIndex[0] = -1
-                                actions.onDropAt(-1)
-                                actions.onDragging(false)
-                            },
-                            onDragCancel = {
-                                accDrag = 0f
-                                dragAccPx[0] = 0f
-                                edgeHold[0] = 0f
-                                dragStartIndex[0] = -1
-                                actions.onDropAt(-1)
-                                actions.onDragging(false)
-                            }
-                        ) { _, drag ->
-                            accDrag += drag.y
-                            dragAccPx[0] = accDrag
-                            localDrop = (index + ((accDrag + edgeHold[0]) / 168f).toInt())
-                                .coerceIn(0, localRows.lastIndex)
-                            actions.onDropAt(localDrop)
-                        }
-                    }
+                    
                     .padding(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {

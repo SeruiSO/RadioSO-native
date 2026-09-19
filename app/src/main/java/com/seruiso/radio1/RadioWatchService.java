@@ -478,8 +478,16 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                             }, 2500);
                             return;
                         }
-                        if (!sp.getBoolean(BluetoothAutoPlayPlugin.KEY_IS_PLAYING, false)
-                                && (player == null || !player.getPlayWhenReady())) return;
+                        // Слабкий нет: intended + не пауза пальцем → завжди пробуємо
+                        if (!PlaybackPrefs.isIntended(RadioWatchService.this)) {
+                            android.util.Log.i("RadioWatch", "onAvailable skip — not intended");
+                            return;
+                        }
+                        if (PlaybackPrefs.REASON_USER.equals(
+                                PlaybackPrefs.getPauseReason(RadioWatchService.this))) {
+                            android.util.Log.i("RadioWatch", "onAvailable skip — user pause");
+                            return;
+                        }
                         if (isLocalMode()) return;
                         if (player != null && player.isPlaying()) {
                             reconnectAttempt = 0;
@@ -572,6 +580,10 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         if (isLocalMode()) return;
         if (!PlaybackPrefs.isIntended(this)) {
             android.util.Log.i("RadioWatch", "attemptReconnect(" + reason + ") skip — not intended");
+            return;
+        }
+        if (PlaybackPrefs.REASON_USER.equals(PlaybackPrefs.getPauseReason(this))) {
+            android.util.Log.i("RadioWatch", "attemptReconnect(" + reason + ") skip — user pause");
             return;
         }
         if (withinBtSettle()) {
@@ -1024,10 +1036,20 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         silenceCheck = new Runnable() {
             @Override public void run() {
                 try {
-                    if (player == null) return;
+                    if (player == null) {
+                        return;
+                    }
                     SharedPreferences sp = getSharedPreferences(
                         BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE);
-                    if (!sp.getBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, false)) {
+                    // Стоп / знятий intended — не чіпаємо
+                    if (!sp.getBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, false)
+                            || !PlaybackPrefs.isIntended(RadioWatchService.this)) {
+                        bufferingTicks = 0;
+                        return;
+                    }
+                    // Лише пауза пальцем — без авто-resume
+                    if (PlaybackPrefs.REASON_USER.equals(
+                            PlaybackPrefs.getPauseReason(RadioWatchService.this))) {
                         bufferingTicks = 0;
                         return;
                     }
@@ -1042,21 +1064,18 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                     long now = System.currentTimeMillis();
                     long sinceStart = streamStartMs > 0L ? (now - streamStartMs) : 0L;
 
-                    // Перший реальний звук по цьому URL → після цього коротший watchdog
                     if (playing && st == Player.STATE_READY && buf >= 400L) {
                         hasEverPlayedThisUrl = true;
                     }
 
-                    // BUFFERING з ростом буфера = прогрес, не dead stream
                     boolean bufferGrowing = buf > lastBufferedMs + 50L;
                     lastBufferedMs = Math.max(lastBufferedMs, buf);
 
-                    // Startup grace ~27s: не reconnect лише через BUFFERING
-                    final long STARTUP_GRACE_MS = 27_000L;
+                    // Startup grace ~20s: не soft/hard лише через BUFFERING на першому старті
+                    final long STARTUP_GRACE_MS = 20_000L;
                     boolean inStartup = !hasEverPlayedThisUrl && sinceStart < STARTUP_GRACE_MS;
 
                     if (playing && st == Player.STATE_READY && !isLocalMode()) {
-                        // здорове відтворення (або майже)
                         if (bufferingTicks > 0) {
                             try { notifyUiStatus(getString(R.string.playing), 0); } catch (Exception ignored) {}
                         }
@@ -1069,7 +1088,6 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                             }
                         } catch (Exception ignored) {}
                     } else if (st == Player.STATE_BUFFERING && (bufferGrowing || inStartup)) {
-                        // Чекаємо перші байти / добираємо буфер — без reconnect
                         bufferingTicks = 0;
                         if (inStartup || buf < 1500L) {
                             try {
@@ -1077,25 +1095,22 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                             } catch (Exception ignored) {}
                         }
                     } else {
-                        // Кандидат на stall: IDLE/ENDED, або BUFFERING без прогресу після grace,
-                        // або «zombie» READY майже без буфера при playWhenReady
-                        boolean silentZombie = player.getPlayWhenReady() && !isLocalMode()
-                                && st == Player.STATE_READY && playing && buf < 400L;
+                        // Stall: idle/ended, buffering без прогресу, zombie, або intended але не грає
+                        boolean silentZombie = st == Player.STATE_READY && playing && buf < 400L;
+                        boolean intendedNotPlaying = !playing
+                                && !inStartup
+                                && st != Player.STATE_BUFFERING;
                         boolean stalled = silentZombie
                                 || st == Player.STATE_IDLE
                                 || st == Player.STATE_ENDED
                                 || (st == Player.STATE_BUFFERING && !bufferGrowing && !inStartup)
-                                || (!playing && player.getPlayWhenReady()
-                                    && st != Player.STATE_BUFFERING && !inStartup);
+                                || intendedNotPlaying;
 
-                        if (!stalled) {
-                            // ще в межах норми
-                        } else {
+                        if (stalled) {
                             bufferingTicks++;
-                            // Після hasEverPlayed: soft ~18s (6*3), hard ~36s (12*3)
-                            // Під час/після вичерпаного startup без play: soft не раніше ~27s+
-                            int softAt = hasEverPlayedThisUrl ? 6 : 10;  // ~18s / ~30s
-                            int hardAt = hasEverPlayedThisUrl ? 12 : 16; // ~36s / ~48s
+                            // Тік 2с: soft ~8с (4), hard ~16с (8); далі цикл soft→hard
+                            int softAt = hasEverPlayedThisUrl ? 4 : 6;
+                            int hardAt = hasEverPlayedThisUrl ? 8 : 12;
 
                             if (bufferingTicks == 1) {
                                 try {
@@ -1116,14 +1131,12 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                                     PlaybackPrefs.setPauseReason(RadioWatchService.this,
                                         PlaybackPrefs.REASON_NETWORK);
                                 } catch (Exception ignored) {}
-                                // soft: БЕЗ lastPlayMs=0 — attemptReconnect може resume/schedule
                                 attemptReconnect("buffer-soft", false);
                             } else if (bufferingTicks >= hardAt) {
                                 android.util.Log.w("RadioWatch",
                                     "silence hard → reconnect (ticks=" + bufferingTicks
                                         + " everPlayed=" + hasEverPlayedThisUrl + ")");
-                                bufferingTicks = 0;
-                                // hard: дозволити повний playUrl path
+                                bufferingTicks = 0; // цикл далі: знову soft→hard
                                 lastPlayedUrl = "";
                                 lastPlayMs = 0;
                                 hasEverPlayedThisUrl = false;
@@ -1134,19 +1147,20 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                                         PlaybackPrefs.REASON_NETWORK);
                                 } catch (Exception ignored) {}
                                 attemptReconnect("buffer-hard", true);
-                                return;
                             }
                         }
                     }
                 } catch (Exception e) {
                     android.util.Log.w("RadioWatch", "silenceCheck", e);
-                }
-                if (silenceHandler != null && silenceCheck != null) {
-                    silenceHandler.postDelayed(silenceCheck, 3000);
+                } finally {
+                    // Watchdog НІКОЛИ не вмирає сам (поки не знімуть armSilenceWatch)
+                    if (silenceHandler != null && silenceCheck != null) {
+                        silenceHandler.postDelayed(silenceCheck, 2000);
+                    }
                 }
             }
         };
-        silenceHandler.postDelayed(silenceCheck, 3000);
+        silenceHandler.postDelayed(silenceCheck, 2000);
     }
 
     /** Delegates to PlaybackPrefs (stack 6). */

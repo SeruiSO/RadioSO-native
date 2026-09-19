@@ -55,6 +55,8 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
     public static final String ACTION_AA_ROUTE = "com.seruiso.radio1.AA_ROUTE";
     public static final String ACTION_STOP = "com.seruiso.radio1.STOP";
     public static final String ACTION_PLAY = "com.seruiso.radio1.PLAY";
+    /** Навушники: 4с без AVRCP PLAY → автостарт (Alarm, живе без UI). */
+    public static final String ACTION_HEADPHONE_FALLBACK = "com.seruiso.radio1.HEADPHONE_FALLBACK";
     public static final String ACTION_PAUSE = "com.seruiso.radio1.PAUSE";
     /** BT/profile gone — not user pause (auto-resume on next ACTION_BT). */
     public static final String ACTION_ROUTE_LOST = "com.seruiso.radio1.ROUTE_LOST";
@@ -117,6 +119,8 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
     private long playShieldUntilMs = 0L;
     private static final long HEADUNIT_PLAY_WAIT_MS = 4000L;
     private static final long PLAY_SHIELD_MS = 2500L;
+    private static final int PI_HEADPHONE = 71;
+    private android.os.PowerManager.WakeLock headUnitWake;
 
     private ConnectivityManager connectivityManager;
     private ConnectivityManager.NetworkCallback networkCallback;
@@ -300,6 +304,8 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                         mainHandler.removeCallbacks(headUnitPlayWaitRunnable);
                         headUnitPlayWaitRunnable = null;
                     }
+                    cancelHeadphoneFallback(RadioWatchService.this);
+                    releaseHeadUnitWake();
                     playShieldUntilMs = System.currentTimeMillis() + PLAY_SHIELD_MS;
                     android.util.Log.i("RadioWatch", "session PLAY — headUnit wait satisfied");
                     try { if (player != null) player.setVolume(1f); } catch (Exception ignored) {}
@@ -1390,6 +1396,34 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             return START_STICKY;
         }
 
+        if (ACTION_HEADPHONE_FALLBACK.equals(action)) {
+            android.util.Log.i("RadioWatch", "HEADPHONE_FALLBACK alarm");
+            if (PlaybackPrefs.REASON_USER.equals(PlaybackPrefs.getPauseReason(this))) {
+                awaitingHeadUnitPlay = false;
+                return START_STICKY;
+            }
+            SharedPreferences spFb = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE);
+            if (!spFb.getBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, true)) {
+                return START_STICKY;
+            }
+            if (player != null && player.isPlaying()
+                    && player.getPlaybackState() == Player.STATE_READY) {
+                awaitingHeadUnitPlay = false;
+                cancelHeadphoneFallback(this);
+                try { notifyUiStatus(getString(R.string.playing), 0); } catch (Exception ignored) {}
+                return START_STICKY;
+            }
+            awaitingHeadUnitPlay = false;
+            cancelHeadUnitPlayWait();
+            setUserPausedWhileBt(false);
+            PlaybackPrefs.setPauseReason(this, PlaybackPrefs.REASON_NONE);
+            setIntendedPlaying(true);
+            playShieldUntilMs = System.currentTimeMillis() + PLAY_SHIELD_MS;
+            try { if (player != null) player.setVolume(1f); } catch (Exception ignored) {}
+            playLast();
+            return START_STICKY;
+        }
+
         if (ACTION_PLAY.equals(action) || ACTION_NOTIF_PLAY.equals(action)) {
             cancelHeadUnitPlayWait();
             setUserPausedWhileBt(false);
@@ -1570,10 +1604,12 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         if (player == null) return false;
         if (withinBtSettle() && player.getCurrentMediaItem() != null) {
             try {
-                String want0 = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-                        .getString(BluetoothAutoPlayPlugin.KEY_URL, "");
-                String cur0 = player.getCurrentMediaItem().localConfiguration.uri.toString();
-                if (want0 != null && want0.equals(cur0)) return true;
+                if (player.isPlaying() || player.getPlayWhenReady()) {
+                    String want0 = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                            .getString(BluetoothAutoPlayPlugin.KEY_URL, "");
+                    String cur0 = player.getCurrentMediaItem().localConfiguration.uri.toString();
+                    if (want0 != null && want0.equals(cur0)) return true;
+                }
             } catch (Exception ignored) {}
         }
         if (!player.isPlaying() || player.getPlaybackState() != Player.STATE_READY) return false;
@@ -1811,6 +1847,8 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             mainHandler.removeCallbacks(headUnitPlayWaitRunnable);
             headUnitPlayWaitRunnable = null;
         }
+        cancelHeadphoneFallback(this);
+        releaseHeadUnitWake();
     }
 
     /**
@@ -1842,10 +1880,14 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             }
         } catch (Exception ignored) {}
         try { notifyUiStatus(getString(R.string.connecting), 0); } catch (Exception ignored) {}
+        acquireHeadUnitWake();
+        scheduleHeadphoneFallback(this, HEADUNIT_PLAY_WAIT_MS);
         headUnitPlayWaitRunnable = () -> {
             headUnitPlayWaitRunnable = null;
             if (!awaitingHeadUnitPlay) return;
             awaitingHeadUnitPlay = false;
+            cancelHeadphoneFallback(this);
+            releaseHeadUnitWake();
             if (PlaybackPrefs.REASON_USER.equals(PlaybackPrefs.getPauseReason(this))) {
                 android.util.Log.i("RadioWatch", "headUnit timeout skip — user pause");
                 return;
@@ -1856,7 +1898,72 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             playLast();
         };
         mainHandler.postDelayed(headUnitPlayWaitRunnable, HEADUNIT_PLAY_WAIT_MS);
-        android.util.Log.i("RadioWatch", "headUnit PLAY wait started 4s");
+        android.util.Log.i("RadioWatch", "headUnit PLAY wait started 4s + alarm");
+    }
+
+    public static void scheduleHeadphoneFallback(Context ctx, long delayMs) {
+        try {
+            Context c = ctx.getApplicationContext();
+            android.app.AlarmManager am =
+                (android.app.AlarmManager) c.getSystemService(ALARM_SERVICE);
+            if (am == null) return;
+            android.app.PendingIntent pi = headphoneFallbackPi(c);
+            long at = System.currentTimeMillis() + delayMs;
+            if (Build.VERSION.SDK_INT >= 31) {
+                if (am.canScheduleExactAlarms()) {
+                    am.setExactAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, at, pi);
+                } else {
+                    am.setAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, at, pi);
+                }
+            } else if (Build.VERSION.SDK_INT >= 23) {
+                am.setExactAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, at, pi);
+            } else {
+                am.setExact(android.app.AlarmManager.RTC_WAKEUP, at, pi);
+            }
+            android.util.Log.i("RadioWatch", "headphone fallback alarm in " + delayMs + "ms");
+        } catch (Exception e) {
+            android.util.Log.w("RadioWatch", "scheduleHeadphoneFallback", e);
+        }
+    }
+
+    public static void cancelHeadphoneFallback(Context ctx) {
+        try {
+            android.app.AlarmManager am =
+                (android.app.AlarmManager) ctx.getSystemService(ALARM_SERVICE);
+            if (am != null) am.cancel(headphoneFallbackPi(ctx.getApplicationContext()));
+        } catch (Exception ignored) {}
+    }
+
+    private static android.app.PendingIntent headphoneFallbackPi(Context c) {
+        Intent i = new Intent(c, RadioWatchService.class).setAction(ACTION_HEADPHONE_FALLBACK);
+        int flags = android.app.PendingIntent.FLAG_UPDATE_CURRENT;
+        if (Build.VERSION.SDK_INT >= 23) flags |= android.app.PendingIntent.FLAG_IMMUTABLE;
+        if (Build.VERSION.SDK_INT >= 26) {
+            return android.app.PendingIntent.getForegroundService(c, PI_HEADPHONE, i, flags);
+        }
+        return android.app.PendingIntent.getService(c, PI_HEADPHONE, i, flags);
+    }
+
+    private void acquireHeadUnitWake() {
+        try {
+            if (headUnitWake == null) {
+                android.os.PowerManager pm =
+                    (android.os.PowerManager) getSystemService(POWER_SERVICE);
+                if (pm == null) return;
+                headUnitWake = pm.newWakeLock(
+                    android.os.PowerManager.PARTIAL_WAKE_LOCK, "RadioSO:headUnitWait");
+                headUnitWake.setReferenceCounted(false);
+            }
+            if (!headUnitWake.isHeld()) {
+                headUnitWake.acquire(HEADUNIT_PLAY_WAIT_MS + 2000L);
+            }
+        } catch (Exception ignored) {}
+    }
+
+    private void releaseHeadUnitWake() {
+        try {
+            if (headUnitWake != null && headUnitWake.isHeld()) headUnitWake.release();
+        } catch (Exception ignored) {}
     }
 
     private void playLastWhenBtReady() {
@@ -1987,11 +2094,20 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             }
             String cur = player.getCurrentMediaItem().localConfiguration.uri.toString();
             if (!url.equals(cur)) return false;
-            // Вже грає — нічого не робити
-                    if (withinBtSettle()) {
-            return player.isPlaying() || player.getPlayWhenReady()
-                    || player.getPlaybackState() != Player.STATE_IDLE;
-        }
+            // BT settle: якщо вже реально грає — ок. Якщо на паузі — треба resume, не «ніби грає».
+            if (withinBtSettle()) {
+                if (player.isPlaying() || player.getPlayWhenReady()) return true;
+                try {
+                    player.setVolume(1f);
+                    player.setPlayWhenReady(true);
+                    player.play();
+                    android.util.Log.i("RadioWatch", "tryResumeSameItem settle → play()");
+                    notifyForeground();
+                    return true;
+                } catch (Exception e) {
+                    return false;
+                }
+            }
         if (player.isPlaying() && player.getPlaybackState() == Player.STATE_READY) {
             return true;
         }
@@ -2294,7 +2410,9 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
     private void notifyForeground() {
         Notification n = buildNotification();
         if (Build.VERSION.SDK_INT >= 34) {
-            startForeground(NOTIF_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
+            int types = ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+                    | ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE;
+            startForeground(NOTIF_ID, n, types);
         } else {
             startForeground(NOTIF_ID, n);
         }

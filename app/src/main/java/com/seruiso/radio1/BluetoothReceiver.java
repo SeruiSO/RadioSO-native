@@ -36,8 +36,12 @@ public class BluetoothReceiver extends BroadcastReceiver {
             else c.startService(i);
             Log.i(TAG, "startSvc " + action);
         } catch (Exception e) {
-            // Android 15+: FGS з фону — не крашимось і не робимо startService (теж ріже)
+            // Android 12–15: FGS з фону часто ріжеться (немає видимого Activity).
             Log.w(TAG, "startSvc denied " + action + " " + e.getClass().getSimpleName());
+            if (RadioWatchService.ACTION_BT.equals(action)) {
+                // AlarmManager має exemption — підніме сервіс через 4с (навушники без PLAY)
+                RadioWatchService.scheduleHeadphoneFallback(c, 4000L);
+            }
         }
     }
 
@@ -112,6 +116,8 @@ public class BluetoothReceiver extends BroadcastReceiver {
                     .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_PENDING_BT_AFTER_BOOT, false).apply();
             } catch (Exception ignored) {}
             startSvc(app, RadioWatchService.ACTION_BT);
+            // Завжди дубль через Alarm: якщо процес/Handler помре у фоні — fallback все одно стартує.
+            RadioWatchService.scheduleHeadphoneFallback(app, 4000L);
             return;
         }
         if (state == BluetoothProfile.STATE_DISCONNECTED) {

@@ -18,6 +18,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -42,6 +43,7 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -144,6 +146,62 @@ fun BottomNavBar(
         verticalAlignment = Alignment.CenterVertically
     ) {
         // [★ | 📻] · Дім · Пошук · [♥ | ♫]
+        Capsule(current == "stations" || current == "tabs") {
+            NavIco("stations", Icons.Filled.Star, ctx.getString(R.string.nav_stations))
+            NavIco("tabs", Icons.Filled.Radio, ctx.getString(R.string.tabs))
+        }
+        NavIco("home", Icons.Filled.Home, ctx.getString(R.string.nav_home))
+        NavIco("search", Icons.Filled.Search, ctx.getString(R.string.nav_search))
+        Capsule(current == "heart" || current == "music") {
+            NavIco("heart", Icons.Filled.Favorite, ctx.getString(R.string.favorites_plural))
+            NavIco("music", Icons.Filled.LibraryMusic, ctx.getString(R.string.nav_music))
+        }
+    }
+}
+
+@Composable
+fun BottomNavRail(
+    current: String,
+    onSelect: (String) -> Unit,
+    acc: Color,
+    muted: Color,
+    card: Color,
+) {
+    val ctx = LocalContext.current
+    @Composable
+    fun NavIco(key: String, icon: androidx.compose.ui.graphics.vector.ImageVector, desc: String) {
+        val selected = current == key
+        Icon(
+            icon,
+            contentDescription = desc,
+            tint = if (selected) acc else muted,
+            modifier = Modifier
+                .clickable { onSelect(key) }
+                .padding(vertical = 4.dp)
+                .size(28.dp)
+        )
+    }
+    @Composable
+    fun Capsule(active: Boolean, content: @Composable () -> Unit) {
+        Column(
+            modifier = Modifier
+                .background(
+                    if (active) acc.copy(alpha = 0.14f) else muted.copy(alpha = 0.08f),
+                    RoundedCornerShape(16.dp)
+                )
+                .padding(vertical = 2.dp, horizontal = 2.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) { content() }
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxHeight()
+            .width(58.dp)
+            .background(card, RoundedCornerShape(20.dp))
+            .padding(vertical = 6.dp),
+        verticalArrangement = Arrangement.SpaceEvenly,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
         Capsule(current == "stations" || current == "tabs") {
             NavIco("stations", Icons.Filled.Star, ctx.getString(R.string.nav_stations))
             NavIco("tabs", Icons.Filled.Radio, ctx.getString(R.string.tabs))
@@ -273,6 +331,8 @@ fun StationScreen(
     val card = Palette.card
     val text = Palette.text
     val muted = Palette.muted
+    val isLandscape = LocalConfiguration.current.orientation ==
+        android.content.res.Configuration.ORIENTATION_LANDSCAPE
     val logoFont = FontFamily(Font(R.font.space_grotesk_bold, FontWeight.Bold))
 
     var dropAt by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(-1) }
@@ -407,7 +467,7 @@ fun StationScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(top = 28.dp, start = 12.dp, end = 12.dp, bottom = 16.dp)
+            .padding(top = if (isLandscape) 8.dp else 28.dp, start = 12.dp, end = 12.dp, bottom = if (isLandscape) 8.dp else 16.dp)
     ) {
 
         Box(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).height(48.dp)) {
@@ -455,6 +515,272 @@ fun StationScreen(
             ),
             "infoPulseSc",
         )
+
+        @Composable
+        fun InfoLand() {
+            Column(
+                modifier = Modifier
+                    .width(196.dp)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(card)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(120.dp)
+                        .graphicsLayer {
+                            val sc = if (playing || infoBusy) pulseState.value else 1f
+                            scaleX = sc; scaleY = sc
+                        }
+                        .clip(RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))
+                        .background(Palette.panel2)
+                        .clickable { onCloseMenu(); onNow() },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (artUrl(favicon).startsWith("http") || artUrl(favicon).startsWith("content:")) {
+                        AsyncImage(
+                            model = artUrl(favicon),
+                            contentDescription = name,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop,
+                        )
+                    } else {
+                        Icon(Icons.Filled.MusicNote, contentDescription = null, tint = muted, modifier = Modifier.size(40.dp))
+                    }
+                }
+                if (!infoPhoto.isNullOrBlank()) {
+                    AsyncImage(
+                        model = infoPhoto,
+                        contentDescription = infoArtist,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(72.dp)
+                            .background(Palette.panel2),
+                        contentScale = ContentScale.Crop,
+                    )
+                }
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    Text(
+                        name.uppercase(),
+                        color = acc,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.titleSmall.copy(
+                            letterSpacing = 0.8.sp,
+                            fontWeight = FontWeight.SemiBold,
+                        ),
+                    )
+                    Text(
+                        if (track.isNotBlank()) track else LocalContext.current.getString(R.string.track_unknown),
+                        color = text,
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    val ctryL = country.trim().let { if (it.isNotBlank() && it != "-") it else "" }
+                    val genL = genre.trim().let { if (it.isNotBlank() && it != "-") it else "" }
+                    if (ctryL.isNotEmpty()) {
+                        Text(ctryL, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall)
+                    }
+                    if (genL.isNotEmpty()) {
+                        Text(genL, color = muted, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall)
+                    }
+                    val playInfoL = playbackInfoText(LocalContext.current, status)
+                    if (playInfoL != null) {
+                        Text(playInfoL, color = acc, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                        .padding(horizontal = 4.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (canSkip) {
+                        Box(
+                            modifier = Modifier.size(40.dp).clickable { skipUi(false) },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Filled.SkipPrevious, contentDescription = LocalContext.current.getString(R.string.prev_station), tint = text, modifier = Modifier.size(26.dp))
+                        }
+                    }
+                    PlayBtn(playing = playing, status = status, sizeDp = 44.dp, onClick = onPlayPause, accent = acc, shape = RoundedCornerShape(12.dp))
+                    if (canSkip) {
+                        Box(
+                            modifier = Modifier.size(40.dp).clickable { skipUi(true) },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Filled.SkipNext, contentDescription = LocalContext.current.getString(R.string.next_station), tint = text, modifier = Modifier.size(26.dp))
+                        }
+                    }
+                    Icon(
+                        Icons.Filled.KeyboardArrowUp,
+                        contentDescription = LocalContext.current.getString(R.string.open_now_playing),
+                        tint = muted,
+                        modifier = Modifier.clickable { onNow() }.size(24.dp)
+                    )
+                }
+            }
+        }
+
+        @Composable
+        fun ColumnScope.MainPane() {
+        if (bottomTab == "home") {
+            // weight + fillMaxSize: список сам скролить, без боротьби з parent drag
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .fillMaxSize()
+            ) {
+                HomeTabContent(
+                    favRows = favRows,
+                    heartRows = bestRows,
+                    similar = homeSimilarRb,
+                    similarTitle = if (genre.isNotBlank()) LocalContext.current.getString(R.string.similar_genre, genre) else LocalContext.current.getString(R.string.home_similar),
+                    recent = recentStations,
+                    nearby = homeNearby,
+                    genreChips = SearchHints.homeGenres,
+                    favUrls = favUrls,
+                    acc = acc, muted = muted, text = text,
+                    onAllStations = { onBottomTab("stations") },
+                    onAllHeart = { onBottomTab("heart") },
+                    onPickRadio = onPickRadio,
+                    onPickLocal = onPickLocal,
+                    onPickOneRadio = onPickOneRadio,
+                    onPlayNow = { onCloseMenu(); onNow() },
+                    onToggleFav = onToggleFav,
+                    onAddToTab = onAddToTab,
+                    onGenreChip = onGenreChip,
+                    currentUrl = currentUrl,
+                )
+            }
+        } else {
+        if (tabs.getOrNull(tabIndex) == "search") {
+            SearchSection(
+                searchOpen = searchOpen,
+                onSearchOpen = onSearchOpen,
+                qName = qName,
+                onName = onName,
+                qCountry = qCountry,
+                onCountry = onCountry,
+                qGenre = qGenre,
+                onGenre = onGenre,
+                suggestFor = suggestFor,
+                onSuggestFor = onSuggestFor,
+                nameHints = nameHints,
+                countryHints = countryHints,
+                genreHints = genreHints,
+                onSearch = onSearch,
+                acc = acc,
+                muted = muted,
+                text = text,
+                card = card,
+            )
+        }
+        val libraryUi = LibraryUi(
+            radioRows = radioRows,
+            localRows = localRows,
+            bestRows = bestRows,
+            dragging = dragging,
+            dropAt = dropAt,
+            currentUrl = currentUrl,
+            tabs = tabs,
+            tabIndex = tabIndex,
+            bottomTab = bottomTab,
+            favUrls = favUrls,
+            bestUris = bestUris,
+            canMore = canMore,
+            acc = acc,
+            muted = muted,
+            text = text,
+            card = card,
+        )
+        if (showLocal) {
+            val libraryActions = LibraryActions(
+                onDropAt = { dropAt = it },
+                onDragging = { dragging = it },
+                onDragStart = onDragStart,
+                onMoveTo = onMoveTo,
+                onMoveLocalTo = onMoveLocalTo,
+                onPickRadio = onPickRadio,
+                onPickLocal = onPickLocal,
+                onNow = onNow,
+                onToggleFav = onToggleFav,
+                onAskDelete = onAskDelete,
+                onAddToTab = onAddToTab,
+                onMore = onMore,
+                onToggleBest = onToggleBest,
+            )
+            LocalListSection(
+                ui = libraryUi,
+                listState = listState,
+                actions = libraryActions,
+            )
+        } else {
+            val libraryActions = LibraryActions(
+                onDropAt = { dropAt = it },
+                onDragging = { dragging = it },
+                onDragStart = onDragStart,
+                onMoveTo = onMoveTo,
+                onMoveLocalTo = onMoveLocalTo,
+                onPickRadio = onPickRadio,
+                onPickLocal = onPickLocal,
+                onNow = onNow,
+                onToggleFav = onToggleFav,
+                onAskDelete = onAskDelete,
+                onAddToTab = onAddToTab,
+                onMore = onMore,
+                onToggleBest = onToggleBest,
+            )
+            StationListSection(
+                ui = libraryUi,
+                listState = listState,
+                actions = libraryActions,
+            )
+        }
+        }
+        }
+
+        if (isLandscape) {
+            Row(
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                verticalAlignment = Alignment.Top
+            ) {
+                InfoLand()
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .padding(horizontal = 8.dp)
+                ) {
+                    MainPane()
+                }
+                BottomNavRail(
+                    current = bottomTab,
+                onSelect = { key ->
+                    if (key == "tabs") {
+                        skipTabsSheetOnce = false
+                        onBottomTab("tabs")
+                        openRightSheet()
+                    } else {
+                        onBottomTab(key)
+                    }
+                },
+                    acc = acc,
+                    muted = muted,
+                    card = card,
+                )
+            }
+        } else {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -678,7 +1004,6 @@ fun StationScreen(
             )
         }
         }
-        // Рядок жанрових вкладок перенесено у праву панель (RightTabsPanel).
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -794,6 +1119,7 @@ fun StationScreen(
                 }
             }
         )
+        }
     }
     // ===== Права картка: жанрові та кастомні вкладки =====
     // Край поверх картки під час відкриття. Повністю відкриту — край вимкнено

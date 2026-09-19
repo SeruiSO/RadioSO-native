@@ -2186,6 +2186,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         } else {
             startForeground(NOTIF_ID, n);
         }
+        try { RadioSoWidget.refresh(this); } catch (Exception ignored) {}
     }
 
     private Notification buildNotification() {

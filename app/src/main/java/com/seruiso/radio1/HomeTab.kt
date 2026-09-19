@@ -292,12 +292,10 @@ private fun HomeArt(art: String, key: String, size: Dp, muted: Color, current: B
             .background(Palette.panel2),
         contentAlignment = Alignment.Center,
     ) {
-        val ok = resolved.startsWith("http") || resolved.startsWith("content:")
-        if (ok) AsyncImage(
-            model = resolved,
+        StationArt(
+            url = resolved,
             contentDescription = key,
             modifier = Modifier.size(size).clip(shape),
-            contentScale = ContentScale.Crop,
-        ) else Icon(Icons.Filled.MusicNote, contentDescription = null, tint = muted)
+        )
     }
 }

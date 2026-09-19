@@ -262,9 +262,10 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
                         },
                     contentAlignment = Alignment.Center
                 ) {
-                    if (s.favicon.startsWith("http") && !s.favicon.contains("example.com")) {
-                        AsyncImage(model = s.favicon, contentDescription = null, modifier = Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop)
-                    } else Icon(Icons.Filled.MusicNote, contentDescription = LocalContext.current.getString(R.string.no_cover), tint = muted)
+                    StationArt(
+                        url = s.favicon,
+                        modifier = Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)),
+                    )
                 }
                 // рядок (назва) → лише відтворення, без нижньої картки
                 Column(

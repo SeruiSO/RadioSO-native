@@ -111,20 +111,10 @@ fun NowPlayingPager(
                         contentAlignment = Alignment.Center
                     ) {
                         // 1) Завжди іконка/арт саме цієї сторінки
-                        when {
-                            fallbackArt.startsWith("http") || fallbackArt.startsWith("content:") -> AsyncImage(
-                                model = fallbackArt,
-                                contentDescription = null,
-                                modifier = Modifier.size(npArt).clip(AppShapes.card),
-                                contentScale = ContentScale.Crop
-                            )
-                            else -> Icon(
-                                Icons.Filled.MusicNote,
-                                contentDescription = null,
-                                tint = muted,
-                                modifier = Modifier.size(96.dp)
-                            )
-                        }
+                        StationArt(
+                            url = fallbackArt,
+                            modifier = Modifier.size(npArt).clip(AppShapes.card),
+                        )
                         // 2) Фото виконавця з’являється fade-in поверх; при зміні станції зникає одразу (visible=false)
                         AnimatedVisibility(
                             visible = photo != null,

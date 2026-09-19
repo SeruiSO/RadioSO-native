@@ -80,24 +80,14 @@ fun NowPlayingStrip(
                         val target = if (i == curI) stripSel else stripUnsel
                         val sz by animateDpAsState(target, label = "stripSz")
                         val alpha by animateFloatAsState(if (i == curI) 1f else 0.72f, label = "stripA")
-                        if (u.startsWith("http") || u.startsWith("content:")) {
-                            AsyncImage(
-                                model = u,
-                                contentDescription = label.ifBlank { null },
-                                modifier = Modifier
-                                    .size(sz)
-                                    .graphicsLayer { this.alpha = alpha }
-                                    .clip(RoundedCornerShape(10.dp)),
-                                contentScale = ContentScale.Crop
-                            )
-                        } else {
-                            Icon(
-                                Icons.Filled.MusicNote,
-                                contentDescription = label.ifBlank { null },
-                                tint = muted,
-                                modifier = Modifier.size(sz * 0.55f).graphicsLayer { this.alpha = alpha }
-                            )
-                        }
+                        StationArt(
+                            url = u,
+                            contentDescription = label.ifBlank { null },
+                            modifier = Modifier
+                                .size(sz)
+                                .graphicsLayer { this.alpha = alpha }
+                                .clip(RoundedCornerShape(10.dp)),
+                        )
                     }
                     Text(
                         label,

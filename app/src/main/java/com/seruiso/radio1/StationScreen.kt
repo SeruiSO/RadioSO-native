@@ -538,16 +538,11 @@ fun StationScreen(
                         .clickable { onCloseMenu(); onNow() },
                     contentAlignment = Alignment.Center,
                 ) {
-                    if (artUrl(favicon).startsWith("http") || artUrl(favicon).startsWith("content:")) {
-                        AsyncImage(
-                            model = artUrl(favicon),
-                            contentDescription = name,
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop,
-                        )
-                    } else {
-                        Icon(Icons.Filled.MusicNote, contentDescription = null, tint = muted, modifier = Modifier.size(40.dp))
-                    }
+                    StationArt(
+                        url = artUrl(favicon),
+                        contentDescription = name,
+                        modifier = Modifier.fillMaxSize(),
+                    )
                 }
                 if (!infoPhoto.isNullOrBlank()) {
                     AsyncImage(
@@ -803,16 +798,11 @@ fun StationScreen(
                         .background(Palette.panel2),
                     contentAlignment = Alignment.Center,
                 ) {
-                    if (artUrl(favicon).startsWith("http") || artUrl(favicon).startsWith("content:")) {
-                        AsyncImage(
-                            model = artUrl(favicon),
-                            contentDescription = name,
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop,
-                        )
-                    } else {
-                        Icon(Icons.Filled.MusicNote, contentDescription = null, tint = muted, modifier = Modifier.size(32.dp))
-                    }
+                    StationArt(
+                        url = artUrl(favicon),
+                        contentDescription = name,
+                        modifier = Modifier.fillMaxSize(),
+                    )
                 }
                 Column(
                     modifier = Modifier

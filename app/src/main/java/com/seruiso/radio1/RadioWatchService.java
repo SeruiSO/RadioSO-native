@@ -111,6 +111,13 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
     /** Відкладений ROUTE_LOST (BT handoff 3–5 с) */
     private Runnable routeLostRunnable;
     private int a2dpMissTicks = 0;
+    /** Classic BT: чекаємо AVRCP PLAY з магнітоли; інакше автостарт (навушники). */
+    private boolean awaitingHeadUnitPlay = false;
+    private Runnable headUnitPlayWaitRunnable;
+    private long playShieldUntilMs = 0L;
+    private static final long HEADUNIT_PLAY_WAIT_MS = 4000L;
+    private static final long PLAY_SHIELD_MS = 2500L;
+
     private ConnectivityManager connectivityManager;
     private ConnectivityManager.NetworkCallback networkCallback;
     private boolean networkCallbackRegistered = false;
@@ -286,6 +293,37 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                     getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
                         .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, true).apply();
                 } catch (Exception ignored) {}
+                // PLAY від магнітоли в вікні очікування — єдиний старт handoff
+                if (awaitingHeadUnitPlay) {
+                    awaitingHeadUnitPlay = false;
+                    if (headUnitPlayWaitRunnable != null) {
+                        mainHandler.removeCallbacks(headUnitPlayWaitRunnable);
+                        headUnitPlayWaitRunnable = null;
+                    }
+                    playShieldUntilMs = System.currentTimeMillis() + PLAY_SHIELD_MS;
+                    android.util.Log.i("RadioWatch", "session PLAY — headUnit wait satisfied");
+                    try { if (player != null) player.setVolume(1f); } catch (Exception ignored) {}
+                    if (alreadyPlayingLastUrl()) {
+                        try {
+                            if (player != null) player.setPlayWhenReady(true);
+                        } catch (Exception ignored) {}
+                        try { notifyUiStatus(getString(R.string.playing), 0); } catch (Exception ignored) {}
+                        return;
+                    }
+                    playLast();
+                    return;
+                }
+                // Повторний PLAY одразу після нашого старту — ігнор (анти-пинок)
+                if (System.currentTimeMillis() < playShieldUntilMs) {
+                    android.util.Log.i("RadioWatch", "session PLAY ignored — play shield");
+                    try {
+                        if (player != null) {
+                            player.setVolume(1f);
+                            player.setPlayWhenReady(true);
+                        }
+                    } catch (Exception ignored) {}
+                    return;
+                }
                 if (alreadyOutputting()) {
                     android.util.Log.i("RadioWatch",
                         "session PLAY ignored — already playing / BT settle");
@@ -306,6 +344,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             }
 
             private void userPauseFromSession() {
+                cancelHeadUnitPlayWait();
                 pausedByFocusLoss = false;
                 setIntendedPlaying(false);
                 PlaybackPrefs.setPauseReason(RadioWatchService.this, PlaybackPrefs.REASON_USER);
@@ -1336,6 +1375,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                     .edit().putLong(BluetoothAutoPlayPlugin.KEY_LAST_A2DP_MS, System.currentTimeMillis()).apply();
             } catch (Exception ignored) {}
             if (BtAudio.isAndroidAutoActive(this)) {
+                cancelHeadUnitPlayWait();
                 if (player != null) BtAudio.clearPreferred(player);
                 playLast();
             } else {
@@ -1343,15 +1383,18 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                     getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
                         .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_AA_ACTIVE, false).apply();
                 } catch (Exception ignored) {}
-                playLastWhenBtReady();
+                // Classic: не стартувати на speaker — чекати PLAY 4с або timeout (навушники)
+                beginHeadUnitPlayWait();
                 armA2dpRouteWatch();
             }
             return START_STICKY;
         }
 
         if (ACTION_PLAY.equals(action) || ACTION_NOTIF_PLAY.equals(action)) {
+            cancelHeadUnitPlayWait();
             setUserPausedWhileBt(false);
             setIntendedPlaying(true);
+            playShieldUntilMs = System.currentTimeMillis() + PLAY_SHIELD_MS;
             playLast();
             return START_STICKY;
         }
@@ -1762,7 +1805,62 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         android.util.Log.i("RadioWatch", "A2DP route watch armed");
     }
 
+    private void cancelHeadUnitPlayWait() {
+        awaitingHeadUnitPlay = false;
+        if (headUnitPlayWaitRunnable != null) {
+            mainHandler.removeCallbacks(headUnitPlayWaitRunnable);
+            headUnitPlayWaitRunnable = null;
+        }
+    }
+
+    /**
+     * Classic BT handoff: не грати на динамік тел.
+     * 4 с чекаємо PLAY з магнітоли; якщо немає — автостарт (навушники).
+     * Android Auto path не використовує це.
+     */
+    private void beginHeadUnitPlayWait() {
+        cancelHeadUnitPlayWait();
+        if (PlaybackPrefs.REASON_USER.equals(PlaybackPrefs.getPauseReason(this))) {
+            android.util.Log.i("RadioWatch", "headUnit wait skip — user pause");
+            return;
+        }
+        if (!PlaybackPrefs.isIntended(this)
+                && !getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                    .getBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, false)) {
+            setIntendedPlaying(true);
+            try {
+                getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                    .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, true).apply();
+            } catch (Exception ignored) {}
+        }
+        awaitingHeadUnitPlay = true;
+        // Зупинити вивід на speaker тел, НЕ знімаючи intended (не USER pause)
+        try {
+            if (player != null && (player.isPlaying() || player.getPlayWhenReady())) {
+                player.setPlayWhenReady(false);
+                android.util.Log.i("RadioWatch", "headUnit wait — paused phone output, await PLAY 4s");
+            }
+        } catch (Exception ignored) {}
+        try { notifyUiStatus(getString(R.string.connecting), 0); } catch (Exception ignored) {}
+        headUnitPlayWaitRunnable = () -> {
+            headUnitPlayWaitRunnable = null;
+            if (!awaitingHeadUnitPlay) return;
+            awaitingHeadUnitPlay = false;
+            if (PlaybackPrefs.REASON_USER.equals(PlaybackPrefs.getPauseReason(this))) {
+                android.util.Log.i("RadioWatch", "headUnit timeout skip — user pause");
+                return;
+            }
+            android.util.Log.i("RadioWatch", "headUnit wait timeout 4s — auto play (headphones)");
+            playShieldUntilMs = System.currentTimeMillis() + PLAY_SHIELD_MS;
+            try { if (player != null) player.setVolume(1f); } catch (Exception ignored) {}
+            playLast();
+        };
+        mainHandler.postDelayed(headUnitPlayWaitRunnable, HEADUNIT_PLAY_WAIT_MS);
+        android.util.Log.i("RadioWatch", "headUnit PLAY wait started 4s");
+    }
+
     private void playLastWhenBtReady() {
+
         if (isUserPausedWhileBt()) {
             android.util.Log.i("RadioWatch", "playLastWhenBtReady skip — userPausedWhileBt");
             return;

@@ -29,6 +29,14 @@ object BackupStore {
             .put("btWatchEnabled", p.getBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, true))
             .put("stationOrder", orders)
             .put(BluetoothAutoPlayPlugin.KEY_ORDER_BEST_URIS, p.getString(BluetoothAutoPlayPlugin.KEY_ORDER_BEST_URIS, "[]"))
+            // 0.13.184+: жанрові вкладки як editable + alias на stations.json
+            .put("tabCatalogKeys", try {
+                org.json.JSONObject(p.getString("tabCatalogKeys", "{}") ?: "{}")
+            } catch (_: Exception) { org.json.JSONObject() })
+            .put("genreTabsSeeded", p.getBoolean("genreTabsSeeded", false))
+            .put(BluetoothAutoPlayPlugin.KEY_HIDDEN_TABS, try {
+                org.json.JSONArray(p.getString(BluetoothAutoPlayPlugin.KEY_HIDDEN_TABS, "[]") ?: "[]")
+            } catch (_: Exception) { org.json.JSONArray() })
             .toString(2)
     }
 
@@ -71,6 +79,22 @@ object BackupStore {
                 val name = if (k.startsWith("order_")) k else "order_$k"
                 e.putString(name, v.toString())
             }
+        }
+        if (o.has("tabCatalogKeys")) {
+            val ck = o.opt("tabCatalogKeys")
+            e.putString("tabCatalogKeys", ck?.toString() ?: "{}")
+        }
+        if (o.has("genreTabsSeeded")) {
+            e.putBoolean("genreTabsSeeded", o.optBoolean("genreTabsSeeded", true))
+        } else if (o.has(BluetoothAutoPlayPlugin.KEY_CUSTOM_TABS)) {
+            // старий backup зі списком вкладок — не пересівати поверх імпорту
+            e.putBoolean("genreTabsSeeded", true)
+        }
+        if (o.has(BluetoothAutoPlayPlugin.KEY_HIDDEN_TABS)) {
+            e.putString(
+                BluetoothAutoPlayPlugin.KEY_HIDDEN_TABS,
+                o.get(BluetoothAutoPlayPlugin.KEY_HIDDEN_TABS).toString()
+            )
         }
         e.commit()
         return ctx.getString(R.string.import_ok)

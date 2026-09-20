@@ -2,6 +2,8 @@ package com.seruiso.radio1
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -242,21 +244,26 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
                 )
             }
         }
+        val rowHaptic = LocalHapticFeedback.current
         itemsIndexed(radioRows, key = { i, s -> s.tab + s.url + i }) { index, s ->
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 6.dp, vertical = 3.dp)
                     .background(when { dropAt == index -> acc.copy(alpha = 0.40f); s.url == currentUrl -> acc.copy(alpha = 0.18f); else -> card }, RoundedCornerShape(12.dp))
-                    
+                    .clickable {
+                        rowHaptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        actions.onPickRadio(radioRows, index)
+                    }
                     .padding(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // іконка → відтворення + відкрити нижню картку
+                // іконка → play + відкрити картку (свій тап, не рядок)
                 Box(
                     modifier = Modifier
                         .size(48.dp)
                         .clickable {
+                            rowHaptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             if (s.url != currentUrl) actions.onPickRadio(radioRows, index)
                             actions.onNow()
                         },
@@ -267,12 +274,11 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
                         modifier = Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)),
                     )
                 }
-                // рядок (назва) → лише відтворення, без нижньої картки
+                // назва — частина рядка (тап ловить Row)
                 Column(
                     modifier = Modifier
                         .padding(start = 8.dp)
                         .weight(1f)
-                        .clickable { actions.onPickRadio(radioRows, index) }
                 ) {
                     Text(s.name, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text("${s.genre} · ${s.country}", color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
@@ -281,16 +287,42 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
                     if (favUrls.contains(s.url)) Icons.Filled.Star else Icons.Filled.StarBorder,
                     contentDescription = if (favUrls.contains(s.url)) LocalContext.current.getString(R.string.remove_from_favorites) else LocalContext.current.getString(R.string.add_to_favorites),
                     tint = acc,
-                    modifier = Modifier.clickable { actions.onToggleFav(s) }.padding(start = 8.dp, end = 2.dp).size(24.dp)
+                    modifier = Modifier
+                        .clickable {
+                            rowHaptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            actions.onToggleFav(s)
+                        }
+                        .padding(start = 4.dp, end = 2.dp)
+                        .size(36.dp)
+                        .padding(6.dp)
                 )
                 if (tabs.getOrNull(tabIndex) == "search") {
-                    Text("+", color = acc, modifier = Modifier.clickable { actions.onAddToTab(s) }.padding(start = 4.dp), style = MaterialTheme.typography.headlineMedium)
+                    Text(
+                        "+",
+                        color = acc,
+                        style = MaterialTheme.typography.headlineMedium,
+                        modifier = Modifier
+                            .clickable {
+                                rowHaptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                actions.onAddToTab(s)
+                            }
+                            .padding(start = 4.dp, end = 4.dp)
+                            .size(40.dp)
+                            .padding(4.dp)
+                    )
                 } else if (tabs.getOrNull(tabIndex) != "fav") {
                     Icon(
                         Icons.Filled.Delete,
                         contentDescription = LocalContext.current.getString(R.string.delete_station),
                         tint = muted,
-                        modifier = Modifier.clickable { actions.onAskDelete(s) }.padding(start = 8.dp, end = 0.dp).size(22.dp)
+                        modifier = Modifier
+                            .clickable {
+                                rowHaptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                actions.onAskDelete(s)
+                            }
+                            .padding(start = 4.dp, end = 0.dp)
+                            .size(36.dp)
+                            .padding(6.dp)
                     )
                 }
             }

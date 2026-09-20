@@ -86,16 +86,19 @@ fun NowPlayingMeta(
                 else LocalContext.current.getString(R.string.add_to_favorites),
                 tint = acc,
                 modifier = Modifier
-                    .padding(start = 8.dp)
-                    .size(28.dp)
+                    .padding(start = 6.dp)
+                    .size(44.dp)
+                    .padding(6.dp)
                     .springPress(0.75f, onToggleFavorite)
             )
             Text(
                 "+",
                 color = acc,
-                style = MaterialTheme.typography.headlineMedium,
+                style = MaterialTheme.typography.displaySmall,
                 modifier = Modifier
-                    .padding(start = 10.dp)
+                    .padding(start = 4.dp, end = 4.dp)
+                    .size(48.dp)
+                    .padding(4.dp)
                     .springPress(0.75f, onAddToTab)
             )
         }

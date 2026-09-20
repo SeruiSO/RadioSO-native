@@ -11,6 +11,8 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
@@ -265,16 +267,24 @@ fun LocalTrackRow(
     onArt: () -> Unit = {},
     onClick: () -> Unit,
 ) {
+    val haptic = LocalHapticFeedback.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 6.dp, vertical = 3.dp)
             .background(if (isCurrent) acc.copy(alpha = 0.18f) else Palette.card, RoundedCornerShape(12.dp))
+            .clickable {
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                onClick()
+            }
             .padding(10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
-            modifier = Modifier.size(48.dp).clickable { onArt() },
+            modifier = Modifier.size(48.dp).clickable {
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                onArt()
+            },
             contentAlignment = Alignment.Center
         ) {
             val a = if (item.albumId.isNotBlank() && item.albumId != "0")
@@ -282,7 +292,7 @@ fun LocalTrackRow(
             if (a.isNotEmpty()) AsyncImage(model = a, contentDescription = null, modifier = Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop)
             else Icon(Icons.Filled.MusicNote, contentDescription = LocalContext.current.getString(R.string.no_cover), tint = muted)
         }
-        Column(modifier = Modifier.weight(1f).padding(start = 8.dp).clickable { onClick() }) {
+        Column(modifier = Modifier.weight(1f).padding(start = 8.dp)) {
             Text(item.title, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(item.artist, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
         }
@@ -292,9 +302,13 @@ fun LocalTrackRow(
                 contentDescription = if (isBest) LocalContext.current.getString(R.string.remove_from_local_fav) else LocalContext.current.getString(R.string.add_to_local_fav_short),
                 tint = acc,
                 modifier = Modifier
-                    .clickable { onToggleBest() }
-                    .padding(start = 8.dp, end = 2.dp)
-                    .size(24.dp)
+                    .clickable {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onToggleBest()
+                    }
+                    .padding(start = 4.dp, end = 2.dp)
+                    .size(36.dp)
+                    .padding(6.dp)
             )
         }
     }

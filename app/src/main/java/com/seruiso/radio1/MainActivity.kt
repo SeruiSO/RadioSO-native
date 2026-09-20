@@ -492,9 +492,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun targetTabs(): List<String> {
-        // Той самий порядок даних, що genreTabs у правій панелі
-        // (reverseLayout: перший елемент візуально знизу — у діалозі зверху)
-        return TabStore.genreTabs(this)
+        // Права панель: LazyColumn(reverseLayout) → візуально зверху = кінець genreTabs.
+        // Модалка + без reverse → asReversed(), щоб зверху вниз як на картці.
+        return TabStore.genreTabs(this).asReversed()
     }
 
     /** Повідомлення в інфо-панелі тримається holdMs, щоб «відтворення» його не змивало */

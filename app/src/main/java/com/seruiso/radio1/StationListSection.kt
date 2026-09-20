@@ -179,6 +179,8 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
         }
     }
 
+    val rowHaptic = LocalHapticFeedback.current
+
     LazyColumn(
         modifier = Modifier
             .weight(1f)
@@ -244,7 +246,6 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
                 )
             }
         }
-        val rowHaptic = LocalHapticFeedback.current
         itemsIndexed(radioRows, key = { i, s -> s.tab + s.url + i }) { index, s ->
             Row(
                 modifier = Modifier

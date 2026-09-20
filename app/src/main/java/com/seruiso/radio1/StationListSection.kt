@@ -304,7 +304,7 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
                             buzz(true)
                             actions.onToggleFav(s)
                         }
-                        .padding(start = 4.dp, end = 2.dp)
+                        .padding(start = 2.dp, end = 0.dp)
                         .size(36.dp)
                         .padding(6.dp)
                 )
@@ -318,8 +318,8 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
                                 buzz(true)
                                 actions.onAddToTab(s)
                             }
-                            .padding(start = 4.dp, end = 4.dp)
-                            .size(40.dp)
+                            .padding(start = 0.dp, end = 0.dp)
+                            .size(36.dp)
                             .padding(4.dp)
                     )
                 } else if (tabs.getOrNull(tabIndex) != "fav") {
@@ -332,7 +332,7 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
                                 buzz(true)
                                 actions.onAskDelete(s)
                             }
-                            .padding(start = 4.dp, end = 0.dp)
+                            .padding(start = 2.dp, end = 0.dp)
                             .size(36.dp)
                             .padding(6.dp)
                     )

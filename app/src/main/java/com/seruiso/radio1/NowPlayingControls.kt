@@ -63,7 +63,7 @@ fun NowPlayingMeta(
             name,
             color = text,
             style = MaterialTheme.typography.titleLarge,
-            maxLines = 2,
+            maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f)
         )
@@ -80,11 +80,11 @@ fun NowPlayingMeta(
                     .springPress(0.75f, onToggleBest)
             )
         } else {
-            // Іконка 28dp як раніше; зона тапу більша + відступ від краю/між кнопками
+            // 28dp іконка, компактна зона тапу; ближче до правого краю, малий зазор між ★ і +
             Box(
                 modifier = Modifier
-                    .padding(start = 12.dp)
-                    .size(44.dp)
+                    .padding(start = 6.dp)
+                    .size(40.dp)
                     .springPress(0.75f, onToggleFavorite),
                 contentAlignment = Alignment.Center
             ) {
@@ -98,8 +98,8 @@ fun NowPlayingMeta(
             }
             Box(
                 modifier = Modifier
-                    .padding(start = 8.dp, end = 10.dp)
-                    .size(44.dp)
+                    .padding(start = 2.dp, end = 2.dp)
+                    .size(40.dp)
                     .springPress(0.75f, onAddToTab),
                 contentAlignment = Alignment.Center
             ) {
@@ -139,7 +139,7 @@ fun NowPlayingMeta(
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 0.dp, bottom = 0.dp)
+                .padding(top = 1.dp, bottom = 0.dp)
                 .then(pagerDragModifier)
         )
     }
@@ -151,7 +151,7 @@ fun NowPlayingMeta(
         style = MaterialTheme.typography.titleMedium,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 0.dp, bottom = 4.dp)
+            .padding(top = if (artistLine.isNotBlank()) 0.dp else 1.dp, bottom = 2.dp)
             .then(pagerDragModifier)
     )
 }

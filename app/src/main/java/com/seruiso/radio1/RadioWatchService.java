@@ -308,15 +308,17 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                     releaseHeadUnitWake();
                     playShieldUntilMs = System.currentTimeMillis() + PLAY_SHIELD_MS;
                     android.util.Log.i("RadioWatch", "session PLAY — headUnit wait satisfied");
-                    try { if (player != null) player.setVolume(1f); } catch (Exception ignored) {}
-                    if (alreadyPlayingLastUrl()) {
+                    if (alreadyPlayingLastUrl() && BtAudio.hasA2dpOutput(RadioWatchService.this)) {
                         try {
-                            if (player != null) player.setPlayWhenReady(true);
+                            if (player != null) {
+                                player.setVolume(1f);
+                                player.setPlayWhenReady(true);
+                            }
                         } catch (Exception ignored) {}
                         try { notifyUiStatus(getString(R.string.playing), 0); } catch (Exception ignored) {}
                         return;
                     }
-                    playLast();
+                    playWhenBtRouteReady("headunit-play");
                     return;
                 }
                 // Повторний PLAY одразу після нашого старту — ігнор (анти-пинок)
@@ -631,6 +633,14 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             android.util.Log.i("RadioWatch", "attemptReconnect(" + reason + ") skip — user pause");
             return;
         }
+        if (isVoiceCallActive()) {
+            android.util.Log.i("RadioWatch", "attemptReconnect(" + reason + ") skip — voice call");
+            return;
+        }
+        if (pausedByFocusLoss) {
+            android.util.Log.i("RadioWatch", "attemptReconnect(" + reason + ") skip — focus loss");
+            return;
+        }
         if (withinBtSettle()) {
             android.util.Log.i("RadioWatch", "attemptReconnect(" + reason + ") skip — BT settle");
             return;
@@ -702,8 +712,83 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         }
     }
 
+    /** Стільниковий / VoIP (WhatsApp тощо): не resume і не reconnect під розмову. */
+    private boolean isVoiceCallActive() {
+        try {
+            if (audioManager == null) return false;
+            int mode = audioManager.getMode();
+            return mode == AudioManager.MODE_IN_CALL
+                    || mode == AudioManager.MODE_IN_COMMUNICATION
+                    || mode == AudioManager.MODE_RINGTONE;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /**
+     * Після classic BT: не грати в speaker.
+     * Чекаємо TYPE_BLUETOOTH_A2DP (до ~5 с), потім playLast.
+     * Навушники зазвичай уже мають A2DP → майже одразу.
+     */
+    private void playWhenBtRouteReady(String why) {
+        if (PlaybackPrefs.REASON_USER.equals(PlaybackPrefs.getPauseReason(this))) {
+            android.util.Log.i("RadioWatch", "playWhenBtRouteReady skip — user pause (" + why + ")");
+            return;
+        }
+        if (isVoiceCallActive()) {
+            android.util.Log.i("RadioWatch", "playWhenBtRouteReady defer — voice active (" + why + ")");
+            pausedByFocusLoss = true;
+            pausedByFocusAtMs = System.currentTimeMillis();
+            try {
+                if (player != null) player.setPlayWhenReady(false);
+            } catch (Exception ignored) {}
+            return;
+        }
+        // Вже є A2DP sink — одразу
+        if (BtAudio.hasA2dpOutput(this)) {
+            try { if (player != null) player.setVolume(1f); } catch (Exception ignored) {}
+            playLast();
+            return;
+        }
+        android.util.Log.i("RadioWatch", "playWhenBtRouteReady wait A2DP (" + why + ")");
+        try {
+            if (player != null) {
+                player.setVolume(0f);
+                player.setPlayWhenReady(false);
+            }
+        } catch (Exception ignored) {}
+        final int[] ticks = {0};
+        final int maxTicks = 17; // ~5.1 с @ 300 мс
+        final Runnable[] holder = new Runnable[1];
+        holder[0] = () -> {
+            try {
+                if (PlaybackPrefs.REASON_USER.equals(PlaybackPrefs.getPauseReason(this))) return;
+                if (isVoiceCallActive()) {
+                    pausedByFocusLoss = true;
+                    return;
+                }
+                ticks[0]++;
+                boolean a2dp = BtAudio.hasA2dpOutput(this);
+                if (a2dp || ticks[0] >= maxTicks) {
+                    android.util.Log.i("RadioWatch",
+                        "playWhenBtRouteReady go a2dp=" + a2dp + " ticks=" + ticks[0] + " (" + why + ")");
+                    try { if (player != null) player.setVolume(1f); } catch (Exception ignored) {}
+                    playLast();
+                    return;
+                }
+                mainHandler.postDelayed(holder[0], 300);
+            } catch (Exception e) {
+                android.util.Log.w("RadioWatch", "playWhenBtRouteReady", e);
+                try { if (player != null) player.setVolume(1f); } catch (Exception ignored) {}
+                playLast();
+            }
+        };
+        mainHandler.postDelayed(holder[0], 300);
+    }
+
     @Override
     public void onAudioFocusChange(int focusChange) {
+
         if (player == null) return;
         switch (focusChange) {
             case AudioManager.AUDIOFOCUS_LOSS:
@@ -725,15 +810,26 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                 }
                 break;
             case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK:
-                // Короткий звук, що НЕ потребує тиші (пуш-сповіщення, системний клік) —
-                // система явно дозволяє просто притишити, а не зупиняти. Пауза тут була б
-                // надлишковою і для живого стріму означала б зайвий ребаферинг на кожен пінг.
+                // VoIP інколи дає CAN_DUCK замість LOSS — під розмову треба пауза, не 0.2 volume.
+                if (isVoiceCallActive()) {
+                    if (player.isPlaying() || player.getPlayWhenReady()) {
+                        pausedByFocusLoss = true;
+                        pausedByFocusAtMs = System.currentTimeMillis();
+                        player.pause();
+                        notifyForeground();
+                    }
+                    break;
+                }
+                // Короткий системний звук — лише притишити
                 if (player.isPlaying()) {
                     player.setVolume(0.2f);
                 }
                 break;
             case AudioManager.AUDIOFOCUS_GAIN:
-                player.setVolume(1f);
+                // Не піднімати volume під активний VoIP
+                if (!isVoiceCallActive()) {
+                    player.setVolume(1f);
+                }
                 if (!pausedByFocusLoss) break;
                 new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
                     if (player == null) return;
@@ -745,6 +841,11 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                         pausedByFocusLoss = false;
                         pausedByFocusAtMs = 0L;
                         return;
+                    }
+                    // WhatsApp/дзвінок: GAIN часто «між» гудками і розмовою — не resume
+                    if (isVoiceCallActive()) {
+                        android.util.Log.i("RadioWatch", "focus GAIN deferred — voice still active");
+                        return; // pausedByFocusLoss лишається true до реального кінця дзвінка
                     }
                     long pausedFor = pausedByFocusAtMs > 0L
                             ? System.currentTimeMillis() - pausedByFocusAtMs : 0L;
@@ -1419,8 +1520,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             PlaybackPrefs.setPauseReason(this, PlaybackPrefs.REASON_NONE);
             setIntendedPlaying(true);
             playShieldUntilMs = System.currentTimeMillis() + PLAY_SHIELD_MS;
-            try { if (player != null) player.setVolume(1f); } catch (Exception ignored) {}
-            playLast();
+            playWhenBtRouteReady("headphone-fallback");
             return START_STICKY;
         }
 
@@ -1894,8 +1994,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             }
             android.util.Log.i("RadioWatch", "headUnit wait timeout 4s — auto play (headphones)");
             playShieldUntilMs = System.currentTimeMillis() + PLAY_SHIELD_MS;
-            try { if (player != null) player.setVolume(1f); } catch (Exception ignored) {}
-            playLast();
+            playWhenBtRouteReady("headunit-timeout");
         };
         mainHandler.postDelayed(headUnitPlayWaitRunnable, HEADUNIT_PLAY_WAIT_MS);
         android.util.Log.i("RadioWatch", "headUnit PLAY wait started 4s + alarm");

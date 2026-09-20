@@ -2,6 +2,10 @@ package com.seruiso.radio1
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import android.view.HapticFeedbackConstants
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -109,6 +113,17 @@ fun androidx.compose.foundation.layout.ColumnScope.LocalListSection(
         listState.animateScrollToItem(i)
     }
 
+    val localHaptic = LocalHapticFeedback.current
+    val localView = LocalView.current
+    fun localBuzz(strong: Boolean = false) {
+        val code = if (strong) HapticFeedbackConstants.LONG_PRESS
+        else HapticFeedbackConstants.CONTEXT_CLICK
+        localView.performHapticFeedback(code)
+        localHaptic.performHapticFeedback(
+            if (strong) HapticFeedbackType.LongPress else HapticFeedbackType.ContextClick
+        )
+    }
+
     LazyColumn(
         modifier = Modifier
             .weight(1f)
@@ -170,7 +185,10 @@ fun androidx.compose.foundation.layout.ColumnScope.LocalListSection(
                     .fillMaxWidth()
                     .padding(horizontal = 6.dp, vertical = 3.dp)
                     .background(when { dropAt == index -> acc.copy(alpha = 0.40f); item.uri == currentUrl -> acc.copy(alpha = 0.18f); else -> card }, RoundedCornerShape(12.dp))
-                    
+                    .clickable {
+                        localBuzz(false)
+                        actions.onPickLocal(localRows, index)
+                    }
                     .padding(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -178,6 +196,7 @@ fun androidx.compose.foundation.layout.ColumnScope.LocalListSection(
                     modifier = Modifier
                         .size(48.dp)
                         .clickable {
+                            localBuzz(false)
                             if (item.uri != currentUrl) actions.onPickLocal(localRows, index)
                             actions.onNow()
                         },
@@ -192,7 +211,6 @@ fun androidx.compose.foundation.layout.ColumnScope.LocalListSection(
                     modifier = Modifier
                         .weight(1f)
                         .padding(start = 8.dp)
-                        .clickable { actions.onPickLocal(localRows, index) }
                 ) {
                     Text(item.title, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(item.artist, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
@@ -201,7 +219,14 @@ fun androidx.compose.foundation.layout.ColumnScope.LocalListSection(
                     if (bestUris.contains(item.uri)) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                     contentDescription = if (bestUris.contains(item.uri)) LocalContext.current.getString(R.string.remove_from_local_fav) else LocalContext.current.getString(R.string.add_to_local_fav_short),
                     tint = acc,
-                    modifier = Modifier.clickable { actions.onToggleBest(item) }.padding(start = 10.dp, end = 2.dp).size(24.dp)
+                    modifier = Modifier
+                        .clickable {
+                            localBuzz(true)
+                            actions.onToggleBest(item)
+                        }
+                        .padding(start = 8.dp, end = 2.dp)
+                        .size(36.dp)
+                        .padding(6.dp)
                 )
             }
         }

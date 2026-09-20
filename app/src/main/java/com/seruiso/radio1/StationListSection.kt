@@ -3,7 +3,9 @@ package com.seruiso.radio1
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import android.view.HapticFeedbackConstants
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -180,6 +182,15 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
     }
 
     val rowHaptic = LocalHapticFeedback.current
+    val rowView = LocalView.current
+    fun buzz(strong: Boolean = false) {
+        val code = if (strong) HapticFeedbackConstants.LONG_PRESS
+        else HapticFeedbackConstants.CONTEXT_CLICK
+        rowView.performHapticFeedback(code)
+        rowHaptic.performHapticFeedback(
+            if (strong) HapticFeedbackType.LongPress else HapticFeedbackType.ContextClick
+        )
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -253,7 +264,7 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
                     .padding(horizontal = 6.dp, vertical = 3.dp)
                     .background(when { dropAt == index -> acc.copy(alpha = 0.40f); s.url == currentUrl -> acc.copy(alpha = 0.18f); else -> card }, RoundedCornerShape(12.dp))
                     .clickable {
-                        rowHaptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        buzz(false)
                         actions.onPickRadio(radioRows, index)
                     }
                     .padding(10.dp),
@@ -264,7 +275,7 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
                     modifier = Modifier
                         .size(48.dp)
                         .clickable {
-                            rowHaptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            buzz(false)
                             if (s.url != currentUrl) actions.onPickRadio(radioRows, index)
                             actions.onNow()
                         },
@@ -290,7 +301,7 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
                     tint = acc,
                     modifier = Modifier
                         .clickable {
-                            rowHaptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            buzz(true)
                             actions.onToggleFav(s)
                         }
                         .padding(start = 4.dp, end = 2.dp)
@@ -304,7 +315,7 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
                         style = MaterialTheme.typography.headlineMedium,
                         modifier = Modifier
                             .clickable {
-                                rowHaptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                buzz(true)
                                 actions.onAddToTab(s)
                             }
                             .padding(start = 4.dp, end = 4.dp)
@@ -318,7 +329,7 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
                         tint = muted,
                         modifier = Modifier
                             .clickable {
-                                rowHaptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                buzz(true)
                                 actions.onAskDelete(s)
                             }
                             .padding(start = 4.dp, end = 0.dp)

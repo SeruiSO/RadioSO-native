@@ -12,7 +12,9 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import android.view.HapticFeedbackConstants
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
@@ -268,13 +270,22 @@ fun LocalTrackRow(
     onClick: () -> Unit,
 ) {
     val haptic = LocalHapticFeedback.current
+    val view = LocalView.current
+    fun buzz(strong: Boolean = false) {
+        view.performHapticFeedback(
+            if (strong) HapticFeedbackConstants.LONG_PRESS else HapticFeedbackConstants.CONTEXT_CLICK
+        )
+        haptic.performHapticFeedback(
+            if (strong) HapticFeedbackType.LongPress else HapticFeedbackType.ContextClick
+        )
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 6.dp, vertical = 3.dp)
             .background(if (isCurrent) acc.copy(alpha = 0.18f) else Palette.card, RoundedCornerShape(12.dp))
             .clickable {
-                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                buzz(false)
                 onClick()
             }
             .padding(10.dp),
@@ -282,7 +293,7 @@ fun LocalTrackRow(
     ) {
         Box(
             modifier = Modifier.size(48.dp).clickable {
-                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                buzz(false)
                 onArt()
             },
             contentAlignment = Alignment.Center
@@ -303,7 +314,7 @@ fun LocalTrackRow(
                 tint = acc,
                 modifier = Modifier
                     .clickable {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        buzz(true)
                         onToggleBest()
                     }
                     .padding(start = 4.dp, end = 2.dp)

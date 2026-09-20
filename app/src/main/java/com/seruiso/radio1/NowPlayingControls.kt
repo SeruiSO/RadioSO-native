@@ -80,27 +80,35 @@ fun NowPlayingMeta(
                     .springPress(0.75f, onToggleBest)
             )
         } else {
-            Icon(
-                if (isFavorite) Icons.Filled.Star else Icons.Filled.StarBorder,
-                contentDescription = if (isFavorite) LocalContext.current.getString(R.string.remove_from_favorites)
-                else LocalContext.current.getString(R.string.add_to_favorites),
-                tint = acc,
+            // Іконка 28dp як раніше; зона тапу більша + відступ від краю/між кнопками
+            Box(
                 modifier = Modifier
-                    .padding(start = 6.dp)
+                    .padding(start = 12.dp)
                     .size(44.dp)
-                    .padding(6.dp)
-                    .springPress(0.75f, onToggleFavorite)
-            )
-            Text(
-                "+",
-                color = acc,
-                style = MaterialTheme.typography.displaySmall,
+                    .springPress(0.75f, onToggleFavorite),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    if (isFavorite) Icons.Filled.Star else Icons.Filled.StarBorder,
+                    contentDescription = if (isFavorite) LocalContext.current.getString(R.string.remove_from_favorites)
+                    else LocalContext.current.getString(R.string.add_to_favorites),
+                    tint = acc,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+            Box(
                 modifier = Modifier
-                    .padding(start = 4.dp, end = 4.dp)
-                    .size(48.dp)
-                    .padding(4.dp)
-                    .springPress(0.75f, onAddToTab)
-            )
+                    .padding(start = 8.dp, end = 10.dp)
+                    .size(44.dp)
+                    .springPress(0.75f, onAddToTab),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    "+",
+                    color = acc,
+                    style = MaterialTheme.typography.headlineMedium,
+                )
+            }
         }
     }
     // виконавець + трек одразу під назвою станції (мінімальні відступи)

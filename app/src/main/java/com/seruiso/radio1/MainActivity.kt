@@ -131,10 +131,9 @@ class MainActivity : ComponentActivity() {
 
     private val uiTabs: List<String>
         get() {
-            val hidden = TabStore.hiddenTabs(this)
-            val mid = sourceTabs.filter { it !in listOf("fav", "best", "local", "search") && it !in hidden } +
-                customTabs.filter { it !in sourceTabs && it !in listOf("fav", "best", "local", "search") && it !in hidden }
-            return listOf("fav", "best") + mid.distinct() + listOf("local", "search")
+            // Жанри — лише customTabs (seed з JSON); fav/best/local/search системні
+            val mid = TabStore.genreTabs(this)
+            return listOf("fav", "best") + mid + listOf("local", "search")
         }
 
     private val uiReceiver = object : BroadcastReceiver() {
@@ -198,6 +197,10 @@ class MainActivity : ComponentActivity() {
         stations = loaded.second
         favUrls = FavStore.urls(this, BluetoothAutoPlayPlugin.KEY_FAVORITES)
         bestUris = FavStore.urls(this, BluetoothAutoPlayPlugin.KEY_LOCAL_BEST)
+        TabStore.ensureGenreTabsSeeded(
+            this,
+            sourceTabs.filter { it !in TabStore.reserved && it != "search" }
+        )
         customTabs = TabStore.customTabs(this)
         reloadLocal()
         readPrefs()
@@ -272,8 +275,9 @@ class MainActivity : ComponentActivity() {
                                 // Після removeStation URL у deletedStations — у списку її немає,
                                 // тож already=false → addStation зробить unDelete + свіжі meta.
                                 val deleted = TabStore.deleted(this, tab)
+                                val ck = TabStore.catalogKey(this, tab)
                                 val inExtra = TabStore.extraStations(this, tab).any { it.url == s.url }
-                                val inBase = stations.any { it.url == s.url && it.tab == tab }
+                                val inBase = stations.any { it.url == s.url && it.tab == ck }
                                 val already = (inExtra || inBase) && s.url !in deleted
                                 if (already) {
                                     holdStatus(getString(R.string.already_in_tab, tab))
@@ -320,10 +324,17 @@ class MainActivity : ComponentActivity() {
                         onEditName = { editName = it },
                         onRenameTab = {
                             val oldName = editTab ?: return@StationScreen
-                            val err = TabStore.renameTab(this, oldName, editName, sourceTabs)
+                            val newName = editName.trim().lowercase()
+                            val err = TabStore.renameTab(this, oldName, newName, sourceTabs)
                             if (err == null) {
                                 customTabs = TabStore.customTabs(this)
                                 addedRev++
+                                val sp = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                                if (sp.getString("currentTab", "") == oldName) {
+                                    sp.edit().putString("currentTab", newName).apply()
+                                }
+                                val ix = uiTabs.indexOf(newName)
+                                if (ix >= 0) tabIndex = ix
                                 holdStatus(getString(R.string.tab_renamed))
                                 editTab = null
                             } else holdStatus(err)
@@ -481,9 +492,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun targetTabs(): List<String> {
-        val hidden = TabStore.hiddenTabs(this)
-        val built = sourceTabs.filter { it !in TabStore.reserved && it != "search" && it !in hidden }
-        return (built + customTabs.filter { it !in hidden }).distinct()
+        // Той самий порядок даних, що genreTabs у правій панелі
+        // (reverseLayout: перший елемент візуально знизу — у діалозі зверху)
+        return TabStore.genreTabs(this)
     }
 
     /** Повідомлення в інфо-панелі тримається holdMs, щоб «відтворення» його не змивало */
@@ -922,11 +933,10 @@ class MainActivity : ComponentActivity() {
     private fun allRadioStations(): List<Station> {
         addedRev
         val deletedMap = TabStore.deletedMap(this)
-        val tabIds = (sourceTabs + customTabs)
-            .filter { it !in listOf("fav", "best", "local", "search") }
-            .distinct()
+        val tabIds = TabStore.genreTabs(this)
         val fromTabs = tabIds.flatMap { tab ->
-            TabStore.extraStations(this, tab) + stations.filter { it.tab == tab }
+            val ck = TabStore.catalogKey(this, tab)
+            TabStore.extraStations(this, tab) + stations.filter { it.tab == ck }
         }
         return mergeStationsRich(
             FavStore.stations(this) +
@@ -1022,9 +1032,9 @@ class MainActivity : ComponentActivity() {
             "best", "local" -> emptyList()
             "search" -> searchRows
             else -> {
-                val base = stations.filter { it.tab == tab }
+                val ck = TabStore.catalogKey(this, tab)
+                val base = stations.filter { it.tab == ck }
                 val extra = TabStore.extraStations(this, tab)
-                // mergeRich: extra meta + catalog, без втрати favicon
                 TabStore.applyOrder(
                     this, tab,
                     mergeStationsRich(extra + base).filter { it.url !in deleted }

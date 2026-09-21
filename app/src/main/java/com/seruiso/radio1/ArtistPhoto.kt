@@ -91,18 +91,39 @@ fun looksLikeJunk(t: String): Boolean {
 private fun sameStation(part: String, station: String): Boolean {
     if (station.isBlank()) return false
     val a = stripIcyNoise(part).lowercase()
-    val b = station.trim().lowercase()
-    if (a.length < 3 || b.length < 3) return false
+    val b = stripIcyNoise(station).lowercase()
+    if (a.length < 4 || b.length < 4) return false
     if (a == b) return true
-    if (a.contains(b) || b.contains(a)) return true
+    // Лише префікс назви («люкс фм»), не слоган «сучасні хіти» всередині station
+    val head = b.split(Regex("""\s+[-–—|]\s+""")).firstOrNull() ?: b
+    if (head.length >= 4 && (a == head || a.startsWith("$head "))) return true
     return false
 }
 
-fun parseStreamTitle(raw: String, stationName: String = ""): ParsedTrack {
-    val t = stripIcyNoise(raw)
-    if (t.isEmpty() || looksLikeJunk(t) || sameStation(t, stationName)) {
-        return ParsedTrack("", "")
+/** «Люкс ФМ - Сучасні хіти - Artist - Song» → «Artist - Song» */
+private fun stripStationPrefix(raw: String, station: String): String {
+    if (station.isBlank()) return raw
+    var t = raw
+    val sn = stripIcyNoise(station)
+    if (sn.length >= 4 && t.regionMatches(0, sn, 0, sn.length, ignoreCase = true)) {
+        t = t.substring(sn.length).trim()
+        t = t.replaceFirst(Regex("""^[-–—|:·/]+\s*"""), "").trim()
+        return t.ifBlank { raw }
     }
+    val parts = sn.split(Regex("""\s+[-–—|]\s+""")).filter { it.length >= 3 }
+    for (part in parts) {
+        if (t.regionMatches(0, part, 0, part.length, ignoreCase = true)) {
+            t = t.substring(part.length).trim()
+            t = t.replaceFirst(Regex("""^[-–—|:·/]+\s*"""), "").trim()
+        }
+    }
+    return t.ifBlank { raw }
+}
+
+fun parseStreamTitle(raw: String, stationName: String = ""): ParsedTrack {
+    var t = stripIcyNoise(raw)
+    t = stripStationPrefix(t, stationName)
+    if (t.isEmpty() || looksLikeJunk(t)) return ParsedTrack("", "")
     var left = ""
     var right = ""
     for (sep in TITLE_SEPS) {
@@ -113,11 +134,7 @@ fun parseStreamTitle(raw: String, stationName: String = ""): ParsedTrack {
             if (left.isNotEmpty() && right.isNotEmpty()) break
         }
     }
-    if (left.isEmpty() || right.isEmpty()) {
-        // Немає «артист — трек» — не вигадуємо виконавця з слогана
-        return ParsedTrack("", "")
-    }
-    // «Lux FM - Song» → пісня без фейкового артиста
+    if (left.isEmpty() || right.isEmpty()) return ParsedTrack("", "")
     if (looksLikeJunk(left) || sameStation(left, stationName)) {
         val nested = parseStreamTitle(right, stationName)
         return if (nested.display.isNotBlank()) nested else ParsedTrack("", right)
@@ -151,7 +168,7 @@ fun splitArtists(raw: String): List<String> {
 }
 
 private const val UA = "RadioSO/1.0 (+https://github.com/SeruiSO/RadioSO-native)"
-private const val DISK_FILE = "artist_photo_cache.json"
+private const val DISK_FILE = "artist_photo_cache_v2.json"
 private const val TTL_MS = 14L * 24 * 60 * 60 * 1000 // 14 днів
 private const val MISS = "" // порожній URL = "не знайдено"
 private const val PERSIST_MIN_INTERVAL_MS = 5000L
@@ -282,6 +299,16 @@ private fun deezerArtistPhoto(artist: String): String? {
         ).firstOrNull { it.isNotBlank() }
         if (pic != null) return pic
     }
+    // UA/трансліт: ім'я в Deezer інше — як раніше беремо 1-й хіт
+    if (arr.length() > 0) {
+        val obj = arr.getJSONObject(0)
+        val pic = listOf(
+            obj.optString("picture_big"),
+            obj.optString("picture_medium"),
+            obj.optString("picture"),
+        ).firstOrNull { it.isNotBlank() }
+        if (pic != null) return pic
+    }
     null
 } catch (_: Exception) {
         null
@@ -302,6 +329,12 @@ private fun itunesArtistPhoto(artist: String): String? {
         val name = obj.optString("artistName")
         if (!similarArtist(artist, name)) continue
         val raw = obj.optString("artworkUrl100")
+        if (raw.isNotBlank()) {
+            return raw.replace("100x100bb", "600x600bb").replace("100x100", "600x600")
+        }
+    }
+    if (arr.length() > 0) {
+        val raw = arr.getJSONObject(0).optString("artworkUrl100")
         if (raw.isNotBlank()) {
             return raw.replace("100x100bb", "600x600bb").replace("100x100", "600x600")
         }

@@ -290,6 +290,9 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
              * Якщо на паузі — звичайний resume.
              */
             private void playFromSessionSmart() {
+                if (!canExplicitPlay("session-play")) {
+                    return;
+                }
                 setUserPausedWhileBt(false);
                 PlaybackPrefs.setPauseReason(RadioWatchService.this, PlaybackPrefs.REASON_NONE);
                 setIntendedPlaying(true);
@@ -608,6 +611,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         }
         reconnectHandler.postDelayed(() -> {
             try {
+                if (!canAutoStartPlayback("force-network-reconnect")) return;
                 String url = resolveReconnectUrl();
                 if (url != null && !url.isEmpty()) playUrl(url);
                 else scheduleReconnect();
@@ -699,8 +703,18 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             result = audioManager.requestAudioFocus(this,
                     AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN);
         }
-        return result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
-                || result == AudioManager.AUDIOFOCUS_REQUEST_DELAYED;
+        if (result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
+            return true;
+        }
+        if (result == AudioManager.AUDIOFOCUS_REQUEST_DELAYED) {
+            // Під дзвінком/іншим фокусом — не грати зараз; GAIN відновить якщо intended
+            pausedByFocusLoss = true;
+            pausedByFocusAtMs = System.currentTimeMillis();
+            android.util.Log.i("RadioWatch", "audio focus DELAYED — wait GAIN");
+            return false;
+        }
+        android.util.Log.i("RadioWatch", "audio focus FAILED result=" + result);
+        return false;
     }
 
     private void abandonFocus() {
@@ -723,6 +737,40 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         } catch (Exception e) {
             return false;
         }
+    }
+
+    private boolean isUserPaused() {
+        return PlaybackPrefs.REASON_USER.equals(PlaybackPrefs.getPauseReason(this));
+    }
+
+    /** Авто: reconnect / network / probe / GAIN-stale / BT timeout. */
+    private boolean canAutoStartPlayback(String why) {
+        if (isVoiceCallActive()) {
+            android.util.Log.i("RadioWatch", "autoStart block voice (" + why + ")");
+            return false;
+        }
+        if (isUserPaused()) {
+            android.util.Log.i("RadioWatch", "autoStart block USER (" + why + ")");
+            return false;
+        }
+        if (!PlaybackPrefs.isIntended(this)) {
+            android.util.Log.i("RadioWatch", "autoStart block not intended (" + why + ")");
+            return false;
+        }
+        if (pausedByFocusLoss) {
+            android.util.Log.i("RadioWatch", "autoStart block focus-loss (" + why + ")");
+            return false;
+        }
+        return true;
+    }
+
+    /** Кнопка / session / notif PLAY — після USER ок, під дзвінком ні. */
+    private boolean canExplicitPlay(String why) {
+        if (isVoiceCallActive()) {
+            android.util.Log.i("RadioWatch", "explicitPlay block voice (" + why + ")");
+            return false;
+        }
+        return true;
     }
 
     /**
@@ -837,7 +885,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                     SharedPreferences spGain = getSharedPreferences(
                         BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE);
                     boolean wantPlay = spGain.getBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, false);
-                    if (!wantPlay) {
+                    if (!wantPlay || isUserPaused()) {
                         pausedByFocusLoss = false;
                         pausedByFocusAtMs = 0L;
                         return;
@@ -873,6 +921,9 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         long now = System.currentTimeMillis();
         if (now - lastSkipMs < 600) return;
         lastSkipMs = now;
+        // Явний skip з UI/нотифікації — як Play: зняти USER
+        PlaybackPrefs.setPauseReason(this, PlaybackPrefs.REASON_NONE);
+        setIntendedPlaying(true);
 
         SharedPreferences p = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE);
         String skipMode = p.getString(BluetoothAutoPlayPlugin.KEY_SKIP_MODE, "radio");
@@ -1459,6 +1510,16 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             // (інакше після паузи без «чистого» DISCONNECT автостарт мертвий).
             // Захист від паузи при живому BT: cancelWatchProbes + KEY_PLAY=false +
             // короткий debounce лише якщо CONNECTED прийшов одразу після паузи (<3с).
+            if (isUserPaused()) {
+                android.util.Log.i("RadioWatch", "ACTION_BT ignored — USER pause");
+                notifyForeground();
+                return START_STICKY;
+            }
+            if (isVoiceCallActive()) {
+                android.util.Log.i("RadioWatch", "ACTION_BT ignored — voice call");
+                notifyForeground();
+                return START_STICKY;
+            }
             long pausedAt = spBt.getLong("userPausedWhileBtAt", 0L);
             boolean userPaused = spBt.getBoolean(BluetoothAutoPlayPlugin.KEY_USER_PAUSED_BT, false);
             long nowBt2 = System.currentTimeMillis();
@@ -1516,17 +1577,31 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             }
             awaitingHeadUnitPlay = false;
             cancelHeadUnitPlayWait();
-            setUserPausedWhileBt(false);
-            PlaybackPrefs.setPauseReason(this, PlaybackPrefs.REASON_NONE);
-            setIntendedPlaying(true);
+            if (!canAutoStartPlayback("headphone-fallback")) {
+                // Якщо ще не intended (перший connect) — дозволити автостарт без USER/voice
+                if (isUserPaused() || isVoiceCallActive()) {
+                    return START_STICKY;
+                }
+                if (!PlaybackPrefs.isIntended(this)) {
+                    setUserPausedWhileBt(false);
+                    PlaybackPrefs.setPauseReason(this, PlaybackPrefs.REASON_NONE);
+                    setIntendedPlaying(true);
+                } else {
+                    return START_STICKY;
+                }
+            }
             playShieldUntilMs = System.currentTimeMillis() + PLAY_SHIELD_MS;
             playWhenBtRouteReady("headphone-fallback");
             return START_STICKY;
         }
 
         if (ACTION_PLAY.equals(action) || ACTION_NOTIF_PLAY.equals(action)) {
+            if (!canExplicitPlay("action-play")) {
+                return START_STICKY;
+            }
             cancelHeadUnitPlayWait();
             setUserPausedWhileBt(false);
+            PlaybackPrefs.setPauseReason(this, PlaybackPrefs.REASON_NONE);
             setIntendedPlaying(true);
             playShieldUntilMs = System.currentTimeMillis() + PLAY_SHIELD_MS;
             playLast();
@@ -1543,7 +1618,11 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         }
 
         if (ACTION_PLAY_URL.equals(action) && intent != null) {
+            if (!canExplicitPlay("play-url")) {
+                return START_STICKY;
+            }
             setUserPausedWhileBt(false);
+            PlaybackPrefs.setPauseReason(this, PlaybackPrefs.REASON_NONE);
             String url = intent.getStringExtra(EXTRA_URL);
             String name = intent.getStringExtra(EXTRA_NAME);
             SharedPreferences.Editor ed = getSharedPreferences(
@@ -1746,39 +1825,15 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         // Не затираємо intended при soft focus, інакше AUDIOFOCUS_GAIN не відновить ефір.
         // ROUTE_LOST (disconnect) ≠ USER_PAUSE (палець) — інакше «вийшов→сів» ламається.
         boolean asUser = "USER_PAUSE".equals(reason) || "ACTION_PAUSE".equals(reason);
-        if (asUser && pausedByFocusLoss) {
-            boolean stillBt = false;
-            try {
-                android.bluetooth.BluetoothAdapter a =
-                    android.bluetooth.BluetoothAdapter.getDefaultAdapter();
-                stillBt = a != null && a.isEnabled() && BtAudio.hasRoute(this);
-            } catch (Exception ignored) {}
-            if (stillBt) {
-                android.util.Log.i("RadioWatch",
-                    "forceStopPlayback soft — focus loss + BT still up (likely call/SCO)");
-                if (player != null) {
-                    try {
-                        player.setPlayWhenReady(false);
-                        player.pause();
-                    } catch (Exception e) {
-                        android.util.Log.w("RadioWatch", "forceStop soft player", e);
-                    }
-                }
-                PlaybackPrefs.setPauseReason(this, PlaybackPrefs.REASON_FOCUS);
-                writeActuallyPlaying(false);
-                notifyForeground();
-                notifyUiPlayback(false);
-                try { notifyUiStatus(getString(R.string.pause), 0); } catch (Exception ignored) {}
-                return;
-            }
-            android.util.Log.i("RadioWatch",
-                "forceStopPlayback full — focus loss but BT gone (left car during call)");
-        }
+        // Явний USER завжди повний (не FOCUS) — інакше GAIN/reconnect піднімуть ефір
         pausedByFocusLoss = false;
         ignoreNoisyUntilMs = 0L;
         sawA2dpAfterBtStart = false;
         cancelBtTicks();
         cancelWatchProbes();
+        if (reconnectHandler != null) {
+            reconnectHandler.removeCallbacksAndMessages(null);
+        }
 
         boolean routeLost = "ROUTE_LOST".equals(reason)
             || (reason != null && (reason.startsWith("NOISY")
@@ -2252,6 +2307,14 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
 
     private void playUrl(String url) {
         if (url == null || url.isEmpty() || player == null) return;
+        if (isVoiceCallActive()) {
+            android.util.Log.i("RadioWatch", "playUrl skip — voice call");
+            return;
+        }
+        if (isUserPaused()) {
+            android.util.Log.i("RadioWatch", "playUrl skip — USER pause");
+            return;
+        }
         // НЕ форсуємо https — багато потоків лише http
         try {
             long now = System.currentTimeMillis();
@@ -2290,8 +2353,9 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             }
             reconnectAttempt = 0;
 
-            if (!requestFocus()) {
-                android.util.Log.w("RadioWatch", "audio focus not granted");
+            boolean focusOk = requestFocus();
+            if (!focusOk) {
+                android.util.Log.w("RadioWatch", "audio focus not granted — prepare, no playWhenReady");
             }
             lastPlayMs = now;
             lastPlayedUrl = url;
@@ -2329,8 +2393,9 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             player.prepare();
             player.setVolume(1f);
             BtAudio.preferA2dp(this, player);
-            player.setPlayWhenReady(true);
-            if (isLocalMode()) armPositionTicker();
+            // DELAYED/FAILED: не стартувати під чужим фокусом (дзвінок) — чекати GAIN
+            player.setPlayWhenReady(focusOk);
+            if (isLocalMode() && focusOk) armPositionTicker();
             // 0.9.51: reported playing тільки з onIsPlayingChanged — не раніше
             loadStationArtAsync();
             notifyUiStatus(getString(R.string.connecting), 0);
@@ -2459,6 +2524,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                 }
                 String url = resolveReconnectUrl();
                 if (url != null && !url.isEmpty()) {
+                    if (!canAutoStartPlayback("reconnect-heartbeat")) return;
                     reconnectAttempt = attemptHb + 1;
                     lastPlayedUrl = "";
                     lastPlayMs = 0;
@@ -2487,6 +2553,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             String url = resolveReconnectUrl();
             android.util.Log.i("RadioWatch", "reconnect attempt " + attempt + " url=" + url);
             if (url != null && !url.isEmpty()) {
+                if (!canAutoStartPlayback("schedule-reconnect")) return;
                 reconnectAttempt = attempt + 1;
                 lastPlayedUrl = "";
                 lastPlayMs = 0;

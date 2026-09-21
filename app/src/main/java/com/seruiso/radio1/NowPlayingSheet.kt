@@ -313,7 +313,7 @@ fun NowPlayingSheet(
                         track = track,
                         pageArtistFor = { page ->
                             if (nowLocal) nowLocalRows.getOrNull(page)?.artist ?: ""
-                            else artistFromTrackTitle(track)
+                            else artistFromTrackTitle(track, name)
                         },
                         acc = acc,
                         muted = muted,

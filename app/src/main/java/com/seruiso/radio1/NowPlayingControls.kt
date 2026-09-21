@@ -112,26 +112,12 @@ fun NowPlayingMeta(
         }
     }
     // Один рядок: виконавець — трек (або сирий track), майже без відступу під назвою
-    val raw = track.trim()
-    val metaLine = run {
-        if (raw.isBlank()) {
+    val parsed = parseStreamTitle(track, name)
+    val metaLine = parsed.display.ifBlank {
+        if (track.isBlank()) LocalContext.current.getString(R.string.track_unknown2)
+        else if (looksLikeJunk(track) || parseStreamTitle(track, name).display.isBlank())
             LocalContext.current.getString(R.string.track_unknown2)
-        } else {
-            var a = ""
-            var tr = raw
-            for (sep in listOf(" - ", " – ", " — ", " | ")) {
-                val i = raw.indexOf(sep)
-                if (i > 0) {
-                    a = raw.substring(0, i).trim()
-                    tr = raw.substring(i + sep.length).trim()
-                    break
-                }
-            }
-            when {
-                a.isNotBlank() && tr.isNotBlank() -> "$a — $tr"
-                else -> raw
-            }
-        }
+        else track.trim()
     }
     Text(
         metaLine,

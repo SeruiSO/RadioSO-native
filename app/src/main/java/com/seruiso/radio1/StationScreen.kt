@@ -498,7 +498,7 @@ fun StationScreen(
             }
         }
         // Інфо-панель: іконки на всю висоту, пульс як Play, жанр+країна
-        val infoArtist = artistFromTrackTitle(track)
+        val infoArtist = artistFromTrackTitle(track, name)
         val infoPhoto by rememberArtistPhotoUrl(infoArtist, bust = currentUrl)
         val infoH = 100.dp
         val infoBusy = !playing && run {

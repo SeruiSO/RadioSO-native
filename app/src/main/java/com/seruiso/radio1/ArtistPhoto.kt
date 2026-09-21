@@ -20,41 +20,120 @@ import java.net.URLEncoder
 import java.util.concurrent.ConcurrentHashMap
 
 private val TITLE_SEPS = listOf(
-    " - ", " – ", " — ", " | ",
-    " / ", " \\ ", " // ",
-    " • ", " ~ ",
+    " - ", " – ", " — ", " − ", " ‒ ",
+    " | ", " / ", " \\ ", " // ",
+    " • ", " · ", " ~ ", " –",
+    " ~ ", ": ", " – ",
 )
 
-private fun looksLikeJunk(t: String): Boolean {
-    val x = t.trim().lowercase()
+private val JUNK_EXACT = setOf(
+    "unknown", "n/a", "na", "null", "-", "--", "---", "untitled", "no title",
+    "advert", "advertisement", "commercial", "promo", "jingle", "id",
+    "ident", "bumper", "sweeper", "break", "news", "weather", "traffic",
+    "live", "on air", "on-air", "onair", "air", "studio", "studia",
+    "studia air", "studio air", "studio on air",
+    "radio", "fm", "am", "dj", "mc", "mix", "megamix",
+    "ефір", "в ефірі", "студія", "реклама", "новини", "перерва",
+    "lux", "lux fm", "люкс", "люкс фм",
+)
+
+private val JUNK_CONTAINS = listOf(
+    "studia air", "studio air", "on air", "on-air",
+    "advert", "jingle", "реклама", "в ефірі",
+)
+
+private val PREFIXES = listOf(
+    "now playing:", "now playing -", "nowplaying:", "np:", "playing:",
+    "streamtitle=", "title:", "track:", "song:", "current:",
+)
+
+data class ParsedTrack(val artist: String, val title: String) {
+    val display: String
+        get() = when {
+            artist.isNotBlank() && title.isNotBlank() -> "$artist — $title"
+            title.isNotBlank() -> title
+            artist.isNotBlank() -> artist
+            else -> ""
+        }
+}
+
+private fun stripIcyNoise(raw: String): String {
+    var s = raw.replace("\u0000", " ").replace('\u00a0', ' ')
+    s = s.replace("StreamTitle=", "", ignoreCase = true)
+    s = s.replace("StreamUrl=", "", ignoreCase = true)
+    s = s.trim().trim('\'', '"', '`')
+    s = s.replace(Regex("""\s+"""), " ").trim()
+    val low = s.lowercase()
+    for (p in PREFIXES) {
+        if (low.startsWith(p)) {
+            s = s.substring(p.length).trim().trim('\'', '"')
+            break
+        }
+    }
+    // «STUDIA AIR @@», «***», «###»
+    s = s.replace(Regex("""[@#*_~]{2,}"""), " ").replace(Regex("""\s+"""), " ").trim()
+    return s
+}
+
+fun looksLikeJunk(t: String): Boolean {
+    val x = stripIcyNoise(t).lowercase()
     if (x.length < 2) return true
-    if (x in setOf("unknown", "n/a", "null", "-", "--", "---", "advert",
-            "advertisement", "commercial", "promo", "jingle", "id")) return true
+    if (x in JUNK_EXACT) return true
+    if (JUNK_CONTAINS.any { x.contains(it) }) return true
     if (x.startsWith("http") || x.contains("www.")) return true
+    val letters = x.count { it.isLetter() }
+    if (letters < 2) return true
+    val punct = x.count { !it.isLetterOrDigit() && !it.isWhitespace() }
+    if (x.isNotEmpty() && punct * 2 >= x.length) return true
     return false
 }
 
-/**
- * Виконавець з ICY StreamTitle: ліва частина до першого роздільника з пробілами.
- * Голий / і \ не чіпаємо (AC/DC). Лише " / " і " \ ".
- */
-fun artistFromTrackTitle(title: String): String {
-    val t = title.trim()
-    if (t.isEmpty() || looksLikeJunk(t)) return ""
+private fun sameStation(part: String, station: String): Boolean {
+    if (station.isBlank()) return false
+    val a = stripIcyNoise(part).lowercase()
+    val b = station.trim().lowercase()
+    if (a.length < 3 || b.length < 3) return false
+    if (a == b) return true
+    if (a.contains(b) || b.contains(a)) return true
+    return false
+}
+
+fun parseStreamTitle(raw: String, stationName: String = ""): ParsedTrack {
+    val t = stripIcyNoise(raw)
+    if (t.isEmpty() || looksLikeJunk(t) || sameStation(t, stationName)) {
+        return ParsedTrack("", "")
+    }
+    var left = ""
+    var right = ""
     for (sep in TITLE_SEPS) {
         val idx = t.indexOf(sep)
         if (idx > 0) {
-            val a = t.substring(0, idx).trim()
-            if (a.length in 2..80 && !looksLikeJunk(a)) return a
+            left = t.substring(0, idx).trim()
+            right = t.substring(idx + sep.length).trim()
+            if (left.isNotEmpty() && right.isNotEmpty()) break
         }
     }
-    return ""
+    if (left.isEmpty() || right.isEmpty()) {
+        // Немає «артист — трек» — не вигадуємо виконавця з слогана
+        return ParsedTrack("", "")
+    }
+    // «Lux FM - Song» → пісня без фейкового артиста
+    if (looksLikeJunk(left) || sameStation(left, stationName)) {
+        val nested = parseStreamTitle(right, stationName)
+        return if (nested.display.isNotBlank()) nested else ParsedTrack("", right)
+    }
+    if (looksLikeJunk(right)) return ParsedTrack("", "")
+    if (left.length in 2..80) return ParsedTrack(left, right)
+    return ParsedTrack("", t)
 }
 
 /**
- * "A & B", "A feat. B", "A / B" (з пробілами) → ["A", "B"].
- * Голий слеш не сплітить.
+ * Виконавець з ICY StreamTitle. Слоган/ефір/назва станції → порожньо (без фото).
  */
+fun artistFromTrackTitle(title: String, stationName: String = ""): String {
+    return parseStreamTitle(title, stationName).artist
+}
+
 fun splitArtists(raw: String): List<String> {
     var s = raw.trim()
     if (s.isEmpty()) return emptyList()
@@ -171,15 +250,38 @@ private fun httpGetJson(urlStr: String, accept: String): String {
     }
 }
 
+private fun normName(s: String): String =
+    s.lowercase().replace(Regex("[^\\p{L}\\p{N}]+"), " ").replace(Regex("\\s+"), " ").trim()
+
+private fun similarArtist(query: String, result: String): Boolean {
+    val q = normName(query)
+    val r = normName(result)
+    if (q.length < 2 || r.length < 2) return false
+    if (q == r) return true
+    if (q.length >= 4 && (r.contains(q) || q.contains(r))) return true
+    val qt = q.split(" ").filter { it.length > 1 }
+    if (qt.isEmpty()) return false
+    val rt = r.split(" ").toSet()
+    val hit = qt.count { it in rt }
+    return hit * 2 >= qt.size && hit >= 1
+}
+
 private fun deezerArtistPhoto(artist: String): String? = try {
     val q = URLEncoder.encode(artist, "UTF-8")
-    val body = httpGetJson("https://api.deezer.com/search/artist?q=$q&limit=1", "application/json")
-    val arr = JSONObject(body).optJSONArray("data")
-    if (arr != null && arr.length() > 0) {
-        val obj = arr.getJSONObject(0)
-        listOf(obj.optString("picture_big"), obj.optString("picture_medium"), obj.optString("picture"))
-            .firstOrNull { it.isNotBlank() }
-    } else null
+    val body = httpGetJson("https://api.deezer.com/search/artist?q=$q&limit=5", "application/json")
+    val arr = JSONObject(body).optJSONArray("data") ?: return null
+    for (i in 0 until arr.length()) {
+        val obj = arr.getJSONObject(i)
+        val name = obj.optString("name")
+        if (!similarArtist(artist, name)) continue
+        val pic = listOf(
+            obj.optString("picture_big"),
+            obj.optString("picture_medium"),
+            obj.optString("picture"),
+        ).firstOrNull { it.isNotBlank() }
+        if (pic != null) return pic
+    }
+    null
 } catch (_: Exception) {
     null
 }
@@ -188,15 +290,20 @@ private fun deezerArtistPhoto(artist: String): String? = try {
 private fun itunesArtistPhoto(artist: String): String? = try {
     val q = URLEncoder.encode(artist, "UTF-8")
     val body = httpGetJson(
-        "https://itunes.apple.com/search?term=$q&entity=musicArtist&limit=1",
+        "https://itunes.apple.com/search?term=$q&entity=musicArtist&limit=5",
         "application/json"
     )
-    val arr = JSONObject(body).optJSONArray("results")
-    if (arr != null && arr.length() > 0) {
-        val raw = arr.getJSONObject(0).optString("artworkUrl100")
-        if (raw.isNotBlank()) raw.replace("100x100bb", "600x600bb").replace("100x100", "600x600")
-        else null
-    } else null
+    val arr = JSONObject(body).optJSONArray("results") ?: return null
+    for (i in 0 until arr.length()) {
+        val obj = arr.getJSONObject(i)
+        val name = obj.optString("artistName")
+        if (!similarArtist(artist, name)) continue
+        val raw = obj.optString("artworkUrl100")
+        if (raw.isNotBlank()) {
+            return raw.replace("100x100bb", "600x600bb").replace("100x100", "600x600")
+        }
+    }
+    null
 } catch (_: Exception) {
     null
 }

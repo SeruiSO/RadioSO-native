@@ -449,11 +449,21 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             @Override
             public void onMediaMetadataChanged(MediaMetadata mediaMetadata) {
                 if (mediaMetadata == null) return;
-                CharSequence title = mediaMetadata.title;
-                if (title == null || title.length() == 0) title = mediaMetadata.displayTitle;
-                if (title != null && title.length() > 0) {
-                    publishTrack(title.toString());
+                String title = metaText(mediaMetadata.title);
+                if (title.isEmpty()) title = metaText(mediaMetadata.displayTitle);
+                String artist = metaText(mediaMetadata.artist);
+                if (artist.isEmpty()) artist = metaText(mediaMetadata.albumArtist);
+                String combined;
+                if (!artist.isEmpty() && !title.isEmpty()
+                        && !title.toLowerCase(java.util.Locale.ROOT)
+                            .contains(artist.toLowerCase(java.util.Locale.ROOT))) {
+                    combined = artist + " - " + title;
+                } else if (!title.isEmpty()) {
+                    combined = title;
+                } else {
+                    combined = artist;
                 }
+                if (!combined.isEmpty()) publishTrack(combined);
             }
 
             @Override
@@ -2614,10 +2624,32 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
     }
 
 
+    private static String metaText(CharSequence cs) {
+        return cs == null ? "" : cs.toString().trim();
+    }
+
+    private static boolean icyLooksJunk(String t) {
+        if (t == null) return true;
+        String x = t.trim().toLowerCase(java.util.Locale.ROOT);
+        if (x.length() < 2) return true;
+        if (x.contains("studia air") || x.contains("studio air") || x.contains("on air")) return true;
+        if (x.equals("air") || x.equals("studio") || x.equals("studia")) return true;
+        if (x.contains("реклама") || x.contains("jingle")) return true;
+        x = x.replaceAll("[@#*_~]{2,}", " ").replaceAll("\\s+", " ").trim();
+        return x.length() < 2;
+    }
+
     private void publishTrack(String title) {
         if (title == null) return;
-        title = title.replace("StreamTitle=", "").replace("'", "").trim();
+        title = title.replace("StreamTitle=", "").replace("StreamUrl=", "")
+            .replace("'", "").replace("\"", "").trim();
+        title = title.replaceAll("[@#*_~]{2,}", " ").replaceAll("\\s+", " ").trim();
         if (title.isEmpty() || title.equalsIgnoreCase(currentName)) return;
+        if (icyLooksJunk(title)) {
+            // Студійний слоган (Lux STUDIA AIR) — не оновлювати трек/фото
+            android.util.Log.i("RadioWatch", "ICY junk skip: " + title);
+            return;
+        }
         if (title.equals(lastTrackTitle)) return;
         lastTrackTitle = title;
         getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)

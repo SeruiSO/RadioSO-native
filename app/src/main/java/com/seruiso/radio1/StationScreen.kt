@@ -498,10 +498,8 @@ fun StationScreen(
             }
         }
         // Інфо-панель: іконки на всю висоту, пульс як Play, жанр+країна
-        val infoParsed = parseStreamTitle(track, name)
-        val infoArtist = infoParsed.artist
-        val infoTrackLine = infoParsed.display.ifBlank { track }
-        val infoPhoto by rememberArtistPhotoUrl(infoArtist, bust = currentUrl + "|" + infoArtist)
+        val infoArtist = artistFromTrackTitle(track)
+        val infoPhoto by rememberArtistPhotoUrl(infoArtist, bust = currentUrl)
         val infoH = 100.dp
         val infoBusy = !playing && run {
             val stt = status.lowercase()
@@ -574,7 +572,7 @@ fun StationScreen(
                         ),
                     )
                     Text(
-                        if (infoTrackLine.isNotBlank()) infoTrackLine else LocalContext.current.getString(R.string.track_unknown),
+                        if (track.isNotBlank()) track else LocalContext.current.getString(R.string.track_unknown),
                         color = text,
                         maxLines = 3,
                         overflow = TextOverflow.Ellipsis,
@@ -825,7 +823,7 @@ fun StationScreen(
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Text(
-                        if (infoTrackLine.isNotBlank()) infoTrackLine else LocalContext.current.getString(R.string.track_unknown),
+                        if (track.isNotBlank()) track else LocalContext.current.getString(R.string.track_unknown),
                         color = text,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,

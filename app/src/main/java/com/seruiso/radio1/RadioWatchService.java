@@ -201,9 +201,6 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         INSTANCE = this;
         createChannel();
         audioManager = (AudioManager) getSystemService(AUDIO_SERVICE);
-        if (mainHandler == null) {
-            mainHandler = new android.os.Handler(android.os.Looper.getMainLooper());
-        }
         registerPlaybackCallback();
         // Живий радіопотік: менший minBuffer — менше «затягувати» 320 kbps на старті.
         // bufferForPlaybackAfterRebufferMs=1000 — швидке повернення звуку після короткого збою.
@@ -790,36 +787,46 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         return true;
     }
 
-    /** Чи грає чужий media/movie (Chrome, Telegram, …) — навіть без audio focus. */
+    /** Чи атрибути схожі на media/відео/голос (не системний клік). */
+    private static boolean isMediaLikeAttrs(AudioAttributes a) {
+        if (a == null) return false;
+        int usage = a.getUsage();
+        int content = a.getContentType();
+        if (usage == AudioAttributes.USAGE_NOTIFICATION
+                || usage == AudioAttributes.USAGE_NOTIFICATION_RINGTONE
+                || usage == AudioAttributes.USAGE_ALARM
+                || usage == AudioAttributes.USAGE_ASSISTANCE_SONIFICATION
+                || usage == AudioAttributes.USAGE_ASSISTANCE_ACCESSIBILITY) {
+            return false;
+        }
+        return usage == AudioAttributes.USAGE_MEDIA
+                || usage == AudioAttributes.USAGE_GAME
+                || usage == AudioAttributes.USAGE_VOICE_COMMUNICATION
+                || usage == AudioAttributes.USAGE_ASSISTANT
+                || content == AudioAttributes.CONTENT_TYPE_MOVIE
+                || content == AudioAttributes.CONTENT_TYPE_MUSIC
+                || content == AudioAttributes.CONTENT_TYPE_SPEECH;
+    }
+
+    /**
+     * getClientPackageName() — SystemApi, немає в SDK.
+     * Публічно лише getAudioAttributes(). Чужий media = більше media-конфігів,
+     * ніж наше радіо (ми 0 або 1).
+     */
     private boolean isForeignMediaActive(List<AudioPlaybackConfiguration> configs) {
         if (configs == null || configs.isEmpty()) return false;
-        String self = getPackageName();
+        int mediaLike = 0;
         for (AudioPlaybackConfiguration cfg : configs) {
             try {
-                String pkg = cfg.getClientPackageName();
-                if (pkg != null && pkg.equals(self)) continue;
-                AudioAttributes a = cfg.getAudioAttributes();
-                if (a == null) continue;
-                int usage = a.getUsage();
-                int content = a.getContentType();
-                // Ігнор системних кліків / нотифікацій / будильника
-                if (usage == AudioAttributes.USAGE_NOTIFICATION
-                        || usage == AudioAttributes.USAGE_NOTIFICATION_RINGTONE
-                        || usage == AudioAttributes.USAGE_ALARM
-                        || usage == AudioAttributes.USAGE_ASSISTANCE_SONIFICATION
-                        || usage == AudioAttributes.USAGE_ASSISTANCE_ACCESSIBILITY) {
-                    continue;
-                }
-                if (usage == AudioAttributes.USAGE_MEDIA
-                        || usage == AudioAttributes.USAGE_GAME
-                        || content == AudioAttributes.CONTENT_TYPE_MOVIE
-                        || content == AudioAttributes.CONTENT_TYPE_MUSIC
-                        || content == AudioAttributes.CONTENT_TYPE_SPEECH) {
-                    return true;
-                }
+                if (isMediaLikeAttrs(cfg.getAudioAttributes())) mediaLike++;
             } catch (Exception ignored) {}
         }
-        return false;
+        boolean wePlay = false;
+        try {
+            wePlay = player != null && (player.isPlaying() || player.getPlayWhenReady());
+        } catch (Exception ignored) {}
+        // Ми граємо + хтось ще → ≥2. Ми на паузі, а media є → ≥1 (Telegram/Chrome).
+        return wePlay ? mediaLike >= 2 : mediaLike >= 1;
     }
 
     private void onForeignMediaChanged(boolean foreignActive) {
@@ -875,6 +882,19 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         notifyForeground();
     }
 
+    private Runnable foreignPoll;
+
+    private void tickForeignMedia() {
+        if (audioManager == null || Build.VERSION.SDK_INT < 26) return;
+        try {
+            List<AudioPlaybackConfiguration> configs =
+                    audioManager.getActivePlaybackConfigurations();
+            onForeignMediaChanged(isForeignMediaActive(configs));
+        } catch (Exception e) {
+            android.util.Log.w("RadioWatch", "tickForeignMedia", e);
+        }
+    }
+
     private void registerPlaybackCallback() {
         if (audioManager == null || Build.VERSION.SDK_INT < 26) return;
         if (playbackCallback != null) return;
@@ -892,9 +912,22 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             android.util.Log.w("RadioWatch", "registerAudioPlaybackCallback", e);
             playbackCallback = null;
         }
+        if (foreignPoll == null) {
+            foreignPoll = new Runnable() {
+                @Override public void run() {
+                    tickForeignMedia();
+                    try { mainHandler.postDelayed(this, 1500L); } catch (Exception ignored) {}
+                }
+            };
+            mainHandler.postDelayed(foreignPoll, 1500L);
+        }
     }
 
     private void unregisterPlaybackCallback() {
+        if (foreignPoll != null && mainHandler != null) {
+            try { mainHandler.removeCallbacks(foreignPoll); } catch (Exception ignored) {}
+            foreignPoll = null;
+        }
         if (audioManager == null || playbackCallback == null) return;
         try {
             audioManager.unregisterAudioPlaybackCallback(playbackCallback);

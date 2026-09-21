@@ -266,7 +266,8 @@ private fun similarArtist(query: String, result: String): Boolean {
     return hit * 2 >= qt.size && hit >= 1
 }
 
-private fun deezerArtistPhoto(artist: String): String? = try {
+private fun deezerArtistPhoto(artist: String): String? {
+    return try {
     val q = URLEncoder.encode(artist, "UTF-8")
     val body = httpGetJson("https://api.deezer.com/search/artist?q=$q&limit=5", "application/json")
     val arr = JSONObject(body).optJSONArray("data") ?: return null
@@ -283,11 +284,13 @@ private fun deezerArtistPhoto(artist: String): String? = try {
     }
     null
 } catch (_: Exception) {
-    null
+        null
+    }
 }
 
 /** iTunes Search — fallback після Deezer. */
-private fun itunesArtistPhoto(artist: String): String? = try {
+private fun itunesArtistPhoto(artist: String): String? {
+    return try {
     val q = URLEncoder.encode(artist, "UTF-8")
     val body = httpGetJson(
         "https://itunes.apple.com/search?term=$q&entity=musicArtist&limit=5",
@@ -305,7 +308,8 @@ private fun itunesArtistPhoto(artist: String): String? = try {
     }
     null
 } catch (_: Exception) {
-    null
+        null
+    }
 }
 
 private suspend fun photoForSingleArtist(ctx: Context, artist: String): String? {

@@ -28,6 +28,8 @@ import android.net.NetworkRequest;
 import android.media.AudioAttributes;
 import android.media.AudioFocusRequest;
 import android.media.AudioManager;
+import android.media.AudioPlaybackConfiguration;
+import java.util.List;
 import android.os.Build;
 import android.os.IBinder;
 import androidx.annotation.Nullable;
@@ -93,6 +95,9 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
     private long pausedByFocusAtMs = 0L;
     /** AUDIOFOCUS_LOSS (не transient): без авто-resume, лише явний Play. */
     private boolean permanentFocusLoss = false;
+    /** Пауза бо інший app грає media (Telegram/Chrome без focus). */
+    private boolean pausedByOtherMedia = false;
+    private AudioManager.AudioPlaybackCallback playbackCallback;
     private String lastTrackTitle = "";
     private Bitmap stationArt = null;
     private String stationArtUrl = "";
@@ -196,6 +201,10 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         INSTANCE = this;
         createChannel();
         audioManager = (AudioManager) getSystemService(AUDIO_SERVICE);
+        if (mainHandler == null) {
+            mainHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+        }
+        registerPlaybackCallback();
         // Живий радіопотік: менший minBuffer — менше «затягувати» 320 kbps на старті.
         // bufferForPlaybackAfterRebufferMs=1000 — швидке повернення звуку після короткого збою.
         DefaultLoadControl loadControl = new DefaultLoadControl.Builder()
@@ -777,7 +786,120 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             return false;
         }
         permanentFocusLoss = false;
+        pausedByOtherMedia = false;
         return true;
+    }
+
+    /** Чи грає чужий media/movie (Chrome, Telegram, …) — навіть без audio focus. */
+    private boolean isForeignMediaActive(List<AudioPlaybackConfiguration> configs) {
+        if (configs == null || configs.isEmpty()) return false;
+        String self = getPackageName();
+        for (AudioPlaybackConfiguration cfg : configs) {
+            try {
+                String pkg = cfg.getClientPackageName();
+                if (pkg != null && pkg.equals(self)) continue;
+                AudioAttributes a = cfg.getAudioAttributes();
+                if (a == null) continue;
+                int usage = a.getUsage();
+                int content = a.getContentType();
+                // Ігнор системних кліків / нотифікацій / будильника
+                if (usage == AudioAttributes.USAGE_NOTIFICATION
+                        || usage == AudioAttributes.USAGE_NOTIFICATION_RINGTONE
+                        || usage == AudioAttributes.USAGE_ALARM
+                        || usage == AudioAttributes.USAGE_ASSISTANCE_SONIFICATION
+                        || usage == AudioAttributes.USAGE_ASSISTANCE_ACCESSIBILITY) {
+                    continue;
+                }
+                if (usage == AudioAttributes.USAGE_MEDIA
+                        || usage == AudioAttributes.USAGE_GAME
+                        || content == AudioAttributes.CONTENT_TYPE_MOVIE
+                        || content == AudioAttributes.CONTENT_TYPE_MUSIC
+                        || content == AudioAttributes.CONTENT_TYPE_SPEECH) {
+                    return true;
+                }
+            } catch (Exception ignored) {}
+        }
+        return false;
+    }
+
+    private void onForeignMediaChanged(boolean foreignActive) {
+        if (player == null) return;
+        if (foreignActive) {
+            if (!(player.isPlaying() || player.getPlayWhenReady())) return;
+            if (isUserPaused()) return;
+            android.util.Log.i("RadioWatch", "foreign media active — pause radio");
+            if (reconnectHandler != null) {
+                reconnectHandler.removeCallbacksAndMessages(null);
+            }
+            pausedByOtherMedia = true;
+            pausedByFocusLoss = true;
+            pausedByFocusAtMs = System.currentTimeMillis();
+            permanentFocusLoss = false;
+            try {
+                player.setPlayWhenReady(false);
+                player.pause();
+            } catch (Exception e) {
+                android.util.Log.w("RadioWatch", "foreign pause", e);
+            }
+            notifyForeground();
+            try { notifyUiPlayback(false); } catch (Exception ignored) {}
+            return;
+        }
+        // Чужий media зупинився
+        if (!pausedByOtherMedia) return;
+        pausedByOtherMedia = false;
+        if (isUserPaused() || isVoiceCallActive()) {
+            pausedByFocusLoss = false;
+            return;
+        }
+        if (!PlaybackPrefs.isIntended(this)) {
+            pausedByFocusLoss = false;
+            return;
+        }
+        android.util.Log.i("RadioWatch", "foreign media ended — resume radio");
+        pausedByFocusLoss = false;
+        permanentFocusLoss = false;
+        try {
+            if (requestFocus()) {
+                player.setVolume(1f);
+                player.setPlayWhenReady(true);
+                notifyUiPlayback(true);
+                notifyUiStatus(getString(R.string.playing), 0);
+            } else {
+                // DELAYED — GAIN підхопить
+                pausedByFocusLoss = true;
+            }
+        } catch (Exception e) {
+            android.util.Log.w("RadioWatch", "foreign resume", e);
+        }
+        notifyForeground();
+    }
+
+    private void registerPlaybackCallback() {
+        if (audioManager == null || Build.VERSION.SDK_INT < 26) return;
+        if (playbackCallback != null) return;
+        playbackCallback = new AudioManager.AudioPlaybackCallback() {
+            @Override
+            public void onPlaybackConfigChanged(List<AudioPlaybackConfiguration> configs) {
+                final boolean foreign = isForeignMediaActive(configs);
+                mainHandler.post(() -> onForeignMediaChanged(foreign));
+            }
+        };
+        try {
+            audioManager.registerAudioPlaybackCallback(playbackCallback, mainHandler);
+            android.util.Log.i("RadioWatch", "AudioPlaybackCallback registered");
+        } catch (Exception e) {
+            android.util.Log.w("RadioWatch", "registerAudioPlaybackCallback", e);
+            playbackCallback = null;
+        }
+    }
+
+    private void unregisterPlaybackCallback() {
+        if (audioManager == null || playbackCallback == null) return;
+        try {
+            audioManager.unregisterAudioPlaybackCallback(playbackCallback);
+        } catch (Exception ignored) {}
+        playbackCallback = null;
     }
 
     /**
@@ -888,28 +1010,33 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                 break;
             }
             case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK:
-                // VoIP інколи дає CAN_DUCK замість LOSS — під розмову треба пауза, не 0.2 volume.
-                if (isVoiceCallActive()) {
-                    if (player.isPlaying() || player.getPlayWhenReady()) {
-                        pausedByFocusLoss = true;
-                        pausedByFocusAtMs = System.currentTimeMillis();
-                        player.pause();
-                        notifyForeground();
+                // Telegram/інші часто лише CAN_DUCK: volume 0.2 + паралель + GAIN не завжди.
+                // Краще коротка пауза (як TRANSIENT), resume на GAIN.
+                if (player.isPlaying() || player.getPlayWhenReady()) {
+                    if (reconnectHandler != null) {
+                        reconnectHandler.removeCallbacksAndMessages(null);
                     }
-                    break;
-                }
-                // Короткий системний звук — лише притишити
-                if (player.isPlaying()) {
-                    player.setVolume(0.2f);
+                    permanentFocusLoss = false;
+                    pausedByFocusLoss = true;
+                    pausedByFocusAtMs = System.currentTimeMillis();
+                    try { player.setVolume(1f); } catch (Exception ignored) {}
+                    player.pause();
+                    notifyForeground();
+                    try { notifyUiPlayback(false); } catch (Exception ignored) {}
+                    android.util.Log.i("RadioWatch", "focus CAN_DUCK — pause (not duck volume)");
                 }
                 break;
             case AudioManager.AUDIOFOCUS_GAIN:
-                // Не піднімати volume під активний VoIP
+                // Завжди вертати гучність (після duck/Telegram), крім активного call
                 if (!isVoiceCallActive()) {
-                    player.setVolume(1f);
+                    try { player.setVolume(1f); } catch (Exception ignored) {}
                 }
-                // Якщо система все ж дала GAIN — permanent знімаємо
                 permanentFocusLoss = false;
+                // Якщо лише volume був 0.2 без pausedByFocusLoss — GAIN уже відновив volume вище
+                if (!pausedByFocusLoss && !pausedByOtherMedia) break;
+                if (pausedByOtherMedia && !pausedByFocusLoss) {
+                    // resume лише з callback-шляху нижче через tryResumeAfterExternalMedia
+                }
                 if (!pausedByFocusLoss) break;
                 new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
                     if (player == null) return;
@@ -2659,6 +2786,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             try { connectivityManager.unregisterNetworkCallback(networkCallback); } catch (Exception ignored) {}
             networkCallbackRegistered = false;
         }
+        unregisterPlaybackCallback();
         if (reconnectHandler != null) {
             reconnectHandler.removeCallbacksAndMessages(null);
         }

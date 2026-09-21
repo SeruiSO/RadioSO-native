@@ -295,47 +295,73 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
                     Text(s.name, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text("${s.genre} · ${s.country}", color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
                 }
-                Icon(
-                    if (favUrls.contains(s.url)) Icons.Filled.Star else Icons.Filled.StarBorder,
-                    contentDescription = if (favUrls.contains(s.url)) LocalContext.current.getString(R.string.remove_from_favorites) else LocalContext.current.getString(R.string.add_to_favorites),
-                    tint = acc,
-                    modifier = Modifier
-                        .clickable {
-                            buzz(true)
-                            actions.onToggleFav(s)
-                        }
-                        .padding(start = 2.dp, end = 0.dp)
-                        .size(36.dp)
-                        .padding(6.dp)
-                )
                 if (tabs.getOrNull(tabIndex) == "search") {
-                    Text(
-                        "+",
-                        color = acc,
-                        style = MaterialTheme.typography.headlineMedium,
-                        modifier = Modifier
-                            .clickable {
-                                buzz(true)
-                                actions.onAddToTab(s)
-                            }
-                            .padding(start = 0.dp, end = 0.dp)
-                            .size(36.dp)
-                            .padding(4.dp)
-                    )
-                } else if (tabs.getOrNull(tabIndex) != "fav") {
+                    // ★ і + в одному ряду, однакова висота, притиснуті вправо
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(start = 2.dp, end = 0.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clickable {
+                                    buzz(true)
+                                    actions.onToggleFav(s)
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                if (favUrls.contains(s.url)) Icons.Filled.Star else Icons.Filled.StarBorder,
+                                contentDescription = if (favUrls.contains(s.url)) LocalContext.current.getString(R.string.remove_from_favorites) else LocalContext.current.getString(R.string.add_to_favorites),
+                                tint = acc,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clickable {
+                                    buzz(true)
+                                    actions.onAddToTab(s)
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                "+",
+                                color = acc,
+                                style = MaterialTheme.typography.titleLarge,
+                            )
+                        }
+                    }
+                } else {
                     Icon(
-                        Icons.Filled.Delete,
-                        contentDescription = LocalContext.current.getString(R.string.delete_station),
-                        tint = muted,
+                        if (favUrls.contains(s.url)) Icons.Filled.Star else Icons.Filled.StarBorder,
+                        contentDescription = if (favUrls.contains(s.url)) LocalContext.current.getString(R.string.remove_from_favorites) else LocalContext.current.getString(R.string.add_to_favorites),
+                        tint = acc,
                         modifier = Modifier
                             .clickable {
                                 buzz(true)
-                                actions.onAskDelete(s)
+                                actions.onToggleFav(s)
                             }
                             .padding(start = 2.dp, end = 0.dp)
                             .size(36.dp)
                             .padding(6.dp)
                     )
+                    if (tabs.getOrNull(tabIndex) != "fav") {
+                        Icon(
+                            Icons.Filled.Delete,
+                            contentDescription = LocalContext.current.getString(R.string.delete_station),
+                            tint = muted,
+                            modifier = Modifier
+                                .clickable {
+                                    buzz(true)
+                                    actions.onAskDelete(s)
+                                }
+                                .padding(start = 2.dp, end = 0.dp)
+                                .size(36.dp)
+                                .padding(6.dp)
+                        )
+                    }
                 }
             }
         }

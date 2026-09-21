@@ -1,6 +1,7 @@
 package com.seruiso.radio1;
 import android.bluetooth.BluetoothA2dp;
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothClass;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothHeadset;
 import android.bluetooth.BluetoothProfile;
@@ -54,6 +55,22 @@ public class BluetoothReceiver extends BroadcastReceiver {
         }
     }
 
+
+    /** Годинник/браслет/миша — не ROUTE_LOST і не BT handoff window. */
+    private static boolean isAudioBluetoothDevice(BluetoothDevice device) {
+        if (device == null) return true; // немає extra — не блокуємо (старі інтенти)
+        try {
+            BluetoothClass cls = device.getBluetoothClass();
+            if (cls == null) return true;
+            int major = cls.getMajorDeviceClass();
+            return major == BluetoothClass.Device.Major.AUDIO_VIDEO
+                    || major == BluetoothClass.Device.Major.UNCATEGORIZED
+                    || major == 0;
+        } catch (Exception e) {
+            return true;
+        }
+    }
+
     @Override
     public void onReceive(Context context, Intent intent) {
         if (intent == null || intent.getAction() == null) return;
@@ -79,6 +96,14 @@ public class BluetoothReceiver extends BroadcastReceiver {
         }
 
         if (BluetoothDevice.ACTION_ACL_CONNECTED.equals(action)) {
+            BluetoothDevice devConn = null;
+            try {
+                devConn = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+            } catch (Exception ignored) {}
+            if (!isAudioBluetoothDevice(devConn)) {
+                Log.i(TAG, "ACL_CONNECTED skip — non-audio device");
+                return;
+            }
             // 0.13.73: ACL = лінка є, sink ще може не бути.
             // Не стартуємо play — лише timestamp для handoff-вікна.
             // Play лише з A2DP / Headset STATE_CONNECTED нижче.
@@ -87,6 +112,14 @@ public class BluetoothReceiver extends BroadcastReceiver {
             return;
         }
         if (BluetoothDevice.ACTION_ACL_DISCONNECTED.equals(action)) {
+            BluetoothDevice devDis = null;
+            try {
+                devDis = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+            } catch (Exception ignored) {}
+            if (!isAudioBluetoothDevice(devDis)) {
+                Log.i(TAG, "ACL_DISCONNECTED skip — non-audio device");
+                return;
+            }
             if (!watchOn(app)) return;
             // Класичний BT: стоп. Skip лише жива AA + BT ще on.
             if (aa && btOn()) {
@@ -126,6 +159,7 @@ public class BluetoothReceiver extends BroadcastReceiver {
                 Log.i(TAG, "profile DISCONNECTED skip — live AA");
                 return;
             }
+            try { RadioWatchService.cancelHeadphoneFallback(app); } catch (Exception ignored) {}
             // A2DP disconnect = магнітола пішла (класичний режим)
             try {
                 app.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)

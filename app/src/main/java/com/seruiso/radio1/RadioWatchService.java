@@ -91,6 +91,8 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
     private String currentPlayUrl = "";
     private boolean pausedByFocusLoss = false;
     private long pausedByFocusAtMs = 0L;
+    /** AUDIOFOCUS_LOSS (не transient): без авто-resume, лише явний Play. */
+    private boolean permanentFocusLoss = false;
     private String lastTrackTitle = "";
     private Bitmap stationArt = null;
     private String stationArtUrl = "";
@@ -761,6 +763,10 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             android.util.Log.i("RadioWatch", "autoStart block focus-loss (" + why + ")");
             return false;
         }
+        if (permanentFocusLoss) {
+            android.util.Log.i("RadioWatch", "autoStart block permanent-focus (" + why + ")");
+            return false;
+        }
         return true;
     }
 
@@ -770,6 +776,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             android.util.Log.i("RadioWatch", "explicitPlay block voice (" + why + ")");
             return false;
         }
+        permanentFocusLoss = false;
         return true;
     }
 
@@ -840,23 +847,46 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         if (player == null) return;
         switch (focusChange) {
             case AudioManager.AUDIOFOCUS_LOSS:
-            case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT:
-                // Під час handoff на магнітолу стек інколи краде focus на секунду —
-                // не паузимо в цьому вікні (інакше «тиша після перемикання на BT»).
-                long lastBtFocus = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-                    .getLong(BluetoothAutoPlayPlugin.KEY_LAST_A2DP_MS, 0L);
-                if (System.currentTimeMillis() - lastBtFocus < BT_HANDOFF_WINDOW_MS) {
-                    android.util.Log.i("RadioWatch", "focus loss ignored — BT/AA handoff window");
+            case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT: {
+                boolean transientLoss = (focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT);
+                // Handoff BT/AA: ігнор короткого loss, АЛЕ ніколи під дзвінком
+                if (!isVoiceCallActive()) {
+                    long lastBtFocus = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                        .getLong(BluetoothAutoPlayPlugin.KEY_LAST_A2DP_MS, 0L);
+                    if (System.currentTimeMillis() - lastBtFocus < BT_HANDOFF_WINDOW_MS) {
+                        android.util.Log.i("RadioWatch", "focus loss ignored — BT/AA handoff window");
+                        break;
+                    }
+                }
+                // Скасувати відкладені reconnect під чужим фокусом
+                if (reconnectHandler != null) {
+                    reconnectHandler.removeCallbacksAndMessages(null);
+                }
+                if (!(player.isPlaying() || player.getPlayWhenReady())) {
+                    if (!transientLoss) {
+                        permanentFocusLoss = true;
+                        pausedByFocusLoss = false;
+                    }
                     break;
                 }
-                // відео / дзвінок / інший плеєр — пауза; resume на GAIN якщо intendedPlaying
-                if (player.isPlaying() || player.getPlayWhenReady()) {
+                player.pause();
+                notifyForeground();
+                try { notifyUiPlayback(false); } catch (Exception ignored) {}
+                if (transientLoss) {
+                    // Дзвінок / Assistant — чекаємо GAIN
+                    permanentFocusLoss = false;
                     pausedByFocusLoss = true;
                     pausedByFocusAtMs = System.currentTimeMillis();
-                    player.pause();
-                    notifyForeground();
+                    android.util.Log.i("RadioWatch", "focus LOSS_TRANSIENT — pause, wait GAIN");
+                } else {
+                    // Інший плеєр/відео: GAIN може не прийти — без авто-resume
+                    permanentFocusLoss = true;
+                    pausedByFocusLoss = false;
+                    pausedByFocusAtMs = 0L;
+                    android.util.Log.i("RadioWatch", "focus LOSS permanent — no auto resume");
                 }
                 break;
+            }
             case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK:
                 // VoIP інколи дає CAN_DUCK замість LOSS — під розмову треба пауза, не 0.2 volume.
                 if (isVoiceCallActive()) {
@@ -878,6 +908,8 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                 if (!isVoiceCallActive()) {
                     player.setVolume(1f);
                 }
+                // Якщо система все ж дала GAIN — permanent знімаємо
+                permanentFocusLoss = false;
                 if (!pausedByFocusLoss) break;
                 new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
                     if (player == null) return;
@@ -1834,6 +1866,9 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         if (reconnectHandler != null) {
             reconnectHandler.removeCallbacksAndMessages(null);
         }
+        try { cancelHeadphoneFallback(this); } catch (Exception ignored) {}
+        try { cancelHeadUnitPlayWait(); } catch (Exception ignored) {}
+        permanentFocusLoss = false;
 
         boolean routeLost = "ROUTE_LOST".equals(reason)
             || (reason != null && (reason.startsWith("NOISY")
@@ -1898,9 +1933,12 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         android.util.Log.i("RadioWatch", "ROUTE_LOST grace start (" + why + ")");
         cancelRouteLostGrace();
         try {
-            PlaybackPrefs.setPauseReason(this, PlaybackPrefs.REASON_ROUTE);
+            // Не затирати USER — інакше автостарт/перевірки «думають» що пауза не користувацька
+            if (!isUserPaused()) {
+                PlaybackPrefs.setPauseReason(this, PlaybackPrefs.REASON_ROUTE);
+            }
         } catch (Exception ignored) {}
-        // intended НЕ чистимо — це не USER_STOP
+        // intended НЕ чистимо — це не USER_STOP (крім вже USER)
         try {
             if (player != null) {
                 player.setPlayWhenReady(false);
@@ -1923,16 +1961,17 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                 } catch (Exception ignored) {}
                 if (back) {
                     android.util.Log.i("RadioWatch", "ROUTE_LOST grace cancelled — BT/A2DP back");
-                    if (PlaybackPrefs.isIntended(RadioWatchService.this)) {
+                    if (canAutoStartPlayback("route-grace-back")) {
                         try {
-                            requestFocus();
-                            if (player != null) {
-                                player.setVolume(1f);
-                                player.setPlayWhenReady(true);
+                            if (requestFocus()) {
+                                if (player != null) {
+                                    player.setVolume(1f);
+                                    player.setPlayWhenReady(true);
+                                }
+                                PlaybackPrefs.setPauseReason(RadioWatchService.this, PlaybackPrefs.REASON_NONE);
+                                notifyUiPlayback(true);
+                                notifyUiStatus(getString(R.string.playing), 0);
                             }
-                            PlaybackPrefs.setPauseReason(RadioWatchService.this, PlaybackPrefs.REASON_NONE);
-                            notifyUiPlayback(true);
-                            notifyUiStatus(getString(R.string.playing), 0);
                         } catch (Exception e) {
                             android.util.Log.w("RadioWatch", "route grace resume", e);
                         }

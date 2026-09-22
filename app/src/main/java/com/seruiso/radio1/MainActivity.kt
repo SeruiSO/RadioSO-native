@@ -904,6 +904,8 @@ class MainActivity : ComponentActivity() {
             // «Усі» з Дому → показати список, не now-playing поверх
             nowOpen = false
             menuOpen = false
+            // скасувати in-flight Home rails (мережа)
+            homeRailsGen++
         }
         getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
             .edit().putString("bottomTab", t).apply()

@@ -1143,7 +1143,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                     .putString(BluetoothAutoPlayPlugin.KEY_COUNTRY, countries.optString(index, ""))
                     .putString(BluetoothAutoPlayPlugin.KEY_TRACK, "")
                     .putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, true)
-                    .commit();
+                    .apply();
                 currentName = name;
                 lastTrackTitle = "";
                 stationArt = null; stationArtUrl = ""; artGen++;
@@ -1246,7 +1246,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                 .putString(BluetoothAutoPlayPlugin.KEY_COUNTRY, country != null ? country : "")
                 .putString(BluetoothAutoPlayPlugin.KEY_TRACK, "")
                 .putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, true)
-                .commit(); // commit: reconnect має бачити новий URL одразу
+                .apply(); // apply: у тому ж процесі prefs видно одразу
 
             currentName = name;
             lastTrackTitle = "";
@@ -1268,7 +1268,17 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
 
 
 
+    private void cancelStationArtLoad() {
+        java.net.HttpURLConnection prev = artConn;
+        artConn = null;
+        artGen++;
+        if (prev != null) {
+            try { prev.disconnect(); } catch (Exception ignored) {}
+        }
+    }
+
     private void loadStationArtAsync() {
+
         SharedPreferences sp = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE);
         final String fav = sp.getString(BluetoothAutoPlayPlugin.KEY_FAVICON, "");
         if (fav == null || fav.isEmpty()) {
@@ -1414,6 +1424,14 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             i.putExtra("attempt", attempt);
             sendBroadcast(i);
         } catch (Exception ignored) {}
+    }
+
+    /** Зупинити silence-watch (pause/stop) — не тікати CPU кожні 2с на паузі. */
+    private void disarmSilenceWatch() {
+        if (silenceHandler != null) {
+            silenceHandler.removeCallbacksAndMessages(null);
+        }
+        silenceCheck = null;
     }
 
     private void armSilenceWatch() {
@@ -1638,9 +1656,40 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         sendBroadcast(i);
     }
 
-    @Override
+
+    /** Control-Action (STOP/PAUSE/PLAY_URL/…) — лише explicit Component на наш пакет.
+     *  MediaBrowser bind для AA не зачіпає; implicit ззовні ігноруємо. */
+    private boolean isTrustedControlIntent(Intent intent) {
+        if (intent == null) return false;
+        android.content.ComponentName cn = intent.getComponent();
+        if (cn == null) return false;
+        return getPackageName().equals(cn.getPackageName());
+    }
+
+    private static boolean isControlAction(String action) {
+        if (action == null) return false;
+        return ACTION_STOP.equals(action)
+            || ACTION_PAUSE.equals(action)
+            || ACTION_PLAY.equals(action)
+            || ACTION_PLAY_URL.equals(action)
+            || ACTION_SEEK.equals(action)
+            || ACTION_BT.equals(action)
+            || ACTION_ROUTE_LOST.equals(action)
+            || ACTION_NOTIF_PLAY.equals(action)
+            || ACTION_NOTIF_PAUSE.equals(action)
+            || ACTION_NOTIF_NEXT.equals(action)
+            || ACTION_NOTIF_PREV.equals(action)
+            || ACTION_MEDIA_NEXT.equals(action)
+            || ACTION_MEDIA_PREV.equals(action);
+    }
+
+        @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        notifyForeground();
+                if (intent != null && isControlAction(intent.getAction()) && !isTrustedControlIntent(intent)) {
+            android.util.Log.w("RadioWatch", "ignore untrusted control: " + intent.getAction());
+            return START_STICKY;
+        }
+notifyForeground();
         String action = intent != null ? intent.getAction() : null;
 
         // Stack 4 + 0.9.51: watch FGS; one-shot A2DP probe (cold boot / missed receiver)
@@ -1853,7 +1902,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                     pendingSeekMs = pos;
                 }
                 getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-                    .edit().putLong("localPositionMs", pos).commit();
+                    .edit().putLong("localPositionMs", pos).apply();
                 writeLocalPosition();
             }
             return START_STICKY;
@@ -2022,6 +2071,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         sawA2dpAfterBtStart = false;
         cancelBtTicks();
         cancelWatchProbes();
+        disarmSilenceWatch();
         if (reconnectHandler != null) {
             reconnectHandler.removeCallbacksAndMessages(null);
         }
@@ -2513,6 +2563,8 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             android.util.Log.i("RadioWatch", "playUrl skip — USER pause");
             return;
         }
+        // Скасувати art попередньої станції — не конкурувати з аудіо-потоком
+        cancelStationArtLoad();
         // НЕ форсуємо https — багато потоків лише http
         try {
             long now = System.currentTimeMillis();
@@ -2533,7 +2585,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                 currentPlayUrl = url;
                 try {
                     getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-                        .edit().putString(BluetoothAutoPlayPlugin.KEY_URL, url).commit();
+                        .edit().putString(BluetoothAutoPlayPlugin.KEY_URL, url).apply();
                 } catch (Exception ignored) {}
                 notifyForeground();
                 return;
@@ -2576,7 +2628,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             if (!localMode) {
                 ed.putString(BluetoothAutoPlayPlugin.KEY_TRACK, "");
             }
-            ed.commit();
+            ed.apply();
             MediaItem item = new MediaItem.Builder()
                 .setUri(url)
                 .setMediaMetadata(new MediaMetadata.Builder()

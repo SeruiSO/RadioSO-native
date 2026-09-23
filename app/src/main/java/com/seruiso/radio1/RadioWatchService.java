@@ -1750,11 +1750,6 @@ notifyForeground();
             // (інакше після паузи без «чистого» DISCONNECT автостарт мертвий).
             // Захист від паузи при живому BT: cancelWatchProbes + KEY_PLAY=false +
             // короткий debounce лише якщо CONNECTED прийшов одразу після паузи (<3с).
-            if (isUserPaused()) {
-                android.util.Log.i("RadioWatch", "ACTION_BT ignored — USER pause");
-                notifyForeground();
-                return START_STICKY;
-            }
             if (isVoiceCallActive()) {
                 android.util.Log.i("RadioWatch", "ACTION_BT ignored — voice call");
                 notifyForeground();
@@ -1792,7 +1787,10 @@ notifyForeground();
                         .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_AA_ACTIVE, false).apply();
                 } catch (Exception ignored) {}
                 // Classic: не стартувати на speaker — чекати PLAY 4с або timeout (навушники)
-                beginHeadUnitPlayWait();
+                pausedByFocusLoss = false;
+                permanentFocusLoss = false;
+                playShieldUntilMs = System.currentTimeMillis() + PLAY_SHIELD_MS;
+                playWhenBtRouteReady("bt-connect");
                 armA2dpRouteWatch();
             }
             return START_STICKY;
@@ -1827,7 +1825,8 @@ notifyForeground();
                     PlaybackPrefs.setPauseReason(this, PlaybackPrefs.REASON_NONE);
                     setIntendedPlaying(true);
                 } else {
-                    return START_STICKY;
+                    pausedByFocusLoss = false;
+                    permanentFocusLoss = false;
                 }
             }
             playShieldUntilMs = System.currentTimeMillis() + PLAY_SHIELD_MS;

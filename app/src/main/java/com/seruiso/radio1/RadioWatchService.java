@@ -282,10 +282,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             /** Уже реально граємо / стартуємо — не смикати потік ще раз. */
             private boolean alreadyOutputting() {
                 try {
-                    if (player == null || player.getCurrentMediaItem() == null) return false;
-                    if (RadioWatchService.this.withinBtSettle()) return true;
-                    return player.isPlaying()
-                        && player.getPlaybackState() == Player.STATE_READY;
+                    return RadioWatchService.this.sameStationOpening();
                 } catch (Exception e) {
                     return false;
                 }
@@ -1787,11 +1784,22 @@ notifyForeground();
                         .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_AA_ACTIVE, false).apply();
                 } catch (Exception ignored) {}
                 // Classic: не стартувати на speaker — чекати PLAY 4с або timeout (навушники)
-                pausedByFocusLoss = false;
-                permanentFocusLoss = false;
-                playShieldUntilMs = System.currentTimeMillis() + PLAY_SHIELD_MS;
-                playWhenBtRouteReady("bt-connect");
-                armA2dpRouteWatch();
+                if (sameStationOpening()) {
+                    android.util.Log.i("RadioWatch", "ACTION_BT skip restart — already opening");
+                    try {
+                        if (player != null) {
+                            player.setVolume(1f);
+                            player.setPlayWhenReady(true);
+                        }
+                    } catch (Exception ignored) {}
+                    armA2dpRouteWatch();
+                } else {
+                    pausedByFocusLoss = false;
+                    permanentFocusLoss = false;
+                    playShieldUntilMs = System.currentTimeMillis() + PLAY_SHIELD_MS;
+                    playWhenBtRouteReady("bt-connect");
+                    armA2dpRouteWatch();
+                }
             }
             return START_STICKY;
         }
@@ -1806,10 +1814,12 @@ notifyForeground();
             if (!spFb.getBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, true)) {
                 return START_STICKY;
             }
-            if (player != null && player.isPlaying()
-                    && player.getPlaybackState() == Player.STATE_READY) {
+            if (sameStationOpening()
+                    || (player != null && player.isPlaying()
+                        && player.getPlaybackState() == Player.STATE_READY)) {
                 awaitingHeadUnitPlay = false;
                 cancelHeadphoneFallback(this);
+                android.util.Log.i("RadioWatch", "HEADPHONE_FALLBACK skip — already opening");
                 try { notifyUiStatus(getString(R.string.playing), 0); } catch (Exception ignored) {}
                 return START_STICKY;
             }
@@ -2552,6 +2562,23 @@ notifyForeground();
         playUrl(url);
     }
 
+
+    /** Той самий URL уже в плеєрі і вантажиться або грає. Другий BT/Play не відкриває потік заново. */
+    private boolean sameStationOpening() {
+        try {
+            if (player == null || player.getCurrentMediaItem() == null
+                    || player.getCurrentMediaItem().localConfiguration == null) return false;
+            String cur = player.getCurrentMediaItem().localConfiguration.uri.toString();
+            String want = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                    .getString(BluetoothAutoPlayPlugin.KEY_URL, "");
+            if (want == null || want.isEmpty() || !want.equals(cur)) return false;
+            int st = player.getPlaybackState();
+            return player.isPlaying() || player.getPlayWhenReady() || st == Player.STATE_BUFFERING;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     private void playUrl(String url) {
         if (url == null || url.isEmpty() || player == null) return;
         if (isVoiceCallActive()) {
@@ -2577,9 +2604,10 @@ notifyForeground();
             // lastPlayedUrl НЕ порівнюємо — інакше швидкий A→B→A або зміна
             // під час буфера блокує новий play.
             boolean sameAsCurrent = currentUri != null && url.equals(currentUri);
-            if (sameAsCurrent
-                    && (player.isPlaying() || player.getPlayWhenReady())
-                    && (now - lastPlayMs < 4000)) {
+            int dupState = player.getPlaybackState();
+            boolean opening = player.isPlaying() || player.getPlayWhenReady()
+                    || dupState == Player.STATE_BUFFERING;
+            if (sameAsCurrent && opening) {
                 android.util.Log.d("RadioWatch", "playUrl skip duplicate: " + url);
                 currentPlayUrl = url;
                 try {

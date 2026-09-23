@@ -25,7 +25,7 @@ object StationRepo {
                         name = name,
                         genre = o.optString("genre"),
                         country = o.optString("country"),
-                        favicon = o.optString("favicon"),
+                        favicon = resolvedFavicon(o.optString("favicon"), o.optString("homepage"), url),
                         tab = tab,
                     )
                 )

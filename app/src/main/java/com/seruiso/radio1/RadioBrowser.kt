@@ -65,7 +65,8 @@ object RadioBrowser {
                     if (title.isBlank()) continue
                     val tags = o.optString("tags").split(",").map { it.trim() }.filter { it.isNotEmpty() }
                     val short = if (tags.size > 4) tags.take(4).joinToString(", ") + "..." else tags.joinToString(", ")
-                    out.add(Station(url, title, short, o.optString("country"), o.optString("favicon"), "search"))
+                    val homepage = o.optString("homepage")
+                    out.add(Station(url, title, short, o.optString("country"), resolvedFavicon(o.optString("favicon"), homepage, url), "search"))
                 }
                 return dedupeStationsByStream(out)
             } catch (_: Exception) { }

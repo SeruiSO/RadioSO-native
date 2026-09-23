@@ -96,7 +96,65 @@ object BackupStore {
                 o.get(BluetoothAutoPlayPlugin.KEY_HIDDEN_TABS).toString()
             )
         }
-        e.commit()
+        e.apply()
+        // нормалізувати favicon у вже записаних favorites / userAdded
+        enrichImportedFavicons(ctx)
         return ctx.getString(R.string.import_ok)
+    }
+
+    private fun enrichImportedFavicons(ctx: Context) {
+        val catalog = try { StationRepo.load(ctx).second } catch (_: Exception) { emptyList() }
+        val byId = catalog.groupBy { streamIdentity(it.url) }
+        val p = ctx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)
+        val e = p.edit()
+        fun enrichArr(raw: String): String {
+            val arr = try { JSONArray(raw) } catch (_: Exception) { return raw }
+            val out = JSONArray()
+            for (i in 0 until arr.length()) {
+                val item = arr.opt(i)
+                val url: String
+                var name = ""
+                var genre = ""
+                var country = ""
+                var favicon = ""
+                if (item is JSONObject) {
+                    url = item.optString("value")
+                    name = item.optString("name")
+                    genre = item.optString("genre")
+                    country = item.optString("country")
+                    favicon = item.optString("favicon")
+                } else {
+                    url = arr.optString(i)
+                }
+                if (url.isBlank()) continue
+                val cat = byId[streamIdentity(url)] ?: emptyList()
+                if (name.isBlank()) name = cat.firstOrNull()?.name ?: url
+                if (genre.isBlank()) genre = cat.firstOrNull()?.genre.orEmpty()
+                if (country.isBlank()) country = cat.firstOrNull()?.country.orEmpty()
+                favicon = betterFavicon(favicon, bestFaviconFrom(cat))
+                out.put(
+                    JSONObject()
+                        .put("value", url)
+                        .put("name", name)
+                        .put("genre", genre)
+                        .put("country", country)
+                        .put("favicon", favicon)
+                )
+            }
+            return out.toString()
+        }
+        e.putString(BluetoothAutoPlayPlugin.KEY_FAVORITES, enrichArr(p.getString(BluetoothAutoPlayPlugin.KEY_FAVORITES, "[]") ?: "[]"))
+        val addedRaw = p.getString(BluetoothAutoPlayPlugin.KEY_USER_ADDED, "{}") ?: "{}"
+        try {
+            val root = JSONObject(addedRaw)
+            val keys = root.keys()
+            val next = JSONObject()
+            while (keys.hasNext()) {
+                val k = keys.next()
+                next.put(k, JSONArray(enrichArr(root.optJSONArray(k)?.toString() ?: "[]")))
+            }
+            e.putString(BluetoothAutoPlayPlugin.KEY_USER_ADDED, next.toString())
+        } catch (_: Exception) {}
+        e.apply()
     }
 }

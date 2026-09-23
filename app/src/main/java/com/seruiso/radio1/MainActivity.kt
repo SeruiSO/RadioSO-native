@@ -282,12 +282,12 @@ class MainActivity : ComponentActivity() {
                                 if (already) {
                                     holdStatus(getString(R.string.already_in_tab, tab))
                                 } else {
-                                    val err = TabStore.addStation(this, tab, s)
+                                    val err = TabStore.addStation(this, tab, withBestFavicon(s))
                                     holdStatus(err ?: getString(R.string.added_to_tab, tab))
                                     if (err == null) {
                                         // якщо вже в ★ — оновити знімок (іконка/жанр з пошуку)
                                         if (favUrls.contains(s.url)) {
-                                            FavStore.refreshStation(this, s)
+                                            FavStore.refreshStation(this, withBestFavicon(s))
                                         }
                                         addedRev++
                                     }
@@ -1004,17 +1004,22 @@ class MainActivity : ComponentActivity() {
         return when (tab) {
             "fav" -> {
                 // 1) FavStore = джерело членства в ★
-                // 2) збагачуємо search/extra/catalog БЕЗ затирання favicon
+                // 2) збагачуємо search/extra/catalog по streamIdentity (не лише точний URL)
+                val favSnaps = FavStore.stations(this)
+                val favIds = (favSnaps.map { streamIdentity(it.url) } + favUrls.map { streamIdentity(it) })
+                    .filter { it.isNotBlank() }
+                    .toSet()
+                fun inFav(s: Station) = s.url in favUrls || streamIdentity(s.url) in favIds
                 val fromExtra = (sourceTabs + customTabs)
                     .filter { it !in listOf("fav", "best", "local", "search") }
                     .distinct()
                     .flatMap { t -> TabStore.extraStations(this, t) }
-                    .filter { favUrls.contains(it.url) }
+                    .filter { inFav(it) }
                 val merged = mergeStationsRich(
-                    FavStore.stations(this) +
-                        searchRows.filter { favUrls.contains(it.url) } +
+                    favSnaps +
+                        searchRows.filter { inFav(it) } +
                         fromExtra +
-                        stations.filter { favUrls.contains(it.url) }
+                        stations.filter { inFav(it) }
                 ).filter { it.url !in deleted }
                 // якщо з’явилась краща іконка — зберегти в FavStore (щоб не відкочувалось)
                 val saved = FavStore.stations(this).associateBy { it.url }
@@ -1178,8 +1183,17 @@ class MainActivity : ComponentActivity() {
         if (need.isNotEmpty()) permissionsLauncher.launch(need.toTypedArray())
     }
 
+    private fun withBestFavicon(s: Station): Station {
+        val id = streamIdentity(s.url)
+        if (id.isBlank()) return s.copy(favicon = normalizeFavicon(s.favicon))
+        val extras = TabStore.genreTabs(this).flatMap { TabStore.extraStations(this, it) }
+        val pool = stations + searchRows + recentStations + extras + FavStore.stations(this) + listOf(s)
+        val fav = bestFaviconFrom(pool.filter { streamIdentity(it.url) == id })
+        return s.copy(favicon = fav.ifBlank { normalizeFavicon(s.favicon) })
+    }
+
     private fun toggleFav(station: Station) {
-        FavStore.toggleStation(this, station)
+        FavStore.toggleStation(this, withBestFavicon(station))
         favUrls = FavStore.urls(this, BluetoothAutoPlayPlugin.KEY_FAVORITES)
     }
     private fun toggleFav(url: String) {

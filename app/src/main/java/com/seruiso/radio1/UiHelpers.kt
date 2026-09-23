@@ -53,11 +53,82 @@ import coil.compose.AsyncImage
 
 /** Album art / favicon URL (http or MediaStore albumId). */
 fun artUrl(raw: String): String {
-    if (raw.startsWith("http")) return raw
+    val n = normalizeFavicon(raw)
+    if (n.isNotEmpty()) return n
     if (raw.isNotBlank() && raw != "0" && raw.all { it.isDigit() }) {
         return "content://media/external/audio/albumart/$raw"
     }
     return raw
+}
+
+/** Живий URL іконки або "". Відсікає сміття, з яким Coil лише чекає. */
+fun normalizeFavicon(raw: String?): String {
+    val u = raw?.trim().orEmpty()
+    if (u.isEmpty()) return ""
+    val low = u.lowercase()
+    if (low == "-" || low == "n/a" || low == "null" || low == "none") return ""
+    if (low.contains("example.com")) return ""
+    if (!(u.startsWith("http://") || u.startsWith("https://") || u.startsWith("content:"))) return ""
+    if (low.endsWith(".ico") || low.endsWith(".svg") || ".ico?" in low || "/favicon.ico" in low) return ""
+    return u
+}
+
+fun faviconScore(url: String): Int {
+    val n = normalizeFavicon(url)
+    if (n.isEmpty()) return 0
+    var s = 10
+    when {
+        n.startsWith("https://") -> s += 20
+        n.startsWith("http://") -> s += 5
+        n.startsWith("content:") -> s += 15
+    }
+    val low = n.lowercase()
+    s += when {
+        ".webp" in low -> 30
+        ".png" in low -> 25
+        ".jpg" in low || ".jpeg" in low -> 22
+        else -> 8
+    }
+    return s
+}
+
+fun betterFavicon(a: String, b: String): String {
+    val na = normalizeFavicon(a)
+    val nb = normalizeFavicon(b)
+    return if (faviconScore(nb) > faviconScore(na)) nb else na
+}
+
+fun bestFaviconFrom(stations: List<Station>): String {
+    var best = ""
+    for (s in stations) best = betterFavicon(best, s.favicon)
+    return best
+}
+
+/** Швидкий PNG 128 з CDN Google (десятки мс, не сайт станції). */
+fun googleFavicon(fromUrl: String?): String {
+    val raw = fromUrl?.trim().orEmpty()
+    if (raw.isEmpty()) return ""
+    val host = try {
+        val uri = android.net.Uri.parse(if ("://" in raw) raw else "http://$raw")
+        (uri.host ?: "").lowercase().removePrefix("www.")
+    } catch (_: Exception) {
+        return ""
+    }
+    if (host.isBlank() || "." !in host) return ""
+    if (host.endsWith(".local") || host == "localhost") return ""
+    return "https://www.google.com/s2/favicons?domain=$host&sz=128"
+}
+
+/**
+ * URL для рядка списку: живий https png/jpg/webp — як є;
+ * інакше Google по homepage або stream URL — щоб пошук/вкладки не чекали мертвий хост.
+ */
+fun resolvedFavicon(rawFavicon: String?, homepage: String? = null, streamUrl: String? = null): String {
+    val n = normalizeFavicon(rawFavicon)
+    if (n.startsWith("https://") && faviconScore(n) >= 40) return n
+    val g = googleFavicon(homepage).ifBlank { googleFavicon(streamUrl) }
+    if (g.isNotEmpty()) return g
+    return n
 }
 
 @Composable
@@ -184,15 +255,7 @@ fun playbackInfoText(ctx: android.content.Context, status: String): String? {
 
 /** Злити два знімки станції: непорожній favicon/genre/country ніколи не затирається порожнім. */
 fun preferRichStation(a: Station, b: Station): Station {
-    val favicon = when {
-        a.favicon.isNotBlank() && b.favicon.isNotBlank() ->
-            // обидва є — лишаємо довший/http (часто краща якість)
-            if (b.favicon.startsWith("http") && !a.favicon.startsWith("http")) b.favicon
-            else if (b.favicon.length > a.favicon.length) b.favicon
-            else a.favicon
-        a.favicon.isNotBlank() -> a.favicon
-        else -> b.favicon
-    }
+    val favicon = betterFavicon(a.favicon, b.favicon)
     val name = if (b.name.length > a.name.length) b.name else a.name
     val genre = a.genre.ifBlank { b.genre }
     val country = a.country.ifBlank { b.country }

@@ -145,7 +145,7 @@ object TabStore {
                 .put("name", s.name)
                 .put("genre", s.genre)
                 .put("country", s.country)
-                .put("favicon", s.favicon)
+                .put("favicon", normalizeFavicon(s.favicon))
         )
         for (i in 0 until arr.length()) {
             val o = arr.optJSONObject(i) ?: continue
@@ -325,7 +325,7 @@ object TabStore {
                     name = name,
                     genre = o.optString("genre"),
                     country = o.optString("country"),
-                    favicon = o.optString("favicon"),
+                    favicon = resolvedFavicon(o.optString("favicon"), url),
                     tab = tab,
                 )
             )

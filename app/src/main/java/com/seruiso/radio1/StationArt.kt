@@ -4,7 +4,10 @@ import android.content.Context
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -17,7 +20,22 @@ import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
 
 /** Чи вважаємо URL придатною іконкою станції. */
-fun isStationArtUrl(raw: String?): Boolean = normalizeFavicon(raw).isNotEmpty()
+fun isStationArtUrl(raw: String?): Boolean = displayFavicon(raw).isNotEmpty()
+
+/**
+ * URL для малювання. Не ріже .ico: шторка це декодує BitmapFactory,
+ * часто всередині звичайний PNG. .svg лишаємо за бортом.
+ */
+fun displayFavicon(raw: String?): String {
+    val u = raw?.trim().orEmpty()
+    if (u.isEmpty()) return ""
+    val low = u.lowercase()
+    if (low == "-" || low == "n/a" || low == "null" || low == "none") return ""
+    if (low.contains("example.com")) return ""
+    if (!(u.startsWith("http://") || u.startsWith("https://") || u.startsWith("content:"))) return ""
+    if (low.endsWith(".svg")) return ""
+    return u
+}
 
 private object StationArtLoader {
     @Volatile private var instance: ImageLoader? = null
@@ -26,15 +44,23 @@ private object StationArtLoader {
         synchronized(this) {
             instance?.let { return it }
             val dispatcher = Dispatcher().apply {
-                maxRequests = 12
-                maxRequestsPerHost = 4
+                maxRequests = 24
+                maxRequestsPerHost = 6
             }
+            val ua = System.getProperty("http.agent") ?: "Dalvik/2.1.0 (Linux; Android)"
             val http = OkHttpClient.Builder()
-                .connectTimeout(2, TimeUnit.SECONDS)
-                .readTimeout(2, TimeUnit.SECONDS)
-                .callTimeout(3, TimeUnit.SECONDS)
-                .retryOnConnectionFailure(false)
+                .connectTimeout(4, TimeUnit.SECONDS)
+                .readTimeout(4, TimeUnit.SECONDS)
+                .callTimeout(8, TimeUnit.SECONDS)
+                .retryOnConnectionFailure(true)
                 .dispatcher(dispatcher)
+                .addInterceptor { chain ->
+                    chain.proceed(
+                        chain.request().newBuilder()
+                            .header("User-Agent", ua)
+                            .build()
+                    )
+                }
                 .build()
             val loader = ImageLoader.Builder(context.applicationContext)
                 .okHttpClient(http)
@@ -59,8 +85,13 @@ fun StationArt(
     contentScale: ContentScale = ContentScale.Crop,
 ) {
     val launcher = painterResource(R.mipmap.ic_launcher_foreground)
-    val normalized = remember(url) { normalizeFavicon(url) }
-    if (normalized.isEmpty()) {
+    val normalized = remember(url) { displayFavicon(url) }
+    val fallbackGoogle = remember(normalized) {
+        val g = googleFavicon(normalized)
+        if (g.isNotEmpty() && g != normalized) g else ""
+    }
+    var shown by remember(normalized) { mutableStateOf(normalized) }
+    if (shown.isEmpty()) {
         Image(
             painter = launcher,
             contentDescription = contentDescription,
@@ -70,11 +101,12 @@ fun StationArt(
         return
     }
     val context = LocalContext.current
-    val req = remember(normalized) {
+    val req = remember(shown) {
         ImageRequest.Builder(context)
-            .data(normalized)
-            .size(96)
-            .crossfade(80)
+            .data(shown)
+            .size(128)
+            .allowHardware(false)
+            .crossfade(false)
             .memoryCachePolicy(coil.request.CachePolicy.ENABLED)
             .diskCachePolicy(coil.request.CachePolicy.ENABLED)
             .build()
@@ -88,5 +120,8 @@ fun StationArt(
         placeholder = launcher,
         error = launcher,
         fallback = launcher,
+        onError = {
+            if (fallbackGoogle.isNotEmpty() && shown != fallbackGoogle) shown = fallbackGoogle
+        },
     )
 }

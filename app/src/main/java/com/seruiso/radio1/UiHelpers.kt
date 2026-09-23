@@ -70,7 +70,7 @@ fun normalizeFavicon(raw: String?): String {
     if (low.contains("example.com")) return ""
     if ("google.com/s2/favicons" in low) return ""
     if (!(u.startsWith("http://") || u.startsWith("https://") || u.startsWith("content:"))) return ""
-    if (low.endsWith(".ico") || low.endsWith(".svg") || ".ico?" in low || "/favicon.ico" in low) return ""
+    if (low.endsWith(".svg")) return ""
     return u
 }
 

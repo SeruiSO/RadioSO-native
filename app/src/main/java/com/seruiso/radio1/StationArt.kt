@@ -9,7 +9,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import android.graphics.drawable.BitmapDrawable
 import coil.ImageLoader
+import coil.decode.Decoder
+import coil.decode.DecodeResult
+import coil.fetch.SourceResult
+import coil.request.Options
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import okhttp3.Dispatcher
@@ -62,6 +67,7 @@ private object StationArtLoader {
                 .build()
             val loader = ImageLoader.Builder(context.applicationContext)
                 .okHttpClient(http)
+                .components { add(IcoDecoder.Factory()) }
                 .respectCacheHeaders(false) // інакше вкладки качають іконку щоразу
                 .crossfade(false)
                 .build()
@@ -114,4 +120,29 @@ fun StationArt(
         error = launcher,
         fallback = launcher,
     )
+}
+
+private class IcoDecoder(private val result: SourceResult) : Decoder {
+    override suspend fun decode(): DecodeResult {
+        val bytes = result.source.source().readByteArray()
+        val bmp = IcoBitmap.decode(bytes) ?: error("ico decode failed")
+        val drawable = BitmapDrawable(android.content.res.Resources.getSystem(), bmp)
+        return DecodeResult(drawable, false)
+    }
+
+    class Factory : Decoder.Factory {
+        override fun create(result: SourceResult, options: Options, imageLoader: ImageLoader): Decoder? {
+            return try {
+                val peek = result.source.source().peek()
+                if (!peek.request(4)) return null
+                val b0 = peek.readByte(); val b1 = peek.readByte()
+                val b2 = peek.readByte(); val b3 = peek.readByte()
+                if (b0 == 0.toByte() && b1 == 0.toByte() && b2 == 1.toByte() && b3 == 0.toByte()) {
+                    IcoDecoder(result)
+                } else null
+            } catch (_: Exception) {
+                null
+            }
+        }
+    }
 }

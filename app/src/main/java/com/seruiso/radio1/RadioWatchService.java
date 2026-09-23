@@ -1342,7 +1342,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                         is.close();
                         if (!tooBig) {
                             byte[] data = bos.toByteArray();
-                            Bitmap raw = BitmapFactory.decodeByteArray(data, 0, data.length);
+                            Bitmap raw = IcoBitmap.decode(data);
                             if (raw != null) {
                                 int max = 256;
                                 int w = raw.getWidth(), h = raw.getHeight();

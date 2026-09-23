@@ -143,12 +143,31 @@ private fun isSharedStreamHost(raw: String?): Boolean {
  * Жива картинка лишається (https будь-який після фільтра, http лише png/jpg/webp).
  * Google — спочатку homepage станції. Хост потоку лише якщо це не спільний релей.
  */
+private fun isJunkIconHost(raw: String?): Boolean {
+    val host = try {
+        val u = raw?.trim().orEmpty()
+        if (u.isEmpty()) return true
+        val uri = android.net.Uri.parse(if ("://" in u) u else "http://$u")
+        (uri.host ?: "").lowercase().removePrefix("www.")
+    } catch (_: Exception) {
+        return true
+    }
+    if (host.isBlank()) return true
+    val junk = listOf("wix.com", "wixstatic", "google.", "gstatic", "facebook", "fbcdn", "fb.com", "example.com")
+    return junk.any { it in host }
+}
+
 fun resolvedFavicon(rawFavicon: String?, homepage: String? = null, streamUrl: String? = null): String {
     val n = normalizeFavicon(rawFavicon)
     if (n.startsWith("https://") || n.startsWith("content:")) return n
     if (n.startsWith("http://") && faviconScore(n) >= 40) return n
     val home = googleFavicon(homepage)
     if (home.isNotEmpty()) return home
+    // .ico з сайту станції (7000fm.gr/favicon.ico) → PNG того ж домену, не хост стріму
+    if (!isSharedStreamHost(rawFavicon) && !isJunkIconHost(rawFavicon)) {
+        val fromFile = googleFavicon(rawFavicon)
+        if (fromFile.isNotEmpty()) return fromFile
+    }
     if (!isSharedStreamHost(streamUrl)) {
         val g = googleFavicon(streamUrl)
         if (g.isNotEmpty()) return g

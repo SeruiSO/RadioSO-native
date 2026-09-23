@@ -1021,15 +1021,15 @@ class MainActivity : ComponentActivity() {
                         fromExtra +
                         stations.filter { inFav(it) }
                 ).filter { it.url !in deleted }
-                // якщо з’явилась краща іконка — зберегти в FavStore (щоб не відкочувалось)
+                // .ico / example / порожньо → жива картинка або Google по сайту, і записати
                 val saved = FavStore.stations(this).associateBy { it.url }
                 var dirty = false
                 val fixed = merged.map { s ->
-                    val old = saved[s.url]
-                    if (old != null && old.favicon.isBlank() && s.favicon.isNotBlank()) {
-                        dirty = true
-                    }
-                    s
+                    val chosen = resolvedFavicon(s.favicon, null, s.url)
+                    val shown = if (chosen.isEmpty()) s.copy(favicon = "") else s.copy(favicon = chosen)
+                    val oldRaw = saved[s.url]?.favicon
+                    if (oldRaw != null && oldRaw != shown.favicon) dirty = true
+                    shown
                 }
                 if (dirty) {
                     FavStore.saveStations(this, fixed.map { it.copy(tab = "fav") })
@@ -1044,7 +1044,12 @@ class MainActivity : ComponentActivity() {
                 val extra = TabStore.extraStations(this, tab)
                 TabStore.applyOrder(
                     this, tab,
-                    mergeStationsRich(extra + base).filter { it.url !in deleted }
+                    mergeStationsRich(extra + base)
+                        .filter { it.url !in deleted }
+                        .map { s ->
+                            val chosen = resolvedFavicon(s.favicon, null, s.url)
+                            if (chosen == s.favicon) s else s.copy(favicon = chosen)
+                        }
                 )
             }
         }
@@ -1189,7 +1194,7 @@ class MainActivity : ComponentActivity() {
         val extras = TabStore.genreTabs(this).flatMap { TabStore.extraStations(this, it) }
         val pool = stations + searchRows + recentStations + extras + FavStore.stations(this) + listOf(s)
         val fav = bestFaviconFrom(pool.filter { streamIdentity(it.url) == id })
-        return s.copy(favicon = fav.ifBlank { normalizeFavicon(s.favicon) })
+        return s.copy(favicon = resolvedFavicon(fav.ifBlank { s.favicon }, null, s.url))
     }
 
     private fun toggleFav(station: Station) {
@@ -1209,7 +1214,8 @@ class MainActivity : ComponentActivity() {
             stations.filter { it.url == url } +
             FavStore.stations(this).filter { it.url == url }
         )
-        val s = candidates.firstOrNull { it.favicon.isNotBlank() }
+        val s = candidates.maxByOrNull { faviconScore(it.favicon) }
+            ?.takeIf { faviconScore(it.favicon) > 0 }
             ?: candidates.firstOrNull()
             ?: Station(url, stationName, currentGenre, currentCountry, currentFavicon, "fav")
         toggleFav(s)

@@ -131,7 +131,7 @@ object BackupStore {
                 if (name.isBlank()) name = cat.firstOrNull()?.name ?: url
                 if (genre.isBlank()) genre = cat.firstOrNull()?.genre.orEmpty()
                 if (country.isBlank()) country = cat.firstOrNull()?.country.orEmpty()
-                favicon = betterFavicon(favicon, bestFaviconFrom(cat))
+                favicon = resolvedFavicon(betterFavicon(favicon, bestFaviconFrom(cat)), null, url)
                 out.put(
                     JSONObject()
                         .put("value", url)

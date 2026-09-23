@@ -119,16 +119,41 @@ fun googleFavicon(fromUrl: String?): String {
     return "https://www.google.com/s2/favicons?domain=$host&sz=128"
 }
 
+/** Спільний Icecast/релей — Google дасть одну іконку на десятки станцій. */
+private fun isSharedStreamHost(raw: String?): Boolean {
+    val host = try {
+        val u = raw?.trim().orEmpty()
+        if (u.isEmpty()) return true
+        val uri = android.net.Uri.parse(if ("://" in u) u else "http://$u")
+        (uri.host ?: "").lowercase().removePrefix("www.")
+    } catch (_: Exception) {
+        return true
+    }
+    if (host.isBlank()) return true
+    if (host.startsWith("stream.") || host.startsWith("listen.") || host.startsWith("cast.")) return true
+    val bad = listOf(
+        "shoutca", "shoutcast", "radiohost.", "laut.fm", "zeno.fm", "streamtheworld",
+        "tunein", "myautodj", "live-streams", "we4stream", "radionetz", "streamabc",
+        "infomaniak", "icecast", "streamguys", "radioking", "radio-browser"
+    )
+    return bad.any { it in host }
+}
+
 /**
- * URL для рядка списку: живий https png/jpg/webp — як є;
- * інакше Google по homepage або stream URL — щоб пошук/вкладки не чекали мертвий хост.
+ * Жива картинка лишається (https будь-який після фільтра, http лише png/jpg/webp).
+ * Google — спочатку homepage станції. Хост потоку лише якщо це не спільний релей.
  */
 fun resolvedFavicon(rawFavicon: String?, homepage: String? = null, streamUrl: String? = null): String {
     val n = normalizeFavicon(rawFavicon)
-    if (n.startsWith("https://") && faviconScore(n) >= 40) return n
-    val g = googleFavicon(homepage).ifBlank { googleFavicon(streamUrl) }
-    if (g.isNotEmpty()) return g
-    return n
+    if (n.startsWith("https://") || n.startsWith("content:")) return n
+    if (n.startsWith("http://") && faviconScore(n) >= 40) return n
+    val home = googleFavicon(homepage)
+    if (home.isNotEmpty()) return home
+    if (!isSharedStreamHost(streamUrl)) {
+        val g = googleFavicon(streamUrl)
+        if (g.isNotEmpty()) return g
+    }
+    return ""
 }
 
 @Composable
@@ -304,12 +329,7 @@ fun dedupeStationsByStream(list: List<Station>): List<Station> {
         val k = streamIdentity(s.url)
         if (k.isBlank()) continue
         val prev = map[k]
-        map[k] = when {
-            prev == null -> s
-            prev.favicon.isBlank() && s.favicon.isNotBlank() -> s
-            prev.favicon.isNotBlank() && s.favicon.isBlank() -> prev
-            else -> preferRichStation(prev, s)
-        }
+        map[k] = if (prev == null) s else preferRichStation(prev, s)
     }
     return map.values.toList()
 }

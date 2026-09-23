@@ -68,6 +68,7 @@ fun normalizeFavicon(raw: String?): String {
     val low = u.lowercase()
     if (low == "-" || low == "n/a" || low == "null" || low == "none") return ""
     if (low.contains("example.com")) return ""
+    if ("google.com/s2/favicons" in low) return ""
     if (!(u.startsWith("http://") || u.startsWith("https://") || u.startsWith("content:"))) return ""
     if (low.endsWith(".ico") || low.endsWith(".svg") || ".ico?" in low || "/favicon.ico" in low) return ""
     return u
@@ -104,74 +105,11 @@ fun bestFaviconFrom(stations: List<Station>): String {
     return best
 }
 
-/** Швидкий PNG 128 з CDN Google (десятки мс, не сайт станції). */
-fun googleFavicon(fromUrl: String?): String {
-    val raw = fromUrl?.trim().orEmpty()
-    if (raw.isEmpty()) return ""
-    val host = try {
-        val uri = android.net.Uri.parse(if ("://" in raw) raw else "http://$raw")
-        (uri.host ?: "").lowercase().removePrefix("www.")
-    } catch (_: Exception) {
-        return ""
-    }
-    if (host.isBlank() || "." !in host) return ""
-    if (host.endsWith(".local") || host == "localhost") return ""
-    return "https://www.google.com/s2/favicons?domain=$host&sz=128"
-}
-
-/** Спільний Icecast/релей — Google дасть одну іконку на десятки станцій. */
-private fun isSharedStreamHost(raw: String?): Boolean {
-    val host = try {
-        val u = raw?.trim().orEmpty()
-        if (u.isEmpty()) return true
-        val uri = android.net.Uri.parse(if ("://" in u) u else "http://$u")
-        (uri.host ?: "").lowercase().removePrefix("www.")
-    } catch (_: Exception) {
-        return true
-    }
-    if (host.isBlank()) return true
-    if (host.startsWith("stream.") || host.startsWith("listen.") || host.startsWith("cast.")) return true
-    val bad = listOf(
-        "shoutca", "shoutcast", "radiohost.", "laut.fm", "zeno.fm", "streamtheworld",
-        "tunein", "myautodj", "live-streams", "we4stream", "radionetz", "streamabc",
-        "infomaniak", "icecast", "streamguys", "radioking", "radio-browser"
-    )
-    return bad.any { it in host }
-}
-
-/**
- * Жива картинка лишається (https будь-який після фільтра, http лише png/jpg/webp).
- * Google — спочатку homepage станції. Хост потоку лише якщо це не спільний релей.
- */
-private fun isJunkIconHost(raw: String?): Boolean {
-    val host = try {
-        val u = raw?.trim().orEmpty()
-        if (u.isEmpty()) return true
-        val uri = android.net.Uri.parse(if ("://" in u) u else "http://$u")
-        (uri.host ?: "").lowercase().removePrefix("www.")
-    } catch (_: Exception) {
-        return true
-    }
-    if (host.isBlank()) return true
-    val junk = listOf("wix.com", "wixstatic", "google.", "gstatic", "facebook", "fbcdn", "fb.com", "example.com")
-    return junk.any { it in host }
-}
-
+/** Лише жива картинка станції. Чужий домен Google не підставляємо. */
 fun resolvedFavicon(rawFavicon: String?, homepage: String? = null, streamUrl: String? = null): String {
     val n = normalizeFavicon(rawFavicon)
     if (n.startsWith("https://") || n.startsWith("content:")) return n
     if (n.startsWith("http://") && faviconScore(n) >= 40) return n
-    val home = googleFavicon(homepage)
-    if (home.isNotEmpty()) return home
-    // .ico з сайту станції (7000fm.gr/favicon.ico) → PNG того ж домену, не хост стріму
-    if (!isSharedStreamHost(rawFavicon) && !isJunkIconHost(rawFavicon)) {
-        val fromFile = googleFavicon(rawFavicon)
-        if (fromFile.isNotEmpty()) return fromFile
-    }
-    if (!isSharedStreamHost(streamUrl)) {
-        val g = googleFavicon(streamUrl)
-        if (g.isNotEmpty()) return g
-    }
     return ""
 }
 

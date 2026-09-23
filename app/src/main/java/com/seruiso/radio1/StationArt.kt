@@ -4,10 +4,7 @@ import android.content.Context
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -32,6 +29,7 @@ fun displayFavicon(raw: String?): String {
     val low = u.lowercase()
     if (low == "-" || low == "n/a" || low == "null" || low == "none") return ""
     if (low.contains("example.com")) return ""
+    if ("google.com/s2/favicons" in low) return ""
     if (!(u.startsWith("http://") || u.startsWith("https://") || u.startsWith("content:"))) return ""
     if (low.endsWith(".svg")) return ""
     return u
@@ -86,12 +84,7 @@ fun StationArt(
 ) {
     val launcher = painterResource(R.mipmap.ic_launcher_foreground)
     val normalized = remember(url) { displayFavicon(url) }
-    val fallbackGoogle = remember(normalized) {
-        val g = googleFavicon(normalized)
-        if (g.isNotEmpty() && g != normalized) g else ""
-    }
-    var shown by remember(normalized) { mutableStateOf(normalized) }
-    if (shown.isEmpty()) {
+    if (normalized.isEmpty()) {
         Image(
             painter = launcher,
             contentDescription = contentDescription,
@@ -101,9 +94,9 @@ fun StationArt(
         return
     }
     val context = LocalContext.current
-    val req = remember(shown) {
+    val req = remember(normalized) {
         ImageRequest.Builder(context)
-            .data(shown)
+            .data(normalized)
             .size(128)
             .allowHardware(false)
             .crossfade(false)
@@ -120,8 +113,5 @@ fun StationArt(
         placeholder = launcher,
         error = launcher,
         fallback = launcher,
-        onError = {
-            if (fallbackGoogle.isNotEmpty() && shown != fallbackGoogle) shown = fallbackGoogle
-        },
     )
 }

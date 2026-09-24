@@ -1,95 +1,11 @@
 {
   "techno": [
     {
-      "value": "http://fluxfm.streamabc.net/flx-technounderground-mp3-128-7228171?sABC=6n968qp1%230%23r30o443r1929r059s085628511796n57%23nhqvb&aw_0_1st.playerid=audio&amsparams=playerid:audio;skey:1788251585",
-      "name": "FluxFM - Techno Underground",
-      "genre": "techno",
-      "country": "Germany",
-      "favicon": "http://www.fluxfm.de/assets/favicons/apple-icon-120x120.png"
-    },
-    {
       "value": "https://tower.hayva.ru/d9am3-96",
       "name": "Boris Brejcha Radio",
       "genre": "techno, electronic",
       "country": "Ukraine",
       "favicon": "https://media.radiospinner.com/media/logos/180/102771/logo_IQ9lsSnahX.jpg"
-    },
-    {
-      "value": "https://live.vblcast.com/proxy/habitstechno/stream/",
-      "name": "Techno Habits Radio",
-      "genre": "techno, electronic",
-      "country": "Cyprus",
-      "favicon": "https://habitsradio.b-cdn.net/wp-content/uploads/2024/06/cropped-HABITS-RADIO-1-192x192.png"
-    },
-    {
-      "value": "https://vega.streamerr.co/listen/technoradio/radio.mp3",
-      "name": "TECHNO RADIO",
-      "genre": "techno",
-      "country": "",
-      "favicon": "https://vega.streamerr.co/static/uploads/technoradio/station_icon.1789681881.png"
-    },
-    {
-      "value": "https://c26.radioboss.fm:8553/stream",
-      "name": "TechnoTanica",
-      "genre": "techno",
-      "country": "Germany",
-      "favicon": "https://www.radio.de/175/technotanica.png"
-    },
-    {
-      "value": "https://audio.mabu-beatz-radio.com:8003/technoinmind",
-      "name": "TECHNO IN MIND",
-      "genre": "techno",
-      "country": "Germany",
-      "favicon": "https://mabu-beatz-radio.com/wp-content/uploads/2023/06/mabu-beatz-radio-192x192.jpg"
-    },
-    {
-      "value": "https://stream.zeno.fm/6yzhdr8ezrhvv",
-      "name": "Techno Science",
-      "genre": "techno",
-      "country": "United Kingdom",
-      "favicon": "https://proxy.zeno.fm/content/stations/agxzfnplbm8tc3RhdHNyMgsSCkF1dGhDbGllbnQYgIDQj4S4vwgMCxIOU3RhdGlvblByb2ZpbGUYgICIt96n-gsMogEEemVubw/image/?u=1661445470000"
-    },
-    {
-      "value": "https://technoplanet.stream.laut.fm/technoplanet",
-      "name": "Technoplanet",
-      "genre": "trance, edm, techno",
-      "country": "Germany",
-      "favicon": "https://assets.laut.fm/a19e47b158df5ed846c18b24f9457a1d?t=_120x120"
-    },
-    {
-      "value": "https://stream.laut.fm/technobeat",
-      "name": "Technobeat",
-      "genre": "hardstyle, hardtrance, techno",
-      "country": "Germany",
-      "favicon": "https://assets.laut.fm/0c301fdc42ab746a090699bc1a2d3cc7?t=_120x120"
-    },
-    {
-      "value": "https://stream.rcs.revma.com/cmrzxrv3q98uv",
-      "name": "UNDR",
-      "genre": "techno, house",
-      "country": "Belgium",
-      "favicon": "https://static2.mytuner.mobi/media/tvos_radios/810/undr.254d9432.png"
-    },
-    {
-      "value": "https://icy.unitedradio.it/um069.mp3",
-      "name": "United Music Techno",
-      "genre": "techno",
-      "country": "Italy",
-      "favicon": "https://static2.mytuner.mobi/media/tvos_radios/414/-069-united-music-techno.11ddb2c2.png"
-    },
-    {
-      "value": "https://radios.mipanel.stream:7058/;",
-      "name": "Dj Station On Line",
-      "genre": "electronic, hip hop, reggaeton",
-      "country": "Colombia",
-      "favicon": "https://static.wixstatic.com/media/3e114e_850c0eef570142c78d482d357c8449e9%7Emv2.png/v1/fill/w_192%2Ch_192%2Clg_1%2Cusm_0.66_1.00_0.01/3e114e_850c0eef570142c78d482d357c8449e9%7Emv2.png"
-    },
-    {
-      "value": "https://streamer.radio.co/s6815d9b51/listen",
-      "name": "MODUL8 Radio",
-      "genre": "hard techno, acid",
-      "country": "United Kingdom",
-      "favicon": "https://images.radio.co/station_logos/s6815d9b51.20250729040254.jpg"
     },
     {
       "value": "https://stream.technolovers.fm/minimal?ref=radiobrowser",
@@ -120,11 +36,25 @@
       "favicon": "https://www.0nradio.com/logos/0n-techno_600x600.jpg"
     },
     {
-      "value": "https://rautemusik.stream43.radiohost.de/rautemusik-techno_mp3-192?ref=radiobrowser&upd-meta=0&upd-scheme=https&_art=dD0xNzQ4OTUzODYzJmQ9Y2UzNzJkNWIyNTFjMzJmODNhM2U",
-      "name": "__TECHNO__ by rautemusik.fm",
-      "genre": "Techno",
-      "country": "Німеччина",
-      "favicon": "https://rm.fm/favicon.ico"
+      "value": "https://icy.unitedradio.it/um069.mp3",
+      "name": "United Music Techno",
+      "genre": "techno",
+      "country": "Italy",
+      "favicon": "https://static2.mytuner.mobi/media/tvos_radios/414/-069-united-music-techno.11ddb2c2.png"
+    },
+    {
+      "value": "http://stream.rcs.revma.com/1z19ak79n98uv",
+      "name": "Radio FG Techno",
+      "genre": "techno",
+      "country": "France",
+      "favicon": "https://static.mytuner.mobi/media/tvos_radios/874/fg-techno.f21527ee.jpg"
+    },
+    {
+      "value": "https://vega.streamerr.co/listen/technoradio/radio.mp3",
+      "name": "TECHNO RADIO",
+      "genre": "techno",
+      "country": "",
+      "favicon": "https://vega.streamerr.co/static/uploads/technoradio/station_icon.1789681881.png"
     },
     {
       "value": "https://s2.we4stream.com/listen/loca_techo/live",
@@ -132,6 +62,20 @@
       "genre": "Techno",
       "country": "Іспанія",
       "favicon": "https://s2.we4stream.com/favicon.ico"
+    },
+    {
+      "value": "https://audio.mabu-beatz-radio.com:8003/technoinmind",
+      "name": "TECHNO IN MIND",
+      "genre": "techno",
+      "country": "Germany",
+      "favicon": "https://mabu-beatz-radio.com/wp-content/uploads/2023/06/mabu-beatz-radio-192x192.jpg"
+    },
+    {
+      "value": "https://streamer.radio.co/s6815d9b51/listen",
+      "name": "MODUL8 Radio",
+      "genre": "hard techno, acid",
+      "country": "United Kingdom",
+      "favicon": "https://images.radio.co/station_logos/s6815d9b51.20250729040254.jpg"
     },
     {
       "value": "https://stream.sunshine-live.de/techno/mp3-192/radoxo/",
@@ -162,18 +106,25 @@
       "favicon": "https://www.locafm.com/assets/img/favicon/apple-icon-120x120.png"
     },
     {
+      "value": "https://laut.fm/djex-tc",
+      "name": "dj exxx",
+      "genre": "techno",
+      "country": "Germany",
+      "favicon": "https://assets.laut.fm/e250c76114a5b38bbf71969b3a1f474c?t=_120x120"
+    },
+    {
+      "value": "https://stream.zeno.fm/6yzhdr8ezrhvv",
+      "name": "Techno Science",
+      "genre": "techno",
+      "country": "United Kingdom",
+      "favicon": "https://proxy.zeno.fm/content/stations/agxzfnplbm8tc3RhdHNyMgsSCkF1dGhDbGllbnQYgIDQj4S4vwgMCxIOU3RhdGlvblByb2ZpbGUYgICIt96n-gsMogEEemVubw/image/?u=1661445470000"
+    },
+    {
       "value": "https://stream-153.zeno.fm/xilwjn4t17qvv",
       "name": "Remember Vip Techno",
       "genre": "dark techno, deep techno, hard techno, minimal techno...",
       "country": "Spain",
       "favicon": "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEibV9pYnEabVR6GlnZKa4FUlFCM1Pt9ak26YCKncCohqDgq8_9gl_71ELh1ccHa5ChALsP2WLkprYZzKusvxROrASELi4UaEjhs6JZe-i9BlVWF9KR841zc3QR5SMkSzgOZ5FtmBeSiq7pZeGK-pfnkv1SAEeAIEoidYxUM9R3jt7M4U8ZbRQiWjQOQmrE/s176/channels4_profile.jpg"
-    },
-    {
-      "value": "http://strm112.1.fm/deeptech_mobile_mp3",
-      "name": "1.FM - Deep Techno & Deep House",
-      "genre": "deep house, techno",
-      "country": "Switzerland",
-      "favicon": "https://www.radio.de/175/1fmdeeptech.png"
     },
     {
       "value": "https://hirschmilch.de:7501/techno.mp3",
@@ -183,11 +134,11 @@
       "favicon": "https://hirschmilch.de/favicon-32.png"
     },
     {
-      "value": "http://stream.rcs.revma.com/1z19ak79n98uv",
-      "name": "Radio FG Techno",
-      "genre": "techno",
-      "country": "France",
-      "favicon": "https://static.mytuner.mobi/media/tvos_radios/874/fg-techno.f21527ee.jpg"
+      "value": "http://strm112.1.fm/deeptech_mobile_mp3",
+      "name": "1.FM - Deep Techno & Deep House",
+      "genre": "deep house, techno",
+      "country": "Switzerland",
+      "favicon": "https://www.radio.de/175/1fmdeeptech.png"
     },
     {
       "value": "https://1000techno.stream.laut.fm/1000techno",
@@ -218,13 +169,6 @@
       "favicon": "https://i.ibb.co/7J492pjD/neuersachein.jpg"
     },
     {
-      "value": "https://laut.fm/djex-tc",
-      "name": "dj exxx",
-      "genre": "techno",
-      "country": "Germany",
-      "favicon": "https://assets.laut.fm/e250c76114a5b38bbf71969b3a1f474c?t=_120x120"
-    },
-    {
       "value": "https://audio.mabu-beatz-radio.com:8003/minimal",
       "name": "MABU Beatz Radio - Minimal",
       "genre": "minimal, minimal techno",
@@ -250,7 +194,7 @@
       "name": "Radio Techno Zagreb",
       "genre": "techno",
       "country": "Croatia",
-      "favicon": "http://www.liveradio.ie/files/images/511109/radio_techno_zagreb.jpg"
+      "favicon": ""
     },
     {
       "value": "https://stream.laut.fm/technobunkerfm",
@@ -281,6 +225,13 @@
       "favicon": "https://eilo.org/images/eilo_logo.png"
     },
     {
+      "value": "https://live.vblcast.com/proxy/habitstechno/stream/",
+      "name": "Techno Habits Radio",
+      "genre": "techno, electronic",
+      "country": "Cyprus",
+      "favicon": "https://habitsradio.b-cdn.net/wp-content/uploads/2024/06/cropped-HABITS-RADIO-1-192x192.png"
+    },
+    {
       "value": "https://stream.technolovers.fm/melodic-house-techno?ref=radiobrowser-2",
       "name": "Melodic House & Techno @ Technolovers.FM (Chillout, Beach, Festival, Sundowner, Relax, Ibiza, Sea, Ocean Music, Beachclub, Cocktailbar, 2024, 2025, 2026 Future Rave 126, 128, 124 Beats per Minute , BPM)",
       "genre": "#, beach, beachclub, chill...",
@@ -295,11 +246,11 @@
       "favicon": "https://crossvertise.blob.core.windows.net/radio-images/683275.jpg"
     },
     {
-      "value": "http://chronischelektronisch.stream.laut.fm/chronisch_elektronisch",
-      "name": "chronisch_elektronisch-laut-fm",
-      "genre": "minimal techno",
-      "country": "Germany",
-      "favicon": "https://assets.laut.fm/bfefa1506997b2e98bed96db02d269cb?t=_120x120"
+      "value": "https://stream.rcs.revma.com/cmrzxrv3q98uv",
+      "name": "UNDR",
+      "genre": "techno, house",
+      "country": "Belgium",
+      "favicon": "https://static2.mytuner.mobi/media/tvos_radios/810/undr.254d9432.png"
     },
     {
       "value": "https://stream.laut.fm/technothorium",
@@ -316,7 +267,7 @@
       "favicon": "https://assets.laut.fm/e837bb137d5e31a048d55632f3f84394?t=_120x120"
     },
     {
-      "value": "http://fluxfm.streamabc.net/flx-technounderground-mp3-128-7228171?sABC=6no166o6%230%23r30o443r1929r059s085628511796n57%23nhqvb&aw_0_1st.playerid=audio&amsparams=playerid:audio;skey:1790011062",
+      "value": "http://fluxfm.streamabc.net/flx-technounderground-mp3-128-7228171?sABC=6n968qp1%230%23r30o443r1929r059s085628511796n57%23nhqvb&aw_0_1st.playerid=audio&amsparams=playerid:audio;skey:1788251585",
       "name": "FluxFM - Techno Underground",
       "genre": "techno",
       "country": "Germany",
@@ -335,13 +286,6 @@
       "genre": "dub, electro, minimal, techno",
       "country": "Poland",
       "favicon": "https://minimalmix.com/wp-content/uploads/2022/04/favicon.jpg"
-    },
-    {
-      "value": "http://traxx020.ice.infomaniak.ch/traxx020-low.mp3",
-      "name": "Traxx FM - Tech Minimal",
-      "genre": "commercial-free, electronic, minimal, minimal techno...",
-      "country": "Switzerland",
-      "favicon": "https://www.radio.de/175/traxxtechminimal.png"
     },
     {
       "value": "https://best-of-techno.stream.laut.fm/best-of-techno?t302=2025-06-03_02-18-21&uuid=574ecd8e-ce89-405f-a67a-9ff8979a388d",

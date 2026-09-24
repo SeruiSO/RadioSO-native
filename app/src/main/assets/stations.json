@@ -1,6 +1,97 @@
 {
   "techno": [
     {
+      "value": "http://fluxfm.streamabc.net/flx-technounderground-mp3-128-7228171?sABC=6n968qp1%230%23r30o443r1929r059s085628511796n57%23nhqvb&aw_0_1st.playerid=audio&amsparams=playerid:audio;skey:1788251585",
+      "name": "FluxFM - Techno Underground",
+      "genre": "techno",
+      "country": "Germany",
+      "favicon": "http://www.fluxfm.de/assets/favicons/apple-icon-120x120.png"
+    },
+    {
+      "value": "https://tower.hayva.ru/d9am3-96",
+      "name": "Boris Brejcha Radio",
+      "genre": "techno",
+      "country": "",
+      "favicon": ""
+    },
+    {
+      "value": "https://live.vblcast.com/proxy/habitstechno/stream/",
+      "name": "Techno Habits Radio",
+      "genre": "techno",
+      "country": "",
+      "favicon": ""
+    },
+    {
+      "value": "https://vega.streamerr.co/listen/technoradio/radio.mp3",
+      "name": "TECHNO RADIO",
+      "genre": "techno",
+      "country": "",
+      "favicon": ""
+    },
+    {
+      "value": "https://c26.radioboss.fm:8553/stream",
+      "name": "TechnoTanica",
+      "genre": "techno",
+      "country": "",
+      "favicon": ""
+    },
+    {
+      "value": "https://audio.mabu-beatz-radio.com:8003/technoinmind",
+      "name": "TECHNO IN MIND",
+      "genre": "techno",
+      "country": "",
+      "favicon": ""
+    },
+    {
+      "value": "https://stream.zeno.fm/6yzhdr8ezrhvv",
+      "name": "Techno Science",
+      "genre": "techno",
+      "country": "",
+      "favicon": ""
+    },
+    {
+      "value": "https://technoplanet.stream.laut.fm/technoplanet",
+      "name": "Technoplanet",
+      "genre": "techno",
+      "country": "",
+      "favicon": ""
+    },
+    {
+      "value": "https://stream.laut.fm/technobeat",
+      "name": "Technobeat",
+      "genre": "techno",
+      "country": "",
+      "favicon": ""
+    },
+    {
+      "value": "https://stream.rcs.revma.com/cmrzxrv3q98uv",
+      "name": "UNDR",
+      "genre": "techno",
+      "country": "",
+      "favicon": ""
+    },
+    {
+      "value": "https://icy.unitedradio.it/um069.mp3",
+      "name": "United Music Techno",
+      "genre": "techno",
+      "country": "",
+      "favicon": ""
+    },
+    {
+      "value": "https://radios.mipanel.stream:7058/;",
+      "name": "Dj Station On Line",
+      "genre": "techno",
+      "country": "",
+      "favicon": ""
+    },
+    {
+      "value": "https://streamer.radio.co/s6815d9b51/listen",
+      "name": "MODUL8 Radio",
+      "genre": "techno",
+      "country": "",
+      "favicon": ""
+    },
+    {
       "value": "https://stream.technolovers.fm/minimal?ref=radiobrowser",
       "name": "Technolovers - MINIMAL",
       "genre": "#minimal, deep house, house, minimal...",
@@ -8,11 +99,11 @@
       "favicon": "https://i.ibb.co/LncDTYz/MINIMAL-TL.jpg"
     },
     {
-      "value": "https://stream.technolovers.fm/melodic-house-techno?ref=radiobrowser-2",
-      "name": "Melodic House & Techno @ Technolovers.FM (Chillout, Beach, Festival, Sundowner, Relax, Ibiza, Sea, Ocean Music, Beachclub, Cocktailbar, 2024, 2025, 2026 Future Rave 126, 128, 124 Beats per Minute , BPM)",
-      "genre": "#, beach, beachclub, chill...",
-      "country": "Germany",
-      "favicon": "https://i.ibb.co/mFjn8LB/TL-Melodic-House-Techno-png.jpg"
+      "value": "https://stream.7000fm.gr/radio/8000/radio.mp3",
+      "name": "7000FM",
+      "genre": "techno",
+      "country": "Greece",
+      "favicon": "https://7000fm.gr/images/favicon.ico"
     },
     {
       "value": "https://stream1-technolovers.radiohost.de/techno?ref=radiobrowser",
@@ -22,25 +113,18 @@
       "favicon": "https://i.ibb.co/ScwBQ49/TECHNO-TL.jpg"
     },
     {
-      "value": "http://cressida.shoutca.st:8591/stream/1/",
-      "name": "TEKNO1",
-      "genre": "techno",
-      "country": "France",
-      "favicon": "https://tekno1.fr/wp-content/uploads/2019/12/cropped-favi2020-192x192.png"
-    },
-    {
-      "value": "https://radio.edm1.fm/proxy/13_melodia?mp=/stream",
-      "name": "edm1.fm - Melodia",
-      "genre": "Melodic Techno",
+      "value": "https://0n-techno.radionetz.de/0n-techno.mp3",
+      "name": "- 0 N - Techno on Radio",
+      "genre": "Techno",
       "country": "Німеччина",
-      "favicon": "https://example.com/default_logo.png"
+      "favicon": "https://www.0nradio.com/logos/0n-techno_600x600.jpg"
     },
     {
-      "value": "https://stream.7000fm.gr/radio/8000/radio.mp3",
-      "name": "7000FM",
-      "genre": "techno",
-      "country": "Greece",
-      "favicon": "https://7000fm.gr/images/favicon.ico"
+      "value": "https://rautemusik.stream43.radiohost.de/rautemusik-techno_mp3-192?ref=radiobrowser&upd-meta=0&upd-scheme=https&_art=dD0xNzQ4OTUzODYzJmQ9Y2UzNzJkNWIyNTFjMzJmODNhM2U",
+      "name": "__TECHNO__ by rautemusik.fm",
+      "genre": "Techno",
+      "country": "Німеччина",
+      "favicon": "https://rm.fm/favicon.ico"
     },
     {
       "value": "https://s2.we4stream.com/listen/loca_techo/live",
@@ -64,6 +148,41 @@
       "favicon": "https://example.com/default_logo.png"
     },
     {
+      "value": "https://melodic.stream.laut.fm/melodic?uuid=4a005423-8d61-4f95-9b63-7d34e256e02f&t302=2026-09-21_12-00-43",
+      "name": "laut.fm melodic",
+      "genre": "house, melodic, progressive, techno",
+      "country": "Germany",
+      "favicon": ""
+    },
+    {
+      "value": "http://s02.fjperezdj.com:8056/live",
+      "name": "LocaFM Melodic Deep",
+      "genre": "",
+      "country": "Spain",
+      "favicon": "https://www.locafm.com/assets/img/favicon/apple-icon-120x120.png"
+    },
+    {
+      "value": "https://stream-153.zeno.fm/xilwjn4t17qvv",
+      "name": "Remember Vip Techno",
+      "genre": "dark techno, deep techno, hard techno, minimal techno...",
+      "country": "Spain",
+      "favicon": "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEibV9pYnEabVR6GlnZKa4FUlFCM1Pt9ak26YCKncCohqDgq8_9gl_71ELh1ccHa5ChALsP2WLkprYZzKusvxROrASELi4UaEjhs6JZe-i9BlVWF9KR841zc3QR5SMkSzgOZ5FtmBeSiq7pZeGK-pfnkv1SAEeAIEoidYxUM9R3jt7M4U8ZbRQiWjQOQmrE/s176/channels4_profile.jpg"
+    },
+    {
+      "value": "http://strm112.1.fm/deeptech_mobile_mp3",
+      "name": "1.FM - Deep Techno & Deep House",
+      "genre": "deep house, techno",
+      "country": "Switzerland",
+      "favicon": ""
+    },
+    {
+      "value": "https://hirschmilch.de:7501/techno.mp3",
+      "name": "Hirschmilch Radio Techno",
+      "genre": "techno",
+      "country": "Germany",
+      "favicon": ""
+    },
+    {
       "value": "http://stream.rcs.revma.com/1z19ak79n98uv",
       "name": "Radio FG Techno",
       "genre": "techno",
@@ -71,11 +190,25 @@
       "favicon": "https://static.mytuner.mobi/media/tvos_radios/874/fg-techno.f21527ee.jpg"
     },
     {
-      "value": "https://stream.laut.fm/techno",
-      "name": "TECHNO",
-      "genre": "deutschrap, edm, techno",
+      "value": "https://1000techno.stream.laut.fm/1000techno",
+      "name": "1000 Techno",
+      "genre": "deep techno, hard techno, techno",
       "country": "Germany",
-      "favicon": "https://assets.laut.fm/e837bb137d5e31a048d55632f3f84394?t=_120x120"
+      "favicon": ""
+    },
+    {
+      "value": "http://eu2.fastcast4u.com/proxy/loopradiostation?mp=/;",
+      "name": "loop",
+      "genre": "deep, melodic, techno",
+      "country": "Greece",
+      "favicon": "https://fastcast4u.com/player/loopradiostation/_user/logo/l/loopradiostation.png"
+    },
+    {
+      "value": "http://95.216.245.239:8000/stream/1/",
+      "name": "ToXoRs minimalRADIO (320k)",
+      "genre": "320 kbps, minimal, minimal techno, podcast...",
+      "country": "Germany",
+      "favicon": ""
     },
     {
       "value": "https://techno.stream.laut.fm/techno?t302=2025-06-03_09-00-07&uuid=6cd9038e-6131-4ef7-9f0f-9c8308ebd715",
@@ -85,18 +218,32 @@
       "favicon": "https://i.ibb.co/7J492pjD/neuersachein.jpg"
     },
     {
-      "value": "https://0n-techno.radionetz.de/0n-techno.mp3",
-      "name": "- 0 N - Techno on Radio",
-      "genre": "Techno",
-      "country": "Німеччина",
-      "favicon": "https://www.0nradio.com/logos/0n-techno_600x600.jpg"
+      "value": "https://laut.fm/djex-tc",
+      "name": "dj exxx",
+      "genre": "techno",
+      "country": "Germany",
+      "favicon": ""
     },
     {
-      "value": "https://rautemusik.stream43.radiohost.de/rautemusik-techno_mp3-192?ref=radiobrowser&upd-meta=0&upd-scheme=https&_art=dD0xNzQ4OTUzODYzJmQ9Y2UzNzJkNWIyNTFjMzJmODNhM2U",
-      "name": "__TECHNO__ by rautemusik.fm",
-      "genre": "Techno",
-      "country": "Німеччина",
-      "favicon": "https://rm.fm/favicon.ico"
+      "value": "https://audio.mabu-beatz-radio.com:8003/minimal",
+      "name": "MABU Beatz Radio - Minimal",
+      "genre": "minimal, minimal techno",
+      "country": "Germany",
+      "favicon": "https://i.postimg.cc/vHDM8brn/OIP.jpg"
+    },
+    {
+      "value": "https://audio.mabu-beatz-radio.com:8003/techno",
+      "name": "MABU Beatz Radio - Techno",
+      "genre": "techno",
+      "country": "Germany",
+      "favicon": "https://i.postimg.cc/vHDM8brn/OIP.jpg"
+    },
+    {
+      "value": "http://cressida.shoutca.st:8591/stream/1/",
+      "name": "TEKNO1",
+      "genre": "techno",
+      "country": "France",
+      "favicon": "https://tekno1.fr/wp-content/uploads/2019/12/cropped-favi2020-192x192.png"
     },
     {
       "value": "http://mercury.reliastream.com:8085/stream.mp3",
@@ -106,11 +253,74 @@
       "favicon": ""
     },
     {
+      "value": "https://stream.laut.fm/technobunkerfm",
+      "name": "techno bunker",
+      "genre": "techno",
+      "country": "Germany",
+      "favicon": ""
+    },
+    {
+      "value": "https://uzic.ice.infomaniak.ch/uzic-128.aac",
+      "name": "UZIC.CH :: TECHNO - MINIMAL :: best of electronic with techno minimal electro house and progressive",
+      "genre": "electro, house, minimal techno, progressive house...",
+      "country": "Switzerland",
+      "favicon": "https://uzic.ch/wp-content/uploads/2025/06/logo_uzic-150x150.png"
+    },
+    {
       "value": "https://r4.rominimal.club/listen/rominimal.club/radio2.m4a",
       "name": "Minimal Techno Radio & Track Discovery - ROminimal.club",
       "genre": "electronic, minimal techno, techno",
       "country": "Romania",
       "favicon": "https://rominimal.club/images/logo.png"
+    },
+    {
+      "value": "https://eilo.org/streamer.php?ch=techno",
+      "name": "EILO Techno Radio",
+      "genre": "techno",
+      "country": "Bulgaria",
+      "favicon": "https://i.postimg.cc/jdVgYPdj/logo600.jpg"
+    },
+    {
+      "value": "https://stream.technolovers.fm/melodic-house-techno?ref=radiobrowser-2",
+      "name": "Melodic House & Techno @ Technolovers.FM (Chillout, Beach, Festival, Sundowner, Relax, Ibiza, Sea, Ocean Music, Beachclub, Cocktailbar, 2024, 2025, 2026 Future Rave 126, 128, 124 Beats per Minute , BPM)",
+      "genre": "#, beach, beachclub, chill...",
+      "country": "Germany",
+      "favicon": "https://i.ibb.co/mFjn8LB/TL-Melodic-House-Techno-png.jpg"
+    },
+    {
+      "value": "http://stream.sunshine-live.de/premium/mp3-192/stream.sunshine-live.de",
+      "name": "Sunshine Live werbefrei",
+      "genre": "techno",
+      "country": "Germany",
+      "favicon": "https://crossvertise.blob.core.windows.net/radio-images/683275.jpg"
+    },
+    {
+      "value": "http://chronischelektronisch.stream.laut.fm/chronisch_elektronisch",
+      "name": "chronisch_elektronisch-laut-fm",
+      "genre": "minimal techno",
+      "country": "Germany",
+      "favicon": ""
+    },
+    {
+      "value": "https://stream.laut.fm/technothorium",
+      "name": "TECHNOTHORIUM",
+      "genre": "dark techno, techno",
+      "country": "Germany",
+      "favicon": "https://assets.laut.fm/9658828545e209b495a0f7594937e470?t=_120x120"
+    },
+    {
+      "value": "https://stream.laut.fm/techno",
+      "name": "TECHNO",
+      "genre": "deutschrap, edm, techno",
+      "country": "Germany",
+      "favicon": "https://assets.laut.fm/e837bb137d5e31a048d55632f3f84394?t=_120x120"
+    },
+    {
+      "value": "http://fluxfm.streamabc.net/flx-technounderground-mp3-128-7228171?sABC=6no166o6%230%23r30o443r1929r059s085628511796n57%23nhqvb&aw_0_1st.playerid=audio&amsparams=playerid:audio;skey:1790011062",
+      "name": "FluxFM - Techno Underground",
+      "genre": "techno",
+      "country": "Germany",
+      "favicon": "http://www.fluxfm.de/assets/favicons/apple-icon-120x120.png"
     },
     {
       "value": "https://az1.sednastream.com/radio/8150/Live?1582297952",
@@ -141,49 +351,49 @@
       "favicon": "https://example.com/default_logo.png"
     },
     {
-      "value": "http://strm112.1.fm/deephouse_mobile_mp3",
-      "name": "1.FM - Deep House Radio",
-      "genre": "deep house, techno",
-      "country": "Switzerland",
+      "value": "http://abm22.com.au:8000/CONTAINER19",
+      "name": "Australian Digital Radio Network - Techno (MP3)",
+      "genre": "techno",
+      "country": "Australia",
       "favicon": ""
     },
     {
-      "value": "https://stream.laut.fm/technothorium",
-      "name": "TECHNOTHORIUM",
-      "genre": "dark techno, techno",
-      "country": "Germany",
-      "favicon": "https://assets.laut.fm/9658828545e209b495a0f7594937e470?t=_120x120"
+      "value": "https://a4.asurahosting.com:7310/radio.mp3",
+      "name": "Offworld Radio",
+      "genre": "house, techno",
+      "country": "The Marshall Islands",
+      "favicon": "https://a4.asurahosting.com/static/uploads/clubfoot/album_art.1770961147.jpg"
     },
     {
-      "value": "http://fluxfm.streamabc.net/flx-technounderground-mp3-128-7228171?sABC=6n968qp1%230%23r30o443r1929r059s085628511796n57%23nhqvb&aw_0_1st.playerid=audio&amsparams=playerid:audio;skey:1788251585",
-      "name": "FluxFM - Techno Underground",
-      "genre": "techno",
-      "country": "Germany",
-      "favicon": "http://www.fluxfm.de/assets/favicons/apple-icon-120x120.png"
-    },
-    {
-      "value": "https://onair7.xdevel.com/proxy/xautocloud_vovi_2030?mp=/;1/",
-      "name": "Radio Romeo & Juliet",
-      "genre": "electronic, house, techno",
-      "country": "Italy",
-      "favicon": "https://static3.inonda.com/2030/RES/player/5ViwscqTCV-cover-600,600.png"
-    },
-    {
-      "value": "https://eco.onestreaming.com/proxy/flykriti/stream",
-      "name": "Fly 88.1",
-      "genre": "pop, techno, trance",
-      "country": "Greece",
-      "favicon": "https://resources.live24.gr/resources/images/stations/5a9741d1-94dc-4fd9-ab34-69d5ffdab74e.png"
-    },
-    {
-      "value": "https://breakz-high.rautemusik.fm/?ref=radiobrowser-deejay-remixes-radio",
-      "name": "_DEEJAY REMIXE_ Your Radio for finest House, EDM, Electro, Dance, Mashup, Hypertechno, Techno, Bootleg, Charts, Top40, Chillout, Lounge, HipHop, Urban & Latin Party DJ Remixes!",
-      "genre": "#mashup, bass, beach music, breaks...",
-      "country": "Germany",
-      "favicon": "https://i.ibb.co/sP4q4Wh/breakz-fm-logo-fav.png "
+      "value": "https://stream.zeno.fm/pjktyby8dn5tv",
+      "name": "WeRave Music Radio 01 - Dark and Underground",
+      "genre": "dance, deep house, electro, electronica...",
+      "country": "The United States Of America",
+      "favicon": "https://werave.com.br/wp-content/uploads/cropped-weravemusic-180x180.png"
     }
   ],
   "trance": [
+    {
+      "value": "http://cast.streams.ovh:8008/stream",
+      "name": "Trance Athena",
+      "genre": "electronic, melodic trance, music, trance...",
+      "country": "Greece",
+      "favicon": "https://static.wixstatic.com/media/7f073d_ed80ca4374ef48449f0a212faf03c149%7Emv2.jpg/v1/fit/w_2500,h_1330,al_c/7f073d_ed80ca4374ef48449f0a212faf03c149%7Emv2.jpg"
+    },
+    {
+      "value": "https://ia801804.us.archive.org/33/items/tiesto-tiesto-in-concert-2003/Tiesto%20-%20Tiesto%20In%20Concert%20%282003%29.mp3",
+      "name": "Tiësto in Concert",
+      "genre": "progressive trance, techno, trance",
+      "country": "The Netherlands",
+      "favicon": "https://en.wikipedia.org/wiki/Tiësto_in_Concert#/media/File:Tiësto_in_Concert_poster.jpg"
+    },
+    {
+      "value": "http://listen.trancebase.fm/tunein-aac-hd-pls",
+      "name": "TranceBase.FM - AAC HD 256k",
+      "genre": "electronic, techno, trance",
+      "country": "Germany",
+      "favicon": "https://www.trancebase.fm/media/icons/trb/apple-touch-icon.png"
+    },
     {
       "value": "http://s2.euer.tv/audio320",
       "name": "euer-radio (www.Euer - Radio.DE)",
@@ -398,7 +608,7 @@
     },
     {
       "value": "http://online.hitfm.ua/HitFM_Best_Live",
-      "name": "Хіт ФМ Найбільші хіти",
+      "name": "Хіт ФМ Найбільші хіти ",
       "genre": "90's, pop",
       "country": "Ukraine",
       "favicon": "https://www.hitfm.ua/static/img/fav-icon/apple-icon-120x120.png"
@@ -595,6 +805,55 @@
   ],
   "pop": [
     {
+      "value": "http://allzic41.ice.infomaniak.ch/allzic41.mp3",
+      "name": "Allzic Radio Top 20",
+      "genre": "charts, dance, hits, hot hits...",
+      "country": "France",
+      "favicon": "https://www.allzicradio.com/apple-touch-icon-120x120.png"
+    },
+    {
+      "value": "http://nrj.de/germanytop40",
+      "name": "Energy Top 40",
+      "genre": "alle neuen clubhits, charts, club, dance...",
+      "country": "Germany",
+      "favicon": ""
+    },
+    {
+      "value": "https://absolut-top.live-sm.absolutradio.de/absolut-top/stream/aacp",
+      "name": "Absolut Top 2000ER",
+      "genre": "",
+      "country": "Germany",
+      "favicon": "https://cms.antenne-deutschland.de/api/media/file/top-1.png"
+    },
+    {
+      "value": "https://0n-greatesthits.radionetz.de/0n-greatesthits.mp3",
+      "name": "- 0 N - Greatest Hits on Radio",
+      "genre": "2000er, 2000s, 2010er, 2010s...",
+      "country": "Germany",
+      "favicon": "https://www.0nradio.com/logos/0n-greatest-hits_600x600.jpg"
+    },
+    {
+      "value": "https://live.radioclasic.com/listen/radio_clasic_top40/live.mp3",
+      "name": "Clasic Radio_Top40 -București",
+      "genre": "pop, top 40",
+      "country": "Romania",
+      "favicon": "https://www.clasicradio.ro/logo/fresh.jpg"
+    },
+    {
+      "value": "https://media-ssl.musicradio.com/CapitalUK",
+      "name": " CAPITAL - The UK's No.1 Hit Music Station",
+      "genre": "capital, capital fm, contemporary hits radio, dab+...",
+      "country": "The United Kingdom Of Great Britain And Northern Ireland",
+      "favicon": "https://cdn-profiles.tunein.com/s241396/images/logod.jpg"
+    },
+    {
+      "value": "http://s47.myradiostream.com:13914/;",
+      "name": "Loca FM",
+      "genre": "hits",
+      "country": "Spain",
+      "favicon": ""
+    },
+    {
       "value": "https://media-ice.musicradio.com/CapitalMP3",
       "name": "Capital FM London",
       "genre": "Pop",
@@ -702,6 +961,13 @@
   ],
   "relax": [
     {
+      "value": "https://radio.webicdp.com/listen/fmvfitradiomediumenergy/radio.mp3",
+      "name": "FMV FIT Radio Medium Energy",
+      "genre": "deep house, driving, electronic, electronic dance...",
+      "country": "Romania",
+      "favicon": "https://fmvfitradio.webicdp.com/favicon.png"
+    },
+    {
       "value": "http://54.38.43.201:8036/stream-128kmp3-IbizaRelax",
       "name": "Ibiza Radios Relax",
       "genre": "relaxing",
@@ -772,13 +1038,6 @@
       "favicon": "https://d1iyh67kzf6t3o.cloudfront.net/images/2021channels/115_vocal_lounge_RadioArt.com.webp"
     },
     {
-      "value": "http://stream.cdm-chillout.com:8020/stream-AAC-Chill",
-      "name": "Costa Del Mar - Chillout (AAC 96kbps)",
-      "genre": "chill, chillout",
-      "country": "Spain",
-      "favicon": "http://www.costadelmar-radio.com/favicon.ico"
-    },
-    {
       "value": "https://live.radioart.com/fVocal_lounge.mp3",
       "name": "Radio Art Vocal Lounge",
       "genre": "lounge, vocal lounge",
@@ -795,13 +1054,6 @@
     {
       "value": "https://ice2.somafm.com/lush-128-mp3",
       "name": "SomaFM Lush (128k MP3)",
-      "genre": "electronic, femalevocals, lounge, mellow...",
-      "country": "The United States Of America",
-      "favicon": "https://somafm.com/img3/lush-400.jpg"
-    },
-    {
-      "value": "https://ice5.somafm.com/lush-128-aac",
-      "name": "SomaFM Lush (128k AAC)",
       "genre": "electronic, femalevocals, lounge, mellow...",
       "country": "The United States Of America",
       "favicon": "https://somafm.com/img3/lush-400.jpg"
@@ -877,13 +1129,6 @@
       "favicon": "https://www1.wdr.de/radio/1live/resources-v5.143.2/img/favicon/apple-touch-icon.png"
     },
     {
-      "value": "https://vip2.fastcast4u.com/proxy/chillfla?mp=/1",
-      "name": "Chill Lounge Florida (USA) 128k mp3",
-      "genre": "ambient, chill, chillout, lounge",
-      "country": "The United States Of America",
-      "favicon": ""
-    },
-    {
       "value": "https://0n-chillout.radionetz.de/0n-chillout.aac",
       "name": "- 0 N - Chillout on Radio",
       "genre": "ambient, chillout, easy listening, electro",
@@ -920,13 +1165,6 @@
     }
   ],
   "eksklusiv": [
-    {
-      "value": "http://stream.cdm-chillout.com:8020/stream-mp3-Chill",
-      "name": "Costa del Mar - Chill Out",
-      "genre": "chill, chillout",
-      "country": "",
-      "favicon": "https://www.costadelmar-radio.com/wp-content/themes/cdm/favicon.png"
-    },
     {
       "value": "https://stream.regenbogen.de/christmas/mp3-128/radiobrowser",
       "name": "Radio Regenbogen Christmas Hits",
@@ -1108,9 +1346,219 @@
       "genre": "classic rock, pink floyd, rock",
       "country": "The United Arab Emirates",
       "favicon": ""
+    },
+    {
+      "value": "http://stream.cdm-chillout.com:8020/stream-mp3-Chill",
+      "name": "Costa del Mar - Chill Out",
+      "genre": "chill, chillout",
+      "country": "",
+      "favicon": "https://www.costadelmar-radio.com/wp-content/themes/cdm/favicon.png"
     }
   ],
-  "lounge": [
+  "house": [
+    {
+      "value": "https://onair7.xdevel.com/proxy/xautocloud_vovi_2030?mp=/;1/",
+      "name": "Radio Romeo & Juliet",
+      "genre": "electronic, house, techno",
+      "country": "Italy",
+      "favicon": "https://static3.inonda.com/2030/RES/player/5ViwscqTCV-cover-600,600.png"
+    },
+    {
+      "value": "https://stream-51.zeno.fm/sgehc2mzwd0uv?zs=DutBe-m5Sz6waLQy8l8ejg",
+      "name": "Galaxy Music The Deep House",
+      "genre": "",
+      "country": "Greece",
+      "favicon": "https://www.wix.com/favicon.ico"
+    },
+    {
+      "value": "http://s02.fjperezdj.com:8026/live",
+      "name": "LOCA FM House",
+      "genre": "electronic",
+      "country": "Spain",
+      "favicon": ""
+    },
+    {
+      "value": "https://0nlineradio.radioho.st/technolovers-deep-house?ref=radio-browser26",
+      "name": "0R - DEEP HOUSE || Chillout, Ambient House, Chill, Lounge, Electronic, Dance, Smooth, Vocal, Club, Night, Party, Groove, Melodic, Summer, Beat",
+      "genre": "ambient, club house, deep house, easy listening...",
+      "country": "Germany",
+      "favicon": "https://i.ibb.co/Y7PzyGxb/Deep-House-TL.png"
+    },
+    {
+      "value": "https://r.bgp.rodeo/listen/after_hours/radio.mp3",
+      "name": "After Hours – Melodic House & DnB",
+      "genre": "dance, deep house, dnb, drum and bass...",
+      "country": "The Netherlands",
+      "favicon": ""
+    },
+    {
+      "value": "https://radiopanel.factory.com.ar/listen/factory_radio/radio.mp3",
+      "name": "Factory Radio",
+      "genre": "deep house, dj sets, electronic, electronic dance music...",
+      "country": "Argentina",
+      "favicon": "https://cloud.factory.com.ar/logo.png"
+    },
+    {
+      "value": "http://stream.laut.fm/djbronko",
+      "name": "DJ BronKo",
+      "genre": "deep house, electro, electronic, house...",
+      "country": "Germany",
+      "favicon": ""
+    },
+    {
+      "value": "https://stream.edmsessions.com/",
+      "name": "EDM Sessions",
+      "genre": "house, techno, trance",
+      "country": "The United States Of America",
+      "favicon": ""
+    },
+    {
+      "value": "https://melodic.stream.laut.fm/melodic?uuid=4a005423-8d61-4f95-9b63-7d34e256e02f&t302=2026-09-21_12-00-43",
+      "name": "laut.fm melodic",
+      "genre": "house, melodic, progressive, techno",
+      "country": "Germany",
+      "favicon": ""
+    },
+    {
+      "value": "http://s2.euer.tv/audio320",
+      "name": "euer-radio (www.Euer - Radio.DE)",
+      "genre": "dance, house, techno, trance",
+      "country": "Germany",
+      "favicon": "https://www.euer-radio.de/images/Logo6.Erde.png"
+    },
+    {
+      "value": "http://uk5.internet-radio.com:8306/",
+      "name": "Moon Mission Recordings",
+      "genre": "deep house, techno",
+      "country": "Japan",
+      "favicon": ""
+    },
+    {
+      "value": "https://s2.radio.co/s4648f1c61/listen",
+      "name": "Diceradio",
+      "genre": "house, techno",
+      "country": "Greece",
+      "favicon": "http://resources.live24.gr/resources/images/stations/0019afe3-7a27-4a85-9b1d-14d4fc761840.png"
+    },
+    {
+      "value": "https://esoterica.servemp3.com:444/listen/darkclubbing_darkelectro/radio.mp3",
+      "name": "Esoterica Radio S3",
+      "genre": "bass house, dark electro, dark techno, darkwave; ebm; futurepop; gothic; electropop; synth-pop; alternative...",
+      "country": "Bosnia And Herzegovina",
+      "favicon": "https://esoterica.live/images/favicon.ico"
+    },
+    {
+      "value": "https://solid55.streamupsolutions.com/proxy/lsdmuqhb?mp=/stream",
+      "name": "Mykonos Live Radio",
+      "genre": "house, techno",
+      "country": "Greece",
+      "favicon": "https://resources.live24.gr/resources/images/stations/d0b7331a-96c0-46fd-b928-f5cdc67042ec.png"
+    },
+    {
+      "value": "https://s3.radio.co/sa80d22794/listen",
+      "name": "We Get Lifted Radio (WGLR) 192k mp3",
+      "genre": "deep house, deep techno, edm, tech house",
+      "country": "The United Kingdom Of Great Britain And Northern Ireland",
+      "favicon": "https://www.wegetliftedradio.com/wp-content/uploads/2020/03/cropped-WGLR-HEADER-1-1-1-600x343.png"
+    },
+    {
+      "value": "https://listen.adtonos.com/deep-house-radio-dhr-4",
+      "name": "Deep House Radio (DHR)",
+      "genre": "chillout+lounge, deep house, deep techno, deephouse...",
+      "country": "Ireland",
+      "favicon": "https://deephouse-radio.com/dhr-logo-bg.png"
+    },
+    {
+      "value": "http://stream.laut.fm/katzenpuff",
+      "name": "laut.fm Katzenpuff",
+      "genre": "deep house, deep techno",
+      "country": "Germany",
+      "favicon": ""
+    },
+    {
+      "value": "http://stream.laut.fm/technotune",
+      "name": "Technotune",
+      "genre": "house, minimal, techno, trance",
+      "country": "Germany",
+      "favicon": "https://static.twitchcdn.net/assets/favicon-32-e29e246c157142c94346.png"
+    },
+    {
+      "value": "https://leo.streamerr.co/8052/stream",
+      "name": "BOREALIS MUSIC RECORDS",
+      "genre": "deep house, melodic house, melodic techno",
+      "country": "The United Kingdom Of Great Britain And Northern Ireland",
+      "favicon": ""
+    },
+    {
+      "value": "https://stream.laut.fm/suedstadt-techno",
+      "name": "SUEDSTADT TECHNO",
+      "genre": "deep house, house, minimal, tech house...",
+      "country": "Germany",
+      "favicon": "https://assets.laut.fm/bd951c3cd672db98f8c3240bd4b8a8b9?t=_120x120"
+    },
+    {
+      "value": "https://house-high.rautemusik.fm/?ref=radiobrowser",
+      "name": "__HOUSE__ by rautemusik (rm.fm)",
+      "genre": "dance, deep house, edm, electro house...",
+      "country": "Germany",
+      "favicon": "https://www.rm.fm/favicon.ico"
+    },
+    {
+      "value": "https://stream.nextmedia.si/proxy/enter_1?mp=/enter",
+      "name": "Radio ENTER",
+      "genre": "disco, house, techno",
+      "country": "Slovenia",
+      "favicon": "https://enter.radio/images/icons/icon_192x192.png"
+    },
+    {
+      "value": "https://stream.zeno.fm/cpnv07rjvp0vv",
+      "name": "WeRave Music Radio 02 - Study and Chillout",
+      "genre": "ambient, best music for you, chill house, chillout...",
+      "country": "The United States Of America",
+      "favicon": "https://werave.com.br/wp-content/uploads/2020/09/vinyl.png"
+    },
+    {
+      "value": "http://stream.deep.radio/hd",
+      "name": "Deep Radio",
+      "genre": "ambient, dance, deep house, downtempo...",
+      "country": "The Netherlands",
+      "favicon": ""
+    },
+    {
+      "value": "https://s3.slotex.pl/shoutcast/7354/stream",
+      "name": "Radio Disco Party - Club",
+      "genre": "edm, electro, house, techno...",
+      "country": "Poland",
+      "favicon": "https://discoparty.pl/wp-content/uploads/2023/01/logotyp.png"
+    },
+    {
+      "value": "https://stream.zeno.fm/pjktyby8dn5tv",
+      "name": "WeRave Music Radio 01 - Dark and Underground",
+      "genre": "dance, deep house, electro, electronica...",
+      "country": "The United States Of America",
+      "favicon": "https://werave.com.br/wp-content/uploads/cropped-weravemusic-180x180.png"
+    },
+    {
+      "value": "https://subfm.radioca.st/",
+      "name": "Sub FM",
+      "genre": "bass, deep house, drum and bass, dubstep...",
+      "country": "",
+      "favicon": "https://www.sub.fm/wp-content/uploads/2016/03/Sub-FM-FB-Logo.jpg"
+    },
+    {
+      "value": "http://strm112.1.fm/deeptech_mobile_mp3",
+      "name": "1.FM - Deep Techno & Deep House",
+      "genre": "deep house, techno",
+      "country": "Switzerland",
+      "favicon": ""
+    },
+    {
+      "value": "https://secure.live-streams.nl/main",
+      "name": "Intense Radio - We love Dance 256K",
+      "genre": "clubhouse, dance, electronic, house...",
+      "country": "The Netherlands",
+      "favicon": "https://www.intenseradio.net/wp-content/uploads/2023/09/intense-radio-vierkant-4d-2026.jpg"
+    },
     {
       "value": "http://strm112.1.fm/deephouse_mobile_mp3",
       "name": "1.FM - Deep House Radio",
@@ -1118,6 +1566,36 @@
       "country": "Switzerland",
       "favicon": ""
     },
+    {
+      "value": "https://playerservices.streamtheworld.com/api/livestream-redirect/TOPRETROAAC.aac",
+      "name": "Topradio TopRetroArena",
+      "genre": "90s, dance, electronic, house...",
+      "country": "Belgium",
+      "favicon": "https://www.topradio.be/favicons/favicon-196x196.png"
+    },
+    {
+      "value": "https://stream.radiojar.com/asngk2sg798uv?1659885393",
+      "name": "Perfect Deep House",
+      "genre": "deep house, house, tropical",
+      "country": "Spain",
+      "favicon": "https://perfect-radio.com/____impro/1/onewebmedia/Logo%20Perfect%20Deephouse.jpg?etag=W%2F%22847e5-619665ca%22&sourceContentType=image%2Fjpeg&ignoreAspectRatio&resize=355%2B372&extract=0%2B0%2B354%2B372&quality=85"
+    },
+    {
+      "value": "http://whsh4u-panel.com:14113/stream",
+      "name": "Extreme Deep House",
+      "genre": "deep house, nu disco, vocal house",
+      "country": "Bulgaria",
+      "favicon": "https://scontent.fbre4-1.fna.fbcdn.net/v/t39.30808-6/294865141_110190498433524_6398220129326637406_n.jpg?_nc_cat=103&ccb=1-7&_nc_sid=5f2048&_nc_ohc=gM8-afZumNgAX_ZBvv7&_nc_ht=scontent.fbre4-1.fna&oh=00_AfAuZDwZvdbnXoKWuNCS_pjQFLhTjwwOpzpD2aKQuDVF3Q&oe=65F139C1"
+    },
+    {
+      "value": "https://stream.radiojar.com/p1f2vpv37reuv",
+      "name": "Ibiza X Radio",
+      "genre": "dance, dance anthems, deep house, edm...",
+      "country": "Spain",
+      "favicon": ""
+    }
+  ],
+  "lounge": [
     {
       "value": "https://0nlineradio.radioho.st/lounge-ibiza-chillout-lounge?ref=rb26",
       "name": "IBIZA CHILLOUT LOUNGE - Ambient, Deep House, Balearic, Smooth Jazz, Acoustic, Chill House, Lo-Fi, Chillwave, Dream Pop, Electro, Tropical House, Sunset Chill, Café del Mar, Soft Electronica, Slow House, Ambient, Relax, Easy Listening, Beach Vibes, Summer",
@@ -1152,13 +1630,6 @@
       "genre": "ambient, classic hits, covers, hits...",
       "country": "Germany",
       "favicon": ""
-    },
-    {
-      "value": "https://paineldj.com.br:20184/stream",
-      "name": "Conecta FM - Marília",
-      "genre": "80s, 90s, alternative, classic hits...",
-      "country": "Brazil",
-      "favicon": "https://fmconecta.com.br/icon.png"
     },
     {
       "value": "https://streaming.hotmixradio.com/hotmix-dinner-lounge-en-mp3?provider=radiobrowser",
@@ -1250,6 +1721,29 @@
       "genre": "chillout, lounge",
       "country": "Switzerland",
       "favicon": ""
+    }
+  ],
+  "chill": [
+    {
+      "value": "https://server27166.streamplus.de/stream.mp3?shoutcast",
+      "name": "Dish FM",
+      "genre": "chill, electronic, house, internet radio...",
+      "country": "Germany",
+      "favicon": "https://www.dishfm.de/images/logo.png"
+    },
+    {
+      "value": "http://stream.deep.radio/hd",
+      "name": "Deep Radio",
+      "genre": "ambient, dance, deep house, downtempo...",
+      "country": "The Netherlands",
+      "favicon": ""
+    },
+    {
+      "value": "https://radio.breakz.fm/?ref=club2-71",
+      "name": "#CLUB CHARTS -> TOP 100 || IMMER AKTUELL || DJ CHARTS || HOUSE, EDM, DEEP HOUSE - TECH HOUSE - TECHNO - MELODIC TECHNO - EDM - ELECTRONIC DANCE MUSIC - CLUB - DJ - DJ MIX - REMIX - FESTIVAL - FESTIVAL RADIO - IBIZA - IBIZA HOUSE - SUMMER HOUSE - BEACH CLUB - CHILLOUT - LOUNGE - RAVE - PARTY MUSIC - NIGHTLIFE - URBAN - HIP HOP - RNB - AFRO HOUSE - LATIN HOUSE - TRANCE - HARDSTYLE - HARDCORE",
+      "genre": "24/7, ambient, charts, chillout...",
+      "country": "Germany",
+      "favicon": "https://i.ibb.co/m5jrHLWC/DJ-CLUB-CHARTS.png"
     }
   ]
 }

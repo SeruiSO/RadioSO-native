@@ -138,14 +138,14 @@
       "name": "Sunshine Live - Techno",
       "genre": "Techno",
       "country": "Німеччина",
-      "favicon": "https://sunshine-live.de/favicon.ico"
+      "favicon": "https://upload.sunshine-live.de/production/static/1787844117408/icons/icon_512.fmRwc30M41g.png"
     },
     {
       "value": "https://sunsl.streamabc.net/sunsl-melodictechno-mp3-192-4167248",
       "name": "Sunshine Live - Melodic Techno",
       "genre": "Melodic Techno",
       "country": "Німеччина",
-      "favicon": "https://example.com/default_logo.png"
+      "favicon": "https://upload.sunshine-live.de/production/static/1787844117408/icons/icon_512.fmRwc30M41g.png"
     },
     {
       "value": "https://melodic.stream.laut.fm/melodic?uuid=4a005423-8d61-4f95-9b63-7d34e256e02f&t302=2026-09-21_12-00-43",
@@ -264,7 +264,7 @@
       "name": "UZIC.CH :: TECHNO - MINIMAL :: best of electronic with techno minimal electro house and progressive",
       "genre": "electro, house, minimal techno, progressive house...",
       "country": "Switzerland",
-      "favicon": "https://uzic.ch/wp-content/uploads/2025/06/logo_uzic-150x150.png"
+      "favicon": "https://uzic.ch/images/logo_uzic.png"
     },
     {
       "value": "https://r4.rominimal.club/listen/rominimal.club/radio2.m4a",
@@ -278,7 +278,7 @@
       "name": "EILO Techno Radio",
       "genre": "techno",
       "country": "Bulgaria",
-      "favicon": "https://i.postimg.cc/jdVgYPdj/logo600.jpg"
+      "favicon": "https://eilo.org/images/eilo_logo.png"
     },
     {
       "value": "https://stream.technolovers.fm/melodic-house-techno?ref=radiobrowser-2",
@@ -348,7 +348,7 @@
       "name": "Best Of Techno",
       "genre": "Classic Techno",
       "country": "Німеччина",
-      "favicon": "https://example.com/default_logo.png"
+      "favicon": "https://assets.laut.fm/8df9560134578f0bf6e4e5394194f020?t=_120x120"
     },
     {
       "value": "http://abm22.com.au:8000/CONTAINER19",
@@ -385,7 +385,7 @@
       "name": "Tiësto in Concert",
       "genre": "progressive trance, techno, trance",
       "country": "The Netherlands",
-      "favicon": "https://en.wikipedia.org/wiki/Tiësto_in_Concert#/media/File:Tiësto_in_Concert_poster.jpg"
+      "favicon": "https://archive.org/services/img/tiesto-tiesto-in-concert-2003"
     },
     {
       "value": "http://listen.trancebase.fm/tunein-aac-hd-pls",
@@ -427,7 +427,7 @@
       "name": "Techno Lovers FM Vocal Trance",
       "genre": "electro",
       "country": "Germany",
-      "favicon": "https://i.postimg.cc/j5JqRGN7/technoloversvocaltrance.jpg"
+      "favicon": "https://static2.mytuner.mobi/media/tvos_radios/212/technolovers-vocal-trance.8eef344b.jpg"
     },
     {
       "value": "https://icecast.pulsradio.com/pulsHD.mp3",
@@ -448,7 +448,7 @@
       "name": "Technolovers VOCAL TRANCE",
       "genre": "Vocal Trance",
       "country": "Німеччина",
-      "favicon": "https://example.com/default_logo.png"
+      "favicon": "https://static2.mytuner.mobi/media/tvos_radios/212/technolovers-vocal-trance.8eef344b.jpg"
     },
     {
       "value": "https://stream.sunshine-live.de/live/mp3-192/stream.sunshine-live.de/",
@@ -532,7 +532,7 @@
       "name": "sunshine live - Vocal Trance",
       "genre": "Vocal Trance",
       "country": "Німеччина",
-      "favicon": "https://example.com/default_logo.png"
+      "favicon": "https://upload.sunshine-live.de/production/static/1787844117408/icons/icon_512.fmRwc30M41g.png"
     },
     {
       "value": "https://dc1.serverse.com/proxy/ywycfrxn/live",
@@ -758,14 +758,14 @@
       "name": "Naше Радіо 107.9",
       "genre": "Поп",
       "country": "Україна",
-      "favicon": "https://example.com/default_logo.png"
+      "favicon": "https://static.nasheradio.ua/nasheradio/img/main/NasheRadio_NewLogo_85x85.jpg"
     },
     {
       "value": "https://online.radioroks.ua/RadioROKS_Ukr_HD",
       "name": "Radio ROKS Ukrainian",
       "genre": "Рок/Український рок",
       "country": "Україна",
-      "favicon": "https://example.com/default_logo.png"
+      "favicon": "https://www.radioroks.ua/static/img/header_icons_new/ROKS_logo.png"
     },
     {
       "value": "https://rockradioua.online:8433/rock_256",
@@ -928,7 +928,7 @@
       "name": "Lounge FM",
       "genre": "chillout, lounge",
       "country": "Ukraine",
-      "favicon": "https://loungefm.com.ua/favicon.ico"
+      "favicon": "https://loungefm.com.ua/logo.png"
     },
     {
       "value": "https://stream.revma.ihrhls.com/zc8470",
@@ -1508,7 +1508,7 @@
       "name": "Radio ENTER",
       "genre": "disco, house, techno",
       "country": "Slovenia",
-      "favicon": "https://enter.radio/images/icons/icon_192x192.png"
+      "favicon": "https://cdn-profiles.tunein.com/s233209/images/logog.png"
     },
     {
       "value": "https://stream.zeno.fm/cpnv07rjvp0vv",
@@ -1578,7 +1578,7 @@
       "name": "Perfect Deep House",
       "genre": "deep house, house, tropical",
       "country": "Spain",
-      "favicon": "https://perfect-radio.com/____impro/1/onewebmedia/Logo%20Perfect%20Deephouse.jpg?etag=W%2F%22847e5-619665ca%22&sourceContentType=image%2Fjpeg&ignoreAspectRatio&resize=355%2B372&extract=0%2B0%2B354%2B372&quality=85"
+      "favicon": "https://www.radio.de/175/perfectdeephouse.png"
     },
     {
       "value": "http://whsh4u-panel.com:14113/stream",
@@ -1608,7 +1608,7 @@
       "name": "I Love Radio - Chillout Beats",
       "genre": "afrobeats, chill, chillout, electronic...",
       "country": "Germany",
-      "favicon": ""
+      "favicon": "https://ilovemusic.de/favicon.png"
     },
     {
       "value": "https://iaradiolounge.ice.infomaniak.ch/iaradiolounge-128.mp3",
@@ -1643,14 +1643,14 @@
       "name": "Oxygen Lounge",
       "genre": "chill, easy listening, lounge music",
       "country": "Hungary",
-      "favicon": ""
+      "favicon": "https://oxygenmusic.hu/logo192.png"
     },
     {
       "value": "https://stream.laut.fm/riviera-lounge-radio",
       "name": "Riviera Lounge",
       "genre": "ambient, chillout+lounge, electronic",
       "country": "Italy",
-      "favicon": ""
+      "favicon": "https://assets.laut.fm/ef0128678d49399cfe83334508d539b4?t=_120x120"
     },
     {
       "value": "https://one.cloudstreaming.eu/proxy/lounge/stream",
@@ -1720,7 +1720,7 @@
       "name": "1.FM - Chillout Lounge Radio",
       "genre": "chillout, lounge",
       "country": "Switzerland",
-      "favicon": ""
+      "favicon": "https://www.radio.de/175/chilloutlounge.png"
     }
   ],
   "chill": [

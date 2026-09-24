@@ -15,6 +15,8 @@ import coil.compose.AsyncImage
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.MarqueeAnimationMode
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -84,6 +86,32 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+
+
+@Composable
+private fun InfoMarquee(
+    text: String,
+    color: Color,
+    style: androidx.compose.ui.text.TextStyle,
+    modifier: Modifier = Modifier,
+) {
+    Text(
+        text = text,
+        color = color,
+        maxLines = 1,
+        softWrap = false,
+        overflow = TextOverflow.Clip,
+        style = style,
+        modifier = modifier
+            .fillMaxWidth()
+            .basicMarquee(
+                iterations = Int.MAX_VALUE,
+                animationMode = MarqueeAnimationMode.Immediately,
+                initialDelayMillis = 800,
+                repeatDelayMillis = 1200,
+            ),
+    )
+}
 
 /**
  * Головний екран (layout + секції). Стан і колбеки лишаються в MainActivity.
@@ -561,21 +589,17 @@ fun StationScreen(
                         .padding(horizontal = 10.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
-                    Text(
+                    InfoMarquee(
                         name.uppercase(),
                         color = acc,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
                         style = MaterialTheme.typography.titleSmall.copy(
                             letterSpacing = 0.8.sp,
                             fontWeight = FontWeight.SemiBold,
                         ),
                     )
-                    Text(
+                    InfoMarquee(
                         if (track.isNotBlank()) track else LocalContext.current.getString(R.string.track_unknown),
                         color = text,
-                        maxLines = 3,
-                        overflow = TextOverflow.Ellipsis,
                         style = MaterialTheme.typography.bodySmall,
                     )
                     val ctryL = country.trim().let { if (it.isNotBlank() && it != "-") it else "" }
@@ -811,24 +835,18 @@ fun StationScreen(
                         .fillMaxHeight(),
                     verticalArrangement = Arrangement.spacedBy(1.dp),
                 ) {
-                    Text(
+                    InfoMarquee(
                         name.uppercase(),
                         color = acc,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
                         style = MaterialTheme.typography.titleSmall.copy(
                             letterSpacing = 0.8.sp,
                             fontWeight = FontWeight.SemiBold,
                         ),
-                        modifier = Modifier.fillMaxWidth(),
                     )
-                    Text(
+                    InfoMarquee(
                         if (track.isNotBlank()) track else LocalContext.current.getString(R.string.track_unknown),
                         color = text,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
                         style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.fillMaxWidth(),
                     )
                     val ctry = country.trim().let { if (it.isNotBlank() && it != "-") it else "" }
                     val gen = genre.trim().let { if (it.isNotBlank() && it != "-") it else "" }

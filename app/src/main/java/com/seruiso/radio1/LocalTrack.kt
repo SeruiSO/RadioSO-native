@@ -7,4 +7,5 @@ data class LocalTrack(
     val artist: String,
     val album: String,
     val albumId: String,
+    val folder: String = "",
 )

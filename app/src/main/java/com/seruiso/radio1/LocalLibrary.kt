@@ -15,6 +15,8 @@ object LocalLibrary {
             MediaStore.Audio.Media.ALBUM,
             MediaStore.Audio.Media.ALBUM_ID,
             MediaStore.Audio.Media.DISPLAY_NAME,
+            MediaStore.Audio.Media.RELATIVE_PATH,
+            MediaStore.Audio.Media.BUCKET_DISPLAY_NAME,
         )
         val selection = MediaStore.Audio.Media.IS_MUSIC + "!=0"
         val sort = MediaStore.Audio.Media.TITLE + " COLLATE NOCASE ASC"
@@ -25,6 +27,8 @@ object LocalLibrary {
             val albumI = c.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
             val albumIdI = c.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
             val nameI = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DISPLAY_NAME)
+            val relI = c.getColumnIndex(MediaStore.Audio.Media.RELATIVE_PATH)
+            val bucketI = c.getColumnIndex(MediaStore.Audio.Media.BUCKET_DISPLAY_NAME)
             while (c.moveToNext()) {
                 val id = c.getLong(idI)
                 val uri = ContentUris.withAppendedId(collection, id).toString()
@@ -40,10 +44,22 @@ object LocalLibrary {
                         artist = artist ?: "Unknown",
                         album = c.getString(albumI) ?: "",
                         albumId = c.getLong(albumIdI).toString(),
+                        folder = audioFolder(
+                            if (relI >= 0) c.getString(relI) else null,
+                            if (bucketI >= 0) c.getString(bucketI) else null,
+                        ),
                     )
                 )
             }
         }
         return out
+    }
+
+    private fun audioFolder(relative: String?, bucket: String?): String {
+        val rel = relative?.trim()?.trim('/') ?: ""
+        if (rel.isNotEmpty()) return rel
+        val name = bucket?.trim() ?: ""
+        if (name.isEmpty() || name.equals("<unknown>", true)) return ""
+        return name
     }
 }

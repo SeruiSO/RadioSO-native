@@ -156,5 +156,6 @@
     <string name="notif_playing_prefix">Грає: %1$s</string>
     <string name="notif_paused_bt_on">На паузі · BT стеження увімк</string>
     <string name="notif_paused_bt_off">На паузі · BT стеження вимк</string>
+    <string name="music_other_folder">Інше</string>
 </resources>
 

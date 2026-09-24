@@ -1,5 +1,6 @@
 package com.seruiso.radio1
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import android.view.HapticFeedbackConstants
@@ -20,11 +21,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.delay
 import androidx.compose.runtime.remember
@@ -60,6 +66,22 @@ fun androidx.compose.foundation.layout.ColumnScope.LocalListSection(
     val muted = ui.muted
     val text = ui.text
     val card = ui.card
+    if (tabs.getOrNull(tabIndex) == "local") {
+        MusicFolderList(
+            localRows = localRows,
+            currentUrl = currentUrl,
+            bestUris = bestUris,
+            acc = acc,
+            muted = muted,
+            text = text,
+            card = card,
+            listState = listState,
+            onPickLocal = actions.onPickLocal,
+            onNow = actions.onNow,
+            onToggleBest = actions.onToggleBest,
+        )
+        return
+    }
     // Reorder на рівні списку
     val dragFrom = remember { intArrayOf(-1) }
     val dropHold = remember { intArrayOf(-1) }
@@ -228,6 +250,169 @@ fun androidx.compose.foundation.layout.ColumnScope.LocalListSection(
                         .size(36.dp)
                         .padding(6.dp)
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun androidx.compose.foundation.layout.ColumnScope.MusicFolderList(
+    localRows: List<LocalTrack>,
+    currentUrl: String,
+    bestUris: Set<String>,
+    acc: androidx.compose.ui.graphics.Color,
+    muted: androidx.compose.ui.graphics.Color,
+    text: androidx.compose.ui.graphics.Color,
+    card: androidx.compose.ui.graphics.Color,
+    listState: LazyListState,
+    onPickLocal: (List<LocalTrack>, Int) -> Unit,
+    onNow: () -> Unit,
+    onToggleBest: (LocalTrack) -> Unit,
+) {
+    val ctx = LocalContext.current
+    var openFolder by remember { mutableStateOf<String?>(null) }
+    val groups = remember(localRows) {
+        localRows.groupBy { it.folder }
+            .entries
+            .sortedWith(
+                compareBy<Map.Entry<String, List<LocalTrack>>> { it.key.isBlank() }
+                    .thenBy { it.key.substringAfterLast('/').lowercase() }
+            )
+    }
+    LaunchedEffect(groups) {
+        if (openFolder != null && groups.none { it.key == openFolder }) openFolder = null
+    }
+    BackHandler(enabled = openFolder != null) { openFolder = null }
+    LaunchedEffect(openFolder) {
+        if (openFolder == null) {
+            listState.scrollToItem(0)
+            return@LaunchedEffect
+        }
+        val i = localRows.filter { it.folder == openFolder }.indexOfFirst { it.uri == currentUrl }
+        if (i >= 0) listState.scrollToItem(i + 1) else listState.scrollToItem(0)
+    }
+    val shown = if (openFolder == null) emptyList() else localRows.filter { it.folder == openFolder }
+    if (localRows.isEmpty()) {
+        EmptySlot(ctx.getString(R.string.no_tracks_scan), muted)
+    }
+    val haptic = LocalHapticFeedback.current
+    val view = LocalView.current
+    fun buzz(strong: Boolean = false) {
+        val code = if (strong) HapticFeedbackConstants.LONG_PRESS
+        else HapticFeedbackConstants.CONTEXT_CLICK
+        view.performHapticFeedback(code)
+        haptic.performHapticFeedback(
+            if (strong) HapticFeedbackType.LongPress else HapticFeedbackType.ContextClick
+        )
+    }
+    LazyColumn(
+        modifier = Modifier.weight(1f),
+        state = listState,
+    ) {
+        if (openFolder == null) {
+            itemsIndexed(groups, key = { _, e -> "dir:" + e.key }) { _, entry ->
+                val path = entry.key
+                val title = if (path.isBlank()) ctx.getString(R.string.music_other_folder)
+                else path.substringAfterLast('/')
+                val parent = if (path.contains("/")) path.substringBeforeLast("/") else ""
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 6.dp, vertical = 3.dp)
+                        .background(card, RoundedCornerShape(12.dp))
+                        .clickable {
+                            buzz()
+                            openFolder = path
+                        }
+                        .padding(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Filled.Folder, contentDescription = null, tint = acc, modifier = Modifier.size(36.dp))
+                    Column(modifier = Modifier.weight(1f).padding(start = 10.dp)) {
+                        Text(title, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        if (parent.isNotEmpty()) {
+                            Text(parent, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                    Text(ctx.getString(R.string.tracks_count, entry.value.size), color = muted, style = MaterialTheme.typography.labelSmall)
+                }
+            }
+        } else {
+            val path = openFolder ?: ""
+            val title = if (path.isBlank()) ctx.getString(R.string.music_other_folder)
+            else path.substringAfterLast('/')
+            item(key = "back") {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 6.dp, vertical = 3.dp)
+                        .background(card, RoundedCornerShape(12.dp))
+                        .clickable { openFolder = null }
+                        .padding(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Filled.ArrowBack, contentDescription = null, tint = text, modifier = Modifier.size(28.dp))
+                    Column(modifier = Modifier.padding(start = 8.dp)) {
+                        Text(title, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(ctx.getString(R.string.tracks_count, shown.size), color = muted, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+            itemsIndexed(shown, key = { _, x -> x.uri }) { index, item ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 6.dp, vertical = 3.dp)
+                        .background(
+                            if (item.uri == currentUrl) acc.copy(alpha = 0.18f) else card,
+                            RoundedCornerShape(12.dp),
+                        )
+                        .clickable {
+                            buzz()
+                            onPickLocal(shown, index)
+                        }
+                        .padding(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                        modifier = Modifier.size(48.dp).clickable {
+                            buzz()
+                            if (item.uri != currentUrl) onPickLocal(shown, index)
+                            onNow()
+                        },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        val a = if (item.albumId.isNotBlank() && item.albumId != "0")
+                            "content://media/external/audio/albumart/${item.albumId}" else ""
+                        if (a.isNotEmpty()) {
+                            AsyncImage(
+                                model = a,
+                                contentDescription = null,
+                                modifier = Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)),
+                                contentScale = ContentScale.Crop,
+                            )
+                        } else {
+                            Icon(Icons.Filled.MusicNote, contentDescription = ctx.getString(R.string.no_cover), tint = muted)
+                        }
+                    }
+                    Column(modifier = Modifier.weight(1f).padding(start = 8.dp)) {
+                        Text(item.title, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(item.artist, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
+                    }
+                    Icon(
+                        if (bestUris.contains(item.uri)) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                        contentDescription = if (bestUris.contains(item.uri)) ctx.getString(R.string.remove_from_local_fav) else ctx.getString(R.string.add_to_local_fav_short),
+                        tint = acc,
+                        modifier = Modifier
+                            .clickable {
+                                buzz(true)
+                                onToggleBest(item)
+                            }
+                            .padding(start = 8.dp, end = 2.dp)
+                            .size(36.dp)
+                            .padding(6.dp),
+                    )
+                }
             }
         }
     }

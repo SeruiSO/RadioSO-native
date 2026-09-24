@@ -229,14 +229,14 @@
       "name": "MABU Beatz Radio - Minimal",
       "genre": "minimal, minimal techno",
       "country": "Germany",
-      "favicon": "https://i.postimg.cc/vHDM8brn/OIP.jpg"
+      "favicon": "https://mabu-beatz-radio.com/wp-content/uploads/2023/06/mabu-beatz-radio-192x192.jpg"
     },
     {
       "value": "https://audio.mabu-beatz-radio.com:8003/techno",
       "name": "MABU Beatz Radio - Techno",
       "genre": "techno",
       "country": "Germany",
-      "favicon": "https://i.postimg.cc/vHDM8brn/OIP.jpg"
+      "favicon": "https://mabu-beatz-radio.com/wp-content/uploads/2023/06/mabu-beatz-radio-192x192.jpg"
     },
     {
       "value": "http://cressida.shoutca.st:8591/stream/1/",
@@ -674,7 +674,7 @@
       "name": "Буковинська Хвиля",
       "genre": "information, music, news, pop",
       "country": "Ukraine",
-      "favicon": "https://firebasestorage.googleapis.com/v0/b/radiogalaxy-580f4.appspot.com/o/images%2FIMG_20231117_102518593.jpg?alt=media&token=bb97ee18-72a3-4693-bebe-c0c56e108ebe"
+      "favicon": "https://www.100fm.cv.ua/apple-icon-180x180.png"
     },
     {
       "value": "https://online.kissfm.ua/KissFM_HD",
@@ -928,7 +928,7 @@
       "name": "Lounge FM",
       "genre": "chillout, lounge",
       "country": "Ukraine",
-      "favicon": "https://loungefm.com.ua/img/icon-144x144.png"
+      "favicon": "https://loungefm.com.ua/favicon.ico"
     },
     {
       "value": "https://stream.revma.ihrhls.com/zc8470",
@@ -1077,7 +1077,7 @@
       "name": "Raadio Relax International",
       "genre": "Unknown",
       "country": "Estonia",
-      "favicon": ""
+      "favicon": "https://relaxfm.sky.ee/favicon-96x96.png"
     },
     {
       "value": "https://absolut-relax.live-sm.absolutradio.de/absolut-relax?__cb=130270101023249",
@@ -1119,7 +1119,7 @@
       "name": "Cozy FM",
       "genre": "chill, chillout, pop, relax...",
       "country": "Romania",
-      "favicon": "https://www.cozyfm.ro/wordpress/wp-content/uploads/2020/05/cozy_square.jpg"
+      "favicon": "https://www.cozyfm.ro/wordpress/wp-content/uploads/2020/05/cropped-cozy_square-192x192.jpg"
     },
     {
       "value": "https://wdr-1live-chillout.icecast.wdr.de/wdr/1live/chillout/mp3/128/stream.mp3",
@@ -1585,7 +1585,7 @@
       "name": "Extreme Deep House",
       "genre": "deep house, nu disco, vocal house",
       "country": "Bulgaria",
-      "favicon": "https://scontent.fbre4-1.fna.fbcdn.net/v/t39.30808-6/294865141_110190498433524_6398220129326637406_n.jpg?_nc_cat=103&ccb=1-7&_nc_sid=5f2048&_nc_ohc=gM8-afZumNgAX_ZBvv7&_nc_ht=scontent.fbre4-1.fna&oh=00_AfAuZDwZvdbnXoKWuNCS_pjQFLhTjwwOpzpD2aKQuDVF3Q&oe=65F139C1"
+      "favicon": "https://static.wixstatic.com/media/99d90b_11cae14a43f344e69d3e9b66fcce4397%7Emv2.png/v1/fill/w_192%2Ch_192%2Clg_1%2Cusm_0.66_1.00_0.01/99d90b_11cae14a43f344e69d3e9b66fcce4397%7Emv2.png"
     },
     {
       "value": "https://stream.radiojar.com/p1f2vpv37reuv",

@@ -152,7 +152,7 @@
       "name": "laut.fm melodic",
       "genre": "house, melodic, progressive, techno",
       "country": "Germany",
-      "favicon": ""
+      "favicon": "https://assets.laut.fm/af94957c56732d225854decd2c2f1622?t=_120x120"
     },
     {
       "value": "http://s02.fjperezdj.com:8056/live",
@@ -173,14 +173,14 @@
       "name": "1.FM - Deep Techno & Deep House",
       "genre": "deep house, techno",
       "country": "Switzerland",
-      "favicon": ""
+      "favicon": "https://www.radio.de/175/1fmdeeptech.png"
     },
     {
       "value": "https://hirschmilch.de:7501/techno.mp3",
       "name": "Hirschmilch Radio Techno",
       "genre": "techno",
       "country": "Germany",
-      "favicon": ""
+      "favicon": "https://hirschmilch.de/favicon-32.png"
     },
     {
       "value": "http://stream.rcs.revma.com/1z19ak79n98uv",
@@ -194,7 +194,7 @@
       "name": "1000 Techno",
       "genre": "deep techno, hard techno, techno",
       "country": "Germany",
-      "favicon": ""
+      "favicon": "https://assets.laut.fm/2170e65b0eaa52f7f8bf4c86fc4e82e1?t=_120x120"
     },
     {
       "value": "http://eu2.fastcast4u.com/proxy/loopradiostation?mp=/;",
@@ -208,7 +208,7 @@
       "name": "ToXoRs minimalRADIO (320k)",
       "genre": "320 kbps, minimal, minimal techno, podcast...",
       "country": "Germany",
-      "favicon": ""
+      "favicon": "http://toxor.de/podcast/images/o2_1o_2o25.png"
     },
     {
       "value": "https://techno.stream.laut.fm/techno?t302=2025-06-03_09-00-07&uuid=6cd9038e-6131-4ef7-9f0f-9c8308ebd715",
@@ -222,7 +222,7 @@
       "name": "dj exxx",
       "genre": "techno",
       "country": "Germany",
-      "favicon": ""
+      "favicon": "https://assets.laut.fm/e250c76114a5b38bbf71969b3a1f474c?t=_120x120"
     },
     {
       "value": "https://audio.mabu-beatz-radio.com:8003/minimal",
@@ -250,14 +250,14 @@
       "name": "Radio Techno Zagreb",
       "genre": "techno",
       "country": "Croatia",
-      "favicon": ""
+      "favicon": "http://www.liveradio.ie/files/images/511109/radio_techno_zagreb.jpg"
     },
     {
       "value": "https://stream.laut.fm/technobunkerfm",
       "name": "techno bunker",
       "genre": "techno",
       "country": "Germany",
-      "favicon": ""
+      "favicon": "https://assets.laut.fm/5b23d04dd623fd09115fadcde84eb6c6?t=_120x120"
     },
     {
       "value": "https://uzic.ice.infomaniak.ch/uzic-128.aac",
@@ -299,7 +299,7 @@
       "name": "chronisch_elektronisch-laut-fm",
       "genre": "minimal techno",
       "country": "Germany",
-      "favicon": ""
+      "favicon": "https://assets.laut.fm/bfefa1506997b2e98bed96db02d269cb?t=_120x120"
     },
     {
       "value": "https://stream.laut.fm/technothorium",
@@ -334,14 +334,14 @@
       "name": "Minimal Mix Radio",
       "genre": "dub, electro, minimal, techno",
       "country": "Poland",
-      "favicon": ""
+      "favicon": "https://minimalmix.com/wp-content/uploads/2022/04/favicon.jpg"
     },
     {
       "value": "http://traxx020.ice.infomaniak.ch/traxx020-low.mp3",
       "name": "Traxx FM - Tech Minimal",
       "genre": "commercial-free, electronic, minimal, minimal techno...",
       "country": "Switzerland",
-      "favicon": ""
+      "favicon": "https://www.radio.de/175/traxxtechminimal.png"
     },
     {
       "value": "https://best-of-techno.stream.laut.fm/best-of-techno?t302=2025-06-03_02-18-21&uuid=574ecd8e-ce89-405f-a67a-9ff8979a388d",
@@ -574,7 +574,7 @@
       "name": "sunshine live - Trance",
       "genre": "Unknown",
       "country": "Germany",
-      "favicon": ""
+      "favicon": "https://upload.sunshine-live.de/production/static/1787844117408/icons/icon_512.fmRwc30M41g.png"
     },
     {
       "value": "https://stream.laut.fm/sothitsradio",
@@ -639,7 +639,7 @@
       "name": "Хіт FM Сучасні хіти",
       "genre": "pop",
       "country": "Ukraine",
-      "favicon": ""
+      "favicon": "https://www.hitfm.ua/static/img/fav-icon/apple-icon-120x120.png"
     },
     {
       "value": "https://lux.radio.tvstitch.com/suchasni-hiti-sd",
@@ -816,7 +816,7 @@
       "name": "Energy Top 40",
       "genre": "alle neuen clubhits, charts, club, dance...",
       "country": "Germany",
-      "favicon": ""
+      "favicon": "https://www.energy.de/themes/nrj_energy/assets/images/app-icon-image.webp"
     },
     {
       "value": "https://absolut-top.live-sm.absolutradio.de/absolut-top/stream/aacp",
@@ -851,7 +851,7 @@
       "name": "Loca FM",
       "genre": "hits",
       "country": "Spain",
-      "favicon": ""
+      "favicon": "https://www.locafm.com/assets/img/favicon/apple-icon-180x180.png"
     },
     {
       "value": "https://media-ice.musicradio.com/CapitalMP3",
@@ -1375,7 +1375,7 @@
       "name": "LOCA FM House",
       "genre": "electronic",
       "country": "Spain",
-      "favicon": ""
+      "favicon": "https://www.locafm.com/assets/img/favicon/apple-icon-180x180.png"
     },
     {
       "value": "https://0nlineradio.radioho.st/technolovers-deep-house?ref=radio-browser26",
@@ -1403,21 +1403,21 @@
       "name": "DJ BronKo",
       "genre": "deep house, electro, electronic, house...",
       "country": "Germany",
-      "favicon": ""
+      "favicon": "https://assets.laut.fm/8c6dbff78b3f65a648c677c8a3f41660?t=_120x120"
     },
     {
       "value": "https://stream.edmsessions.com/",
       "name": "EDM Sessions",
       "genre": "house, techno, trance",
       "country": "The United States Of America",
-      "favicon": ""
+      "favicon": "https://edmsessions.com/wp-content/uploads/2021/09/cropped-2026-favicon-192x192.png"
     },
     {
       "value": "https://melodic.stream.laut.fm/melodic?uuid=4a005423-8d61-4f95-9b63-7d34e256e02f&t302=2026-09-21_12-00-43",
       "name": "laut.fm melodic",
       "genre": "house, melodic, progressive, techno",
       "country": "Germany",
-      "favicon": ""
+      "favicon": "https://assets.laut.fm/af94957c56732d225854decd2c2f1622?t=_120x120"
     },
     {
       "value": "http://s2.euer.tv/audio320",
@@ -1431,7 +1431,7 @@
       "name": "Moon Mission Recordings",
       "genre": "deep house, techno",
       "country": "Japan",
-      "favicon": ""
+      "favicon": "https://static.wixstatic.com/media/b4e9b8_d568257bd6474ac0ad5ea280d38461e4~mv2.png/v1/fill/w_192,h_192,al_c,q_85,usm_0.66_1.00_0.01/b4e9b8_d568257bd6474ac0ad5ea280d38461e4~mv2.png"
     },
     {
       "value": "https://s2.radio.co/s4648f1c61/listen",
@@ -1473,7 +1473,7 @@
       "name": "laut.fm Katzenpuff",
       "genre": "deep house, deep techno",
       "country": "Germany",
-      "favicon": ""
+      "favicon": "https://assets.laut.fm/2a1a4c0e58a5762c996bd5be08500159?t=_120x120"
     },
     {
       "value": "http://stream.laut.fm/technotune",
@@ -1522,7 +1522,7 @@
       "name": "Deep Radio",
       "genre": "ambient, dance, deep house, downtempo...",
       "country": "The Netherlands",
-      "favicon": ""
+      "favicon": "https://deep.radio/static/img/favicon.ico"
     },
     {
       "value": "https://s3.slotex.pl/shoutcast/7354/stream",
@@ -1550,7 +1550,7 @@
       "name": "1.FM - Deep Techno & Deep House",
       "genre": "deep house, techno",
       "country": "Switzerland",
-      "favicon": ""
+      "favicon": "https://www.radio.de/175/1fmdeeptech.png"
     },
     {
       "value": "https://secure.live-streams.nl/main",
@@ -1564,7 +1564,7 @@
       "name": "1.FM - Deep House Radio",
       "genre": "deep house, techno",
       "country": "Switzerland",
-      "favicon": ""
+      "favicon": "https://www.radio.de/175/1fmdeephouse.png"
     },
     {
       "value": "https://playerservices.streamtheworld.com/api/livestream-redirect/TOPRETROAAC.aac",
@@ -1592,7 +1592,7 @@
       "name": "Ibiza X Radio",
       "genre": "dance, dance anthems, deep house, edm...",
       "country": "Spain",
-      "favicon": ""
+      "favicon": "https://mmo.aiircdn.com/1241/65539629ed956.png"
     }
   ],
   "lounge": [
@@ -1736,7 +1736,7 @@
       "name": "Deep Radio",
       "genre": "ambient, dance, deep house, downtempo...",
       "country": "The Netherlands",
-      "favicon": ""
+      "favicon": "https://deep.radio/static/img/favicon.ico"
     },
     {
       "value": "https://radio.breakz.fm/?ref=club2-71",

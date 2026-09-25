@@ -293,14 +293,14 @@ private fun androidx.compose.foundation.layout.ColumnScope.MusicFolderList(
         if (openFolder != null && openFolder != MUSIC_ALL && groups.none { it.key == openFolder }) openFolder = null
     }
     BackHandler(enabled = openFolder != null) { openFolder = null }
-    LaunchedEffect(openFolder) {
-        if (openFolder == null) {
-            listState.scrollToItem(0)
-            return@LaunchedEffect
-        }
+    LaunchedEffect(openFolder, currentUrl, localRows) {
+        if (openFolder == null) return@LaunchedEffect
         val base = if (openFolder == MUSIC_ALL) localRows else localRows.filter { it.folder == openFolder }
         val i = base.indexOfFirst { it.uri == currentUrl }
-        if (i >= 0) listState.scrollToItem(i + 1) else listState.scrollToItem(0)
+        if (i < 0) return@LaunchedEffect
+        val vis = listState.layoutInfo.visibleItemsInfo
+        if (vis.any { it.index == i + 1 }) return@LaunchedEffect
+        listState.animateScrollToItem(i + 1)
     }
     val shown = when (openFolder) {
         null -> emptyList()

@@ -1175,7 +1175,7 @@ fun StationScreen(
         posMs = posMs,
         durMs = durMs,
         acc = acc, muted = muted, text = text, card = card,
-        onOpenTrack = { playAllLocal(it, true) },
+        onOpenTrack = { playAllLocal(it, false) },
         onStep = { next ->
             if (allLocal.isEmpty()) return@LeftMusicPanel
             val i0 = allLocal.indexOfFirst { it.uri == currentUrl }
@@ -1190,6 +1190,7 @@ fun StationScreen(
         onPlayPause = onPlayPause,
         onSeek = onSeek,
         onToggleBest = onToggleBest,
+        onNow = onNow,
     )
     RightTabsPanel(
         rightA = rightA,

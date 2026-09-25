@@ -86,6 +86,7 @@ fun BoxScope.LeftMusicPanel(
     onPlayPause: () -> Unit,
     onSeek: (Long) -> Unit,
     onToggleBest: (LocalTrack) -> Unit,
+    onNow: () -> Unit,
 ) {
     val sheetScope = rememberCoroutineScope()
     val ctx = LocalContext.current
@@ -240,7 +241,12 @@ fun BoxScope.LeftMusicPanel(
                     val art = if (cur != null && cur.albumId.isNotBlank() && cur.albumId != "0")
                         "content://media/external/audio/albumart/${cur.albumId}" else ""
                     Box(
-                        modifier = Modifier.size(48.dp).graphicsLayer { scaleX = pulse; scaleY = pulse }.clip(RoundedCornerShape(12.dp)).background(Palette.panel2),
+                        modifier = Modifier
+                            .size(48.dp)
+                            .graphicsLayer { scaleX = pulse; scaleY = pulse }
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Palette.panel2)
+                            .clickable { onNow() },
                         contentAlignment = Alignment.Center,
                     ) {
                         if (art.isNotEmpty()) AsyncImage(model = art, contentDescription = null, modifier = Modifier.size(48.dp), contentScale = ContentScale.Crop)

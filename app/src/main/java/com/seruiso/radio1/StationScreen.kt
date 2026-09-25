@@ -174,15 +174,15 @@ fun BottomNavBar(
         verticalAlignment = Alignment.CenterVertically
     ) {
         // [★ | 📻] · Дім · Пошук · [♥ | ♫]
-        Capsule(current == "stations" || current == "tabs") {
-            NavIco("stations", Icons.Filled.Star, ctx.getString(R.string.nav_stations))
-            NavIco("tabs", Icons.Filled.Radio, ctx.getString(R.string.tabs))
+        Capsule(current == "music" || current == "heart") {
+            NavIco("music", Icons.Filled.LibraryMusic, ctx.getString(R.string.nav_music))
+            NavIco("heart", Icons.Filled.Favorite, ctx.getString(R.string.favorites_plural))
         }
         NavIco("home", Icons.Filled.Home, ctx.getString(R.string.nav_home))
         NavIco("search", Icons.Filled.Search, ctx.getString(R.string.nav_search))
-        Capsule(current == "heart" || current == "music") {
-            NavIco("heart", Icons.Filled.Favorite, ctx.getString(R.string.favorites_plural))
-            NavIco("music", Icons.Filled.LibraryMusic, ctx.getString(R.string.nav_music))
+        Capsule(current == "stations" || current == "tabs") {
+            NavIco("stations", Icons.Filled.Star, ctx.getString(R.string.nav_stations))
+            NavIco("tabs", Icons.Filled.Radio, ctx.getString(R.string.tabs))
         }
     }
 }
@@ -230,15 +230,15 @@ fun BottomNavRail(
         verticalArrangement = Arrangement.SpaceEvenly,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Capsule(current == "stations" || current == "tabs") {
-            NavIco("stations", Icons.Filled.Star, ctx.getString(R.string.nav_stations))
-            NavIco("tabs", Icons.Filled.Radio, ctx.getString(R.string.tabs))
+        Capsule(current == "music" || current == "heart") {
+            NavIco("music", Icons.Filled.LibraryMusic, ctx.getString(R.string.nav_music))
+            NavIco("heart", Icons.Filled.Favorite, ctx.getString(R.string.favorites_plural))
         }
         NavIco("home", Icons.Filled.Home, ctx.getString(R.string.nav_home))
         NavIco("search", Icons.Filled.Search, ctx.getString(R.string.nav_search))
-        Capsule(current == "heart" || current == "music") {
-            NavIco("heart", Icons.Filled.Favorite, ctx.getString(R.string.favorites_plural))
-            NavIco("music", Icons.Filled.LibraryMusic, ctx.getString(R.string.nav_music))
+        Capsule(current == "stations" || current == "tabs") {
+            NavIco("stations", Icons.Filled.Star, ctx.getString(R.string.nav_stations))
+            NavIco("tabs", Icons.Filled.Radio, ctx.getString(R.string.tabs))
         }
     }
 }
@@ -402,11 +402,16 @@ fun StationScreen(
     val rightA = androidx.compose.runtime.remember { Animatable(1f) } // 1=закрито, 0=відкрито
     var rightShow by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     var rightSearchOpen by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(true) }
+    val leftA = androidx.compose.runtime.remember { Animatable(1f) }
+    var leftShow by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    var musicAll by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     fun openRightSheet() {
         onRightOpen()
         rightShow = true
         rightSearchOpen = true
+        leftShow = false
         sheetScope.launch {
+            leftA.snapTo(1f)
             rightA.stop()
             rightA.snapTo(1f)
             rightA.animateTo(0f, tween(300))
@@ -431,6 +436,20 @@ fun StationScreen(
             rightA.animateTo(1f, tween(280))
             rightShow = false
         }
+    }
+    fun closeLeftSheet() {
+        sheetScope.launch {
+            leftA.stop()
+            leftA.animateTo(1f, tween(280))
+            leftShow = false
+        }
+    }
+    fun playAllLocal(index: Int, close: Boolean) {
+        if (index !in allLocal.indices) return
+        onPickLocal(allLocal, index)
+        musicAll = true
+        onBottomTab("music")
+        if (close) closeLeftSheet()
     }
     // Ліва картка з локальною музикою видалена — весь її функціонал
     // перенесено у вкладку LocalContext.current.getString(R.string.favorites_plural) нижньої навігації.
@@ -478,6 +497,7 @@ fun StationScreen(
                     onNowClose()
                 }
             }
+            leftShow -> closeLeftSheet()
             rightShow -> closeRightSheet()
             else -> {
                 val t = System.currentTimeMillis()
@@ -722,6 +742,7 @@ fun StationScreen(
             muted = muted,
             text = text,
             card = card,
+            showAllMusic = musicAll,
         )
         if (showLocal) {
             val libraryActions = LibraryActions(
@@ -738,6 +759,7 @@ fun StationScreen(
                 onAddToTab = onAddToTab,
                 onMore = onMore,
                 onToggleBest = onToggleBest,
+                onShowAllMusic = { musicAll = it },
             )
             LocalListSection(
                 ui = libraryUi,
@@ -967,6 +989,7 @@ fun StationScreen(
             muted = muted,
             text = text,
             card = card,
+            showAllMusic = musicAll,
         )
         if (showLocal) {
             val libraryActions = LibraryActions(
@@ -983,6 +1006,7 @@ fun StationScreen(
                 onAddToTab = onAddToTab,
                 onMore = onMore,
                 onToggleBest = onToggleBest,
+                onShowAllMusic = { musicAll = it },
             )
             LocalListSection(
                 ui = libraryUi,
@@ -1133,8 +1157,40 @@ fun StationScreen(
     // Край поверх картки під час відкриття. Повністю відкриту — край вимкнено
     // (повторний свайп вліво більше не закриває).
     val rightFullyOpen = rightShow && rightA.value <= 0.05f
-    val showRightEdge = !nowOpen && !sheetShow && !rightFullyOpen
+    val leftFullyOpen = leftShow && leftA.value <= 0.05f
+    val rightBusy = rightShow || rightA.value < 0.999f
+    val leftBusy = leftShow || leftA.value < 0.999f
+    val showRightEdge = !nowOpen && !sheetShow && !rightFullyOpen && !leftBusy
+    val showLeftEdge = !nowOpen && !sheetShow && !leftFullyOpen && !rightBusy
 
+    LeftMusicPanel(
+        leftA = leftA,
+        leftShow = leftShow,
+        onLeftShow = { leftShow = it },
+        showLeftEdge = showLeftEdge,
+        tracks = allLocal,
+        currentUrl = currentUrl,
+        bestUris = bestUris,
+        playing = playing,
+        posMs = posMs,
+        durMs = durMs,
+        acc = acc, muted = muted, text = text, card = card,
+        onOpenTrack = { playAllLocal(it, true) },
+        onStep = { next ->
+            if (allLocal.isEmpty()) return@LeftMusicPanel
+            val i0 = allLocal.indexOfFirst { it.uri == currentUrl }
+            val i = when {
+                i0 < 0 && next -> 0
+                i0 < 0 -> allLocal.lastIndex
+                next -> (i0 + 1) % allLocal.size
+                else -> (i0 - 1 + allLocal.size) % allLocal.size
+            }
+            playAllLocal(i, false)
+        },
+        onPlayPause = onPlayPause,
+        onSeek = onSeek,
+        onToggleBest = onToggleBest,
+    )
     RightTabsPanel(
         rightA = rightA,
         rightShow = rightShow,

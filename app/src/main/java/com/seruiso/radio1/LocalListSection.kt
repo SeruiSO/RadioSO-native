@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -44,6 +45,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+
+private const val MUSIC_ALL = "\u0001all"
 
 /**
  * Список локальних треків (вкладки local / best).
@@ -79,6 +82,8 @@ fun androidx.compose.foundation.layout.ColumnScope.LocalListSection(
             onPickLocal = actions.onPickLocal,
             onNow = actions.onNow,
             onToggleBest = actions.onToggleBest,
+            showAllMusic = ui.showAllMusic,
+            onShowAllMusic = actions.onShowAllMusic,
         )
         return
     }
@@ -268,9 +273,14 @@ private fun androidx.compose.foundation.layout.ColumnScope.MusicFolderList(
     onPickLocal: (List<LocalTrack>, Int) -> Unit,
     onNow: () -> Unit,
     onToggleBest: (LocalTrack) -> Unit,
+    showAllMusic: Boolean = false,
+    onShowAllMusic: (Boolean) -> Unit = {},
 ) {
     val ctx = LocalContext.current
     var openFolder by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(showAllMusic) {
+        if (showAllMusic) openFolder = MUSIC_ALL
+    }
     val groups = remember(localRows) {
         localRows.groupBy { it.folder }
             .entries
@@ -280,7 +290,7 @@ private fun androidx.compose.foundation.layout.ColumnScope.MusicFolderList(
             )
     }
     LaunchedEffect(groups) {
-        if (openFolder != null && groups.none { it.key == openFolder }) openFolder = null
+        if (openFolder != null && openFolder != MUSIC_ALL && groups.none { it.key == openFolder }) openFolder = null
     }
     BackHandler(enabled = openFolder != null) { openFolder = null }
     LaunchedEffect(openFolder) {
@@ -288,10 +298,15 @@ private fun androidx.compose.foundation.layout.ColumnScope.MusicFolderList(
             listState.scrollToItem(0)
             return@LaunchedEffect
         }
-        val i = localRows.filter { it.folder == openFolder }.indexOfFirst { it.uri == currentUrl }
+        val base = if (openFolder == MUSIC_ALL) localRows else localRows.filter { it.folder == openFolder }
+        val i = base.indexOfFirst { it.uri == currentUrl }
         if (i >= 0) listState.scrollToItem(i + 1) else listState.scrollToItem(0)
     }
-    val shown = if (openFolder == null) emptyList() else localRows.filter { it.folder == openFolder }
+    val shown = when (openFolder) {
+        null -> emptyList()
+        MUSIC_ALL -> localRows
+        else -> localRows.filter { it.folder == openFolder }
+    }
     if (localRows.isEmpty()) {
         EmptySlot(ctx.getString(R.string.no_tracks_scan), muted)
     }
@@ -310,6 +325,31 @@ private fun androidx.compose.foundation.layout.ColumnScope.MusicFolderList(
         state = listState,
     ) {
         if (openFolder == null) {
+            if (localRows.isNotEmpty()) {
+                item(key = "dir:all") {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 6.dp, vertical = 3.dp)
+                            .background(card, RoundedCornerShape(12.dp))
+                            .clickable {
+                                buzz()
+                                openFolder = MUSIC_ALL
+                            }
+                            .padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(Icons.Filled.LibraryMusic, contentDescription = null, tint = acc, modifier = Modifier.size(36.dp))
+                        Text(
+                            ctx.getString(R.string.music_all),
+                            color = text,
+                            modifier = Modifier.weight(1f).padding(start = 10.dp),
+                            maxLines = 1,
+                        )
+                        Text(ctx.getString(R.string.tracks_count, localRows.size), color = muted, style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+            }
             itemsIndexed(groups, key = { _, e -> "dir:" + e.key }) { _, entry ->
                 val path = entry.key
                 val title = if (path.isBlank()) ctx.getString(R.string.music_other_folder)
@@ -339,15 +379,21 @@ private fun androidx.compose.foundation.layout.ColumnScope.MusicFolderList(
             }
         } else {
             val path = openFolder ?: ""
-            val title = if (path.isBlank()) ctx.getString(R.string.music_other_folder)
-            else path.substringAfterLast('/')
+            val title = when {
+                path == MUSIC_ALL -> ctx.getString(R.string.music_all)
+                path.isBlank() -> ctx.getString(R.string.music_other_folder)
+                else -> path.substringAfterLast('/')
+            }
             item(key = "back") {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 6.dp, vertical = 3.dp)
                         .background(card, RoundedCornerShape(12.dp))
-                        .clickable { openFolder = null }
+                        .clickable {
+                            openFolder = null
+                            onShowAllMusic(false)
+                        }
                         .padding(10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {

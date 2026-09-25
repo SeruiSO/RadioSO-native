@@ -66,6 +66,7 @@ data class LibraryActions(
     val onAddToTab: (Station) -> Unit,
     val onMore: () -> Unit,
     val onToggleBest: (LocalTrack) -> Unit,
+    val onShowAllMusic: (Boolean) -> Unit = {},
 )
 
 /**
@@ -89,6 +90,7 @@ data class LibraryUi(
     val muted: Color,
     val text: Color,
     val card: Color,
+    val showAllMusic: Boolean = false,
 )
 
 

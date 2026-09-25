@@ -69,8 +69,8 @@ fun AppOverflowMenu(
             Column(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(top = 76.dp, end = 12.dp)
-                    .width(280.dp)
+                    .padding(top = 56.dp, end = 8.dp)
+                    .width(220.dp)
                     .background(Palette.panel2, RoundedCornerShape(16.dp))
                     .border(1.dp, text.copy(alpha = 0.08f), RoundedCornerShape(16.dp))
                     .padding(10.dp),

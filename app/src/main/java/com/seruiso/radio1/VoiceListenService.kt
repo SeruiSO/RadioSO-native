@@ -298,26 +298,22 @@ class VoiceListenService : Service() {
     }
 
     private fun isWakePhrase(norm: String): Boolean {
-        if (norm.length < 3) return false
-        // відсікаємо дуже довгі (ефір/пісня)
+        if (norm.length < 4) return false
         val words = norm.split(" ").filter { it.isNotBlank() }
-        if (words.size > 8) return false
+        // довгі фрази = ефір/пісня
+        if (words.size > 6) return false
         val forms = listOf(
-            "окей ес о", "окей есо", "ок ес о", "ок есо", "окей со", "ок со",
-            "окей с о", "ок с о", "окей ес", "ок ес",
-            "окей радіо", "окей радио", "ок радіо", "ок радио",
-            "okay so", "ok so", "okay radio", "ok radio", "okay eso", "ok eso",
+            "добре радіо", "добре радио",
+            "добрий радіо", "добрий радио",
+            "добре радіова", // на випадок помилки ASR
         )
-        // точний / префікс / входження
         if (forms.any { norm == it || norm.startsWith("$it ") || " $it " in " $norm " || norm.endsWith(" $it") }) {
             return true
         }
-        // грубий фонетичний збіг: є «окей/ок» + (ес/есо/со/радіо)
-        val hasOk = words.any { it in listOf("окей", "океи", "okay", "ok", "ок") }
-        val hasTail = words.any {
-            it in listOf("ес", "есо", "со", "с", "радіо", "радио", "radio", "eso")
-        }
-        return hasOk && hasTail && words.size <= 5
+        // «добре» + «радіо» поруч (ASR може вставити сміття між ними рідко)
+        val hasDob = words.any { it.startsWith("добр") } // добре / добрий / добра
+        val hasRadio = words.any { it.startsWith("радіо") || it.startsWith("радио") || it == "radio" }
+        return hasDob && hasRadio && words.size <= 4
     }
 
     private fun extractText(json: String): String {
@@ -442,7 +438,7 @@ class VoiceListenService : Service() {
         cmdUntil = 0
         var q = spoken(raw)
         // strip accidental wake leftover
-        for (w in listOf("окей ес о ", "окей есо ", "окей радіо ", "окей радио ", "ок со ", "ok so ")) {
+        for (w in listOf("добре радіо ", "добре радио ", "добрий радіо ", "добрий радио ")) {
             q = q.removePrefix(w)
         }
         q = spoken(q)

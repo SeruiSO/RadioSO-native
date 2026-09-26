@@ -16,6 +16,21 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextOverflow
+import coil.compose.AsyncImage
+import java.text.SimpleDateFormat
+import java.util.Date
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.rememberPagerState
@@ -83,6 +98,9 @@ data class NowPlayingUi(
     val skipMode: String,
     val name: String,
     val track: String,
+    val trackHistory: List<TrackHistoryItem> = emptyList(),
+    val showTrackHistory: Boolean = false,
+    val onToggleTrackHistory: () -> Unit = {},
     val genre: String,
     val country: String,
     val favicon: String,
@@ -297,6 +315,105 @@ fun NowPlayingSheet(
                         .fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    // кнопка історії над обкладинкою
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+                        Icon(
+                            Icons.Filled.History,
+                            contentDescription = "Історія треків",
+                            tint = if (ui.showTrackHistory) acc else muted,
+                            modifier = Modifier
+                                .size(28.dp)
+                                .clickable { ui.onToggleTrackHistory() },
+                        )
+                    }
+                    if (ui.showTrackHistory) {
+                        val fmt = remember { SimpleDateFormat("HH:mm", java.util.Locale.getDefault()) }
+                        Column(
+                            Modifier
+                                .weight(1f)
+                                .fillMaxWidth()
+                                .verticalScroll(rememberScrollState())
+                                .padding(horizontal = 4.dp)
+                                .clickable { ui.onToggleTrackHistory() },
+                        ) {
+                            Text(
+                                "Історія треків",
+                                color = acc,
+                                style = MaterialTheme.typography.titleSmall,
+                                modifier = Modifier.padding(bottom = 8.dp),
+                            )
+                            if (ui.trackHistory.isEmpty()) {
+                                Text("Поки немає треків", color = muted, style = MaterialTheme.typography.bodySmall)
+                            } else {
+                                ui.trackHistory.take(30).forEach { item ->
+                                    val artist = artistFromTrackTitle(item.title)
+                                    val photo by rememberArtistPhotoUrl(artist, bust = item.title)
+                                    Row(
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        val iconUrl = when {
+                                            !photo.isNullOrBlank() -> photo
+                                            item.favicon.isNotBlank() -> artUrl(item.favicon)
+                                            else -> ""
+                                        }
+                                        Box(
+                                            Modifier
+                                                .size(48.dp)
+                                                .clip(RoundedCornerShape(10.dp))
+                                                .background(Palette.panel2),
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            if (!iconUrl.isNullOrBlank()) {
+                                                AsyncImage(
+                                                    model = iconUrl,
+                                                    contentDescription = artist.ifBlank { item.title },
+                                                    modifier = Modifier.fillMaxSize(),
+                                                    contentScale = ContentScale.Crop,
+                                                )
+                                            } else {
+                                                Icon(
+                                                    Icons.Filled.MusicNote,
+                                                    contentDescription = null,
+                                                    tint = muted,
+                                                    modifier = Modifier.size(22.dp),
+                                                )
+                                            }
+                                        }
+                                        Column(Modifier.padding(start = 10.dp).weight(1f)) {
+                                            Text(
+                                                item.title,
+                                                color = text,
+                                                maxLines = 2,
+                                                overflow = TextOverflow.Ellipsis,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                            )
+                                            val sub = buildString {
+                                                if (item.station.isNotBlank()) append(item.station)
+                                                if (isNotEmpty()) append(" · ")
+                                                append(fmt.format(Date(item.atMs)))
+                                            }
+                                            Text(
+                                                sub,
+                                                color = muted,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                style = MaterialTheme.typography.labelSmall,
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } else {
                     val pageKeys = List(
                         if (nowLocal) nowLocalRows.size else nowRadioRows.size
                     ) { page ->
@@ -388,6 +505,7 @@ fun NowPlayingSheet(
                             }
                         },
                     )
+                    } // else !showTrackHistory — знову велика обкладинка
                 }
                 if (isLocalNow || currentUrl.startsWith("content:")) {
                     NowPlayingLocalProgress(

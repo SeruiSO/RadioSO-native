@@ -935,29 +935,10 @@ fun StationScreen(
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(14.dp))
                 .background(card)
+                .clickable(onClick = { onCloseMenu(); onNow() })
         ) {
-            if (showTrackHistory) {
-                // «зворот» картки: історія треків (тап по області → назад)
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .height(infoH + 8.dp)
-                        .clickable { onToggleTrackHistory() }
-                ) {
-                    TrackHistoryFace(
-                        items = trackHistory,
-                        text = text,
-                        muted = muted,
-                        acc = acc,
-                        height = infoH + 8.dp,
-                    )
-                }
-            } else {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(infoH)
-                    .clickable(onClick = { onCloseMenu(); onNow() }),
+                modifier = Modifier.fillMaxWidth().height(infoH),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(
@@ -968,11 +949,7 @@ fun StationScreen(
                             scaleX = sc; scaleY = sc
                         }
                         .clip(RoundedCornerShape(topStart = 14.dp, bottomStart = 14.dp))
-                        .background(Palette.panel2)
-                        .clickable {
-                            // тап по великій іконці — історія, не now-playing
-                            onToggleTrackHistory()
-                        },
+                        .background(Palette.panel2),
                     contentAlignment = Alignment.Center,
                 ) {
                     StationArt(
@@ -1047,7 +1024,6 @@ fun StationScreen(
                     )
                 }
             }
-            } // else !showTrackHistory
         }
 
         androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(8.dp))
@@ -1473,6 +1449,9 @@ fun StationScreen(
             skipMode = skipMode,
             name = name,
             track = track,
+            trackHistory = trackHistory,
+            showTrackHistory = showTrackHistory,
+            onToggleTrackHistory = onToggleTrackHistory,
             genre = genre,
             country = country,
             favicon = favicon,

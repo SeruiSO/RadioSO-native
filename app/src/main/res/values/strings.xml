@@ -165,5 +165,8 @@
     <string name="voice_stop">Вимкнути</string>
     <string name="voice_none">Немає розпізнавання мови</string>
     <string name="voice_miss">Не знайшов: %1$s</string>
+    <string name="voice_model_dl">Завантаження голосової моделі…</string>
+    <string name="voice_model_ok">Модель готова, слухаю</string>
+    <string name="voice_model_fail">Не вдалося завантажити модель</string>
 </resources>
 

@@ -216,8 +216,6 @@ class VoiceListenService : Service() {
             val rec = Recognizer(model, 16000.0f)
             rec.setWords(true)
             val svc = SpeechService(rec, 16000.0f)
-            // не зупинятись на тиші — крутимо постійно
-            try { svc.setTimeoutMs(-1) } catch (_: Exception) {}
             voskService = svc
             svc.startListening(voskListener)
             startInForeground(getString(R.string.voice_listen))

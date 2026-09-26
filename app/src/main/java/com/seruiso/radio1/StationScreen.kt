@@ -86,7 +86,112 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import java.text.SimpleDateFormat
+import java.util.Date
 
+
+
+@Composable
+private fun TrackHistoryFace(
+    items: List<TrackHistoryItem>,
+    text: Color,
+    muted: Color,
+    acc: Color,
+    height: androidx.compose.ui.unit.Dp,
+) {
+    val fmt = remember { SimpleDateFormat("HH:mm", java.util.Locale.getDefault()) }
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .height(height)
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+    ) {
+        Text(
+            LocalContext.current.getString(R.string.track_history_title),
+            color = acc,
+            style = MaterialTheme.typography.labelMedium,
+            modifier = Modifier.padding(bottom = 4.dp),
+        )
+        if (items.isEmpty()) {
+            Text(
+                LocalContext.current.getString(R.string.track_history_empty),
+                color = muted,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        } else {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .weight(1f, fill = true)
+            ) {
+                items.take(30).forEach { item ->
+                    val artist = artistFromTrackTitle(item.title)
+                    val photo by rememberArtistPhotoUrl(artist, bust = item.title)
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 3.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        val iconUrl = when {
+                            !photo.isNullOrBlank() -> photo
+                            item.favicon.isNotBlank() -> artUrl(item.favicon)
+                            else -> ""
+                        }
+                        Box(
+                            Modifier
+                                .size(28.dp)
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(Palette.panel2),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            if (!iconUrl.isNullOrBlank()) {
+                                AsyncImage(
+                                    model = iconUrl,
+                                    contentDescription = artist.ifBlank { item.title },
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop,
+                                )
+                            } else {
+                                Icon(
+                                    Icons.Filled.MusicNote,
+                                    contentDescription = null,
+                                    tint = muted,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                            }
+                        }
+                        Column(
+                            Modifier
+                                .weight(1f)
+                                .padding(start = 8.dp)
+                        ) {
+                            Text(
+                                item.title,
+                                color = text,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                            val sub = buildString {
+                                if (item.station.isNotBlank()) append(item.station)
+                                if (isNotEmpty()) append(" · ")
+                                append(fmt.format(Date(item.atMs)))
+                            }
+                            Text(
+                                sub,
+                                color = muted,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                style = MaterialTheme.typography.labelSmall,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 
 @Composable
 private fun InfoMarquee(
@@ -315,6 +420,9 @@ fun StationScreen(
     onAskDelete: (Station) -> Unit = {},
     onCancelDelete: () -> Unit = {},
     track: String,
+    trackHistory: List<TrackHistoryItem> = emptyList(),
+    showTrackHistory: Boolean = false,
+    onToggleTrackHistory: () -> Unit = {},
     playing: Boolean,
     status: String,
     favUrls: Set<String>,
@@ -827,10 +935,29 @@ fun StationScreen(
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(14.dp))
                 .background(card)
-                .clickable(onClick = { onCloseMenu(); onNow() })
         ) {
+            if (showTrackHistory) {
+                // «зворот» картки: історія треків (тап по області → назад)
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(infoH + 8.dp)
+                        .clickable { onToggleTrackHistory() }
+                ) {
+                    TrackHistoryFace(
+                        items = trackHistory,
+                        text = text,
+                        muted = muted,
+                        acc = acc,
+                        height = infoH + 8.dp,
+                    )
+                }
+            } else {
             Row(
-                modifier = Modifier.fillMaxWidth().height(infoH),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(infoH)
+                    .clickable(onClick = { onCloseMenu(); onNow() }),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(
@@ -841,7 +968,11 @@ fun StationScreen(
                             scaleX = sc; scaleY = sc
                         }
                         .clip(RoundedCornerShape(topStart = 14.dp, bottomStart = 14.dp))
-                        .background(Palette.panel2),
+                        .background(Palette.panel2)
+                        .clickable {
+                            // тап по великій іконці — історія, не now-playing
+                            onToggleTrackHistory()
+                        },
                     contentAlignment = Alignment.Center,
                 ) {
                     StationArt(
@@ -916,6 +1047,7 @@ fun StationScreen(
                     )
                 }
             }
+            } // else !showTrackHistory
         }
 
         androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(8.dp))

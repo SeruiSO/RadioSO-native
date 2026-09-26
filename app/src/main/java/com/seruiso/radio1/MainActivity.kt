@@ -96,6 +96,8 @@ class MainActivity : ComponentActivity() {
         }
     }
     private var trackTitle by mutableStateOf("")
+    private var trackHistory by mutableStateOf<List<TrackHistoryItem>>(emptyList())
+    private var showTrackHistory by mutableStateOf(false)
     private var isPlaying by mutableStateOf(false)
     private var statusText by mutableStateOf("")  // set in onCreate
     private var tabIndex by mutableIntStateOf(0)
@@ -168,7 +170,13 @@ class MainActivity : ComponentActivity() {
                 RadioWatchService.ACTION_TRACK_META -> {
                     readPrefs()
                     val extra = intent.getStringExtra(RadioWatchService.EXTRA_TRACK) ?: ""
-                    if (extra.isNotBlank()) trackTitle = extra
+                    if (extra.isNotBlank()) {
+                        trackTitle = extra
+                        TrackHistoryStore.push(
+                            this@MainActivity, extra, stationName, currentUrl, currentFavicon
+                        )
+                        trackHistory = TrackHistoryStore.list(this@MainActivity)
+                    }
                 }
                 RadioWatchService.ACTION_MEDIA_NEXT,
                 RadioWatchService.ACTION_MEDIA_PREV -> readPrefs()
@@ -415,6 +423,9 @@ class MainActivity : ComponentActivity() {
                             holdStatus(getString(R.string.deleted))
                         },
                         track = trackTitle,
+                        trackHistory = trackHistory,
+                        showTrackHistory = showTrackHistory,
+                        onToggleTrackHistory = { showTrackHistory = !showTrackHistory },
                         playing = isPlaying,
                         status = statusText,
                         favUrls = favUrls,

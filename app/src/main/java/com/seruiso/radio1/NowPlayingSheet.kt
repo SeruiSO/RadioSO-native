@@ -320,7 +320,7 @@ fun NowPlayingSheet(
                     val flipTarget = if (ui.showTrackHistory) 180f else 0f
                     val flipAngle by animateFloatAsState(
                         targetValue = flipTarget,
-                        animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing),
+                        animationSpec = tween(durationMillis = 520, easing = FastOutSlowInEasing),
                         label = "npFlip",
                     )
                     val density = LocalDensity.current
@@ -343,6 +343,10 @@ fun NowPlayingSheet(
                                 onClose = ui.onToggleTrackHistory,
                             )
                         } else {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
                     val pageKeys = List(
                         if (nowLocal) nowLocalRows.size else nowRadioRows.size
                     ) { page ->
@@ -440,6 +444,7 @@ fun NowPlayingSheet(
                             }
                         },
                     )
+                    }
                         }
                     }
                 }

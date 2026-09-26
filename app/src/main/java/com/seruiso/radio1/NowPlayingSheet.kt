@@ -318,7 +318,6 @@ fun NowPlayingSheet(
                         .fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Flip: обкладинка ↔ історія (rotationY)
                     val flipTarget = if (ui.showTrackHistory) 180f else 0f
                     val flipAngle by animateFloatAsState(
                         targetValue = flipTarget,
@@ -326,21 +325,21 @@ fun NowPlayingSheet(
                         label = "npFlip",
                     )
                     val density = LocalDensity.current
-                    val cameraDist = with(density) { 18.dp.toPx() } * density.density
+                    val cameraDist = 12f * density.density
                     val showBack = flipAngle > 90f
 
                     Box(
                         modifier = Modifier
-                            .weight(1f, fill = true)
-                            .fillMaxWidth()
+                            .fillMaxSize()
                             .graphicsLayer {
                                 rotationY = flipAngle
                                 cameraDistance = cameraDist
                             },
                     ) {
                         if (showBack) {
-                            // задня сторона: компенсуємо дзеркало (ще +180)
-                            val fmt = remember { SimpleDateFormat("HH:mm", java.util.Locale.getDefault()) }
+                            val fmt = remember {
+                                SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
+                            }
                             Column(
                                 Modifier
                                     .fillMaxSize()
@@ -399,7 +398,11 @@ fun NowPlayingSheet(
                                                     )
                                                 }
                                             }
-                                            Column(Modifier.padding(start = 10.dp).weight(1f)) {
+                                            Column(
+                                                Modifier
+                                                    .padding(start = 10.dp)
+                                                    .weight(1f),
+                                            ) {
                                                 Text(
                                                     item.title,
                                                     color = text,
@@ -425,169 +428,101 @@ fun NowPlayingSheet(
                                 }
                             }
                         } else {
-                            // передня сторона — pager + meta
-
-                                ui.trackHistory.take(30).forEach { item ->
-                                    val artist = artistFromTrackTitle(item.title)
-                                    val photo by rememberArtistPhotoUrl(artist, bust = item.title)
-                                    Row(
-                                        Modifier
-                                            .fillMaxWidth()
-                                            .padding(vertical = 6.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                    ) {
-                                        val iconUrl = when {
-                                            !photo.isNullOrBlank() -> photo
-                                            item.favicon.isNotBlank() -> artUrl(item.favicon)
-                                            else -> ""
-                                        }
-                                        Box(
-                                            Modifier
-                                                .size(48.dp)
-                                                .clip(RoundedCornerShape(10.dp))
-                                                .background(Palette.panel2),
-                                            contentAlignment = Alignment.Center,
-                                        ) {
-                                            if (!iconUrl.isNullOrBlank()) {
-                                                AsyncImage(
-                                                    model = iconUrl,
-                                                    contentDescription = artist.ifBlank { item.title },
-                                                    modifier = Modifier.fillMaxSize(),
-                                                    contentScale = ContentScale.Crop,
-                                                )
-                                            } else {
-                                                Icon(
-                                                    Icons.Filled.MusicNote,
-                                                    contentDescription = null,
-                                                    tint = muted,
-                                                    modifier = Modifier.size(22.dp),
-                                                )
-                                            }
-                                        }
-                                        Column(Modifier.padding(start = 10.dp).weight(1f)) {
-                                            Text(
-                                                item.title,
-                                                color = text,
-                                                maxLines = 2,
-                                                overflow = TextOverflow.Ellipsis,
-                                                style = MaterialTheme.typography.bodyMedium,
-                                            )
-                                            val sub = buildString {
-                                                if (item.station.isNotBlank()) append(item.station)
-                                                if (isNotEmpty()) append(" · ")
-                                                append(fmt.format(Date(item.atMs)))
-                                            }
-                                            Text(
-                                                sub,
-                                                color = muted,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis,
-                                                style = MaterialTheme.typography.labelSmall,
-                                            )
-                                        }
-                                    }
-                                }
+                            val pageKeys = List(
+                                if (nowLocal) nowLocalRows.size else nowRadioRows.size
+                            ) { page ->
+                                if (nowLocal) nowLocalRows.getOrNull(page)?.uri ?: "L$page"
+                                else nowRadioRows.getOrNull(page)?.url ?: "R$page"
                             }
-                        }
-                    } else {
-                    val pageKeys = List(
-                        if (nowLocal) nowLocalRows.size else nowRadioRows.size
-                    ) { page ->
-                        if (nowLocal) nowLocalRows.getOrNull(page)?.uri ?: "L$page"
-                        else nowRadioRows.getOrNull(page)?.url ?: "R$page"
-                    }
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { ui.onToggleTrackHistory() },
-                    ) {
-                    NowPlayingPager(
-                        pagerState = pagerState,
-                        userScrollEnabled = !blockPagerSwipe,
-                        nowLocal = nowLocal,
-                        pageKeys = pageKeys,
-                        arts = arts,
-                        currentUrl = currentUrl,
-                        track = track,
-                        pageArtistFor = { page ->
-                            if (nowLocal) nowLocalRows.getOrNull(page)?.artist ?: ""
-                            else artistFromTrackTitle(track)
-                        },
-                        acc = acc,
-                        muted = muted,
-                    )
-
-                    }
-                    val pagerDragModifier: Modifier =
-                        if (!nowLocal && arts.isNotEmpty() && !blockPagerSwipe) {
-                            Modifier.pointerInput(currentUrl, pageCount, blockPagerSwipe) {
-                                detectHorizontalDragGestures(
-                                    onDragStart = {
-                                        if (blockPagerSwipe) return@detectHorizontalDragGestures
-                                        pagerUserDrag = true
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { ui.onToggleTrackHistory() },
+                            ) {
+                                NowPlayingPager(
+                                    pagerState = pagerState,
+                                    userScrollEnabled = !blockPagerSwipe,
+                                    nowLocal = nowLocal,
+                                    pageKeys = pageKeys,
+                                    arts = arts,
+                                    currentUrl = currentUrl,
+                                    track = track,
+                                    pageArtistFor = { page ->
+                                        if (nowLocal) nowLocalRows.getOrNull(page)?.artist ?: ""
+                                        else artistFromTrackTitle(track)
                                     },
-                                    onDragEnd = {
-                                        val page = pagerState.currentPage
-                                        val off = pagerState.currentPageOffsetFraction
-                                        val target = when {
-                                            off > 0.28f -> (page + 1).coerceAtMost(pageCount - 1)
-                                            off < -0.28f -> (page - 1).coerceAtLeast(0)
-                                            else -> page
-                                        }
-                                        sheetScope.launch {
-                                            pagerState.animateScrollToPage(target)
-                                            pagerUserDrag = false
-                                            // зміна станції лише після відпускання
-                                            if (nowLocal) {
-                                                if (target in nowLocalRows.indices && nowLocalRows[target].uri != currentUrl)
-                                                    actions.onPickLocal(nowLocalRows, target)
-                                            } else if (target in nowRadioRows.indices && nowRadioRows[target].url != currentUrl) {
-                                                if (skipMode == "temp") actions.onPickOneRadio(nowRadioRows, target)
-                                                else actions.onPickRadio(nowRadioRows, target)
-                                            }
-                                        }
-                                    },
-                                    onDragCancel = {
-                                        sheetScope.launch {
-                                            pagerState.animateScrollToPage(pagerState.currentPage)
-                                            pagerUserDrag = false
-                                        }
-                                    }
-                                ) { _, drag ->
-                                    // синхронно за пальцем, без окремих launch-гонок
-                                    pagerState.dispatchRawDelta(-drag)
-                                }
-                            }
-                        } else Modifier
-
-                    NowPlayingMeta(
-                        name = name,
-                        track = track,
-                        currentUrl = currentUrl,
-                        isFavorite = favUrls.contains(currentUrl),
-                        isBest = bestUris.contains(currentUrl),
-                        acc = acc,
-                        text = text,
-                        muted = muted,
-                        pagerDragModifier = pagerDragModifier,
-                        onToggleFavorite = {
-                            actions.onToggleFav(
-                                Station(currentUrl, name, genre, country, favicon, "fav")
-                            )
-                        },
-                        onToggleBest = {
-                            val tr = localRows.firstOrNull { it.uri == currentUrl }
-                                ?: bestRows.firstOrNull { it.uri == currentUrl }
-                            if (tr != null) actions.onToggleBest(tr)
-                        },
-                        onAddToTab = {
-                            if (currentUrl.isNotBlank() && !currentUrl.startsWith("content:")) {
-                                actions.onAddToTab(
-                                    Station(currentUrl, name, genre, country, favicon, "")
+                                    acc = acc,
+                                    muted = muted,
                                 )
                             }
-                        },
-                    )
+                            val pagerDragModifier: Modifier =
+                                if (!nowLocal && arts.isNotEmpty() && !blockPagerSwipe) {
+                                    Modifier.pointerInput(currentUrl, pageCount, blockPagerSwipe) {
+                                        detectHorizontalDragGestures(
+                                            onDragStart = {
+                                                if (blockPagerSwipe) return@detectHorizontalDragGestures
+                                                pagerUserDrag = true
+                                            },
+                                            onDragEnd = {
+                                                val page = pagerState.currentPage
+                                                val off = pagerState.currentPageOffsetFraction
+                                                val target = when {
+                                                    off > 0.28f -> (page + 1).coerceAtMost(pageCount - 1)
+                                                    off < -0.28f -> (page - 1).coerceAtLeast(0)
+                                                    else -> page
+                                                }
+                                                sheetScope.launch {
+                                                    pagerState.animateScrollToPage(target)
+                                                    pagerUserDrag = false
+                                                    if (nowLocal) {
+                                                        if (target in nowLocalRows.indices && nowLocalRows[target].uri != currentUrl)
+                                                            actions.onPickLocal(nowLocalRows, target)
+                                                    } else if (target in nowRadioRows.indices && nowRadioRows[target].url != currentUrl) {
+                                                        if (skipMode == "temp") actions.onPickOneRadio(nowRadioRows, target)
+                                                        else actions.onPickRadio(nowRadioRows, target)
+                                                    }
+                                                }
+                                            },
+                                            onDragCancel = {
+                                                sheetScope.launch {
+                                                    pagerState.animateScrollToPage(pagerState.currentPage)
+                                                    pagerUserDrag = false
+                                                }
+                                            }
+                                        ) { _, drag ->
+                                            pagerState.dispatchRawDelta(-drag)
+                                        }
+                                    }
+                                } else Modifier
+
+                            NowPlayingMeta(
+                                name = name,
+                                track = track,
+                                currentUrl = currentUrl,
+                                isFavorite = favUrls.contains(currentUrl),
+                                isBest = bestUris.contains(currentUrl),
+                                acc = acc,
+                                text = text,
+                                muted = muted,
+                                pagerDragModifier = pagerDragModifier,
+                                onToggleFavorite = {
+                                    actions.onToggleFav(
+                                        Station(currentUrl, name, genre, country, favicon, "fav")
+                                    )
+                                },
+                                onToggleBest = {
+                                    val tr = localRows.firstOrNull { it.uri == currentUrl }
+                                        ?: bestRows.firstOrNull { it.uri == currentUrl }
+                                    if (tr != null) actions.onToggleBest(tr)
+                                },
+                                onAddToTab = {
+                                    if (currentUrl.isNotBlank() && !currentUrl.startsWith("content:")) {
+                                        actions.onAddToTab(
+                                            Station(currentUrl, name, genre, country, favicon, "")
+                                        )
+                                    }
+                                },
+                            )
                         }
                     }
                 }

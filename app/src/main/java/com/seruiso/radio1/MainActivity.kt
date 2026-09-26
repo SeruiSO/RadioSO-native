@@ -212,6 +212,11 @@ class MainActivity : ComponentActivity() {
         customTabs = TabStore.customTabs(this)
         reloadLocal()
         readPrefs()
+        trackHistory = TrackHistoryStore.list(this)
+        val uiP = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+        showTrackHistory = uiP.getBoolean(KEY_SHOW_TRACK_HISTORY, false)
+        nowOpen = uiP.getBoolean(KEY_NOW_OPEN, false)
+        restoreSleepTimer()
         recentStations = loadRecentStations()
         val lastTab = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE).getString("currentTab", "fav")
         val idx = uiTabs.indexOf(lastTab)
@@ -393,11 +398,11 @@ class MainActivity : ComponentActivity() {
                         themeName = themeId,
                         nowOpen = nowOpen,
                         onNow = {
-                            nowOpen = true
+                            setNowOpen(true)
                             posHandler.removeCallbacks(posTick)
                             posHandler.post(posTick)
                         },
-                        onNowClose = { nowOpen = false },
+                        onNowClose = { setNowOpen(false) },
                         onPickTheme = { id ->
                             val n = ThemeStore.set(this, id)
                             themeId = n.id
@@ -425,7 +430,11 @@ class MainActivity : ComponentActivity() {
                         track = trackTitle,
                         trackHistory = trackHistory,
                         showTrackHistory = showTrackHistory,
-                        onToggleTrackHistory = { showTrackHistory = !showTrackHistory },
+                        onToggleTrackHistory = {
+                            showTrackHistory = !showTrackHistory
+                            getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                                .edit().putBoolean(KEY_SHOW_TRACK_HISTORY, showTrackHistory).apply()
+                        },
                         playing = isPlaying,
                         status = statusText,
                         favUrls = favUrls,
@@ -581,18 +590,35 @@ class MainActivity : ComponentActivity() {
         statusText = if (btWatch) getString(R.string.bt_watch_on) else getString(R.string.bt_watch_off)
     }
 
+    private fun setNowOpen(open: Boolean) {
+        nowOpen = open
+        getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+            .edit().putBoolean(KEY_NOW_OPEN, open).apply()
+        if (!open) {
+            showTrackHistory = false
+            getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                .edit().putBoolean(KEY_SHOW_TRACK_HISTORY, false).apply()
+        }
+    }
+
     private fun armSleep(mins: Int) {
         sleepRunnable?.let { sleepHandler.removeCallbacks(it) }
         sleepRunnable = null
+        val p = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
         if (mins <= 0) {
+            p.edit().putLong(KEY_SLEEP_UNTIL, 0L).apply()
             sleepLabel = getString(R.string.sleep_timer)
             statusText = getString(R.string.sleep_off)
             sleepMenu = false
             return
         }
+        val until = System.currentTimeMillis() + mins * 60_000L
+        p.edit().putLong(KEY_SLEEP_UNTIL, until).apply()
         sleepLabel = getString(R.string.sleep_mins, mins)
         statusText = sleepLabel
         val r = Runnable {
+            getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                .edit().putLong(KEY_SLEEP_UNTIL, 0L).apply()
             sendAction(RadioWatchService.ACTION_PAUSE)
             sleepLabel = getString(R.string.sleep_timer)
             softStatus(getString(R.string.sleep_pause))
@@ -600,6 +626,34 @@ class MainActivity : ComponentActivity() {
         sleepRunnable = r
         sleepHandler.postDelayed(r, mins * 60_000L)
         sleepMenu = false
+    }
+
+    /** Після повороту екрана Activity пересоздається — Handler губиться. Відновлюємо з epoch. */
+    private fun restoreSleepTimer() {
+        val p = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+        val until = p.getLong(KEY_SLEEP_UNTIL, 0L)
+        if (until <= 0L) {
+            sleepLabel = getString(R.string.sleep_timer)
+            return
+        }
+        val left = until - System.currentTimeMillis()
+        if (left <= 0L) {
+            p.edit().putLong(KEY_SLEEP_UNTIL, 0L).apply()
+            sleepLabel = getString(R.string.sleep_timer)
+            return
+        }
+        val leftMin = ((left + 59_999L) / 60_000L).toInt().coerceAtLeast(1)
+        sleepLabel = getString(R.string.sleep_mins, leftMin)
+        sleepRunnable?.let { sleepHandler.removeCallbacks(it) }
+        val r = Runnable {
+            getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                .edit().putLong(KEY_SLEEP_UNTIL, 0L).apply()
+            sendAction(RadioWatchService.ACTION_PAUSE)
+            sleepLabel = getString(R.string.sleep_timer)
+            softStatus(getString(R.string.sleep_pause))
+        }
+        sleepRunnable = r
+        sleepHandler.postDelayed(r, left)
     }
 
     private fun normalizeCountry(raw: String): String {
@@ -913,7 +967,7 @@ class MainActivity : ComponentActivity() {
         bottomTab = t
         if (t != "home") {
             // «Усі» з Дому → показати список, не now-playing поверх
-            nowOpen = false
+            setNowOpen(false)
             menuOpen = false
             // скасувати in-flight Home rails (мережа)
             homeRailsGen++

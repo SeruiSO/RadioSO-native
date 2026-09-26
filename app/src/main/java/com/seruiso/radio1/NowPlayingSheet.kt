@@ -4,6 +4,9 @@ import android.graphics.drawable.BitmapDrawable
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -315,25 +318,115 @@ fun NowPlayingSheet(
                         .fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    if (ui.showTrackHistory) {
-                        val fmt = remember { SimpleDateFormat("HH:mm", java.util.Locale.getDefault()) }
-                        Column(
-                            Modifier
-                                .weight(1f)
-                                .fillMaxWidth()
-                                .verticalScroll(rememberScrollState())
-                                .padding(horizontal = 4.dp)
-                                .clickable { ui.onToggleTrackHistory() },
-                        ) {
-                            Text(
-                                "Історія треків · тап щоб закрити",
-                                color = acc,
-                                style = MaterialTheme.typography.titleSmall,
-                                modifier = Modifier.padding(bottom = 8.dp),
-                            )
-                            if (ui.trackHistory.isEmpty()) {
-                                Text("Поки немає треків", color = muted, style = MaterialTheme.typography.bodySmall)
-                            } else {
+                    // Flip: обкладинка ↔ історія (rotationY)
+                    val flipTarget = if (ui.showTrackHistory) 180f else 0f
+                    val flipAngle by animateFloatAsState(
+                        targetValue = flipTarget,
+                        animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing),
+                        label = "npFlip",
+                    )
+                    val density = LocalDensity.current
+                    val cameraDist = with(density) { 18.dp.toPx() } * density.density
+                    val showBack = flipAngle > 90f
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1f, fill = true)
+                            .fillMaxWidth()
+                            .graphicsLayer {
+                                rotationY = flipAngle
+                                cameraDistance = cameraDist
+                            },
+                    ) {
+                        if (showBack) {
+                            // задня сторона: компенсуємо дзеркало (ще +180)
+                            val fmt = remember { SimpleDateFormat("HH:mm", java.util.Locale.getDefault()) }
+                            Column(
+                                Modifier
+                                    .fillMaxSize()
+                                    .graphicsLayer { rotationY = 180f }
+                                    .verticalScroll(rememberScrollState())
+                                    .padding(horizontal = 4.dp)
+                                    .clickable { ui.onToggleTrackHistory() },
+                            ) {
+                                Text(
+                                    "Історія треків · тап щоб закрити",
+                                    color = acc,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    modifier = Modifier.padding(bottom = 8.dp),
+                                )
+                                if (ui.trackHistory.isEmpty()) {
+                                    Text(
+                                        "Поки немає треків",
+                                        color = muted,
+                                        style = MaterialTheme.typography.bodySmall,
+                                    )
+                                } else {
+                                    ui.trackHistory.take(30).forEach { item ->
+                                        val artist = artistFromTrackTitle(item.title)
+                                        val photo by rememberArtistPhotoUrl(artist, bust = item.title)
+                                        Row(
+                                            Modifier
+                                                .fillMaxWidth()
+                                                .padding(vertical = 6.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            val iconUrl = when {
+                                                !photo.isNullOrBlank() -> photo
+                                                item.favicon.isNotBlank() -> artUrl(item.favicon)
+                                                else -> ""
+                                            }
+                                            Box(
+                                                Modifier
+                                                    .size(48.dp)
+                                                    .clip(RoundedCornerShape(10.dp))
+                                                    .background(Palette.panel2),
+                                                contentAlignment = Alignment.Center,
+                                            ) {
+                                                if (!iconUrl.isNullOrBlank()) {
+                                                    AsyncImage(
+                                                        model = iconUrl,
+                                                        contentDescription = artist.ifBlank { item.title },
+                                                        modifier = Modifier.fillMaxSize(),
+                                                        contentScale = ContentScale.Crop,
+                                                    )
+                                                } else {
+                                                    Icon(
+                                                        Icons.Filled.MusicNote,
+                                                        contentDescription = null,
+                                                        tint = muted,
+                                                        modifier = Modifier.size(22.dp),
+                                                    )
+                                                }
+                                            }
+                                            Column(Modifier.padding(start = 10.dp).weight(1f)) {
+                                                Text(
+                                                    item.title,
+                                                    color = text,
+                                                    maxLines = 2,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                )
+                                                val sub = buildString {
+                                                    if (item.station.isNotBlank()) append(item.station)
+                                                    if (isNotEmpty()) append(" · ")
+                                                    append(fmt.format(Date(item.atMs)))
+                                                }
+                                                Text(
+                                                    sub,
+                                                    color = muted,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            // передня сторона — pager + meta
+
                                 ui.trackHistory.take(30).forEach { item ->
                                     val artist = artistFromTrackTitle(item.title)
                                     val photo by rememberArtistPhotoUrl(artist, bust = item.title)
@@ -495,7 +588,8 @@ fun NowPlayingSheet(
                             }
                         },
                     )
-                    } // else !showTrackHistory — знову велика обкладинка
+                        }
+                    }
                 }
                 if (isLocalNow || currentUrl.startsWith("content:")) {
                     NowPlayingLocalProgress(

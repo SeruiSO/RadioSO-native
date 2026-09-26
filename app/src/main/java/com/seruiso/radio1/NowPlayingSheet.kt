@@ -4,6 +4,23 @@ import android.graphics.drawable.BitmapDrawable
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.style.TextOverflow
+import coil.compose.AsyncImage
+import java.text.SimpleDateFormat
+import java.util.Date
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -83,6 +100,9 @@ data class NowPlayingUi(
     val skipMode: String,
     val name: String,
     val track: String,
+    val trackHistory: List<TrackHistoryItem> = emptyList(),
+    val showTrackHistory: Boolean = false,
+    val onToggleTrackHistory: () -> Unit = {},
     val genre: String,
     val country: String,
     val favicon: String,
@@ -297,12 +317,43 @@ fun NowPlayingSheet(
                         .fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    val flipTarget = if (ui.showTrackHistory) 180f else 0f
+                    val flipAngle by animateFloatAsState(
+                        targetValue = flipTarget,
+                        animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing),
+                        label = "npFlip",
+                    )
+                    val density = LocalDensity.current
+                    val showBack = flipAngle > 90f
+                    Box(
+                        modifier = Modifier
+                            .weight(1f, fill = true)
+                            .fillMaxWidth()
+                            .graphicsLayer {
+                                rotationY = flipAngle
+                                cameraDistance = 12f * density.density
+                            },
+                    ) {
+                        if (showBack) {
+                            TrackHistoryBack(
+                                items = ui.trackHistory,
+                                text = text,
+                                muted = muted,
+                                acc = acc,
+                                onClose = ui.onToggleTrackHistory,
+                            )
+                        } else {
                     val pageKeys = List(
                         if (nowLocal) nowLocalRows.size else nowRadioRows.size
                     ) { page ->
                         if (nowLocal) nowLocalRows.getOrNull(page)?.uri ?: "L$page"
                         else nowRadioRows.getOrNull(page)?.url ?: "R$page"
                     }
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { ui.onToggleTrackHistory() },
+                    ) {
                     NowPlayingPager(
                         pagerState = pagerState,
                         userScrollEnabled = !blockPagerSwipe,
@@ -318,6 +369,7 @@ fun NowPlayingSheet(
                         acc = acc,
                         muted = muted,
                     )
+                    }
                     val pagerDragModifier: Modifier =
                         if (!nowLocal && arts.isNotEmpty() && !blockPagerSwipe) {
                             Modifier.pointerInput(currentUrl, pageCount, blockPagerSwipe) {
@@ -388,6 +440,8 @@ fun NowPlayingSheet(
                             }
                         },
                     )
+                        }
+                    }
                 }
                 if (isLocalNow || currentUrl.startsWith("content:")) {
                     NowPlayingLocalProgress(
@@ -435,6 +489,105 @@ fun NowPlayingSheet(
                     onPrev = { actions.skipUi(false) },
                     onNext = { actions.skipUi(true) },
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TrackHistoryBack(
+    items: List<TrackHistoryItem>,
+    text: Color,
+    muted: Color,
+    acc: Color,
+    onClose: () -> Unit,
+) {
+    val fmt = remember { SimpleDateFormat("HH:mm", java.util.Locale.getDefault()) }
+    val ctx = LocalContext.current
+    Column(
+        Modifier
+            .fillMaxSize()
+            .graphicsLayer { rotationY = 180f }
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 4.dp)
+            .clickable { onClose() },
+    ) {
+        Text(
+            ctx.getString(R.string.track_history_hint),
+            color = acc,
+            style = MaterialTheme.typography.titleSmall,
+            modifier = Modifier.padding(bottom = 8.dp),
+        )
+        if (items.isEmpty()) {
+            Text(
+                ctx.getString(R.string.track_history_empty),
+                color = muted,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        } else {
+            items.take(30).forEach { item ->
+                val artist = artistFromTrackTitle(item.title)
+                val photo by rememberArtistPhotoUrl(artist, bust = item.title)
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    val iconUrl = when {
+                        !photo.isNullOrBlank() -> photo
+                        item.favicon.isNotBlank() -> artUrl(item.favicon)
+                        else -> ""
+                    }
+                    Box(
+                        Modifier
+                            .size(48.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Palette.panel2),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (!iconUrl.isNullOrBlank()) {
+                            AsyncImage(
+                                model = iconUrl,
+                                contentDescription = artist.ifBlank { item.title },
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop,
+                            )
+                        } else {
+                            Icon(
+                                Icons.Filled.MusicNote,
+                                contentDescription = null,
+                                tint = muted,
+                                modifier = Modifier.size(22.dp),
+                            )
+                        }
+                    }
+                    Column(
+                        Modifier
+                            .padding(start = 10.dp)
+                            .weight(1f),
+                    ) {
+                        Text(
+                            item.title,
+                            color = text,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        val sub = buildString {
+                            if (item.station.isNotBlank()) append(item.station)
+                            if (isNotEmpty()) append(" · ")
+                            append(fmt.format(Date(item.atMs)))
+                        }
+                        Text(
+                            sub,
+                            color = muted,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            style = MaterialTheme.typography.labelSmall,
+                        )
+                    }
+                }
             }
         }
     }

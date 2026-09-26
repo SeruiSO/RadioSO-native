@@ -158,5 +158,8 @@
     <string name="notif_paused_bt_off">На паузі · BT стеження вимк</string>
     <string name="music_other_folder">Інше</string>
     <string name="music_all">Вся музика</string>
+    <string name="track_history_title">Історія треків</string>
+    <string name="track_history_empty">Поки немає треків</string>
+    <string name="track_history_hint">Історія треків · тап щоб закрити</string>
 </resources>
 

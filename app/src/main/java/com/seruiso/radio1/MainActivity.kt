@@ -96,6 +96,8 @@ class MainActivity : ComponentActivity() {
         }
     }
     private var trackTitle by mutableStateOf("")
+    private var trackHistory by mutableStateOf<List<TrackHistoryItem>>(emptyList())
+    private var showTrackHistory by mutableStateOf(false)
     private var isPlaying by mutableStateOf(false)
     private var statusText by mutableStateOf("")  // set in onCreate
     private var tabIndex by mutableIntStateOf(0)
@@ -168,7 +170,13 @@ class MainActivity : ComponentActivity() {
                 RadioWatchService.ACTION_TRACK_META -> {
                     readPrefs()
                     val extra = intent.getStringExtra(RadioWatchService.EXTRA_TRACK) ?: ""
-                    if (extra.isNotBlank()) trackTitle = extra
+                    if (extra.isNotBlank()) {
+                        trackTitle = extra
+                        TrackHistoryStore.push(
+                            this@MainActivity, extra, stationName, currentUrl, currentFavicon
+                        )
+                        trackHistory = TrackHistoryStore.list(this@MainActivity)
+                    }
                 }
                 RadioWatchService.ACTION_MEDIA_NEXT,
                 RadioWatchService.ACTION_MEDIA_PREV -> readPrefs()
@@ -204,6 +212,11 @@ class MainActivity : ComponentActivity() {
         customTabs = TabStore.customTabs(this)
         reloadLocal()
         readPrefs()
+        trackHistory = TrackHistoryStore.list(this)
+        val uiP = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+        showTrackHistory = uiP.getBoolean("showTrackHistory", false)
+        nowOpen = uiP.getBoolean("nowOpenUi", false)
+        restoreSleepTimer()
         recentStations = loadRecentStations()
         val lastTab = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE).getString("currentTab", "fav")
         val idx = uiTabs.indexOf(lastTab)
@@ -386,10 +399,20 @@ class MainActivity : ComponentActivity() {
                         nowOpen = nowOpen,
                         onNow = {
                             nowOpen = true
+                            getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                                .edit().putBoolean("nowOpenUi", true).apply()
                             posHandler.removeCallbacks(posTick)
                             posHandler.post(posTick)
                         },
-                        onNowClose = { nowOpen = false },
+                        onNowClose = {
+                            nowOpen = false
+                            showTrackHistory = false
+                            getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                                .edit()
+                                .putBoolean("nowOpenUi", false)
+                                .putBoolean("showTrackHistory", false)
+                                .apply()
+                        },
                         onPickTheme = { id ->
                             val n = ThemeStore.set(this, id)
                             themeId = n.id
@@ -415,6 +438,13 @@ class MainActivity : ComponentActivity() {
                             holdStatus(getString(R.string.deleted))
                         },
                         track = trackTitle,
+                        trackHistory = trackHistory,
+                        showTrackHistory = showTrackHistory,
+                        onToggleTrackHistory = {
+                            showTrackHistory = !showTrackHistory
+                            getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                                .edit().putBoolean("showTrackHistory", showTrackHistory).apply()
+                        },
                         playing = isPlaying,
                         status = statusText,
                         favUrls = favUrls,
@@ -573,15 +603,21 @@ class MainActivity : ComponentActivity() {
     private fun armSleep(mins: Int) {
         sleepRunnable?.let { sleepHandler.removeCallbacks(it) }
         sleepRunnable = null
+        val p = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
         if (mins <= 0) {
+            p.edit().putLong("sleepUntilMs", 0L).apply()
             sleepLabel = getString(R.string.sleep_timer)
             statusText = getString(R.string.sleep_off)
             sleepMenu = false
             return
         }
+        val until = System.currentTimeMillis() + mins * 60_000L
+        p.edit().putLong("sleepUntilMs", until).apply()
         sleepLabel = getString(R.string.sleep_mins, mins)
         statusText = sleepLabel
         val r = Runnable {
+            getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                .edit().putLong("sleepUntilMs", 0L).apply()
             sendAction(RadioWatchService.ACTION_PAUSE)
             sleepLabel = getString(R.string.sleep_timer)
             softStatus(getString(R.string.sleep_pause))
@@ -589,6 +625,32 @@ class MainActivity : ComponentActivity() {
         sleepRunnable = r
         sleepHandler.postDelayed(r, mins * 60_000L)
         sleepMenu = false
+    }
+
+    private fun restoreSleepTimer() {
+        val p = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+        val until = p.getLong("sleepUntilMs", 0L)
+        if (until <= 0L) {
+            sleepLabel = getString(R.string.sleep_timer)
+            return
+        }
+        val left = until - System.currentTimeMillis()
+        if (left <= 0L) {
+            p.edit().putLong("sleepUntilMs", 0L).apply()
+            sleepLabel = getString(R.string.sleep_timer)
+            return
+        }
+        val leftMin = ((left + 59_999L) / 60_000L).toInt().coerceAtLeast(1)
+        sleepLabel = getString(R.string.sleep_mins, leftMin)
+        val r = Runnable {
+            getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                .edit().putLong("sleepUntilMs", 0L).apply()
+            sendAction(RadioWatchService.ACTION_PAUSE)
+            sleepLabel = getString(R.string.sleep_timer)
+            softStatus(getString(R.string.sleep_pause))
+        }
+        sleepRunnable = r
+        sleepHandler.postDelayed(r, left)
     }
 
     private fun normalizeCountry(raw: String): String {

@@ -125,8 +125,7 @@ class VoiceListenService : Service() {
             if (!alive) return
             val wait = when (error) {
                 SpeechRecognizer.ERROR_NO_MATCH,
-                SpeechRecognizer.ERROR_SPEECH_TIMEOUT,
-                SpeechRecognizer.ERROR_NO_SPEECH -> 3800L
+                SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> 3800L
                 SpeechRecognizer.ERROR_RECOGNIZER_BUSY,
                 SpeechRecognizer.ERROR_CLIENT -> {
                     recreateRecognizer()

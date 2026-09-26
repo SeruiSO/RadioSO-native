@@ -8,13 +8,9 @@ import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
-import android.os.Bundle
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
-import android.speech.RecognitionListener
-import android.speech.RecognizerIntent
-import android.speech.SpeechRecognizer
 import androidx.core.app.NotificationCompat
 import org.json.JSONObject
 import org.vosk.Model
@@ -31,28 +27,23 @@ import java.util.zip.ZipInputStream
 import kotlin.concurrent.thread
 
 /**
- * Два «вуха»:
- *  1) Vosk offline — лише фрази «окей ес о» / «окей радіо»
- *  2) після wake — коротке вікно Google SpeechRecognizer для команди
+ * Одне вухо Vosk на два режими:
+ *  WAKE — чекаємо «добре радіо»
+ *  CMD  — наступна фраза = команда (без Google, без перехоплення мікрофона)
  */
 class VoiceListenService : Service() {
 
     private val main = Handler(Looper.getMainLooper())
     private var alive = false
-    private var mode = MODE_WAKE // wake | cmd
+    private var mode = MODE_WAKE
     private var cmdUntil = 0L
     private var pausedForCmd = false
     private var coolUntil = 0L
+    private var lastHeardShown = 0L
 
-    // Vosk
     private var model: Model? = null
     private var voskService: SpeechService? = null
     private var voskReady = false
-
-    // Google (лише команда)
-    private var google: SpeechRecognizer? = null
-    private var googleBusy = false
-    private var cmdAttempts = 0
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -73,7 +64,6 @@ class VoiceListenService : Service() {
         alive = false
         main.removeCallbacksAndMessages(null)
         stopVosk()
-        stopGoogle()
         try { model?.close() } catch (_: Exception) {}
         model = null
         super.onDestroy()
@@ -83,13 +73,12 @@ class VoiceListenService : Service() {
         alive = false
         main.removeCallbacksAndMessages(null)
         stopVosk()
-        stopGoogle()
         if (pausedForCmd) radio(RadioWatchService.ACTION_PLAY)
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
 
-    // ---------- model download / unpack ----------
+    // ---------- model ----------
 
     private fun modelDir(): File = File(filesDir, "vosk-uk-v3-nano")
 
@@ -121,12 +110,11 @@ class VoiceListenService : Service() {
     }
 
     private fun downloadAndUnpack(): Boolean {
-        val zipUrl = MODEL_URL
         val tmpZip = File(cacheDir, "vosk-uk.zip")
         val dest = modelDir()
         try {
             if (tmpZip.exists()) tmpZip.delete()
-            val conn = URL(zipUrl).openConnection() as HttpURLConnection
+            val conn = URL(MODEL_URL).openConnection() as HttpURLConnection
             conn.connectTimeout = 30_000
             conn.readTimeout = 120_000
             conn.instanceFollowRedirects = true
@@ -148,9 +136,8 @@ class VoiceListenService : Service() {
                 var entry = zis.nextEntry
                 while (entry != null) {
                     val name = entry.name
-                    // zip root is usually vosk-model-small-uk-v3-nano/...
                     val rel = name.substringAfter("/", name)
-                    if (rel.isBlank() || rel == name && name.endsWith("/")) {
+                    if (rel.isBlank()) {
                         entry = zis.nextEntry
                         continue
                     }
@@ -159,16 +146,13 @@ class VoiceListenService : Service() {
                         outFile.mkdirs()
                     } else {
                         outFile.parentFile?.mkdirs()
-                        FileOutputStream(outFile).use { out ->
-                            zis.copyTo(out)
-                        }
+                        FileOutputStream(outFile).use { out -> zis.copyTo(out) }
                     }
                     zis.closeEntry()
                     entry = zis.nextEntry
                 }
             }
             tmpZip.delete()
-            // if unpack left a single subfolder, flatten one level
             val kids = dest.listFiles()?.filter { it.isDirectory } ?: emptyList()
             if (kids.size == 1 && !File(dest, "am").exists() && !File(dest, "conf").exists()) {
                 val sub = kids[0]
@@ -194,9 +178,9 @@ class VoiceListenService : Service() {
                     model = m
                     voskReady = true
                     startInForeground(getString(R.string.voice_listen))
-                    startWakeListening()
+                    startVoskSession()
                 }
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 main.post {
                     startInForeground(getString(R.string.voice_model_fail))
                     main.postDelayed({ if (alive) stopMe() }, 3000)
@@ -205,23 +189,24 @@ class VoiceListenService : Service() {
         }
     }
 
-    // ---------- WAKE (Vosk) ----------
+    // ---------- Vosk session (wake + cmd) ----------
 
-    private fun startWakeListening() {
+    private fun startVoskSession() {
         if (!alive || !voskReady) return
-        stopGoogle()
         stopVosk()
-        mode = MODE_WAKE
         try {
-            // без grammar: українська модель часто не має «ес/есо» у словнику граматики
             val rec = Recognizer(model, 16000.0f)
             val svc = SpeechService(rec, 16000.0f)
             voskService = svc
             svc.startListening(voskListener)
-            startInForeground(getString(R.string.voice_listen))
-        } catch (e: Exception) {
+            if (mode == MODE_WAKE) {
+                startInForeground(getString(R.string.voice_listen))
+            } else {
+                startInForeground(getString(R.string.voice_cmd))
+            }
+        } catch (_: Exception) {
             startInForeground(getString(R.string.voice_none))
-            main.postDelayed({ if (alive && mode == MODE_WAKE) startWakeListening() }, 4000)
+            main.postDelayed({ if (alive) startVoskSession() }, 3000)
         }
     }
 
@@ -231,222 +216,106 @@ class VoiceListenService : Service() {
         voskService = null
     }
 
-    private var lastHeardShown = 0L
-
     private val voskListener = object : VoskListener {
         override fun onPartialResult(hypothesis: String?) {
-            if (!alive || mode != MODE_WAKE) return
+            if (!alive) return
             val text = extractText(hypothesis ?: "")
             if (text.isNotBlank()) showHeard(text)
-            checkWake(hypothesis)
+            if (mode == MODE_WAKE) maybeWake(text)
+            // у CMD partial не виконуємо — чекаємо final
         }
 
         override fun onResult(hypothesis: String?) {
-            if (!alive || mode != MODE_WAKE) return
-            val text = extractText(hypothesis ?: "")
-            if (text.isNotBlank()) showHeard(text)
-            checkWake(hypothesis)
+            handleUtterance(hypothesis)
         }
 
         override fun onFinalResult(hypothesis: String?) {
-            if (!alive || mode != MODE_WAKE) return
-            val text = extractText(hypothesis ?: "")
-            if (text.isNotBlank()) showHeard(text)
-            checkWake(hypothesis)
-            // Vosk після final зупиняє сесію — знову wake
+            handleUtterance(hypothesis)
+            // Vosk після final зупиняється — знову сесія
             main.postDelayed({
-                if (alive && mode == MODE_WAKE) startWakeListening()
-            }, 400)
+                if (!alive) return@postDelayed
+                if (mode == MODE_CMD && System.currentTimeMillis() > cmdUntil) {
+                    endCommandMiss("")
+                    return@postDelayed
+                }
+                startVoskSession()
+            }, 350)
         }
 
         override fun onError(exception: Exception?) {
             if (!alive) return
             val msg = exception?.message ?: "error"
             startInForeground("Vosk: $msg")
-            main.postDelayed({ if (alive && mode == MODE_WAKE) startWakeListening() }, 2500)
+            main.postDelayed({ if (alive) startVoskSession() }, 2000)
         }
 
         override fun onTimeout() {
             if (!alive) return
             main.post {
-                if (alive && mode == MODE_WAKE) startWakeListening()
+                if (!alive) return@post
+                if (mode == MODE_CMD && System.currentTimeMillis() > cmdUntil) {
+                    endCommandMiss("")
+                } else {
+                    startVoskSession()
+                }
             }
         }
     }
 
-    /** Діагностика: що почув Vosk (обмежуємо частоту оновлень). */
-    private fun showHeard(text: String) {
-        val now = System.currentTimeMillis()
-        if (now - lastHeardShown < 800) return
-        lastHeardShown = now
-        val short = if (text.length > 40) text.take(40) + "…" else text
-        startInForeground("Чую: $short")
+    private fun handleUtterance(hypothesis: String?) {
+        if (!alive) return
+        val text = spoken(extractText(hypothesis ?: ""))
+        if (text.isBlank()) return
+        showHeard(text)
+        when (mode) {
+            MODE_WAKE -> maybeWake(text)
+            MODE_CMD -> maybeCommand(text)
+        }
     }
 
-    private fun checkWake(rawJson: String?) {
-        if (rawJson.isNullOrBlank()) return
+    private fun maybeWake(text: String) {
+        if (mode != MODE_WAKE) return
         if (System.currentTimeMillis() < coolUntil) return
-        val text = extractText(rawJson)
-        if (text.isBlank()) return
         val norm = spoken(text)
         if (!isWakePhrase(norm)) return
-
-        coolUntil = System.currentTimeMillis() + 5000
-        // звільняємо мікрофон від Vosk, даємо час системі
-        stopVosk()
-        beginCommand()
-        // не стартуємо Google одразу — інакше ERROR / порожньо і «не знайшов»
-        main.postDelayed({
-            if (alive && mode == MODE_CMD) startCommandListening()
-        }, 700)
+        coolUntil = System.currentTimeMillis() + 4000
+        enterCommandMode()
     }
 
-    private fun isWakePhrase(norm: String): Boolean {
-        if (norm.length < 4) return false
-        val words = norm.split(" ").filter { it.isNotBlank() }
-        // довгі фрази = ефір/пісня
-        if (words.size > 6) return false
-        val forms = listOf(
-            "добре радіо", "добре радио",
-            "добрий радіо", "добрий радио",
-            "добре радіова", // на випадок помилки ASR
-        )
-        if (forms.any { norm == it || norm.startsWith("$it ") || " $it " in " $norm " || norm.endsWith(" $it") }) {
-            return true
-        }
-        // «добре» + «радіо» поруч (ASR може вставити сміття між ними рідко)
-        val hasDob = words.any { it.startsWith("добр") } // добре / добрий / добра
-        val hasRadio = words.any { it.startsWith("радіо") || it.startsWith("радио") || it == "radio" }
-        return hasDob && hasRadio && words.size <= 4
-    }
-
-    private fun extractText(json: String): String {
-        return try {
-            val o = JSONObject(json)
-            when {
-                o.has("text") -> o.optString("text", "")
-                o.has("partial") -> o.optString("partial", "")
-                else -> ""
-            }
-        } catch (_: Exception) {
-            json
-        }
-    }
-
-    // ---------- COMMAND (Google) ----------
-
-    private fun beginCommand() {
+    private fun enterCommandMode() {
         mode = MODE_CMD
-        cmdAttempts = 0
         cmdUntil = System.currentTimeMillis() + 12000
         startInForeground(getString(R.string.voice_cmd))
         if (!pausedForCmd) {
             pausedForCmd = true
             radio(RadioWatchService.ACTION_PAUSE)
         }
-    }
-
-    private fun startCommandListening() {
-        if (!alive || mode != MODE_CMD) return
-        stopGoogle()
-        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
-            finishCommandWindow(miss = true, raw = "")
-            return
-        }
-        try {
-            val g = SpeechRecognizer.createSpeechRecognizer(this)
-            g.setRecognitionListener(googleListener)
-            google = g
-            googleBusy = true
-            g.startListening(commandIntent())
-            // вікно команди ~10 с
-            main.postDelayed({
-                if (alive && mode == MODE_CMD && googleBusy) {
-                    try { google?.stopListening() } catch (_: Exception) {}
-                }
-            }, 10000)
-        } catch (_: Exception) {
-            finishCommandWindow(miss = true, raw = "")
-        }
-    }
-
-    private fun stopGoogle() {
-        googleBusy = false
-        try { google?.cancel() } catch (_: Exception) {}
-        try { google?.destroy() } catch (_: Exception) {}
-        google = null
-    }
-
-    private fun commandIntent(): Intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-        putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-        putExtra(RecognizerIntent.EXTRA_LANGUAGE, "uk-UA")
-        putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
-        putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
-        putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
-        putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 2000L)
-        putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 2500L)
-        putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 2000L)
-    }
-
-    private val googleListener = object : RecognitionListener {
-        override fun onReadyForSpeech(params: Bundle?) {}
-        override fun onBeginningOfSpeech() {}
-        override fun onRmsChanged(rmsdB: Float) {}
-        override fun onBufferReceived(buffer: ByteArray?) {}
-        override fun onEndOfSpeech() {}
-        override fun onPartialResults(partialResults: Bundle?) {}
-        override fun onEvent(eventType: Int, params: Bundle?) {}
-
-        override fun onError(error: Int) {
-            googleBusy = false
-            if (!alive || mode != MODE_CMD) return
-            // тиша / no match — даємо ще одну спробу, не одразу «не знайшов»
-            val retryable = error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT
-                || error == SpeechRecognizer.ERROR_NO_MATCH
-                || error == SpeechRecognizer.ERROR_CLIENT
-            if (retryable && cmdAttempts < 1) {
-                cmdAttempts++
-                startInForeground(getString(R.string.voice_cmd))
-                main.postDelayed({
-                    if (alive && mode == MODE_CMD) startCommandListening()
-                }, 500)
-                return
+        // таймер на випадок тиші
+        main.postDelayed({
+            if (alive && mode == MODE_CMD && System.currentTimeMillis() >= cmdUntil) {
+                endCommandMiss("")
             }
-            finishCommandWindow(miss = true, raw = "")
-        }
-
-        override fun onResults(results: Bundle?) {
-            googleBusy = false
-            if (!alive || mode != MODE_CMD) return
-            val lines = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION).orEmpty()
-            val text = spoken(lines.joinToString(" "))
-            // ігноруємо якщо це знову лише wake-фраза
-            if (isWakePhrase(text) || text.length < 2) {
-                if (cmdAttempts < 1) {
-                    cmdAttempts++
-                    startInForeground(getString(R.string.voice_cmd))
-                    main.postDelayed({
-                        if (alive && mode == MODE_CMD) startCommandListening()
-                    }, 400)
-                } else {
-                    finishCommandWindow(miss = true, raw = text)
-                }
-                return
-            }
-            runCommand(text)
-        }
+        }, 12500)
+        // сесію Vosk не рвемо насильно — final сам перезапустить у MODE_CMD
     }
 
-    private fun finishCommandWindow(miss: Boolean, raw: String) {
-        stopGoogle()
+    private fun maybeCommand(text: String) {
+        if (mode != MODE_CMD) return
+        val norm = spoken(text)
+        if (norm.length < 2) return
+        // ще раз wake — ігноруємо
+        if (isWakePhrase(norm)) return
+        // коротка фраза після wake — виконуємо
+        runCommand(norm)
+    }
+
+    private fun endCommandMiss(raw: String) {
         mode = MODE_WAKE
         cmdUntil = 0
-        if (miss) {
-            startInForeground(
-                if (raw.isBlank()) getString(R.string.voice_miss, "…")
-                else getString(R.string.voice_miss, raw)
-            )
-        }
+        startInForeground(
+            if (raw.isBlank()) getString(R.string.voice_miss, "…")
+            else getString(R.string.voice_miss, raw)
+        )
         if (pausedForCmd) {
             pausedForCmd = false
             radio(RadioWatchService.ACTION_PLAY)
@@ -454,16 +323,15 @@ class VoiceListenService : Service() {
         main.postDelayed({
             if (alive) {
                 startInForeground(getString(R.string.voice_listen))
-                startWakeListening()
+                startVoskSession()
             }
-        }, 1500)
+        }, 1600)
     }
 
     private fun runCommand(raw: String) {
         mode = MODE_WAKE
         cmdUntil = 0
         var q = spoken(raw)
-        // strip accidental wake leftover
         for (w in listOf("добре радіо ", "добре радио ", "добрий радіо ", "добрий радио ")) {
             q = q.removePrefix(w)
         }
@@ -484,7 +352,7 @@ class VoiceListenService : Service() {
             pausedForCmd = false
             radio(transport)
             startInForeground(getString(R.string.voice_listen))
-            main.postDelayed({ if (alive) startWakeListening() }, 1200)
+            main.postDelayed({ if (alive) startVoskSession() }, 1000)
             return
         }
 
@@ -507,15 +375,54 @@ class VoiceListenService : Service() {
             main.postDelayed({
                 if (alive) {
                     startInForeground(getString(R.string.voice_listen))
-                    startWakeListening()
+                    startVoskSession()
                 }
-            }, 1800)
+            }, 1600)
         } else {
-            finishCommandWindow(miss = true, raw = raw)
+            endCommandMiss(raw)
         }
     }
 
     // ---------- helpers ----------
+
+    private fun isWakePhrase(norm: String): Boolean {
+        if (norm.length < 4) return false
+        val words = norm.split(" ").filter { it.isNotBlank() }
+        if (words.size > 6) return false
+        val forms = listOf("добре радіо", "добре радио", "добрий радіо", "добрий радио")
+        if (forms.any { norm == it || norm.startsWith("$it ") || " $it " in " $norm " || norm.endsWith(" $it") }) {
+            return true
+        }
+        val hasDob = words.any { it.startsWith("добр") }
+        val hasRadio = words.any { it.startsWith("радіо") || it.startsWith("радио") || it == "radio" }
+        return hasDob && hasRadio && words.size <= 4
+    }
+
+    private fun extractText(json: String): String {
+        if (json.isBlank()) return ""
+        return try {
+            val o = JSONObject(json)
+            when {
+                o.has("text") -> o.optString("text", "")
+                o.has("partial") -> o.optString("partial", "")
+                else -> ""
+            }
+        } catch (_: Exception) {
+            json
+        }
+    }
+
+    private fun showHeard(text: String) {
+        val now = System.currentTimeMillis()
+        if (now - lastHeardShown < 700) return
+        lastHeardShown = now
+        val short = if (text.length > 40) text.take(40) + "…" else text
+        if (mode == MODE_CMD) {
+            startInForeground("${getString(R.string.voice_cmd)}: $short")
+        } else {
+            startInForeground("Чую: $short")
+        }
+    }
 
     private fun radio(action: String) {
         val i = Intent(this, RadioWatchService::class.java)
@@ -614,8 +521,5 @@ class VoiceListenService : Service() {
         private const val MODE_CMD = "cmd"
         private const val MODEL_URL =
             "https://alphacephei.com/vosk/models/vosk-model-small-uk-v3-nano.zip"
-        // Vosk grammar: only these phrases + unk
-        private val WAKE_GRAMMAR =
-            """["окей ес о", "окей есо", "ок ес о", "окей радіо", "окей радио", "ок радіо", "okay so", "ok so", "okay radio", "[unk]"]"""
     }
 }

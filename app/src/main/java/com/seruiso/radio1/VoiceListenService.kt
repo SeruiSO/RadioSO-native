@@ -362,51 +362,97 @@ class VoiceListenService : Service() {
             q = q.removePrefix(w)
         }
         q = spoken(q)
+        // показуємо що саме пішло в команду
+        startInForeground("Команда: $q")
 
         val transport = when {
-            listOf("пауз", "стоп", "зупини").any { it in q } && "включ" !in q ->
+            listOf("пауз", "стоп", "зупини", "вимкн").any { it in q } &&
+                !listOf("включ", "увімкн", "постав").any { it in q } ->
                 RadioWatchService.ACTION_PAUSE
-            listOf("далі", "наступ", "вперед").any { it in q } ->
+            listOf("далі", "наступ", "вперед", "наступн").any { it in q } ->
                 RadioWatchService.ACTION_NOTIF_NEXT
-            listOf("назад", "поперед").any { it in q } ->
+            listOf("назад", "поперед", "попередн").any { it in q } ->
                 RadioWatchService.ACTION_NOTIF_PREV
-            listOf("грай", "продовж").any { it in q } && "включ" !in q && q.length < 24 ->
+            listOf("грай", "продовж", "віднов", "плей").any { it in q } &&
+                !listOf("включ", "увімкн").any { it in q } && q.length < 28 ->
                 RadioWatchService.ACTION_PLAY
             else -> null
         }
         if (transport != null) {
             pausedForCmd = false
             radio(transport)
-            startInForeground(getString(R.string.voice_listen))
-            main.postDelayed({ if (alive) startVoskSession() }, 1000)
+            main.postDelayed({
+                if (alive) {
+                    startInForeground(getString(R.string.voice_listen))
+                    startVoskSession()
+                }
+            }, 1000)
             return
         }
 
+        // знімаємо службові слова дії
+        var nameQ = q
         for (pref in listOf(
-            "включи ", "увімкни ", "постав ", "переключи ",
-            "станцію ", "станцию ", "радіо ", "радио "
+            "включи ", "включити ", "увімкни ", "увімкнути ", "постав ", "поставити ",
+            "переключи ", "переключити ", "станцію ", "станцию ", "радіо ", "радио ",
+            "будь ласка ", "мені "
         )) {
-            q = q.removePrefix(pref)
+            nameQ = nameQ.removePrefix(pref)
         }
-        q = spoken(q)
-        val hit = stations().maxByOrNull { score(q, it.name) }
-        if (hit != null && score(q, hit.name) >= 400) {
+        nameQ = spoken(nameQ)
+        // синоніми популярних назв
+        nameQ = expandAliases(nameQ)
+
+        val all = stations()
+        val hit = all.maxByOrNull { score(nameQ, it.name) }
+        val sc = if (hit != null) score(nameQ, hit.name) else 0
+        if (hit != null && sc >= 250) {
             pausedForCmd = false
             val i = Intent(this, RadioWatchService::class.java)
             i.action = RadioWatchService.ACTION_PLAY_URL
             i.putExtra(RadioWatchService.EXTRA_URL, hit.url)
             i.putExtra(RadioWatchService.EXTRA_NAME, hit.name)
             startForegroundService(i)
-            startInForeground(hit.name)
+            startInForeground("${hit.name} ($sc)")
             main.postDelayed({
                 if (alive) {
                     startInForeground(getString(R.string.voice_listen))
                     startVoskSession()
                 }
-            }, 1600)
+            }, 1800)
         } else {
-            endCommandMiss(raw)
+            endCommandMiss("$q →$nameQ")
         }
+    }
+
+    /** Синоніми, які Vosk часто чує інакше ніж назва в списку. */
+    private fun expandAliases(q: String): String {
+        var x = q
+        val map = listOf(
+            "люкс фм" to "люкс",
+            "люксфм" to "люкс",
+            "lux fm" to "люкс",
+            "lux" to "люкс",
+            "хіт фм" to "хіт",
+            "хит фм" to "хіт",
+            "hit fm" to "хіт",
+            "наше радіо" to "наше",
+            "наше радио" to "наше",
+            "авторадіо" to "авторадіо",
+            "авторадио" to "авторадіо",
+            "мелоди" to "мелоді",
+            "мелодия" to "мелоді",
+            "ретро фм" to "ретро",
+            "retro" to "ретро",
+            "європа плюс" to "європа",
+            "европа плюс" to "європа",
+            "шanson" to "шансон",
+            "шансон" to "шансон",
+        )
+        for ((a, b) in map) {
+            if (a in x) x = x.replace(a, b)
+        }
+        return spoken(x)
     }
 
     // ---------- helpers ----------
@@ -470,12 +516,31 @@ class VoiceListenService : Service() {
         val q = fold(query)
         val n = fold(name)
         if (q.length < 2 || n.length < 2) return 0
-        return when {
-            n == q -> 1000
-            q.contains(n) && n.length >= 3 -> 500 + n.length
-            n.contains(q) && q.length >= 3 -> 400 + q.length
-            else -> 0
+        if (n == q) return 1000
+        if (q.contains(n) && n.length >= 3) return 500 + n.length
+        if (n.contains(q) && q.length >= 3) return 450 + q.length
+
+        // по словах: «люкс фм» vs «Lux FM»
+        val qw = q.split(" ").filter { it.length >= 2 }
+        val nw = n.split(" ").filter { it.length >= 2 }
+        if (qw.isEmpty() || nw.isEmpty()) return 0
+        var hits = 0
+        var bonus = 0
+        for (w in qw) {
+            val m = nw.firstOrNull { it == w || it.startsWith(w) || w.startsWith(it) }
+            if (m != null) {
+                hits++
+                bonus += m.length
+            }
         }
+        if (hits == 0) {
+            // одне слово з запиту входить у всю назву
+            for (w in qw) {
+                if (w.length >= 3 && n.contains(w)) return 300 + w.length
+            }
+            return 0
+        }
+        return 200 + hits * 80 + bonus
     }
 
     private fun spoken(s: String): String {

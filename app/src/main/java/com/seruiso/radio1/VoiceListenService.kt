@@ -8,6 +8,8 @@ import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
+import android.media.AudioManager
+import android.media.ToneGenerator
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
@@ -231,22 +233,22 @@ class VoiceListenService : Service() {
 
         override fun onFinalResult(hypothesis: String?) {
             handleUtterance(hypothesis)
-            // Vosk після final зупиняється — знову сесія
             main.postDelayed({
                 if (!alive) return@postDelayed
                 if (mode == MODE_CMD && System.currentTimeMillis() > cmdUntil) {
                     endCommandMiss("")
                     return@postDelayed
                 }
-                startVoskSession()
-            }, 350)
+                // м'який restart — без stop/shutdown (не блимає індикатор мікрофона)
+                resumeListening()
+            }, 200)
         }
 
         override fun onError(exception: Exception?) {
             if (!alive) return
             val msg = exception?.message ?: "error"
             startInForeground("Vosk: $msg")
-            main.postDelayed({ if (alive) startVoskSession() }, 2000)
+            main.postDelayed({ if (alive) startVoskSession() }, 2500)
         }
 
         override fun onTimeout() {
@@ -256,9 +258,24 @@ class VoiceListenService : Service() {
                 if (mode == MODE_CMD && System.currentTimeMillis() > cmdUntil) {
                     endCommandMiss("")
                 } else {
-                    startVoskSession()
+                    resumeListening()
                 }
             }
+        }
+    }
+
+    /** Продовжити слухання без повного recreate SpeechService. */
+    private fun resumeListening() {
+        if (!alive) return
+        val svc = voskService
+        if (svc == null) {
+            startVoskSession()
+            return
+        }
+        try {
+            svc.startListening(voskListener)
+        } catch (_: Exception) {
+            startVoskSession()
         }
     }
 
@@ -286,17 +303,26 @@ class VoiceListenService : Service() {
         mode = MODE_CMD
         cmdUntil = System.currentTimeMillis() + 12000
         startInForeground(getString(R.string.voice_cmd))
+        playListenBeep()
         if (!pausedForCmd) {
             pausedForCmd = true
             radio(RadioWatchService.ACTION_PAUSE)
         }
-        // таймер на випадок тиші
         main.postDelayed({
             if (alive && mode == MODE_CMD && System.currentTimeMillis() >= cmdUntil) {
                 endCommandMiss("")
             }
         }, 12500)
-        // сесію Vosk не рвемо насильно — final сам перезапустить у MODE_CMD
+        // одразу готуємо слухання команди (м'яко)
+        main.postDelayed({ if (alive && mode == MODE_CMD) resumeListening() }, 400)
+    }
+
+    private fun playListenBeep() {
+        try {
+            val tg = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 90)
+            tg.startTone(ToneGenerator.TONE_PROP_ACK, 180)
+            main.postDelayed({ try { tg.release() } catch (_: Exception) {} }, 400)
+        } catch (_: Exception) {}
     }
 
     private fun maybeCommand(text: String) {

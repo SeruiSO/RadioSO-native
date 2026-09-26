@@ -315,23 +315,6 @@ fun NowPlayingSheet(
                         .fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // кнопка історії над обкладинкою
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
-                        Icon(
-                            Icons.Filled.History,
-                            contentDescription = "Історія треків",
-                            tint = if (ui.showTrackHistory) acc else muted,
-                            modifier = Modifier
-                                .size(28.dp)
-                                .clickable { ui.onToggleTrackHistory() },
-                        )
-                    }
                     if (ui.showTrackHistory) {
                         val fmt = remember { SimpleDateFormat("HH:mm", java.util.Locale.getDefault()) }
                         Column(
@@ -343,7 +326,7 @@ fun NowPlayingSheet(
                                 .clickable { ui.onToggleTrackHistory() },
                         ) {
                             Text(
-                                "Історія треків",
+                                "Історія треків · тап щоб закрити",
                                 color = acc,
                                 style = MaterialTheme.typography.titleSmall,
                                 modifier = Modifier.padding(bottom = 8.dp),
@@ -420,6 +403,11 @@ fun NowPlayingSheet(
                         if (nowLocal) nowLocalRows.getOrNull(page)?.uri ?: "L$page"
                         else nowRadioRows.getOrNull(page)?.url ?: "R$page"
                     }
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { ui.onToggleTrackHistory() },
+                    ) {
                     NowPlayingPager(
                         pagerState = pagerState,
                         userScrollEnabled = !blockPagerSwipe,
@@ -435,6 +423,8 @@ fun NowPlayingSheet(
                         acc = acc,
                         muted = muted,
                     )
+
+                    }
                     val pagerDragModifier: Modifier =
                         if (!nowLocal && arts.isNotEmpty() && !blockPagerSwipe) {
                             Modifier.pointerInput(currentUrl, pageCount, blockPagerSwipe) {

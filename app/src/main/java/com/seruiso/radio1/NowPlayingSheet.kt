@@ -34,6 +34,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -325,26 +327,20 @@ fun NowPlayingSheet(
                     )
                     val density = LocalDensity.current
                     val showBack = flipAngle > 90f
+                    val cam = 12f * density.density
                     Box(
                         modifier = Modifier
                             .weight(1f, fill = true)
-                            .fillMaxWidth()
+                            .fillMaxWidth(),
+                    ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
                             .graphicsLayer {
                                 rotationY = flipAngle
-                                cameraDistance = 12f * density.density
+                                cameraDistance = cam
+                                alpha = if (showBack) 0f else 1f
                             },
-                    ) {
-                        if (showBack) {
-                            TrackHistoryBack(
-                                items = ui.trackHistory,
-                                text = text,
-                                muted = muted,
-                                acc = acc,
-                                onClose = ui.onToggleTrackHistory,
-                            )
-                        } else {
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                     val pageKeys = List(
@@ -356,7 +352,7 @@ fun NowPlayingSheet(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { ui.onToggleTrackHistory() },
+                            .clickable(enabled = !showBack) { ui.onToggleTrackHistory() },
                     ) {
                     NowPlayingPager(
                         pagerState = pagerState,
@@ -445,6 +441,17 @@ fun NowPlayingSheet(
                         },
                     )
                     }
+                        if (ui.showTrackHistory || flipAngle > 0.5f) {
+                            TrackHistoryBack(
+                                items = ui.trackHistory,
+                                text = text,
+                                muted = muted,
+                                acc = acc,
+                                onClose = ui.onToggleTrackHistory,
+                                loadArt = flipAngle >= 175f,
+                                flipAngle = flipAngle,
+                                cameraDist = cam,
+                            )
                         }
                     }
                 }
@@ -506,94 +513,123 @@ private fun TrackHistoryBack(
     muted: Color,
     acc: Color,
     onClose: () -> Unit,
+    loadArt: Boolean,
+    flipAngle: Float,
+    cameraDist: Float,
 ) {
     val fmt = remember { SimpleDateFormat("HH:mm", java.util.Locale.getDefault()) }
     val ctx = LocalContext.current
-    Column(
-        Modifier
+    val show = flipAngle > 90f
+    val rows = remember(items) { items.take(30) }
+    LazyColumn(
+        modifier = Modifier
             .fillMaxSize()
-            .graphicsLayer { rotationY = 180f }
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 4.dp)
-            .clickable { onClose() },
-    ) {
-        Text(
-            ctx.getString(R.string.track_history_hint),
-            color = acc,
-            style = MaterialTheme.typography.titleSmall,
-            modifier = Modifier.padding(bottom = 8.dp),
-        )
-        if (items.isEmpty()) {
-            Text(
-                ctx.getString(R.string.track_history_empty),
-                color = muted,
-                style = MaterialTheme.typography.bodySmall,
-            )
-        } else {
-            items.take(30).forEach { item ->
-                val artist = artistFromTrackTitle(item.title)
-                val photo by rememberArtistPhotoUrl(artist, bust = item.title)
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    val iconUrl = when {
-                        !photo.isNullOrBlank() -> photo
-                        item.favicon.isNotBlank() -> artUrl(item.favicon)
-                        else -> ""
-                    }
-                    Box(
-                        Modifier
-                            .size(48.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(Palette.panel2),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        if (!iconUrl.isNullOrBlank()) {
-                            AsyncImage(
-                                model = iconUrl,
-                                contentDescription = artist.ifBlank { item.title },
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop,
-                            )
-                        } else {
-                            Icon(
-                                Icons.Filled.MusicNote,
-                                contentDescription = null,
-                                tint = muted,
-                                modifier = Modifier.size(22.dp),
-                            )
-                        }
-                    }
-                    Column(
-                        Modifier
-                            .padding(start = 10.dp)
-                            .weight(1f),
-                    ) {
-                        Text(
-                            item.title,
-                            color = text,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                        val sub = buildString {
-                            if (item.station.isNotBlank()) append(item.station)
-                            if (isNotEmpty()) append(" · ")
-                            append(fmt.format(Date(item.atMs)))
-                        }
-                        Text(
-                            sub,
-                            color = muted,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            style = MaterialTheme.typography.labelSmall,
-                        )
-                    }
-                }
+            .graphicsLayer {
+                rotationY = flipAngle - 180f
+                cameraDistance = cameraDist
+                alpha = if (show) 1f else 0f
             }
+            .padding(horizontal = 4.dp)
+            .clickable(enabled = show) { onClose() },
+    ) {
+        item(key = "hdr") {
+            Text(
+                ctx.getString(R.string.track_history_hint),
+                color = acc,
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.padding(bottom = 8.dp),
+            )
+            if (rows.isEmpty()) {
+                Text(
+                    ctx.getString(R.string.track_history_empty),
+                    color = muted,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+        }
+        items(rows, key = { it.atMs.toString() + it.title }) { item ->
+            TrackHistoryRow(
+                item = item,
+                text = text,
+                muted = muted,
+                loadArt = loadArt,
+                fmt = fmt,
+            )
+        }
+    }
+}
+
+@Composable
+private fun TrackHistoryRow(
+    item: TrackHistoryItem,
+    text: Color,
+    muted: Color,
+    loadArt: Boolean,
+    fmt: SimpleDateFormat,
+) {
+    val artist = artistFromTrackTitle(item.title)
+    val photo by rememberArtistPhotoUrl(
+        if (loadArt) artist else "",
+        bust = if (loadArt) item.title else "",
+    )
+    val iconUrl = when {
+        loadArt && !photo.isNullOrBlank() -> photo
+        item.favicon.isNotBlank() -> artUrl(item.favicon)
+        else -> ""
+    }
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier
+                .size(48.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(Palette.panel2),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (!iconUrl.isNullOrBlank()) {
+                AsyncImage(
+                    model = iconUrl,
+                    contentDescription = artist.ifBlank { item.title },
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                )
+            } else {
+                Icon(
+                    Icons.Filled.MusicNote,
+                    contentDescription = null,
+                    tint = muted,
+                    modifier = Modifier.size(22.dp),
+                )
+            }
+        }
+        Column(
+            Modifier
+                .padding(start = 10.dp)
+                .weight(1f),
+        ) {
+            Text(
+                item.title,
+                color = text,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            val sub = buildString {
+                if (item.station.isNotBlank()) append(item.station)
+                if (isNotEmpty()) append(" · ")
+                append(fmt.format(Date(item.atMs)))
+            }
+            Text(
+                sub,
+                color = muted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.labelSmall,
+            )
         }
     }
 }

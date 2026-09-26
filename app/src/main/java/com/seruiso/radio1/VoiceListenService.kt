@@ -26,6 +26,8 @@ class VoiceListenService : Service() {
     private var cmdUntil = 0L
     private var pausedForCmd = false
     private var busy = false
+    private var coolUntil = 0L
+    private var lastStart = 0L
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -42,8 +44,8 @@ class VoiceListenService : Service() {
                 main.postDelayed({ stopMe() }, 2500)
                 return START_NOT_STICKY
             }
-            recognizer = SpeechRecognizer.createSpeechRecognizer(this).also { it.setRecognitionListener(listener) }
-            arm(300)
+            recreateRecognizer()
+            arm(400)
         }
         return START_STICKY
     }
@@ -51,22 +53,35 @@ class VoiceListenService : Service() {
     override fun onDestroy() {
         alive = false
         main.removeCallbacksAndMessages(null)
-        recognizer?.destroy()
+        try { recognizer?.destroy() } catch (_: Exception) {}
         recognizer = null
         super.onDestroy()
     }
 
     private fun stopMe() {
         alive = false
-        recognizer?.cancel()
+        try { recognizer?.cancel() } catch (_: Exception) {}
         if (pausedForCmd) radio(RadioWatchService.ACTION_PLAY)
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
 
+    private fun recreateRecognizer() {
+        try { recognizer?.destroy() } catch (_: Exception) {}
+        recognizer = null
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) return
+        recognizer = SpeechRecognizer.createSpeechRecognizer(this).also {
+            it.setRecognitionListener(listener)
+        }
+    }
+
     private fun arm(delay: Long) {
         main.postDelayed({
             if (!alive || busy) return@postDelayed
+            // раз на ~40 с пересоздати recognizer (знімає залипання)
+            if (System.currentTimeMillis() - lastStart > 40_000L) {
+                recreateRecognizer()
+            }
             if (mode == "cmd" && System.currentTimeMillis() > cmdUntil) {
                 mode = "wake"
                 startInForeground(getString(R.string.voice_listen))
@@ -77,10 +92,11 @@ class VoiceListenService : Service() {
             }
             try {
                 busy = true
+                lastStart = System.currentTimeMillis()
                 recognizer?.startListening(listenIntent())
             } catch (_: Exception) {
                 busy = false
-                arm(700)
+                arm(1500)
             }
         }, delay)
     }
@@ -88,10 +104,12 @@ class VoiceListenService : Service() {
     private fun listenIntent(): Intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
         putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
         putExtra(RecognizerIntent.EXTRA_LANGUAGE, "uk-UA")
-        putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-        putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
-        putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1200L)
-        putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 800L)
+        putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
+        putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
+        putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
+        putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 1200L)
+        putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1800L)
+        putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 1500L)
     }
 
     private val listener = object : RecognitionListener {
@@ -99,37 +117,62 @@ class VoiceListenService : Service() {
         override fun onBeginningOfSpeech() {}
         override fun onRmsChanged(rmsdB: Float) {}
         override fun onBufferReceived(buffer: ByteArray?) {}
-        override fun onEndOfSpeech() { busy = false }
+        override fun onEndOfSpeech() {}
+        override fun onEvent(eventType: Int, params: Bundle?) {}
+
         override fun onError(error: Int) {
             busy = false
             if (!alive) return
-            arm(if (error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY) 800 else 350)
+            val wait = when (error) {
+                SpeechRecognizer.ERROR_NO_MATCH,
+                SpeechRecognizer.ERROR_SPEECH_TIMEOUT,
+                SpeechRecognizer.ERROR_NO_SPEECH -> 3800L
+                SpeechRecognizer.ERROR_RECOGNIZER_BUSY,
+                SpeechRecognizer.ERROR_CLIENT -> {
+                    recreateRecognizer()
+                    2000L
+                }
+                SpeechRecognizer.ERROR_NETWORK,
+                SpeechRecognizer.ERROR_NETWORK_TIMEOUT,
+                SpeechRecognizer.ERROR_SERVER -> 4500L
+                else -> 2000L
+            }
+            arm(wait)
         }
+
         override fun onResults(results: Bundle?) {
             busy = false
-            heard(results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION).orEmpty(), final = true)
-            if (alive) arm(400)
+            heard(results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION).orEmpty())
+            if (alive) arm(1500)
         }
-        override fun onPartialResults(partialResults: Bundle?) {}
-        override fun onEvent(eventType: Int, params: Bundle?) {}
+
+        override fun onPartialResults(partialResults: Bundle?) {
+            // partial ніколи не обробляємо — менше хибних спрацювань від ефіру
+        }
     }
 
-    private var coolUntil = 0L
-
-    private fun heard(lines: List<String>, final: Boolean) {
-        if (!alive || !final || lines.isEmpty()) return
+    private fun heard(lines: List<String>) {
+        if (!alive || lines.isEmpty()) return
         if (System.currentTimeMillis() < coolUntil) return
+
         val text = spoken(lines.joinToString(" "))
+        if (text.length < 4) return
+
+        val words = text.split(" ").filter { it.isNotBlank() }
+        // довгі фрази = майже напевно ефір / розмова, не команда
+        if (words.size > 7) return
+
         val wakeAt = wakeEnd(text)
-        if (mode == "wake") {
-            if (wakeAt < 0) return
-            val rest = text.substring(wakeAt).trim()
-            coolUntil = System.currentTimeMillis() + 2500
-            if (rest.split(" ").size >= 2) runCommand(rest) else beginCommand()
-            return
+        if (wakeAt < 0) return
+
+        coolUntil = System.currentTimeMillis() + 3000
+        val rest = text.substring(wakeAt).trim()
+        val restWords = rest.split(" ").filter { it.isNotBlank() }
+        if (restWords.size >= 2) {
+            runCommand(rest)
+        } else {
+            beginCommand()
         }
-        val rest = if (wakeAt >= 0) text.substring(wakeAt).trim() else text
-        if (rest.split(" ").size >= 1 && rest.length >= 3) runCommand(rest)
     }
 
     private fun beginCommand() {
@@ -147,10 +190,14 @@ class VoiceListenService : Service() {
         cmdUntil = 0
         var q = spoken(raw)
         val transport = when {
-            listOf("пауз", "стоп", "зупини").any { it in q } && "включ" !in q -> RadioWatchService.ACTION_PAUSE
-            listOf("далі", "наступ", "вперед").any { it in q } -> RadioWatchService.ACTION_NOTIF_NEXT
-            listOf("назад", "поперед").any { it in q } -> RadioWatchService.ACTION_NOTIF_PREV
-            listOf("грай", "продовж").any { it in q } && "включ" !in q && q.length < 24 -> RadioWatchService.ACTION_PLAY
+            listOf("пауз", "стоп", "зупини").any { it in q } && "включ" !in q ->
+                RadioWatchService.ACTION_PAUSE
+            listOf("далі", "наступ", "вперед").any { it in q } ->
+                RadioWatchService.ACTION_NOTIF_NEXT
+            listOf("назад", "поперед").any { it in q } ->
+                RadioWatchService.ACTION_NOTIF_PREV
+            listOf("грай", "продовж").any { it in q } && "включ" !in q && q.length < 24 ->
+                RadioWatchService.ACTION_PLAY
             else -> null
         }
         if (transport != null) {
@@ -159,7 +206,10 @@ class VoiceListenService : Service() {
             startInForeground(getString(R.string.voice_listen))
             return
         }
-        for (p in listOf("включи ", "увімкни ", "постав ", "переключи ", "станцію ", "станцию ", "радіо ", "радио ")) {
+        for (p in listOf(
+            "включи ", "увімкни ", "постав ", "переключи ",
+            "станцію ", "станцию ", "радіо ", "радио "
+        )) {
             q = q.removePrefix(p)
         }
         q = spoken(q)
@@ -172,14 +222,18 @@ class VoiceListenService : Service() {
             i.putExtra(RadioWatchService.EXTRA_NAME, hit.name)
             startForegroundService(i)
             startInForeground(hit.name)
-            main.postDelayed({ if (alive && mode == "wake") startInForeground(getString(R.string.voice_listen)) }, 1800)
+            main.postDelayed({
+                if (alive && mode == "wake") startInForeground(getString(R.string.voice_listen))
+            }, 1800)
         } else {
             startInForeground(getString(R.string.voice_miss, raw))
             if (pausedForCmd) {
                 pausedForCmd = false
                 radio(RadioWatchService.ACTION_PLAY)
             }
-            main.postDelayed({ if (alive && mode == "wake") startInForeground(getString(R.string.voice_listen)) }, 1800)
+            main.postDelayed({
+                if (alive && mode == "wake") startInForeground(getString(R.string.voice_listen))
+            }, 1800)
         }
     }
 
@@ -192,7 +246,9 @@ class VoiceListenService : Service() {
     private fun stations(): List<Station> {
         val all = mutableListOf<Station>()
         try { all.addAll(StationRepo.load(this).second) } catch (_: Exception) {}
-        try { TabStore.genreTabs(this).forEach { all.addAll(TabStore.extraStations(this, it)) } } catch (_: Exception) {}
+        try {
+            TabStore.genreTabs(this).forEach { all.addAll(TabStore.extraStations(this, it)) }
+        } catch (_: Exception) {}
         try { all.addAll(FavStore.stations(this)) } catch (_: Exception) {}
         return all.distinctBy { it.url }
     }
@@ -213,15 +269,15 @@ class VoiceListenService : Service() {
         val forms = listOf(
             "окей ес о", "ок ес о", "окей есо", "ок есо",
             "окей со", "ок со", "okay so", "ok so", "ok s o",
+            "окей с о", "ок с о",
         )
-        val words = text.split(" ")
-        if (words.size > 8) return -1
+        val words = text.split(" ").filter { it.isNotBlank() }
+        if (words.isEmpty() || words.size > 7) return -1
         for (f in forms.sortedByDescending { it.length }) {
             val fw = f.split(" ")
-            if (words.size < fw.size) continue
-            if (words.take(fw.size) == fw) return f.length
-            val i = text.indexOf(" $f ")
-            if (i in 0..12) return i + 1 + f.length
+            if (words.size >= fw.size && words.take(fw.size) == fw) {
+                return fw.joinToString(" ").length
+            }
         }
         return -1
     }
@@ -234,7 +290,10 @@ class VoiceListenService : Service() {
     }
 
     private fun fold(s: String): String {
-        var x = spoken(s).replace("lux", "люкс").replace("radio", "радіо").replace("fm", "фм")
+        var x = spoken(s)
+            .replace("lux", "люкс")
+            .replace("radio", "радіо")
+            .replace("fm", "фм")
         val pairs = listOf(
             "shch" to "щ", "sh" to "ш", "ch" to "ч", "zh" to "ж", "kh" to "х",
             "ya" to "я", "yu" to "ю", "ye" to "є",

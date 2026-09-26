@@ -235,21 +235,21 @@ class VoiceListenService : Service() {
     private val voskListener = object : VoskListener {
         override fun onPartialResult(hypothesis: String?) {
             if (!alive || mode != MODE_WAKE) return
-            val text = extractText(hypothesis)
+            val text = extractText(hypothesis ?: "")
             if (text.isNotBlank()) showHeard(text)
             checkWake(hypothesis)
         }
 
         override fun onResult(hypothesis: String?) {
             if (!alive || mode != MODE_WAKE) return
-            val text = extractText(hypothesis)
+            val text = extractText(hypothesis ?: "")
             if (text.isNotBlank()) showHeard(text)
             checkWake(hypothesis)
         }
 
         override fun onFinalResult(hypothesis: String?) {
             if (!alive || mode != MODE_WAKE) return
-            val text = extractText(hypothesis)
+            val text = extractText(hypothesis ?: "")
             if (text.isNotBlank()) showHeard(text)
             checkWake(hypothesis)
             // Vosk після final зупиняє сесію — знову wake

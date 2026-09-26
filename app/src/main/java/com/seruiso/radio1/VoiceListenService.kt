@@ -52,6 +52,7 @@ class VoiceListenService : Service() {
     // Google (лише команда)
     private var google: SpeechRecognizer? = null
     private var googleBusy = false
+    private var cmdAttempts = 0
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -290,11 +291,14 @@ class VoiceListenService : Service() {
         val norm = spoken(text)
         if (!isWakePhrase(norm)) return
 
-        coolUntil = System.currentTimeMillis() + 4000
-        // stop Vosk before Google takes the mic
+        coolUntil = System.currentTimeMillis() + 5000
+        // звільняємо мікрофон від Vosk, даємо час системі
         stopVosk()
         beginCommand()
-        startCommandListening()
+        // не стартуємо Google одразу — інакше ERROR / порожньо і «не знайшов»
+        main.postDelayed({
+            if (alive && mode == MODE_CMD) startCommandListening()
+        }, 700)
     }
 
     private fun isWakePhrase(norm: String): Boolean {
@@ -333,7 +337,8 @@ class VoiceListenService : Service() {
 
     private fun beginCommand() {
         mode = MODE_CMD
-        cmdUntil = System.currentTimeMillis() + 8000
+        cmdAttempts = 0
+        cmdUntil = System.currentTimeMillis() + 12000
         startInForeground(getString(R.string.voice_cmd))
         if (!pausedForCmd) {
             pausedForCmd = true
@@ -342,10 +347,9 @@ class VoiceListenService : Service() {
     }
 
     private fun startCommandListening() {
-        if (!alive) return
+        if (!alive || mode != MODE_CMD) return
         stopGoogle()
         if (!SpeechRecognizer.isRecognitionAvailable(this)) {
-            // no Google STT — resume wake
             finishCommandWindow(miss = true, raw = "")
             return
         }
@@ -355,12 +359,12 @@ class VoiceListenService : Service() {
             google = g
             googleBusy = true
             g.startListening(commandIntent())
-            // safety timeout
+            // вікно команди ~10 с
             main.postDelayed({
                 if (alive && mode == MODE_CMD && googleBusy) {
                     try { google?.stopListening() } catch (_: Exception) {}
                 }
-            }, 7000)
+            }, 10000)
         } catch (_: Exception) {
             finishCommandWindow(miss = true, raw = "")
         }
@@ -379,8 +383,9 @@ class VoiceListenService : Service() {
         putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
         putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
         putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
-        putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1500L)
-        putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 1200L)
+        putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 2000L)
+        putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 2500L)
+        putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 2000L)
     }
 
     private val googleListener = object : RecognitionListener {
@@ -395,6 +400,18 @@ class VoiceListenService : Service() {
         override fun onError(error: Int) {
             googleBusy = false
             if (!alive || mode != MODE_CMD) return
+            // тиша / no match — даємо ще одну спробу, не одразу «не знайшов»
+            val retryable = error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT
+                || error == SpeechRecognizer.ERROR_NO_MATCH
+                || error == SpeechRecognizer.ERROR_CLIENT
+            if (retryable && cmdAttempts < 1) {
+                cmdAttempts++
+                startInForeground(getString(R.string.voice_cmd))
+                main.postDelayed({
+                    if (alive && mode == MODE_CMD) startCommandListening()
+                }, 500)
+                return
+            }
             finishCommandWindow(miss = true, raw = "")
         }
 
@@ -403,11 +420,20 @@ class VoiceListenService : Service() {
             if (!alive || mode != MODE_CMD) return
             val lines = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION).orEmpty()
             val text = spoken(lines.joinToString(" "))
-            if (text.length < 2) {
-                finishCommandWindow(miss = true, raw = text)
-            } else {
-                runCommand(text)
+            // ігноруємо якщо це знову лише wake-фраза
+            if (isWakePhrase(text) || text.length < 2) {
+                if (cmdAttempts < 1) {
+                    cmdAttempts++
+                    startInForeground(getString(R.string.voice_cmd))
+                    main.postDelayed({
+                        if (alive && mode == MODE_CMD) startCommandListening()
+                    }, 400)
+                } else {
+                    finishCommandWindow(miss = true, raw = text)
+                }
+                return
             }
+            runCommand(text)
         }
     }
 

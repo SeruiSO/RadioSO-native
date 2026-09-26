@@ -214,8 +214,8 @@ class MainActivity : ComponentActivity() {
         readPrefs()
         trackHistory = TrackHistoryStore.list(this)
         val uiP = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-        showTrackHistory = uiP.getBoolean(KEY_SHOW_TRACK_HISTORY, false)
-        nowOpen = uiP.getBoolean(KEY_NOW_OPEN, false)
+        showTrackHistory = uiP.getBoolean("showTrackHistory", false)
+        nowOpen = uiP.getBoolean("nowOpenUi", false)
         restoreSleepTimer()
         recentStations = loadRecentStations()
         val lastTab = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE).getString("currentTab", "fav")
@@ -433,7 +433,7 @@ class MainActivity : ComponentActivity() {
                         onToggleTrackHistory = {
                             showTrackHistory = !showTrackHistory
                             getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-                                .edit().putBoolean(KEY_SHOW_TRACK_HISTORY, showTrackHistory).apply()
+                                .edit().putBoolean("showTrackHistory", showTrackHistory).apply()
                         },
                         playing = isPlaying,
                         status = statusText,
@@ -593,11 +593,11 @@ class MainActivity : ComponentActivity() {
     private fun setNowOpen(open: Boolean) {
         nowOpen = open
         getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-            .edit().putBoolean(KEY_NOW_OPEN, open).apply()
+            .edit().putBoolean("nowOpenUi", open).apply()
         if (!open) {
             showTrackHistory = false
             getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-                .edit().putBoolean(KEY_SHOW_TRACK_HISTORY, false).apply()
+                .edit().putBoolean("showTrackHistory", false).apply()
         }
     }
 
@@ -606,19 +606,19 @@ class MainActivity : ComponentActivity() {
         sleepRunnable = null
         val p = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
         if (mins <= 0) {
-            p.edit().putLong(KEY_SLEEP_UNTIL, 0L).apply()
+            p.edit().putLong("sleepUntilMs", 0L).apply()
             sleepLabel = getString(R.string.sleep_timer)
             statusText = getString(R.string.sleep_off)
             sleepMenu = false
             return
         }
         val until = System.currentTimeMillis() + mins * 60_000L
-        p.edit().putLong(KEY_SLEEP_UNTIL, until).apply()
+        p.edit().putLong("sleepUntilMs", until).apply()
         sleepLabel = getString(R.string.sleep_mins, mins)
         statusText = sleepLabel
         val r = Runnable {
             getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-                .edit().putLong(KEY_SLEEP_UNTIL, 0L).apply()
+                .edit().putLong("sleepUntilMs", 0L).apply()
             sendAction(RadioWatchService.ACTION_PAUSE)
             sleepLabel = getString(R.string.sleep_timer)
             softStatus(getString(R.string.sleep_pause))
@@ -631,14 +631,14 @@ class MainActivity : ComponentActivity() {
     /** Після повороту екрана Activity пересоздається — Handler губиться. Відновлюємо з epoch. */
     private fun restoreSleepTimer() {
         val p = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-        val until = p.getLong(KEY_SLEEP_UNTIL, 0L)
+        val until = p.getLong("sleepUntilMs", 0L)
         if (until <= 0L) {
             sleepLabel = getString(R.string.sleep_timer)
             return
         }
         val left = until - System.currentTimeMillis()
         if (left <= 0L) {
-            p.edit().putLong(KEY_SLEEP_UNTIL, 0L).apply()
+            p.edit().putLong("sleepUntilMs", 0L).apply()
             sleepLabel = getString(R.string.sleep_timer)
             return
         }
@@ -647,7 +647,7 @@ class MainActivity : ComponentActivity() {
         sleepRunnable?.let { sleepHandler.removeCallbacks(it) }
         val r = Runnable {
             getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-                .edit().putLong(KEY_SLEEP_UNTIL, 0L).apply()
+                .edit().putLong("sleepUntilMs", 0L).apply()
             sendAction(RadioWatchService.ACTION_PAUSE)
             sleepLabel = getString(R.string.sleep_timer)
             softStatus(getString(R.string.sleep_pause))

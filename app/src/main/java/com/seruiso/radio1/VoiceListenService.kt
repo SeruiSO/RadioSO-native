@@ -214,7 +214,6 @@ class VoiceListenService : Service() {
         try {
             // без grammar: українська модель часто не має «ес/есо» у словнику граматики
             val rec = Recognizer(model, 16000.0f)
-            rec.setWords(true)
             val svc = SpeechService(rec, 16000.0f)
             voskService = svc
             svc.startListening(voskListener)
@@ -231,41 +230,56 @@ class VoiceListenService : Service() {
         voskService = null
     }
 
+    private var lastHeardShown = 0L
+
     private val voskListener = object : VoskListener {
         override fun onPartialResult(hypothesis: String?) {
             if (!alive || mode != MODE_WAKE) return
+            val text = extractText(hypothesis)
+            if (text.isNotBlank()) showHeard(text)
             checkWake(hypothesis)
         }
 
         override fun onResult(hypothesis: String?) {
             if (!alive || mode != MODE_WAKE) return
+            val text = extractText(hypothesis)
+            if (text.isNotBlank()) showHeard(text)
             checkWake(hypothesis)
         }
 
         override fun onFinalResult(hypothesis: String?) {
             if (!alive || mode != MODE_WAKE) return
+            val text = extractText(hypothesis)
+            if (text.isNotBlank()) showHeard(text)
             checkWake(hypothesis)
-            // Vosk після final часто зупиняє сесію — знову вмикаємо wake
+            // Vosk після final зупиняє сесію — знову wake
             main.postDelayed({
-                if (alive && mode == MODE_WAKE && voskService != null) {
-                    // якщо сервіс ще живий — ок; інакше restart
-                }
                 if (alive && mode == MODE_WAKE) startWakeListening()
-            }, 300)
+            }, 400)
         }
 
         override fun onError(exception: Exception?) {
             if (!alive) return
+            val msg = exception?.message ?: "error"
+            startInForeground("Vosk: $msg")
             main.postDelayed({ if (alive && mode == MODE_WAKE) startWakeListening() }, 2500)
         }
 
         override fun onTimeout() {
             if (!alive) return
-            // одразу знову слухаємо wake
             main.post {
                 if (alive && mode == MODE_WAKE) startWakeListening()
             }
         }
+    }
+
+    /** Діагностика: що почув Vosk (обмежуємо частоту оновлень). */
+    private fun showHeard(text: String) {
+        val now = System.currentTimeMillis()
+        if (now - lastHeardShown < 800) return
+        lastHeardShown = now
+        val short = if (text.length > 40) text.take(40) + "…" else text
+        startInForeground("Чую: $short")
     }
 
     private fun checkWake(rawJson: String?) {

@@ -212,15 +212,18 @@ class VoiceListenService : Service() {
         stopVosk()
         mode = MODE_WAKE
         try {
-            val grammar = WAKE_GRAMMAR
-            val rec = Recognizer(model, 16000.0f, grammar)
+            // без grammar: українська модель часто не має «ес/есо» у словнику граматики
+            val rec = Recognizer(model, 16000.0f)
+            rec.setWords(true)
             val svc = SpeechService(rec, 16000.0f)
+            // не зупинятись на тиші — крутимо постійно
+            try { svc.setTimeoutMs(-1) } catch (_: Exception) {}
             voskService = svc
             svc.startListening(voskListener)
             startInForeground(getString(R.string.voice_listen))
         } catch (e: Exception) {
             startInForeground(getString(R.string.voice_none))
-            main.postDelayed({ if (alive) startWakeListening() }, 4000)
+            main.postDelayed({ if (alive && mode == MODE_WAKE) startWakeListening() }, 4000)
         }
     }
 
@@ -244,6 +247,13 @@ class VoiceListenService : Service() {
         override fun onFinalResult(hypothesis: String?) {
             if (!alive || mode != MODE_WAKE) return
             checkWake(hypothesis)
+            // Vosk після final часто зупиняє сесію — знову вмикаємо wake
+            main.postDelayed({
+                if (alive && mode == MODE_WAKE && voskService != null) {
+                    // якщо сервіс ще живий — ок; інакше restart
+                }
+                if (alive && mode == MODE_WAKE) startWakeListening()
+            }, 300)
         }
 
         override fun onError(exception: Exception?) {
@@ -252,9 +262,11 @@ class VoiceListenService : Service() {
         }
 
         override fun onTimeout() {
-            // SpeechService may timeout; restart wake
             if (!alive) return
-            main.postDelayed({ if (alive && mode == MODE_WAKE) startWakeListening() }, 500)
+            // одразу знову слухаємо wake
+            main.post {
+                if (alive && mode == MODE_WAKE) startWakeListening()
+            }
         }
     }
 
@@ -274,12 +286,26 @@ class VoiceListenService : Service() {
     }
 
     private fun isWakePhrase(norm: String): Boolean {
+        if (norm.length < 3) return false
+        // відсікаємо дуже довгі (ефір/пісня)
+        val words = norm.split(" ").filter { it.isNotBlank() }
+        if (words.size > 8) return false
         val forms = listOf(
-            "окей ес о", "окей есо", "ок ес о", "ок есо",
+            "окей ес о", "окей есо", "ок ес о", "ок есо", "окей со", "ок со",
+            "окей с о", "ок с о", "окей ес", "ок ес",
             "окей радіо", "окей радио", "ок радіо", "ок радио",
-            "okay so", "ok so", "okay radio", "ok radio",
+            "okay so", "ok so", "okay radio", "ok radio", "okay eso", "ok eso",
         )
-        return forms.any { norm == it || norm.startsWith("$it ") || norm.endsWith(" $it") || " $it " in " $norm " }
+        // точний / префікс / входження
+        if (forms.any { norm == it || norm.startsWith("$it ") || " $it " in " $norm " || norm.endsWith(" $it") }) {
+            return true
+        }
+        // грубий фонетичний збіг: є «окей/ок» + (ес/есо/со/радіо)
+        val hasOk = words.any { it in listOf("окей", "океи", "okay", "ok", "ок") }
+        val hasTail = words.any {
+            it in listOf("ес", "есо", "со", "с", "радіо", "радио", "radio", "eso")
+        }
+        return hasOk && hasTail && words.size <= 5
     }
 
     private fun extractText(json: String): String {

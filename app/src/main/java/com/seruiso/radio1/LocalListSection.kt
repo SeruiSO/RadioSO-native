@@ -40,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
@@ -57,6 +58,8 @@ fun androidx.compose.foundation.layout.ColumnScope.LocalListSection(
     ui: LibraryUi,
     listState: LazyListState,
     actions: LibraryActions,
+    onSwipeOpenRight: () -> Unit = {},
+    onSwipeOpenLeft: () -> Unit = {},
 ) {
     val localRows = ui.localRows
     val dragging = ui.dragging
@@ -151,9 +154,22 @@ fun androidx.compose.foundation.layout.ColumnScope.LocalListSection(
         )
     }
 
+    val edgeSwipeAcc = remember { floatArrayOf(0f) }
     LazyColumn(
         modifier = Modifier
             .weight(1f)
+            .pointerInput(Unit) {
+                detectHorizontalDragGestures(
+                    onDragEnd = {
+                        when {
+                            edgeSwipeAcc[0] < -80f -> onSwipeOpenRight()
+                            edgeSwipeAcc[0] > 80f -> onSwipeOpenLeft()
+                        }
+                        edgeSwipeAcc[0] = 0f
+                    },
+                    onDragCancel = { edgeSwipeAcc[0] = 0f },
+                ) { _, drag -> edgeSwipeAcc[0] += drag }
+            }
             .pointerInput(localRows.size, tabs.getOrNull(tabIndex)) {
                 // reorder лише на вкладці best
                 if (tabs.getOrNull(tabIndex) != "best") return@pointerInput

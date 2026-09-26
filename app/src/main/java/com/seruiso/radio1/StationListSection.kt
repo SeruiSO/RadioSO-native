@@ -7,6 +7,7 @@ import android.view.HapticFeedbackConstants
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -99,6 +100,8 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
     ui: LibraryUi,
     listState: LazyListState,
     actions: LibraryActions,
+    onSwipeOpenRight: () -> Unit = {},
+    onSwipeOpenLeft: () -> Unit = {},
 ) {
     val radioRows = ui.radioRows
     val bestRows = ui.bestRows
@@ -183,6 +186,7 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
         }
     }
 
+    val edgeSwipeAcc = remember { floatArrayOf(0f) }
     val rowHaptic = LocalHapticFeedback.current
     val rowView = LocalView.current
     fun buzz(strong: Boolean = false) {
@@ -197,6 +201,19 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
     LazyColumn(
         modifier = Modifier
             .weight(1f)
+            .pointerInput(Unit) {
+                // свайп по списку: вліво → права панель, вправо → ліва
+                detectHorizontalDragGestures(
+                    onDragEnd = {
+                        when {
+                            edgeSwipeAcc[0] < -80f -> onSwipeOpenRight()
+                            edgeSwipeAcc[0] > 80f -> onSwipeOpenLeft()
+                        }
+                        edgeSwipeAcc[0] = 0f
+                    },
+                    onDragCancel = { edgeSwipeAcc[0] = 0f },
+                ) { _, drag -> edgeSwipeAcc[0] += drag }
+            }
             .pointerInput(radioRows.size) {
                 detectDragGesturesAfterLongPress(
                     onDragStart = { offset ->

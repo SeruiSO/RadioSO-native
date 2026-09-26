@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.height
 import coil.compose.AsyncImage
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.MarqueeAnimationMode
@@ -420,6 +421,16 @@ fun StationScreen(
             rightA.animateTo(0f, tween(300))
         }
     }
+    fun openLeftSheet() {
+        rightShow = false
+        leftShow = true
+        sheetScope.launch {
+            rightA.snapTo(1f)
+            leftA.stop()
+            leftA.snapTo(1f)
+            leftA.animateTo(0f, tween(300))
+        }
+    }
     // Відкривати шторку лише при тапі «Вкладки» внизу, не після вибору жанру в шторці.
     var skipTabsSheetOnce by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     LaunchedEffect(bottomTab) {
@@ -682,6 +693,17 @@ fun StationScreen(
                     .weight(1f)
                     .fillMaxWidth()
                     .fillMaxSize()
+                    .pointerInput(Unit) {
+                        var acc = 0f
+                        detectHorizontalDragGestures(
+                            onDragEnd = {
+                                if (acc < -80f) openRightSheet()
+                                else if (acc > 80f) openLeftSheet()
+                                acc = 0f
+                            },
+                            onDragCancel = { acc = 0f },
+                        ) { _, d -> acc += d }
+                    },
             ) {
                 HomeTabContent(
                     favRows = favRows,
@@ -768,6 +790,8 @@ fun StationScreen(
                 ui = libraryUi,
                 listState = listState,
                 actions = libraryActions,
+                onSwipeOpenRight = { openRightSheet() },
+                onSwipeOpenLeft = { openLeftSheet() },
             )
         } else {
             val libraryActions = LibraryActions(
@@ -789,6 +813,8 @@ fun StationScreen(
                 ui = libraryUi,
                 listState = listState,
                 actions = libraryActions,
+                onSwipeOpenRight = { openRightSheet() },
+                onSwipeOpenLeft = { openLeftSheet() },
             )
         }
         }
@@ -929,6 +955,17 @@ fun StationScreen(
                     .weight(1f)
                     .fillMaxWidth()
                     .fillMaxSize()
+                    .pointerInput(Unit) {
+                        var acc = 0f
+                        detectHorizontalDragGestures(
+                            onDragEnd = {
+                                if (acc < -80f) openRightSheet()
+                                else if (acc > 80f) openLeftSheet()
+                                acc = 0f
+                            },
+                            onDragCancel = { acc = 0f },
+                        ) { _, d -> acc += d }
+                    },
             ) {
                 HomeTabContent(
                     favRows = favRows,
@@ -1015,6 +1052,8 @@ fun StationScreen(
                 ui = libraryUi,
                 listState = listState,
                 actions = libraryActions,
+                onSwipeOpenRight = { openRightSheet() },
+                onSwipeOpenLeft = { openLeftSheet() },
             )
         } else {
             val libraryActions = LibraryActions(
@@ -1036,6 +1075,8 @@ fun StationScreen(
                 ui = libraryUi,
                 listState = listState,
                 actions = libraryActions,
+                onSwipeOpenRight = { openRightSheet() },
+                onSwipeOpenLeft = { openLeftSheet() },
             )
         }
         }

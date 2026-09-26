@@ -107,27 +107,29 @@ class VoiceListenService : Service() {
         }
         override fun onResults(results: Bundle?) {
             busy = false
-            heard(results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION).orEmpty())
-            if (alive) arm(250)
+            heard(results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION).orEmpty(), final = true)
+            if (alive) arm(400)
         }
-        override fun onPartialResults(partialResults: Bundle?) {
-            heard(partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION).orEmpty())
-        }
+        override fun onPartialResults(partialResults: Bundle?) {}
         override fun onEvent(eventType: Int, params: Bundle?) {}
     }
 
-    private fun heard(lines: List<String>) {
-        if (!alive || lines.isEmpty()) return
-        val text = spoken(lines.first())
+    private var coolUntil = 0L
+
+    private fun heard(lines: List<String>, final: Boolean) {
+        if (!alive || !final || lines.isEmpty()) return
+        if (System.currentTimeMillis() < coolUntil) return
+        val text = spoken(lines.joinToString(" "))
         val wakeAt = wakeEnd(text)
         if (mode == "wake") {
             if (wakeAt < 0) return
             val rest = text.substring(wakeAt).trim()
-            if (rest.length >= 3) runCommand(rest) else beginCommand()
+            coolUntil = System.currentTimeMillis() + 2500
+            if (rest.split(" ").size >= 2) runCommand(rest) else beginCommand()
             return
         }
         val rest = if (wakeAt >= 0) text.substring(wakeAt).trim() else text
-        if (rest.length >= 3) runCommand(rest)
+        if (rest.split(" ").size >= 1 && rest.length >= 3) runCommand(rest)
     }
 
     private fun beginCommand() {
@@ -208,17 +210,20 @@ class VoiceListenService : Service() {
     }
 
     private fun wakeEnd(text: String): Int {
-        val forms = listOf("окей ес о", "ок ес о", "окей есо", "ок есо", "окей со", "ок со", "okay so", "ok so")
-        var at = -1
-        var end = -1
-        for (f in forms) {
-            val i = text.indexOf(f)
-            if (i >= 0 && (at < 0 || i < at || (i == at && f.length > end - at))) {
-                at = i
-                end = i + f.length
-            }
+        val forms = listOf(
+            "окей ес о", "ок ес о", "окей есо", "ок есо",
+            "окей со", "ок со", "okay so", "ok so", "ok s o",
+        )
+        val words = text.split(" ")
+        if (words.size > 8) return -1
+        for (f in forms.sortedByDescending { it.length }) {
+            val fw = f.split(" ")
+            if (words.size < fw.size) continue
+            if (words.take(fw.size) == fw) return f.length
+            val i = text.indexOf(" $f ")
+            if (i in 0..12) return i + 1 + f.length
         }
-        return end
+        return -1
     }
 
     private fun spoken(s: String): String {

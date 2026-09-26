@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bluetooth
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.BluetoothDisabled
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.FileDownload
@@ -49,6 +50,8 @@ fun AppOverflowMenu(
     onCloseMenu: () -> Unit,
     btWatch: Boolean,
     onBt: () -> Unit,
+    voiceOn: Boolean,
+    onVoice: () -> Unit,
     sleepLabel: String,
     sleepMenu: Boolean,
     onSleepMenu: () -> Unit,
@@ -84,6 +87,15 @@ fun AppOverflowMenu(
                     acc = acc,
                     text = text,
                     onClick = { onBt(); onCloseMenu() },
+                )
+                MenuRow(
+                    icon = Icons.Filled.Mic,
+                    label = if (voiceOn) LocalContext.current.getString(R.string.voice_toggle_on)
+                    else LocalContext.current.getString(R.string.voice_toggle_off),
+                    selected = voiceOn,
+                    acc = acc,
+                    text = text,
+                    onClick = { onVoice() },
                 )
                 MenuRow(
                     icon = Icons.Filled.Timer,

@@ -58,6 +58,10 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private val recordLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
+        if (ok && voiceWant) enableVoice() else voiceWant = false
+    }
+
     private val permissionsLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { _ ->
@@ -125,6 +129,8 @@ class MainActivity : ComponentActivity() {
     private var menuOpen by mutableStateOf(false)
     private var sleepMenu by mutableStateOf(false)
     private var btWatch by mutableStateOf(true)
+    private var voiceOn by mutableStateOf(false)
+    private var voiceWant = false
     private var sleepLabel by mutableStateOf("")  // set in onCreate
     private val sleepHandler = Handler(Looper.getMainLooper())
     private var sleepRunnable: Runnable? = null
@@ -190,6 +196,11 @@ class MainActivity : ComponentActivity() {
         if (sleepLabel.isEmpty()) sleepLabel = getString(R.string.sleep_timer)
         enableEdgeToEdge()
         askPermissions()
+        voiceOn = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+            .getBoolean("voice_listen", false)
+        if (voiceOn && ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+            == PackageManager.PERMISSION_GRANTED
+        ) startVoiceService() else voiceOn = false
         maybeStartBtIfConnected()
         Palette.init(this)
         val loaded = StationRepo.load(this)
@@ -478,6 +489,8 @@ class MainActivity : ComponentActivity() {
                         onCloseMenu = { menuOpen = false; sleepMenu = false },
                         btWatch = btWatch,
                         onBt = { toggleBt() },
+                        voiceOn = voiceOn,
+                        onVoice = { toggleVoice() },
                         sleepLabel = sleepLabel,
                         sleepMenu = sleepMenu,
                         onSleepMenu = { sleepMenu = !sleepMenu },
@@ -1161,6 +1174,37 @@ class MainActivity : ComponentActivity() {
         val i = Intent(this, RadioWatchService::class.java)
         i.action = RadioWatchService.ACTION_START
         startFg(i)
+    }
+
+
+    private fun toggleVoice() {
+        if (voiceOn) {
+            voiceOn = false
+            getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                .edit().putBoolean("voice_listen", false).apply()
+            stopService(Intent(this, VoiceListenService::class.java))
+            return
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            voiceWant = true
+            recordLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            return
+        }
+        enableVoice()
+    }
+
+    private fun enableVoice() {
+        voiceWant = false
+        voiceOn = true
+        getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+            .edit().putBoolean("voice_listen", true).apply()
+        startVoiceService()
+    }
+
+    private fun startVoiceService() {
+        ContextCompat.startForegroundService(this, Intent(this, VoiceListenService::class.java))
     }
 
     private fun askPermissions() {

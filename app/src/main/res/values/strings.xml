@@ -158,5 +158,12 @@
     <string name="notif_paused_bt_off">На паузі · BT стеження вимк</string>
     <string name="music_other_folder">Інше</string>
     <string name="music_all">Вся музика</string>
+    <string name="voice_toggle_off">Голос: ок ес о</string>
+    <string name="voice_toggle_on">Голос увімкнено</string>
+    <string name="voice_listen">Скажи: ок ес о</string>
+    <string name="voice_cmd">Слухаю команду</string>
+    <string name="voice_stop">Вимкнути</string>
+    <string name="voice_none">Немає розпізнавання мови</string>
+    <string name="voice_miss">Не знайшов: %1$s</string>
 </resources>
 

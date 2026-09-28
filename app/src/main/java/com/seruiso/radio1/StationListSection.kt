@@ -312,7 +312,7 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
                         .weight(1f)
                 ) {
                     Text(s.name, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text("${s.genre} · ${s.country}", color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
+                    Text("${DisplayNames.genreLabel(LocalContext.current, s.genre)} · ${DisplayNames.countryLabel(LocalContext.current, s.country)}", color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
                 }
                 if (tabs.getOrNull(tabIndex) == "search") {
                     // ★ і + в одному ряду, однакова висота, притиснуті вправо

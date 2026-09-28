@@ -642,8 +642,8 @@ fun StationScreen(
                         color = text,
                         style = MaterialTheme.typography.bodySmall,
                     )
-                    val ctryL = country.trim().let { if (it.isNotBlank() && it != "-") it else "" }
-                    val genL = genre.trim().let { if (it.isNotBlank() && it != "-") it else "" }
+                    val ctryL = DisplayNames.countryLabel(LocalContext.current, country)
+                    val genL = DisplayNames.genreLabel(LocalContext.current, genre)
                     if (ctryL.isNotEmpty()) {
                         Text(ctryL, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall)
                     }
@@ -905,8 +905,8 @@ fun StationScreen(
                         color = text,
                         style = MaterialTheme.typography.bodySmall,
                     )
-                    val ctry = country.trim().let { if (it.isNotBlank() && it != "-") it else "" }
-                    val gen = genre.trim().let { if (it.isNotBlank() && it != "-") it else "" }
+                    val ctry = DisplayNames.countryLabel(LocalContext.current, country)
+                    val gen = DisplayNames.genreLabel(LocalContext.current, genre)
                     if (ctry.isNotEmpty()) {
                         Text(
                             ctry,

@@ -186,5 +186,11 @@
     <string name="alarm_need_exact">Дозволь точний будильник у системі</string>
     <string name="alarm_set">Будильник: %1$02d:%2$02d</string>
 
+    <string name="alarm_weekdays">Пн–Пт</string>
+    <string name="alarm_once">Один раз</string>
+    <string name="alarm_pick_date">Дата</string>
+    <string name="alarm_once_date">Обрана дата</string>
+    <string name="alarm_next">Заграє (%1$s): %2$s</string>
+    <string name="alarm_date_past">Обери день у майбутньому</string>
 </resources>
 

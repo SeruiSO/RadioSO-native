@@ -165,4 +165,10 @@
     <string name="alarm_need_exact">Allow exact alarms in system settings</string>
     <string name="alarm_set">Alarm: %1$02d:%2$02d</string>
 
+    <string name="alarm_weekdays">Mon–Fri</string>
+    <string name="alarm_once">Once</string>
+    <string name="alarm_pick_date">Date</string>
+    <string name="alarm_once_date">On date</string>
+    <string name="alarm_next">Rings (%1$s): %2$s</string>
+    <string name="alarm_date_past">Pick a future day</string>
 </resources>

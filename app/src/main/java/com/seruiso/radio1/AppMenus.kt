@@ -50,6 +50,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -426,7 +427,17 @@ fun AppAlarmDialog(
     var enabled by remember(open) { mutableStateOf(initial.enabled) }
     var hour by remember(open) { mutableIntStateOf(initial.hour) }
     var minute by remember(open) { mutableIntStateOf(initial.minute) }
-    var daily by remember(open) { mutableStateOf(initial.daily) }
+    var repeat by remember(open) { mutableStateOf(initial.repeat) }
+    var year by remember(open) {
+        mutableIntStateOf(if (initial.year >= 2000) initial.year else java.util.Calendar.getInstance().get(java.util.Calendar.YEAR))
+    }
+    var month by remember(open) {
+        mutableIntStateOf(if (initial.year >= 2000) initial.month else java.util.Calendar.getInstance().get(java.util.Calendar.MONTH))
+    }
+    var day by remember(open) {
+        mutableIntStateOf(if (initial.day >= 1) initial.day else java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_MONTH))
+    }
+    var showCal by remember(open) { mutableStateOf(false) }
     var url by remember(open) { mutableStateOf(initial.url.ifBlank { nowUrl }) }
     var stName by remember(open) { mutableStateOf(initial.name.ifBlank { nowName }) }
     var stFav by remember(open) { mutableStateOf(initial.favicon.ifBlank { nowFavicon }) }
@@ -437,7 +448,64 @@ fun AppAlarmDialog(
         listOf(Station(nowUrl, nowName.ifBlank { ctx.getString(R.string.alarm_use_current) }, nowGenre, nowCountry, nowFavicon, "now"))
     } else emptyList()
     val rows = extra + favs
-
+    val preview = remember(enabled, hour, minute, repeat, year, month, day) {
+        RadioAlarm.nextLabel(
+            ctx,
+            RadioAlarm.State(
+                enabled = true,
+                hour = hour,
+                minute = minute,
+                daily = repeat == RadioAlarm.REPEAT_DAILY,
+                url = url,
+                name = stName,
+                favicon = stFav,
+                genre = stGen,
+                country = stCtry,
+                repeat = repeat,
+                year = year,
+                month = month,
+                day = day,
+            ),
+        )
+    }
+    if (showCal) {
+        DisposableEffect(showCal) {
+            val dlg = android.app.DatePickerDialog(
+                ctx,
+                { _, y, m, d ->
+                    year = y
+                    month = m
+                    day = d
+                    repeat = RadioAlarm.REPEAT_DATE
+                    showCal = false
+                },
+                year, month, day,
+            )
+            dlg.datePicker.minDate = System.currentTimeMillis() - 3_600_000L
+            dlg.setOnCancelListener { showCal = false }
+            dlg.show()
+            onDispose { try { dlg.dismiss() } catch (_: Exception) {} }
+        }
+    }
+    @Composable
+    fun ModeChip(id: String, label: String) {
+        val on = repeat == id
+        Text(
+            label,
+            color = if (on) acc else text,
+            style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier
+                .background(
+                    if (on) acc.copy(alpha = 0.20f) else Color.Transparent,
+                    RoundedCornerShape(12.dp),
+                )
+                .clickable {
+                    if (id == RadioAlarm.REPEAT_DATE) showCal = true
+                    else repeat = id
+                }
+                .padding(horizontal = 10.dp, vertical = 8.dp),
+        )
+    }
     AlertDialog(
         containerColor = card,
         onDismissRequest = onDismiss,
@@ -485,10 +553,20 @@ fun AppAlarmDialog(
                         )
                     }
                 }
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                    Text(ctx.getString(R.string.alarm_daily), color = text, modifier = Modifier.weight(1f))
-                    Switch(checked = daily, onCheckedChange = { daily = it })
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    ModeChip(RadioAlarm.REPEAT_DAILY, ctx.getString(R.string.alarm_daily))
+                    ModeChip(RadioAlarm.REPEAT_WEEKDAYS, ctx.getString(R.string.alarm_weekdays))
+                    ModeChip(RadioAlarm.REPEAT_ONCE, ctx.getString(R.string.alarm_once))
+                    ModeChip(RadioAlarm.REPEAT_DATE, ctx.getString(R.string.alarm_pick_date))
                 }
+                Text(
+                    preview,
+                    color = acc,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
                 Text(ctx.getString(R.string.alarm_station), color = muted, style = MaterialTheme.typography.labelLarge)
                 if (nowUrl.isNotBlank()) {
                     Text(
@@ -530,7 +608,21 @@ fun AppAlarmDialog(
                 if (enabled && !RadioAlarm.canExact(ctx)) RadioAlarm.requestExact(ctx)
                 RadioAlarm.save(
                     ctx,
-                    RadioAlarm.State(enabled, hour, minute, daily, url, stName, stFav, stGen, stCtry),
+                    RadioAlarm.State(
+                        enabled = enabled,
+                        hour = hour,
+                        minute = minute,
+                        daily = repeat == RadioAlarm.REPEAT_DAILY,
+                        url = url,
+                        name = stName,
+                        favicon = stFav,
+                        genre = stGen,
+                        country = stCtry,
+                        repeat = repeat,
+                        year = year,
+                        month = month,
+                        day = day,
+                    ),
                 )
                 onDismiss()
             }) { Text(ctx.getString(R.string.alarm_save), color = acc) }

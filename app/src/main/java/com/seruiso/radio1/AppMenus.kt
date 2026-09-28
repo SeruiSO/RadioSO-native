@@ -27,6 +27,8 @@ import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Policy
+import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -56,6 +58,8 @@ fun AppOverflowMenu(
     onSleep: (Int) -> Unit,
     onExport: () -> Unit,
     onImport: () -> Unit,
+    onPrivacy: () -> Unit = {},
+    onExit: () -> Unit = {},
     lang: String = "uk",
     onLang: () -> Unit = {},
     acc: Color,
@@ -157,6 +161,22 @@ fun AppOverflowMenu(
                     acc = acc,
                     text = text,
                     onClick = { onImport() },
+                )
+                MenuRow(
+                    icon = Icons.Filled.Policy,
+                    label = LocalContext.current.getString(R.string.privacy_policy),
+                    selected = false,
+                    acc = acc,
+                    text = text,
+                    onClick = { onPrivacy(); onCloseMenu() },
+                )
+                MenuRow(
+                    icon = Icons.Filled.Logout,
+                    label = LocalContext.current.getString(R.string.menu_exit),
+                    selected = false,
+                    acc = acc,
+                    text = text,
+                    onClick = { onExit() },
                 )
             }
         }

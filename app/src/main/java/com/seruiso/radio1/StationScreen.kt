@@ -357,6 +357,8 @@ fun StationScreen(
     onSleep: (Int) -> Unit,
     onExport: () -> Unit,
     onImport: () -> Unit,
+    onPrivacy: () -> Unit = {},
+    onExit: () -> Unit = {},
     appLang: String = "uk",
     onToggleLanguage: () -> Unit = {},
 ) {
@@ -1316,6 +1318,8 @@ fun StationScreen(
         onSleep = onSleep,
         onExport = onExport,
         onImport = onImport,
+        onPrivacy = onPrivacy,
+        onExit = onExit,
         lang = appLang,
         onLang = onToggleLanguage,
         acc = acc,

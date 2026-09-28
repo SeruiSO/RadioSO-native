@@ -12,8 +12,6 @@ import androidx.core.content.FileProvider
 import java.io.File
 import android.os.Bundle
 import java.util.Locale
-import android.location.LocationManager
-import android.location.Geocoder
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.Handler
@@ -523,6 +521,11 @@ class MainActivity : ComponentActivity() {
                         onSleep = { armSleep(it) },
                         onExport = { exportBackup(); menuOpen = false },
                         onImport = { importLauncher.launch("application/json"); menuOpen = false },
+                        onPrivacy = {
+                            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(getString(R.string.privacy_url))))
+                            menuOpen = false
+                        },
+                        onExit = { menuOpen = false; finishAffinity() },
 
                     )
                 }
@@ -762,27 +765,6 @@ class MainActivity : ComponentActivity() {
         return ""
     }
 
-    /** Coarse location → країна, лише якщо дозвіл уже є. */
-    private fun countryFromLocation(): String {
-        try {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
-                != PackageManager.PERMISSION_GRANTED
-            ) return ""
-            val lm = getSystemService(LocationManager::class.java) ?: return ""
-            val loc = lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
-                ?: lm.getLastKnownLocation(LocationManager.GPS_PROVIDER)
-                ?: return ""
-            if (!Geocoder.isPresent()) return ""
-            val geo = Geocoder(this, Locale.ENGLISH)
-            @Suppress("DEPRECATION")
-            val list = geo.getFromLocation(loc.latitude, loc.longitude, 1)
-            val c = list?.firstOrNull()?.countryName ?: ""
-            return normalizeCountry(c)
-        } catch (_: Exception) {
-            return ""
-        }
-    }
-
     /**
      * Гібрид D при відкритті правої картки:
      * 1) кеш / Locale → одразу пошук
@@ -924,7 +906,6 @@ class MainActivity : ComponentActivity() {
         }
         Thread {
             var refined = countryFromIp()
-            if (refined.isBlank()) refined = countryFromLocation()
             if (refined.isBlank()) {
                 runOnUiThread {
                     if (searchRows.isEmpty() && first.isBlank()) holdStatus(getString(R.string.country_unknown))
@@ -1247,9 +1228,6 @@ class MainActivity : ComponentActivity() {
 
     private fun askPermissions() {
         val need = mutableListOf<String>()
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
-            != PackageManager.PERMISSION_GRANTED
-        ) need.add(Manifest.permission.ACCESS_COARSE_LOCATION)
         if (Build.VERSION.SDK_INT >= 31) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT)
                 != PackageManager.PERMISSION_GRANTED

@@ -149,4 +149,9 @@
     <string name="menu_language">Language: %1$s</string>
     <string name="lang_uk_short">UA</string>
     <string name="lang_en_short">EN</string>
+
+    <string name="privacy_policy">Privacy policy</string>
+    <string name="menu_exit">Close</string>
+    <string name="privacy_url" translatable="false">https://github.com/SeruiSO/RadioSO-native/blob/main/PRIVACY.md</string>
+
 </resources>

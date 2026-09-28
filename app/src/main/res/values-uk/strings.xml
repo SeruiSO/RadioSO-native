@@ -170,5 +170,10 @@
     <string name="lang_uk_short">UA</string>
     <string name="lang_en_short">EN</string>
 
+
+    <string name="privacy_policy">Політика конфіденційності</string>
+    <string name="menu_exit">Закрити</string>
+    <string name="privacy_url" translatable="false">https://github.com/SeruiSO/RadioSO-native/blob/main/PRIVACY.md</string>
+
 </resources>
 

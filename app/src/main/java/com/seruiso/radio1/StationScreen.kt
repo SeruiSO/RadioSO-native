@@ -357,6 +357,8 @@ fun StationScreen(
     onSleep: (Int) -> Unit,
     onExport: () -> Unit,
     onImport: () -> Unit,
+    appLang: String = "uk",
+    onToggleLanguage: () -> Unit = {},
 ) {
     val acc = Color(accent)
     val bg = Palette.bg
@@ -565,7 +567,11 @@ fun StationScreen(
         val infoH = 100.dp
         val infoBusy = !playing && run {
             val stt = status.lowercase()
-            stt.contains("підключ") || stt.contains("буфер") || stt == "запуск"
+            run {
+                        val k = statusKind(LocalContext.current, status)
+                        k == StatusKind.CONNECTING || k == StatusKind.BUFFER || k == StatusKind.START
+                            || k == StatusKind.RECONNECT
+                    }
         }
         val glowInf = rememberInfiniteTransition(label = "infoPulse")
         val pulseState = glowInf.animateFloat(
@@ -1310,6 +1316,8 @@ fun StationScreen(
         onSleep = onSleep,
         onExport = onExport,
         onImport = onImport,
+        lang = appLang,
+        onLang = onToggleLanguage,
         acc = acc,
         text = text,
     )

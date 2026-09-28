@@ -16,6 +16,7 @@ public final class RadioNotificationFactory {
             Context ctx, String channelId, Class<?> serviceClass, Class<?> activityClass,
             boolean playing, String currentName, String lastTrackTitle, Bitmap stationArt,
             MediaSession mediaSession, boolean btWatchEnabled) {
+        ctx = LocaleHelper.wrap(ctx);
         Intent open = new Intent(ctx, activityClass);
         open.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
         PendingIntent pi = PendingIntent.getActivity(

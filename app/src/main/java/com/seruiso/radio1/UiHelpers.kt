@@ -122,10 +122,11 @@ fun PlayBtn(
     accent: Color,
     shape: Shape = AppShapes.hero,
 ) {
-    val st = status.lowercase()
-    val busy = !playing && (
-        st.contains("підключ") || st.contains(LocalContext.current.getString(R.string.buffer)) || st == "запуск"
-    )
+    val ctxBusy = LocalContext.current
+    val busy = !playing && statusKind(ctxBusy, status).let {
+        it == StatusKind.BUFFER || it == StatusKind.RECONNECT || it == StatusKind.CONNECTING
+            || it == StatusKind.START || it == StatusKind.NO_NETWORK
+    }
     val pulseOn = playing || busy
     val infinite = rememberInfiniteTransition(label = "playPulse")
     val pulse by infinite.animateFloat(
@@ -208,31 +209,53 @@ fun tabLabel(ctx: android.content.Context, tab: String): String = when (tab.lowe
 
 /** Статус ефіру для інфо-панелі; решта йде в тост. */
 /** Статус ефіру для інфо-панелі; усе інше (пошук, вкладки, тема…) — тост. */
-fun playbackInfoText(ctx: android.content.Context, status: String): String? {
-    val raw = status.trim()
-    val x = raw.lowercase()
-    if (x.isEmpty() || x == ctx.getString(R.string.done).lowercase()) return null
-    val attempt = Regex("""#\s*(\d+)""").find(raw)?.groupValues?.getOrNull(1)
-    fun withAttempt(label: String): String =
-        if (attempt != null) "$label #$attempt" else label
+
+enum class StatusKind {
+    PLAYING, PAUSE, STOP, BUFFER, RECONNECT, NO_NETWORK, CONNECTING, START, NONE
+}
+
+fun statusKind(ctx: android.content.Context, raw: String): StatusKind {
+    var x = raw.trim().lowercase()
+    // drop " #N"
+    val hash = x.lastIndexOf(" #")
+    if (hash > 0 && x.substring(hash + 2).all { it.isDigit() }) {
+        x = x.substring(0, hash).trim()
+    }
+    fun s(id: Int) = ctx.getString(id).lowercase()
+    // order: reconnect before connecting (reconnecting contains connecting)
     return when {
-        x.startsWith("відтвор") -> ctx.getString(R.string.playing_cap)
-        x == "пауза" || x.contains(ctx.getString(R.string.sleep_pause).lowercase()) ->
-            ctx.getString(R.string.pause)
-        x.startsWith("стоп") -> ctx.getString(R.string.stop)
-        x.contains("буфер") || x.contains(ctx.getString(R.string.status_buffering).lowercase()) ->
-            withAttempt(ctx.getString(R.string.buffer_cap))
-        x.contains("повторн") || x.contains(ctx.getString(R.string.status_reconnect).lowercase()) ->
-            withAttempt(ctx.getString(R.string.status_reconnect))
-        x.contains("немає мереж") || x.contains(ctx.getString(R.string.status_no_network).lowercase()) ->
-            withAttempt(ctx.getString(R.string.status_no_network))
-        x.startsWith("підключ") || x.contains(ctx.getString(R.string.connecting).lowercase()) ->
-            withAttempt(ctx.getString(R.string.connecting_cap))
-        x == "запуск" -> ctx.getString(R.string.start)
-        // номер спроби лише разом з відомим ефірним статусом уже оброблено вище
-        else -> null
+        x == s(R.string.playing) || x == s(R.string.playing_cap).lowercase() -> StatusKind.PLAYING
+        x == s(R.string.pause) || x.contains(s(R.string.sleep_pause)) -> StatusKind.PAUSE
+        x == s(R.string.stop) -> StatusKind.STOP
+        x.contains(s(R.string.status_reconnect)) -> StatusKind.RECONNECT
+        x.contains(s(R.string.status_no_network)) -> StatusKind.NO_NETWORK
+        x.contains(s(R.string.status_buffering)) || x.contains(s(R.string.buffer)) ||
+            x.contains(s(R.string.buffer_cap).lowercase()) -> StatusKind.BUFFER
+        x.contains(s(R.string.connecting)) || x.contains(s(R.string.connecting_cap).lowercase()) ->
+            StatusKind.CONNECTING
+        x == s(R.string.start) -> StatusKind.START
+        x == s(R.string.done) -> StatusKind.NONE
+        else -> StatusKind.NONE
     }
 }
+
+fun playbackInfoText(ctx: android.content.Context, status: String): String? {
+    val kind = statusKind(ctx, status)
+    val attempt = Regex("""#(\d+)\s*$""").find(status.trim())?.groupValues?.getOrNull(1)
+    fun withAttempt(base: String) = if (attempt != null) "$base #$attempt" else base
+    return when (kind) {
+        StatusKind.PLAYING -> ctx.getString(R.string.playing_cap)
+        StatusKind.PAUSE -> ctx.getString(R.string.pause)
+        StatusKind.STOP -> ctx.getString(R.string.stop)
+        StatusKind.BUFFER -> withAttempt(ctx.getString(R.string.buffer_cap))
+        StatusKind.RECONNECT -> withAttempt(ctx.getString(R.string.status_reconnect))
+        StatusKind.NO_NETWORK -> withAttempt(ctx.getString(R.string.status_no_network))
+        StatusKind.CONNECTING -> withAttempt(ctx.getString(R.string.connecting_cap))
+        StatusKind.START -> ctx.getString(R.string.start)
+        StatusKind.NONE -> null
+    }
+}
+
 
 
 /** Злити два знімки станції: непорожній favicon/genre/country ніколи не затирається порожнім. */

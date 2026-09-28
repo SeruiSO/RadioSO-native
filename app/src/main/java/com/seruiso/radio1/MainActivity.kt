@@ -41,6 +41,12 @@ import com.seruiso.radio1.ui.theme.RadioSOTheme
 import org.json.JSONArray
 
 class MainActivity : ComponentActivity() {
+    private var appLang by mutableStateOf("uk")
+
+    override fun attachBaseContext(newBase: android.content.Context) {
+        super.attachBaseContext(LocaleHelper.wrap(newBase))
+    }
+
 
     private val importLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         if (uri == null) return@registerForActivityResult
@@ -151,7 +157,7 @@ class MainActivity : ComponentActivity() {
         if (recentStations.isEmpty()) recentStations = loadRecentStations()
                     isPlaying = intent.getBooleanExtra("playing", false)
                     if (isPlaying) softStatus( getString(R.string.playing))
-                    else if (statusText == getString(R.string.playing)) statusText = "пауза"
+                    else if (statusText == getString(R.string.playing)) statusText = getString(R.string.pause)
                     // На Домі: skip / нова станція → нові «Схожі» (на інших вкладках не шукаємо)
                     if (bottomTab == "home") {
                         val railsKey = "$currentUrl|$currentGenre"
@@ -193,6 +199,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
+        appLang = LocaleHelper.current(this)
         if (stationName.isEmpty()) stationName = getString(R.string.select_station)
         if (statusText.isEmpty()) statusText = getString(R.string.done)
         if (sleepLabel.isEmpty()) sleepLabel = getString(R.string.sleep_timer)
@@ -248,6 +255,8 @@ class MainActivity : ComponentActivity() {
                         visibleLocal("best")
                     }
                     StationScreen(
+                        appLang = appLang,
+                        onToggleLanguage = { toggleLanguage() },
                         tabs = uiTabs,
                         tabIndex = tabIndex,
                         onTab = {
@@ -590,7 +599,7 @@ class MainActivity : ComponentActivity() {
         send.putExtra(Intent.EXTRA_SUBJECT, "radio_settings.json")
         send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         startActivity(Intent.createChooser(send, getString(R.string.export_radioso)))
-        statusText = "експорт"
+        statusText = getString(R.string.status_exported)
     }
 
     private fun toggleBt() {
@@ -695,8 +704,19 @@ class MainActivity : ComponentActivity() {
         return m[k] ?: raw.trim().replaceFirstChar { it.uppercase() }
     }
 
+    private fun toggleLanguage() {
+        val next = if (appLang == "uk") "en" else "uk"
+        LocaleHelper.set(this, next)
+        appLang = next
+        RadioWatchService.onLanguageChanged()
+        recreate()
+    }
+
     private fun countryFromLocale(): String {
-        val iso = try { Locale.getDefault().country } catch (_: Exception) { "" }
+        val iso = try {
+            val locs = android.content.res.Resources.getSystem().configuration.locales
+            if (locs.size() > 0) locs[0].country else ""
+        } catch (_: Exception) { "" }
         return normalizeCountry(iso)
     }
 
@@ -1446,7 +1466,7 @@ class MainActivity : ComponentActivity() {
         i.putExtra(RadioWatchService.EXTRA_URL, url)
         i.putExtra(RadioWatchService.EXTRA_NAME, name)
         startFg(i)
-        statusText = "запуск"
+        statusText = getString(R.string.start)
         isLocalNow = url.startsWith("content:")
         if (nowOpen || url.startsWith("content:")) { posHandler.removeCallbacks(posTick); posHandler.post(posTick) }
     }

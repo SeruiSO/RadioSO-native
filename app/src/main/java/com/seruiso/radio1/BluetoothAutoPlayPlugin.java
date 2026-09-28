@@ -2,6 +2,7 @@ package com.seruiso.radio1;
 
 public class BluetoothAutoPlayPlugin {
     public static final String PREFS = "radio_autoplay";
+    public static final String KEY_APP_LANG = "appLanguage";
     public static final String KEY_URL = "lastStationUrl";
     public static final String KEY_NAME = "lastStationName";
     /** Намір: користувач/автостарт хоче playback (resume після focus/мережі). */

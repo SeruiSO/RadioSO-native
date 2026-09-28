@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -55,6 +56,8 @@ fun AppOverflowMenu(
     onSleep: (Int) -> Unit,
     onExport: () -> Unit,
     onImport: () -> Unit,
+    lang: String = "uk",
+    onLang: () -> Unit = {},
     acc: Color,
     text: Color,
 ) {
@@ -124,6 +127,21 @@ fun AppOverflowMenu(
                         }
                     }
                 }
+
+
+                MenuRow(
+                    icon = Icons.Filled.Language,
+                    label = LocalContext.current.getString(
+                        R.string.menu_language,
+                        if (lang == "en") LocalContext.current.getString(R.string.lang_en_short)
+                        else LocalContext.current.getString(R.string.lang_uk_short),
+                    ),
+                    selected = false,
+                    acc = acc,
+                    text = text,
+                    onClick = { onLang(); onCloseMenu() },
+                )
+
                 MenuRow(
                     icon = Icons.Filled.FileUpload,
                     label = LocalContext.current.getString(R.string.export),

@@ -52,6 +52,27 @@ import androidx.media3.session.MediaSession;
 import org.json.JSONArray;
 
 public class RadioWatchService extends MediaBrowserServiceCompat implements AudioManager.OnAudioFocusChangeListener {
+
+    @Override
+    protected void attachBaseContext(Context base) {
+        super.attachBaseContext(LocaleHelper.wrap(base));
+    }
+
+    private Context lc() {
+        return LocaleHelper.wrap(this);
+    }
+
+    /** UI language changed — refresh notification/widget texts. */
+    public static void onLanguageChanged() {
+        RadioWatchService s = INSTANCE;
+        if (s == null) return;
+        try {
+            if (s.mainHandler != null) {
+                s.mainHandler.post(s::notifyForeground);
+            }
+        } catch (Exception ignored) {}
+    }
+
     public static final String ACTION_BT = "com.seruiso.radio1.BT_CONNECTED";
     public static final String ACTION_START = "com.seruiso.radio1.START_WATCH";
     public static final String ACTION_AA_ROUTE = "com.seruiso.radio1.AA_ROUTE";
@@ -329,7 +350,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                                 player.setPlayWhenReady(true);
                             }
                         } catch (Exception ignored) {}
-                        try { notifyUiStatus(getString(R.string.playing), 0); } catch (Exception ignored) {}
+                        try { notifyUiStatus(lc().getString(R.string.playing), 0); } catch (Exception ignored) {}
                         return;
                     }
                     playWhenBtRouteReady("headunit-play");
@@ -551,7 +572,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                         if (isLocalMode()) return;
                         if (player != null && player.isPlaying()) {
                             reconnectAttempt = 0;
-                            notifyUiStatus(getString(R.string.playing), 0);
+                            notifyUiStatus(lc().getString(R.string.playing), 0);
                             return;
                         }
                         // ще буферизує (не зупинився, не в помилці) — дати шанс
@@ -566,7 +587,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                             reconnectHandler.postDelayed(() -> {
                                 if (player != null && player.isPlaying()) {
                                     reconnectAttempt = 0;
-                                    notifyUiStatus(getString(R.string.playing), 0);
+                                    notifyUiStatus(lc().getString(R.string.playing), 0);
                                     return;
                                 }
                                 android.util.Log.i("RadioWatch", "still not playing after grace — forcing reconnect");
@@ -608,7 +629,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
     /** Форсований реконект: скидає лічильники і одразу пробує грати resolved URL. */
     private void forceNetworkReconnect() {
         android.util.Log.i("RadioWatch", "network available → reconnect");
-        notifyUiStatus(getString(R.string.status_reconnect), reconnectAttempt + 1);
+        notifyUiStatus(lc().getString(R.string.status_reconnect), reconnectAttempt + 1);
         // Не обнуляти attempt — бекоф scheduleReconnect має рости
         if (reconnectHandler != null) {
             reconnectHandler.removeCallbacksAndMessages(null);
@@ -662,7 +683,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                 && player.getPlaybackState() == Player.STATE_READY) {
             reconnectAttempt = 0;
             reconnectWindowStart = 0L;
-            notifyUiStatus(getString(R.string.playing), 0);
+            notifyUiStatus(lc().getString(R.string.playing), 0);
             return;
         }
         long now = System.currentTimeMillis();
@@ -673,7 +694,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         lastReconnectTriggerMs = now;
         android.util.Log.i("RadioWatch", "attemptReconnect: " + reason + " immediate=" + immediate);
         try {
-            notifyUiStatus(getString(R.string.status_reconnect), reconnectAttempt + 1);
+            notifyUiStatus(lc().getString(R.string.status_reconnect), reconnectAttempt + 1);
         } catch (Exception ignored) {}
         if (immediate) {
             forceNetworkReconnect();
@@ -872,7 +893,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                 player.setVolume(1f);
                 player.setPlayWhenReady(true);
                 notifyUiPlayback(true);
-                notifyUiStatus(getString(R.string.playing), 0);
+                notifyUiStatus(lc().getString(R.string.playing), 0);
             } else {
                 // DELAYED — GAIN підхопить
                 pausedByFocusLoss = true;
@@ -1187,7 +1208,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                     }
                 }
                 String uri = uris.getString(idx);
-                String title = idx < titles.length() ? titles.optString(idx, "Local") : "Local";
+                String title = idx < titles.length() ? titles.optString(idx, lc().getString(R.string.unknown_track)) : "Local";
                 String artist = idx < artists.length() ? artists.optString(idx, "") : "";
                 String albumId = idx < albumIds.length() ? albumIds.optString(idx, "0") : "0";
                 p.edit()
@@ -1491,7 +1512,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
 
                     if (playing && st == Player.STATE_READY && !isLocalMode()) {
                         if (bufferingTicks > 0) {
-                            try { notifyUiStatus(getString(R.string.playing), 0); } catch (Exception ignored) {}
+                            try { notifyUiStatus(lc().getString(R.string.playing), 0); } catch (Exception ignored) {}
                         }
                         bufferingTicks = 0;
                         reconnectAttempt = 0;
@@ -1507,7 +1528,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                         bufferingTicks = 0;
                         if (inStartup || buf < 1500L) {
                             try {
-                                notifyUiStatus(getString(R.string.status_buffering), reconnectAttempt);
+                                notifyUiStatus(lc().getString(R.string.status_buffering), reconnectAttempt);
                             } catch (Exception ignored) {}
                         }
                     } else {
@@ -1530,11 +1551,11 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
 
                             if (bufferingTicks == 1) {
                                 try {
-                                    notifyUiStatus(getString(R.string.status_buffering), reconnectAttempt);
+                                    notifyUiStatus(lc().getString(R.string.status_buffering), reconnectAttempt);
                                 } catch (Exception ignored) {}
                             } else if (bufferingTicks == Math.max(2, softAt / 2)) {
                                 try {
-                                    notifyUiStatus(getString(R.string.status_reconnect), reconnectAttempt);
+                                    notifyUiStatus(lc().getString(R.string.status_reconnect), reconnectAttempt);
                                 } catch (Exception ignored) {}
                             }
 
@@ -1778,7 +1799,7 @@ notifyForeground();
             PlaybackPrefs.setPauseReason(this, PlaybackPrefs.REASON_NONE);
             setIntendedPlaying(true);
             ignoreNoisyUntilMs = System.currentTimeMillis() + 8000L;
-            try { notifyUiStatus(getString(R.string.connecting), 0); } catch (Exception ignored) {}
+            try { notifyUiStatus(lc().getString(R.string.connecting), 0); } catch (Exception ignored) {}
             try {
                 getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
                     .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, true).apply();
@@ -1833,7 +1854,7 @@ notifyForeground();
                 awaitingHeadUnitPlay = false;
                 cancelHeadphoneFallback(this);
                 android.util.Log.i("RadioWatch", "HEADPHONE_FALLBACK skip — already opening");
-                try { notifyUiStatus(getString(R.string.playing), 0); } catch (Exception ignored) {}
+                try { notifyUiStatus(lc().getString(R.string.playing), 0); } catch (Exception ignored) {}
                 return START_STICKY;
             }
             awaitingHeadUnitPlay = false;
@@ -2148,7 +2169,7 @@ notifyForeground();
         writeActuallyPlaying(false);
         notifyForeground();
         notifyUiPlayback(false);
-        try { notifyUiStatus(getString(R.string.pause), 0); } catch (Exception ignored) {}
+        try { notifyUiStatus(lc().getString(R.string.pause), 0); } catch (Exception ignored) {}
     }
 
 
@@ -2182,7 +2203,7 @@ notifyForeground();
         }
         try { writeActuallyPlaying(false); } catch (Exception ignored) {}
         try { notifyUiPlayback(false); } catch (Exception ignored) {}
-        try { notifyUiStatus(getString(R.string.pause), 0); } catch (Exception ignored) {}
+        try { notifyUiStatus(lc().getString(R.string.pause), 0); } catch (Exception ignored) {}
 
         final long GRACE_MS = 4_000L;
         routeLostRunnable = new Runnable() {
@@ -2204,7 +2225,7 @@ notifyForeground();
                                 }
                                 PlaybackPrefs.setPauseReason(RadioWatchService.this, PlaybackPrefs.REASON_NONE);
                                 notifyUiPlayback(true);
-                                notifyUiStatus(getString(R.string.playing), 0);
+                                notifyUiStatus(lc().getString(R.string.playing), 0);
                             }
                         } catch (Exception e) {
                             android.util.Log.w("RadioWatch", "route grace resume", e);
@@ -2307,7 +2328,7 @@ notifyForeground();
                 android.util.Log.i("RadioWatch", "headUnit wait — paused phone output, await PLAY 4s");
             }
         } catch (Exception ignored) {}
-        try { notifyUiStatus(getString(R.string.connecting), 0); } catch (Exception ignored) {}
+        try { notifyUiStatus(lc().getString(R.string.connecting), 0); } catch (Exception ignored) {}
         acquireHeadUnitWake();
         scheduleHeadphoneFallback(this, HEADUNIT_PLAY_WAIT_MS);
         headUnitPlayWaitRunnable = () -> {
@@ -2494,7 +2515,7 @@ notifyForeground();
                         }
                         android.util.Log.i("RadioWatch",
                             "watch probe #" + attempt + " — route up, start play");
-                        try { notifyUiStatus(getString(R.string.connecting), attempt); } catch (Exception ignored) {}
+                        try { notifyUiStatus(lc().getString(R.string.connecting), attempt); } catch (Exception ignored) {}
                         setIntendedPlaying(true);
                         playLastWhenBtReady();
                     } catch (Exception e) {
@@ -2701,7 +2722,7 @@ notifyForeground();
             if (isLocalMode() && focusOk) armPositionTicker();
             // 0.9.51: reported playing тільки з onIsPlayingChanged — не раніше
             loadStationArtAsync();
-            notifyUiStatus(getString(R.string.connecting), 0);
+            notifyUiStatus(lc().getString(R.string.connecting), 0);
             bufferingTicks = 0;
             hasEverPlayedThisUrl = false;
             streamStartMs = System.currentTimeMillis();
@@ -2812,7 +2833,7 @@ notifyForeground();
         if (reconnectWindowStart == 0L) reconnectWindowStart = now;
         long elapsed = now - reconnectWindowStart;
         if (ReconnectPolicy.windowExpired(elapsed)) {
-            notifyUiStatus(getString(R.string.status_no_network), reconnectAttempt);
+            notifyUiStatus(lc().getString(R.string.status_no_network), reconnectAttempt);
             // Повільний heartbeat після 5хв вікна: мережа може «бути», але не працювати
             // (onAvailable тоді не прийде). Не чіпаємо ReconnectPolicy — лише retry тут.
             final int attemptHb = reconnectAttempt;
@@ -2823,7 +2844,7 @@ notifyForeground();
                 if (player.isPlaying()) {
                     reconnectAttempt = 0;
                     reconnectWindowStart = 0L;
-                    notifyUiStatus(getString(R.string.playing), 0);
+                    notifyUiStatus(lc().getString(R.string.playing), 0);
                     return;
                 }
                 if (!hasInternet()) {
@@ -2850,11 +2871,11 @@ notifyForeground();
             if (player.isPlaying()) {
                 reconnectAttempt = 0;
                 reconnectWindowStart = 0L;
-                notifyUiStatus(getString(R.string.playing), 0);
+                notifyUiStatus(lc().getString(R.string.playing), 0);
                 return;
             }
             if (!hasInternet()) {
-                notifyUiStatus(getString(R.string.status_no_network), attempt + 1);
+                notifyUiStatus(lc().getString(R.string.status_no_network), attempt + 1);
                 scheduleReconnect();
                 return;
             }
@@ -2875,7 +2896,7 @@ notifyForeground();
         if (Build.VERSION.SDK_INT >= 26) {
             NotificationChannel ch = new NotificationChannel(
                 CHANNEL, "Radio S O", NotificationManager.IMPORTANCE_LOW);
-            ch.setDescription(getString(R.string.notif_channel_desc));
+            ch.setDescription(lc().getString(R.string.notif_channel_desc));
             NotificationManager nm = getSystemService(NotificationManager.class);
             if (nm != null) nm.createNotificationChannel(ch);
         }
@@ -3029,7 +3050,7 @@ notifyForeground();
                 for (int i = 0; i < uris.length(); i++) {
                     String uri = uris.optString(i);
                     if (uri == null || uri.isEmpty()) continue;
-                    String title = i < titles.length() ? titles.optString(i, "Local") : "Local";
+                    String title = i < titles.length() ? titles.optString(i, lc().getString(R.string.unknown_track)) : "Local";
                     String artist = i < artists.length() ? artists.optString(i, "") : "";
                     out.add(browseItem(uri, title, artist));
                 }
@@ -3039,7 +3060,7 @@ notifyForeground();
                 for (int i = 0; i < urls.length(); i++) {
                     String url = urls.optString(i);
                     if (url == null || url.isEmpty()) continue;
-                    String name = i < names.length() ? names.optString(i, "Station") : "Station";
+                    String name = i < names.length() ? names.optString(i, lc().getString(R.string.unknown_station)) : "Station";
                     out.add(browseItem(url, name, ""));
                 }
             } else {
@@ -3050,7 +3071,7 @@ notifyForeground();
                 for (int i = 0; i < urls.length(); i++) {
                     String url = urls.optString(i);
                     if (url == null || url.isEmpty()) continue;
-                    String name = i < names.length() ? names.optString(i, "Station") : "Station";
+                    String name = i < names.length() ? names.optString(i, lc().getString(R.string.unknown_station)) : "Station";
                     String g = i < genres.length() ? genres.optString(i, "") : "";
                     String c = i < countries.length() ? countries.optString(i, "") : "";
                     out.add(browseItem(url, name, (g + " · " + c).trim()));

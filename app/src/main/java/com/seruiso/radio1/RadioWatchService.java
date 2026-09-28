@@ -84,6 +84,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
     /** BT/profile gone — not user pause (auto-resume on next ACTION_BT). */
     public static final String ACTION_ROUTE_LOST = "com.seruiso.radio1.ROUTE_LOST";
     public static final String ACTION_PLAY_URL = "com.seruiso.radio1.PLAY_URL";
+    public static final String ACTION_ALARM = "com.seruiso.radio1.ALARM";
     public static final String ACTION_MEDIA_NEXT = "com.seruiso.radio1.MEDIA_NEXT";
     public static final String ACTION_MEDIA_PREV = "com.seruiso.radio1.MEDIA_PREV";
     public static final String ACTION_NOTIF_PLAY = "com.seruiso.radio1.NOTIF_PLAY";
@@ -1703,6 +1704,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             || ACTION_PAUSE.equals(action)
             || ACTION_PLAY.equals(action)
             || ACTION_PLAY_URL.equals(action)
+            || ACTION_ALARM.equals(action)
             || ACTION_SEEK.equals(action)
             || ACTION_BT.equals(action)
             || ACTION_ROUTE_LOST.equals(action)
@@ -1897,6 +1899,42 @@ notifyForeground();
         }
         if (ACTION_NOTIF_PREV.equals(action)) {
             skip(false);
+            return START_STICKY;
+        }
+
+
+        if (ACTION_ALARM.equals(action) && intent != null) {
+            if (isVoiceCallActive()) {
+                android.util.Log.i("RadioWatch", "ALARM postpone 5min — voice call");
+                RadioAlarm.INSTANCE.postponeMinutes(this, 5);
+                return START_STICKY;
+            }
+            setUserPausedWhileBt(false);
+            PlaybackPrefs.setPauseReason(this, PlaybackPrefs.REASON_NONE);
+            setIntendedPlaying(true);
+            String url = intent.getStringExtra(EXTRA_URL);
+            String name = intent.getStringExtra(EXTRA_NAME);
+            String fav = intent.getStringExtra("favicon");
+            String gen = intent.getStringExtra("genre");
+            String ctry = intent.getStringExtra("country");
+            SharedPreferences.Editor ed = getSharedPreferences(
+                BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE).edit()
+                .putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, true);
+            if (url != null && !url.isEmpty()) ed.putString(BluetoothAutoPlayPlugin.KEY_URL, url);
+            if (name != null && !name.isEmpty()) {
+                currentName = name;
+                ed.putString(BluetoothAutoPlayPlugin.KEY_NAME, name);
+            }
+            if (fav != null && !fav.isEmpty()) ed.putString(BluetoothAutoPlayPlugin.KEY_FAVICON, fav);
+            if (gen != null && !gen.isEmpty()) ed.putString(BluetoothAutoPlayPlugin.KEY_GENRE, gen);
+            if (ctry != null && !ctry.isEmpty()) ed.putString(BluetoothAutoPlayPlugin.KEY_COUNTRY, ctry);
+            ed.apply();
+            if (url == null || url.isEmpty()) {
+                url = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                    .getString(BluetoothAutoPlayPlugin.KEY_URL, "");
+            }
+            android.util.Log.i("RadioWatch", "ALARM play " + name);
+            playUrl(url);
             return START_STICKY;
         }
 

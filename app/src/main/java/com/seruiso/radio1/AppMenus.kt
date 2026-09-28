@@ -27,6 +27,21 @@ import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Alarm
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Remove
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Switch
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material.icons.filled.Policy
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material3.AlertDialog
@@ -60,6 +75,7 @@ fun AppOverflowMenu(
     onImport: () -> Unit,
     onPrivacy: () -> Unit = {},
     onExit: () -> Unit = {},
+    onAlarm: () -> Unit = {},
     lang: String = "uk",
     onLang: () -> Unit = {},
     acc: Color,
@@ -144,6 +160,14 @@ fun AppOverflowMenu(
                     acc = acc,
                     text = text,
                     onClick = { onLang(); onCloseMenu() },
+                )
+                MenuRow(
+                    icon = Icons.Filled.Alarm,
+                    label = LocalContext.current.getString(R.string.alarm_title),
+                    selected = false,
+                    acc = acc,
+                    text = text,
+                    onClick = { onAlarm(); onCloseMenu() },
                 )
 
                 MenuRow(
@@ -379,5 +403,142 @@ fun AppThemeDialog(
                 Text(LocalContext.current.getString(R.string.close), color = muted)
             }
         }
+    )
+}
+
+@Composable
+fun AppAlarmDialog(
+    open: Boolean,
+    onDismiss: () -> Unit,
+    nowUrl: String,
+    nowName: String,
+    nowFavicon: String,
+    nowGenre: String,
+    nowCountry: String,
+    acc: Color,
+    muted: Color,
+    text: Color,
+    card: Color,
+) {
+    if (!open) return
+    val ctx = LocalContext.current
+    val initial = remember(open) { RadioAlarm.load(ctx) }
+    var enabled by remember(open) { mutableStateOf(initial.enabled) }
+    var hour by remember(open) { mutableIntStateOf(initial.hour) }
+    var minute by remember(open) { mutableIntStateOf(initial.minute) }
+    var daily by remember(open) { mutableStateOf(initial.daily) }
+    var url by remember(open) { mutableStateOf(initial.url.ifBlank { nowUrl }) }
+    var stName by remember(open) { mutableStateOf(initial.name.ifBlank { nowName }) }
+    var stFav by remember(open) { mutableStateOf(initial.favicon.ifBlank { nowFavicon }) }
+    var stGen by remember(open) { mutableStateOf(initial.genre.ifBlank { nowGenre }) }
+    var stCtry by remember(open) { mutableStateOf(initial.country.ifBlank { nowCountry }) }
+    val favs = remember(open) { FavStore.stations(ctx) }
+    val extra = if (nowUrl.isNotBlank() && favs.none { it.url == nowUrl }) {
+        listOf(Station(nowUrl, nowName.ifBlank { ctx.getString(R.string.alarm_use_current) }, nowGenre, nowCountry, nowFavicon, "now"))
+    } else emptyList()
+    val rows = extra + favs
+
+    AlertDialog(
+        containerColor = card,
+        onDismissRequest = onDismiss,
+        title = { Text(ctx.getString(R.string.alarm_title), color = text) },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        if (enabled) ctx.getString(R.string.alarm_on) else ctx.getString(R.string.alarm_off),
+                        color = text,
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.titleSmall,
+                    )
+                    Switch(checked = enabled, onCheckedChange = { enabled = it })
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            Icons.Filled.Add, contentDescription = null, tint = acc,
+                            modifier = Modifier.size(28.dp).clickable { hour = (hour + 1) % 24 },
+                        )
+                        Text("%02d".format(hour), color = text, style = MaterialTheme.typography.displaySmall)
+                        Icon(
+                            Icons.Filled.Remove, contentDescription = null, tint = acc,
+                            modifier = Modifier.size(28.dp).clickable { hour = (hour + 23) % 24 },
+                        )
+                    }
+                    Text(" : ", color = text, style = MaterialTheme.typography.displaySmall)
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            Icons.Filled.Add, contentDescription = null, tint = acc,
+                            modifier = Modifier.size(28.dp).clickable { minute = (minute + 5) % 60 },
+                        )
+                        Text("%02d".format(minute), color = text, style = MaterialTheme.typography.displaySmall)
+                        Icon(
+                            Icons.Filled.Remove, contentDescription = null, tint = acc,
+                            modifier = Modifier.size(28.dp).clickable { minute = (minute + 55) % 60 },
+                        )
+                    }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    Text(ctx.getString(R.string.alarm_daily), color = text, modifier = Modifier.weight(1f))
+                    Switch(checked = daily, onCheckedChange = { daily = it })
+                }
+                Text(ctx.getString(R.string.alarm_station), color = muted, style = MaterialTheme.typography.labelLarge)
+                if (nowUrl.isNotBlank()) {
+                    Text(
+                        ctx.getString(R.string.alarm_use_current) + ": " + nowName,
+                        color = acc,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.clickable {
+                            url = nowUrl; stName = nowName; stFav = nowFavicon
+                            stGen = nowGenre; stCtry = nowCountry
+                        },
+                    )
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    rows.take(12).forEach { s ->
+                        val sel = s.url == url
+                        Text(
+                            s.name,
+                            color = if (sel) acc else text,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    if (sel) acc.copy(alpha = 0.18f) else Color.Transparent,
+                                    RoundedCornerShape(10.dp),
+                                )
+                                .clickable {
+                                    url = s.url; stName = s.name; stFav = s.favicon
+                                    stGen = s.genre; stCtry = s.country
+                                }
+                                .padding(horizontal = 10.dp, vertical = 8.dp),
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                if (enabled && !RadioAlarm.canExact(ctx)) RadioAlarm.requestExact(ctx)
+                RadioAlarm.save(
+                    ctx,
+                    RadioAlarm.State(enabled, hour, minute, daily, url, stName, stFav, stGen, stCtry),
+                )
+                onDismiss()
+            }) { Text(ctx.getString(R.string.alarm_save), color = acc) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(ctx.getString(R.string.close), color = muted)
+            }
+        },
     )
 }

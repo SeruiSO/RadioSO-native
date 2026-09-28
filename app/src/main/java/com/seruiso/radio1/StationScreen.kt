@@ -405,6 +405,7 @@ fun StationScreen(
     val sheetScope = rememberCoroutineScope()
     // Верхня картка (свайп вниз по інфо-панелі)
     var topSleepOpen by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    var alarmOpen by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     var topThemeOpen by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     // Права картка пошуку (свайп з правого краю / 🔍)
     val rightA = androidx.compose.runtime.remember { Animatable(1f) } // 1=закрито, 0=відкрито
@@ -1320,10 +1321,24 @@ fun StationScreen(
         onImport = onImport,
         onPrivacy = onPrivacy,
         onExit = onExit,
+        onAlarm = { alarmOpen = true },
         lang = appLang,
         onLang = onToggleLanguage,
         acc = acc,
         text = text,
+    )
+    AppAlarmDialog(
+        open = alarmOpen,
+        onDismiss = { alarmOpen = false },
+        nowUrl = currentUrl,
+        nowName = name,
+        nowFavicon = favicon,
+        nowGenre = genre,
+        nowCountry = country,
+        acc = acc,
+        muted = muted,
+        text = text,
+        card = card,
     )
     }
     PickStationTabDialog(

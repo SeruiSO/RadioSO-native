@@ -154,4 +154,15 @@
     <string name="menu_exit">Close</string>
     <string name="privacy_url" translatable="false">https://github.com/SeruiSO/RadioSO-native/blob/main/PRIVACY.md</string>
 
+
+    <string name="alarm_title">Alarm</string>
+    <string name="alarm_on">Alarm on</string>
+    <string name="alarm_off">Alarm off</string>
+    <string name="alarm_daily">Every day</string>
+    <string name="alarm_station">Station</string>
+    <string name="alarm_use_current">Now playing</string>
+    <string name="alarm_save">Save</string>
+    <string name="alarm_need_exact">Allow exact alarms in system settings</string>
+    <string name="alarm_set">Alarm: %1$02d:%2$02d</string>
+
 </resources>

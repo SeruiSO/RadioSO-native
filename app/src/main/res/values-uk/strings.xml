@@ -175,5 +175,16 @@
     <string name="menu_exit">Закрити</string>
     <string name="privacy_url" translatable="false">https://github.com/SeruiSO/RadioSO-native/blob/main/PRIVACY.md</string>
 
+
+    <string name="alarm_title">Будильник</string>
+    <string name="alarm_on">Будильник увімк</string>
+    <string name="alarm_off">Будильник вимк</string>
+    <string name="alarm_daily">Щодня</string>
+    <string name="alarm_station">Станція</string>
+    <string name="alarm_use_current">Зараз грає</string>
+    <string name="alarm_save">Зберегти</string>
+    <string name="alarm_need_exact">Дозволь точний будильник у системі</string>
+    <string name="alarm_set">Будильник: %1$02d:%2$02d</string>
+
 </resources>
 

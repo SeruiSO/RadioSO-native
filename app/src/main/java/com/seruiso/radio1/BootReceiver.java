@@ -27,6 +27,7 @@ public class BootReceiver extends BroadcastReceiver {
                 return;
             }
             p.edit().putBoolean(BluetoothAutoPlayPlugin.KEY_PENDING_BT_AFTER_BOOT, true).apply();
+            RadioAlarm.INSTANCE.rescheduleIfEnabled(context);
             Log.i("BootReceiver", "boot — pendingBtWatchAfterBoot=true (no FGS)");
         } catch (Exception e) {
             Log.e("BootReceiver", "boot flag failed", e);

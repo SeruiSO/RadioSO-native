@@ -243,6 +243,16 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                 .setLoadControl(loadControl)
                 .setMediaSourceFactory(mediaSourceFactory)
                 .build();
+        // Екран off / Doze: тримати CPU+мережу під час стріму (дозвіл WAKE_LOCK є)
+        try {
+            player.setWakeMode(com.google.android.exoplayer2.C.WAKE_MODE_NETWORK);
+        } catch (Throwable t1) {
+            try {
+                player.setWakeMode(androidx.media3.common.C.WAKE_MODE_NETWORK);
+            } catch (Throwable t2) {
+                android.util.Log.w("RadioWatch", "setWakeMode NETWORK unavailable", t2);
+            }
+        }
         // Фокус тримаємо вручну (requestFocus/abandonFocus) — вимикаємо
         // вбудоване керування фокусом ExoPlayer, щоб не було подвійного
         // requestAudioFocus() і конфліктів саме в момент BT/AA-хендоверу.
@@ -603,8 +613,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
     private void forceNetworkReconnect() {
         android.util.Log.i("RadioWatch", "network available → reconnect");
         notifyUiStatus(getString(R.string.status_reconnect), reconnectAttempt + 1);
-        reconnectAttempt = 0;
-        reconnectWindowStart = 0L;
+        // Не обнуляти attempt — бекоф scheduleReconnect має рости
         if (reconnectHandler != null) {
             reconnectHandler.removeCallbacksAndMessages(null);
         }
@@ -1456,6 +1465,11 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                         bufferingTicks = 0;
                         return;
                     }
+                    // Дзвінок / transient focus — не soft/hard і не NETWORK reason
+                    if (pausedByFocusLoss || isVoiceCallActive()) {
+                        bufferingTicks = 0;
+                        return;
+                    }
                     if (withinBtSettle()) {
                         bufferingTicks = 0;
                         return;
@@ -1471,8 +1485,9 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                         hasEverPlayedThisUrl = true;
                     }
 
+                    // Зростання vs попередній тік (не vs історичний max — інакше хибний soft)
                     boolean bufferGrowing = buf > lastBufferedMs + 50L;
-                    lastBufferedMs = Math.max(lastBufferedMs, buf);
+                    lastBufferedMs = buf;
 
                     // Startup grace ~20s: не soft/hard лише через BUFFERING на першому старті
                     final long STARTUP_GRACE_MS = 20_000L;
@@ -1483,6 +1498,8 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                             try { notifyUiStatus(getString(R.string.playing), 0); } catch (Exception ignored) {}
                         }
                         bufferingTicks = 0;
+                        reconnectAttempt = 0;
+                        reconnectWindowStart = 0L;
                         try {
                             if (PlaybackPrefs.REASON_NETWORK.equals(
                                     PlaybackPrefs.getPauseReason(RadioWatchService.this))) {
@@ -2032,7 +2049,10 @@ notifyForeground();
         if (player == null) return false;
         if (withinBtSettle() && player.getCurrentMediaItem() != null) {
             try {
-                if (player.isPlaying() || player.getPlayWhenReady()) {
+                int st0 = player.getPlaybackState();
+                boolean live0 = st0 == Player.STATE_BUFFERING
+                        || (st0 == Player.STATE_READY && player.isPlaying());
+                if (live0) {
                     String want0 = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
                             .getString(BluetoothAutoPlayPlugin.KEY_URL, "");
                     String cur0 = player.getCurrentMediaItem().localConfiguration.uri.toString();
@@ -2573,7 +2593,10 @@ notifyForeground();
                     .getString(BluetoothAutoPlayPlugin.KEY_URL, "");
             if (want == null || want.isEmpty() || !want.equals(cur)) return false;
             int st = player.getPlaybackState();
-            return player.isPlaying() || player.getPlayWhenReady() || st == Player.STATE_BUFFERING;
+            // IDLE/ENDED + playWhenReady=true ≠ «відкрито» — інакше reconnect skip без prepare
+            if (st == Player.STATE_BUFFERING) return true;
+            if (st == Player.STATE_READY && player.isPlaying()) return true;
+            return false;
         } catch (Exception e) {
             return false;
         }
@@ -2605,8 +2628,9 @@ notifyForeground();
             // під час буфера блокує новий play.
             boolean sameAsCurrent = currentUri != null && url.equals(currentUri);
             int dupState = player.getPlaybackState();
-            boolean opening = player.isPlaying() || player.getPlayWhenReady()
-                    || dupState == Player.STATE_BUFFERING;
+            // Живий лише BUFFERING або READY+isPlaying (не IDLE/ENDED з playWhenReady)
+            boolean opening = dupState == Player.STATE_BUFFERING
+                    || (dupState == Player.STATE_READY && player.isPlaying());
             if (sameAsCurrent && opening) {
                 android.util.Log.d("RadioWatch", "playUrl skip duplicate: " + url);
                 currentPlayUrl = url;
@@ -2628,7 +2652,13 @@ notifyForeground();
             if (reconnectHandler != null) {
                 reconnectHandler.removeCallbacksAndMessages(null);
             }
-            reconnectAttempt = 0;
+            // Не обнуляти reconnectAttempt на кожен reconnect-playUrl — інакше бекоф мертвий.
+            // Скид лише при зміні станції (інший URI) або коли реально заграло (silence/READY).
+            boolean urlChanged = currentPlayUrl == null || currentPlayUrl.isEmpty()
+                    || !url.equals(currentPlayUrl);
+            if (urlChanged) {
+                reconnectAttempt = 0;
+            }
 
             boolean focusOk = requestFocus();
             if (!focusOk) {

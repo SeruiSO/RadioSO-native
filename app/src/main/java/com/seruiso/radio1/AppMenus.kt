@@ -423,61 +423,53 @@ fun AppAlarmDialog(
 ) {
     if (!open) return
     val ctx = LocalContext.current
-    val initial = remember(open) { RadioAlarm.load(ctx) }
-    var enabled by remember(open) { mutableStateOf(initial.enabled) }
-    var hour by remember(open) { mutableIntStateOf(initial.hour) }
-    var minute by remember(open) { mutableIntStateOf(initial.minute) }
-    var repeat by remember(open) { mutableStateOf(initial.repeat) }
-    var year by remember(open) {
-        mutableIntStateOf(if (initial.year >= 2000) initial.year else java.util.Calendar.getInstance().get(java.util.Calendar.YEAR))
-    }
-    var month by remember(open) {
-        mutableIntStateOf(if (initial.year >= 2000) initial.month else java.util.Calendar.getInstance().get(java.util.Calendar.MONTH))
-    }
-    var day by remember(open) {
-        mutableIntStateOf(if (initial.day >= 1) initial.day else java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_MONTH))
-    }
-    var showCal by remember(open) { mutableStateOf(false) }
-    var url by remember(open) { mutableStateOf(initial.url.ifBlank { nowUrl }) }
-    var stName by remember(open) { mutableStateOf(initial.name.ifBlank { nowName }) }
-    var stFav by remember(open) { mutableStateOf(initial.favicon.ifBlank { nowFavicon }) }
-    var stGen by remember(open) { mutableStateOf(initial.genre.ifBlank { nowGenre }) }
-    var stCtry by remember(open) { mutableStateOf(initial.country.ifBlank { nowCountry }) }
+    var tick by remember(open) { mutableIntStateOf(0) }
+    val list = remember(open, tick) { RadioAlarm.items(ctx) }
+    val now = java.util.Calendar.getInstance()
+    var hour by remember(open) { mutableIntStateOf(7) }
+    var minute by remember(open) { mutableIntStateOf(0) }
+    var year by remember(open) { mutableIntStateOf(now.get(java.util.Calendar.YEAR)) }
+    var month by remember(open) { mutableIntStateOf(now.get(java.util.Calendar.MONTH)) }
+    var day by remember(open) { mutableIntStateOf(now.get(java.util.Calendar.DAY_OF_MONTH)) }
+    var showCal by remember { mutableStateOf(false) }
+    var url by remember(open) { mutableStateOf(nowUrl) }
+    var stName by remember(open) { mutableStateOf(nowName) }
+    var stFav by remember(open) { mutableStateOf(nowFavicon) }
+    var stGen by remember(open) { mutableStateOf(nowGenre) }
+    var stCtry by remember(open) { mutableStateOf(nowCountry) }
     val favs = remember(open) { FavStore.stations(ctx) }
     val extra = if (nowUrl.isNotBlank() && favs.none { it.url == nowUrl }) {
         listOf(Station(nowUrl, nowName.ifBlank { ctx.getString(R.string.alarm_use_current) }, nowGenre, nowCountry, nowFavicon, "now"))
     } else emptyList()
     val rows = extra + favs
-    val preview = remember(enabled, hour, minute, repeat, year, month, day) {
-        RadioAlarm.nextLabel(
+    fun stationOf() = Triple(url, stName, stFav)
+    fun addMode(rep: String) {
+        if (url.isBlank() && nowUrl.isNotBlank()) {
+            url = nowUrl; stName = nowName; stFav = nowFavicon; stGen = nowGenre; stCtry = nowCountry
+        }
+        if (!RadioAlarm.canExact(ctx)) RadioAlarm.requestExact(ctx)
+        RadioAlarm.add(
             ctx,
-            RadioAlarm.State(
+            RadioAlarm.Item(
+                id = System.currentTimeMillis(),
                 enabled = true,
                 hour = hour,
                 minute = minute,
-                daily = repeat == RadioAlarm.REPEAT_DAILY,
-                url = url,
-                name = stName,
-                favicon = stFav,
-                genre = stGen,
-                country = stCtry,
-                repeat = repeat,
-                year = year,
-                month = month,
-                day = day,
+                repeat = rep,
+                year = year, month = month, day = day,
+                url = url, name = stName, favicon = stFav, genre = stGen, country = stCtry,
             ),
         )
+        tick++
     }
     if (showCal) {
         DisposableEffect(showCal) {
             val dlg = android.app.DatePickerDialog(
                 ctx,
                 { _, y, m, d ->
-                    year = y
-                    month = m
-                    day = d
-                    repeat = RadioAlarm.REPEAT_DATE
+                    year = y; month = m; day = d
                     showCal = false
+                    addMode(RadioAlarm.REPEAT_DATE)
                 },
                 year, month, day,
             )
@@ -487,25 +479,6 @@ fun AppAlarmDialog(
             onDispose { try { dlg.dismiss() } catch (_: Exception) {} }
         }
     }
-    @Composable
-    fun ModeChip(id: String, label: String) {
-        val on = repeat == id
-        Text(
-            label,
-            color = if (on) acc else text,
-            style = MaterialTheme.typography.labelLarge,
-            modifier = Modifier
-                .background(
-                    if (on) acc.copy(alpha = 0.20f) else Color.Transparent,
-                    RoundedCornerShape(12.dp),
-                )
-                .clickable {
-                    if (id == RadioAlarm.REPEAT_DATE) showCal = true
-                    else repeat = id
-                }
-                .padding(horizontal = 10.dp, vertical = 8.dp),
-        )
-    }
     AlertDialog(
         containerColor = card,
         onDismissRequest = onDismiss,
@@ -513,60 +486,30 @@ fun AppAlarmDialog(
         text = {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        if (enabled) ctx.getString(R.string.alarm_on) else ctx.getString(R.string.alarm_off),
-                        color = text,
-                        modifier = Modifier.weight(1f),
-                        style = MaterialTheme.typography.titleSmall,
-                    )
-                    Switch(checked = enabled, onCheckedChange = { enabled = it })
-                }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            Icons.Filled.Add, contentDescription = null, tint = acc,
-                            modifier = Modifier.size(28.dp).clickable { hour = (hour + 1) % 24 },
-                        )
+                        Icon(Icons.Filled.Add, null, tint = acc, modifier = Modifier.size(26.dp).clickable { hour = (hour + 1) % 24 })
                         Text("%02d".format(hour), color = text, style = MaterialTheme.typography.displaySmall)
-                        Icon(
-                            Icons.Filled.Remove, contentDescription = null, tint = acc,
-                            modifier = Modifier.size(28.dp).clickable { hour = (hour + 23) % 24 },
-                        )
+                        Icon(Icons.Filled.Remove, null, tint = acc, modifier = Modifier.size(26.dp).clickable { hour = (hour + 23) % 24 })
                     }
                     Text(" : ", color = text, style = MaterialTheme.typography.displaySmall)
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            Icons.Filled.Add, contentDescription = null, tint = acc,
-                            modifier = Modifier.size(28.dp).clickable { minute = (minute + 5) % 60 },
-                        )
+                        Icon(Icons.Filled.Add, null, tint = acc, modifier = Modifier.size(26.dp).clickable { minute = (minute + 5) % 60 })
                         Text("%02d".format(minute), color = text, style = MaterialTheme.typography.displaySmall)
-                        Icon(
-                            Icons.Filled.Remove, contentDescription = null, tint = acc,
-                            modifier = Modifier.size(28.dp).clickable { minute = (minute + 55) % 60 },
-                        )
+                        Icon(Icons.Filled.Remove, null, tint = acc, modifier = Modifier.size(26.dp).clickable { minute = (minute + 55) % 60 })
                     }
                 }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    ModeChip(RadioAlarm.REPEAT_DAILY, ctx.getString(R.string.alarm_daily))
-                    ModeChip(RadioAlarm.REPEAT_WEEKDAYS, ctx.getString(R.string.alarm_weekdays))
-                    ModeChip(RadioAlarm.REPEAT_ONCE, ctx.getString(R.string.alarm_once))
-                    ModeChip(RadioAlarm.REPEAT_DATE, ctx.getString(R.string.alarm_pick_date))
-                }
-                Text(
-                    preview,
-                    color = acc,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
+                Text(ctx.getString(R.string.alarm_add_hint), color = muted, style = MaterialTheme.typography.bodySmall)
+                AlarmAddLine(ctx.getString(R.string.alarm_daily), acc, text) { addMode(RadioAlarm.REPEAT_DAILY) }
+                AlarmAddLine(ctx.getString(R.string.alarm_weekdays), acc, text) { addMode(RadioAlarm.REPEAT_WEEKDAYS) }
+                AlarmAddLine(ctx.getString(R.string.alarm_once), acc, text) { addMode(RadioAlarm.REPEAT_ONCE) }
+                AlarmAddLine(ctx.getString(R.string.alarm_pick_date), acc, text) { showCal = true }
                 Text(ctx.getString(R.string.alarm_station), color = muted, style = MaterialTheme.typography.labelLarge)
                 if (nowUrl.isNotBlank()) {
                     Text(
@@ -579,58 +522,90 @@ fun AppAlarmDialog(
                         },
                     )
                 }
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    rows.take(12).forEach { s ->
-                        val sel = s.url == url
-                        Text(
-                            s.name,
-                            color = if (sel) acc else text,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
+                rows.take(8).forEach { s ->
+                    val sel = s.url == url
+                    Text(
+                        s.name,
+                        color = if (sel) acc else text,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(if (sel) acc.copy(alpha = 0.18f) else Color.Transparent, RoundedCornerShape(10.dp))
+                            .clickable {
+                                url = s.url; stName = s.name; stFav = s.favicon
+                                stGen = s.genre; stCtry = s.country
+                            }
+                            .padding(horizontal = 10.dp, vertical = 7.dp),
+                    )
+                }
+                if (list.isNotEmpty()) {
+                    Text(ctx.getString(R.string.alarm_list), color = muted, style = MaterialTheme.typography.labelLarge)
+                    list.forEach { item ->
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(
-                                    if (sel) acc.copy(alpha = 0.18f) else Color.Transparent,
-                                    RoundedCornerShape(10.dp),
-                                )
-                                .clickable {
-                                    url = s.url; stName = s.name; stFav = s.favicon
-                                    stGen = s.genre; stCtry = s.country
-                                }
+                                .background(acc.copy(alpha = 0.10f), RoundedCornerShape(12.dp))
                                 .padding(horizontal = 10.dp, vertical = 8.dp),
-                        )
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    RadioAlarm.rowTitle(ctx, item),
+                                    color = text,
+                                    modifier = Modifier.weight(1f),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Switch(
+                                    checked = item.enabled,
+                                    onCheckedChange = {
+                                        RadioAlarm.setEnabled(ctx, item.id, it)
+                                        tick++
+                                    },
+                                )
+                                Text(
+                                    "✕",
+                                    color = muted,
+                                    modifier = Modifier
+                                        .padding(start = 6.dp)
+                                        .clickable {
+                                            RadioAlarm.remove(ctx, item.id)
+                                            tick++
+                                        },
+                                )
+                            }
+                            Text(
+                                RadioAlarm.nextLabel(ctx, item),
+                                color = acc,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                            if (item.name.isNotBlank()) {
+                                Text(item.name, color = muted, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                            }
+                        }
                     }
                 }
             }
         },
         confirmButton = {
-            TextButton(onClick = {
-                if (enabled && !RadioAlarm.canExact(ctx)) RadioAlarm.requestExact(ctx)
-                RadioAlarm.save(
-                    ctx,
-                    RadioAlarm.State(
-                        enabled = enabled,
-                        hour = hour,
-                        minute = minute,
-                        daily = repeat == RadioAlarm.REPEAT_DAILY,
-                        url = url,
-                        name = stName,
-                        favicon = stFav,
-                        genre = stGen,
-                        country = stCtry,
-                        repeat = repeat,
-                        year = year,
-                        month = month,
-                        day = day,
-                    ),
-                )
-                onDismiss()
-            }) { Text(ctx.getString(R.string.alarm_save), color = acc) }
+            TextButton(onClick = onDismiss) { Text(ctx.getString(R.string.close), color = acc) }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(ctx.getString(R.string.close), color = muted)
-            }
-        },
+        dismissButton = {},
     )
+}
+
+@Composable
+private fun AlarmAddLine(label: String, acc: Color, text: Color, onAdd: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(acc.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
+            .clickable { onAdd() }
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, color = text, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+        Text("+", color = acc, style = MaterialTheme.typography.headlineSmall)
+    }
 }

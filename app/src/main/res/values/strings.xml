@@ -171,4 +171,7 @@
     <string name="alarm_once_date">On date</string>
     <string name="alarm_next">Rings (%1$s): %2$s</string>
     <string name="alarm_date_past">Pick a future day</string>
+    <string name="alarm_list">Alarms</string>
+    <string name="alarm_add_hint">Set time, then add a type — several allowed</string>
+    <string name="alarm_row">%1$s  %2$s</string>
 </resources>

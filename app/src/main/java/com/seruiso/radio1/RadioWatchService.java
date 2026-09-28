@@ -243,15 +243,11 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                 .setLoadControl(loadControl)
                 .setMediaSourceFactory(mediaSourceFactory)
                 .build();
-        // Екран off / Doze: тримати CPU+мережу під час стріму (дозвіл WAKE_LOCK є)
+        // Екран off / Doze: тримати CPU+мережу під час стріму (Media3; дозвіл WAKE_LOCK є)
         try {
-            player.setWakeMode(com.google.android.exoplayer2.C.WAKE_MODE_NETWORK);
-        } catch (Throwable t1) {
-            try {
-                player.setWakeMode(androidx.media3.common.C.WAKE_MODE_NETWORK);
-            } catch (Throwable t2) {
-                android.util.Log.w("RadioWatch", "setWakeMode NETWORK unavailable", t2);
-            }
+            player.setWakeMode(androidx.media3.common.C.WAKE_MODE_NETWORK);
+        } catch (Throwable t2) {
+            android.util.Log.w("RadioWatch", "setWakeMode NETWORK unavailable", t2);
         }
         // Фокус тримаємо вручну (requestFocus/abandonFocus) — вимикаємо
         // вбудоване керування фокусом ExoPlayer, щоб не було подвійного

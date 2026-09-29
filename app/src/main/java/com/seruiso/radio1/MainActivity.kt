@@ -174,8 +174,19 @@ class MainActivity : ComponentActivity() {
                             refreshHomeRails(wantSimilar = true)
                         }
                     }
-                    isLocalNow = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-                        .getString(LocalMusicPlugin.KEY_MODE, "radio").let { it == "local" || it == "podcast" }
+                    val pMode = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                    val modeNow = pMode.getString(LocalMusicPlugin.KEY_MODE, "radio") ?: "radio"
+                    isLocalNow = modeNow == "local" || modeNow == "podcast"
+                    if (modeNow == "podcast") {
+                        skipMode = "temp"
+                        tempStations = loadQueueStationsFromPrefs(pMode, temp = true)
+                        if (tempStations.isEmpty()) tempStations = loadQueueStationsFromPrefs(pMode, temp = false)
+                        currentFavicon = pMode.getString(BluetoothAutoPlayPlugin.KEY_FAVICON, "") ?: currentFavicon
+                        currentUrl = pMode.getString(BluetoothAutoPlayPlugin.KEY_URL, "") ?: currentUrl
+                        stationName = pMode.getString(BluetoothAutoPlayPlugin.KEY_NAME, "") ?: stationName
+                        trackTitle = pMode.getString(BluetoothAutoPlayPlugin.KEY_TRACK, "") ?: trackTitle
+                        currentGenre = "podcast"
+                    }
                     if (isLocalNow) {
                         posHandler.removeCallbacks(posTick)
                         posHandler.post(posTick)
@@ -1472,6 +1483,32 @@ class MainActivity : ComponentActivity() {
         startPlay(t.uri, t.title)
     }
 
+    
+    private fun loadQueueStationsFromPrefs(p: android.content.SharedPreferences, temp: Boolean): List<Station> {
+        val urlsK = if (temp) BluetoothAutoPlayPlugin.KEY_TEMP_URLS else BluetoothAutoPlayPlugin.KEY_QUEUE_URLS
+        val namesK = if (temp) BluetoothAutoPlayPlugin.KEY_TEMP_NAMES else BluetoothAutoPlayPlugin.KEY_QUEUE_NAMES
+        val favsK = if (temp) BluetoothAutoPlayPlugin.KEY_TEMP_FAVICONS else BluetoothAutoPlayPlugin.KEY_QUEUE_FAVICONS
+        val urls = org.json.JSONArray(p.getString(urlsK, "[]") ?: "[]")
+        val names = org.json.JSONArray(p.getString(namesK, "[]") ?: "[]")
+        val favs = org.json.JSONArray(p.getString(favsK, "[]") ?: "[]")
+        val out = ArrayList<Station>(urls.length())
+        for (i in 0 until urls.length()) {
+            val u = urls.optString(i)
+            if (u.isBlank()) continue
+            out.add(
+                Station(
+                    url = u,
+                    name = names.optString(i, u),
+                    genre = "podcast",
+                    country = "",
+                    favicon = favs.optString(i, ""),
+                    tab = "podcast",
+                )
+            )
+        }
+        return out
+    }
+
     private fun startPlay(url: String, name: String) {
         val i = Intent(this, RadioWatchService::class.java)
         i.action = RadioWatchService.ACTION_PLAY_URL
@@ -1479,7 +1516,7 @@ class MainActivity : ComponentActivity() {
         i.putExtra(RadioWatchService.EXTRA_NAME, name)
         startFg(i)
         statusText = getString(R.string.start)
-        isLocalNow = url.startsWith("content:")
+        isLocalNow = url.startsWith("content:") || getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE).getString(LocalMusicPlugin.KEY_MODE, "radio") == "podcast"
         if (nowOpen || url.startsWith("content:")) { posHandler.removeCallbacks(posTick); posHandler.post(posTick) }
     }
 

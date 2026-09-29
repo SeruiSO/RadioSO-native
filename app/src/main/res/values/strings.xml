@@ -205,4 +205,5 @@
     <string name="podcast_tab_eps">Episodes</string>
     <string name="podcast_tab_dl">Saved</string>
     <string name="podcast_tab_search">Search</string>
+    <string name="podcast_more50">Load 50 more</string>
 </resources>

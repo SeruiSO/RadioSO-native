@@ -38,7 +38,9 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -58,6 +60,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -117,6 +120,26 @@ fun PodcastsTabContent(
     var selected by remember { mutableStateOf<PodcastShow?>(null) }
     var episodes by remember { mutableStateOf<List<PodcastEpisode>>(emptyList()) }
     var loadingEps by remember { mutableStateOf(false) }
+
+    var playUrl by remember {
+        mutableStateOf(
+            ctx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, android.content.Context.MODE_PRIVATE)
+                .getString(BluetoothAutoPlayPlugin.KEY_URL, "") ?: ""
+        )
+    }
+    LaunchedEffect(Unit) {
+        val prefs = ctx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, android.content.Context.MODE_PRIVATE)
+        while (true) {
+            val u = prefs.getString(BluetoothAutoPlayPlugin.KEY_URL, "") ?: ""
+            if (u != playUrl) playUrl = u
+            delay(400)
+        }
+    }
+    BackHandler(enabled = selected != null) {
+        selected = null
+        episodes = emptyList()
+        error = ""
+    }
     var tick by remember { mutableStateOf(0) }
     var dlBusy by remember { mutableStateOf<String?>(null) }
     var pinnedLocal by remember { mutableStateOf<Set<String>>(emptySet()) }

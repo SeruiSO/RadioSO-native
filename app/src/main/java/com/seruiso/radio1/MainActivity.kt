@@ -1330,7 +1330,12 @@ class MainActivity : ComponentActivity() {
         if (tab == "home" || bottomTab == "home" || bottomTab == "tabs") return
         val p = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
         if (tab == "local" || tab == "best") {
-            val list = visibleLocal()
+        if (isLocalNow) {
+            val rawU = p.getString(LocalMusicPlugin.KEY_LOCAL_URIS, "[]") ?: "[]"
+            val curU = p.getString(BluetoothAutoPlayPlugin.KEY_URL, "") ?: ""
+            if (rawU.length > 4 && curU.isNotBlank() && rawU.contains(curU)) return
+        }
+        val list = visibleLocal()
             if (list.isEmpty()) return
             val uris = JSONArray(); val titles = JSONArray()
             val artists = JSONArray(); val albumIds = JSONArray()
@@ -1439,6 +1444,8 @@ class MainActivity : ComponentActivity() {
         }
         currentFavicon = t.albumId
         currentUrl = t.uri
+        currentGenre = ""
+        currentCountry = ""
         isLocalNow = true
         skipMode = "local"
         getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE).edit()
@@ -1453,6 +1460,8 @@ class MainActivity : ComponentActivity() {
             .putString(BluetoothAutoPlayPlugin.KEY_NAME, t.title)
             .putString(BluetoothAutoPlayPlugin.KEY_TRACK, t.artist)
             .putString(BluetoothAutoPlayPlugin.KEY_FAVICON, t.albumId)
+            .putString(BluetoothAutoPlayPlugin.KEY_GENRE, "")
+            .putString(BluetoothAutoPlayPlugin.KEY_COUNTRY, "")
             .putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, true)
             .apply()
         startPlay(t.uri, t.title)

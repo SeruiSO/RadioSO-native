@@ -644,8 +644,8 @@ fun StationScreen(
                         color = text,
                         style = MaterialTheme.typography.bodySmall,
                     )
-                    val ctryL = DisplayNames.countryLabel(LocalContext.current, country)
-                    val genL = DisplayNames.genreLabel(LocalContext.current, genre)
+                    val ctryL = if (localNow) "" else DisplayNames.countryLabel(LocalContext.current, country)
+                    val genL = if (localNow) "" else DisplayNames.genreLabel(LocalContext.current, genre)
                     if (ctryL.isNotEmpty()) {
                         Text(ctryL, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall)
                     }
@@ -907,8 +907,8 @@ fun StationScreen(
                         color = text,
                         style = MaterialTheme.typography.bodySmall,
                     )
-                    val ctry = DisplayNames.countryLabel(LocalContext.current, country)
-                    val gen = DisplayNames.genreLabel(LocalContext.current, genre)
+                    val ctry = if (localNow) "" else DisplayNames.countryLabel(LocalContext.current, country)
+                    val gen = if (localNow) "" else DisplayNames.genreLabel(LocalContext.current, genre)
                     if (ctry.isNotEmpty()) {
                         Text(
                             ctry,
@@ -1314,7 +1314,7 @@ fun StationScreen(
         onBt = onBt,
         sleepLabel = sleepLabel,
         sleepMenu = sleepMenu,
-        onSleepMenu = onSleepMenu,
+        onSleepMenu = { onCloseMenu(); topSleepOpen = true },
         onSleep = onSleep,
         onExport = onExport,
         onImport = onImport,

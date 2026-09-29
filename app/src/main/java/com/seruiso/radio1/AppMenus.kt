@@ -58,6 +58,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.seruiso.radio1.ui.theme.ThemeStore
 
 /**
  * Overflow меню (гамбургер) + діалоги сну/теми з хедера.
@@ -261,6 +262,105 @@ fun AppSleepDialog(
         dismissButton = {
             TextButton(onClick = onDismiss) { Text(ctxs.getString(R.string.close), color = muted) }
         },
+    )
+}
+
+
+@Composable
+fun AppThemeDialog(
+    open: Boolean,
+    onDismiss: () -> Unit,
+    themeName: String,
+    onPickTheme: (String) -> Unit,
+    acc: Color,
+    muted: Color,
+    text: Color,
+    card: Color,
+) {
+    if (!open) return
+    val ctx = LocalContext.current
+    AlertDialog(
+        containerColor = card,
+        onDismissRequest = onDismiss,
+        title = { Text(LocalContext.current.getString(R.string.theme), color = text) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Text(
+                    LocalContext.current.getString(R.string.theme_title),
+                    color = muted,
+                    style = MaterialTheme.typography.labelLarge
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    listOf(
+                        false to (Icons.Filled.DarkMode to R.string.theme_dark),
+                        true to (Icons.Filled.LightMode to R.string.theme_light),
+                    ).forEach { (light, pair) ->
+                        val (ico, strRes) = pair
+                        val selected = Palette.isLight == light
+                        val shape = RoundedCornerShape(14.dp)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(52.dp)
+                                .background(
+                                    if (selected) acc.copy(alpha = 0.22f) else Palette.panel,
+                                    shape
+                                )
+                                .border(
+                                    1.5.dp,
+                                    if (selected) acc else muted.copy(alpha = 0.2f),
+                                    shape
+                                )
+                                .clickable { Palette.setLight(ctx, light) }
+                                .padding(horizontal = 12.dp)
+                        ) {
+                            Icon(ico, contentDescription = null, tint = if (selected) acc else text, modifier = Modifier.size(24.dp))
+                            Text(
+                                LocalContext.current.getString(strRes),
+                                color = if (selected) acc else text,
+                                style = MaterialTheme.typography.titleSmall
+                            )
+                        }
+                    }
+                }
+                Text(
+                    LocalContext.current.getString(R.string.theme),
+                    color = muted,
+                    style = MaterialTheme.typography.labelLarge
+                )
+                ThemeStore.all.chunked(4).forEach { row ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        row.forEach { th ->
+                            val selected = th.id == themeName
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .background(Color(th.accent), RoundedCornerShape(14.dp))
+                                    .then(
+                                        if (selected) Modifier.border(3.dp, text, RoundedCornerShape(14.dp))
+                                        else Modifier.border(1.dp, muted.copy(alpha = 0.2f), RoundedCornerShape(14.dp))
+                                    )
+                                    .clickable { onPickTheme(th.id) }
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(LocalContext.current.getString(R.string.close), color = muted)
+            }
+        }
     )
 }
 

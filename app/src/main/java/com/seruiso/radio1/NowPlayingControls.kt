@@ -51,6 +51,7 @@ fun NowPlayingMeta(
     onToggleFavorite: () -> Unit,
     onToggleBest: () -> Unit,
     onAddToTab: () -> Unit = {},
+    showStationActions: Boolean = true,
 ) {
     Row(
         modifier = Modifier
@@ -69,7 +70,9 @@ fun NowPlayingMeta(
             )
         }
         val isLocalCard = currentUrl.startsWith("content:")
-        if (isLocalCard) {
+        if (!showStationActions) {
+            // подкаст / VOD — без радіо ★ і +
+        } else if (isLocalCard) {
             Icon(
                 if (isBest) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                 contentDescription = if (isBest) LocalContext.current.getString(R.string.remove_from_local_fav)

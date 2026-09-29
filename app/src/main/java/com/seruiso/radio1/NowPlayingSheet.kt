@@ -178,15 +178,26 @@ fun NowPlayingSheet(
             skipMode == "temp" && tempRows.isNotEmpty() -> tempRows
             else -> radioRows
         }
-        val arts: List<String> = if (nowLocal) {
-            nowLocalRows.map { if (it.albumId.isNotBlank() && it.albumId != "0") "content://media/external/audio/albumart/${it.albumId}" else "" }
-        } else nowRadioRows.map { it.favicon }
+        val isPodcastNow = genre.equals("podcast", ignoreCase = true)
+        val arts: List<String> = when {
+            isPodcastNow -> {
+                // обкладинка шоу з KEY_FAVICON / черги
+                val fromQueue = nowRadioRows.map { it.favicon }.filter { it.isNotBlank() }
+                if (fromQueue.isNotEmpty()) fromQueue
+                else List(maxOf(1, nowLocalRows.size, nowRadioRows.size)) { favicon }
+            }
+            nowLocal -> nowLocalRows.map {
+                if (it.albumId.isNotBlank() && it.albumId != "0")
+                    "content://media/external/audio/albumart/${it.albumId}" else ""
+            }
+            else -> nowRadioRows.map { it.favicon }
+        }
         val curI0 = if (nowLocal) nowLocalRows.indexOfFirst { it.uri == currentUrl }
                     else nowRadioRows.indexOfFirst { it.url == currentUrl }
         val curI = if (curI0 >= 0) curI0 else 0
         // Динамічний колір з поточної обкладинки (як у Spotify) — для розмитого фону картки Now Playing
         val artCtx = LocalContext.current
-        val currentArt = arts.getOrNull(curI) ?: ""
+        val currentArt = (arts.getOrNull(curI) ?: "").ifBlank { favicon }
         var dynamicArtColor by remember { mutableStateOf<Color?>(null) }
         LaunchedEffect(currentArt) {
             if (currentArt.startsWith("http") || currentArt.startsWith("content:")) {
@@ -439,6 +450,7 @@ fun NowPlayingSheet(
                                 )
                             }
                         },
+                        showStationActions = !isPodcastNow && !currentUrl.startsWith("file:"),
                     )
                     }
                         if (ui.showTrackHistory || flipAngle > 0.5f) {

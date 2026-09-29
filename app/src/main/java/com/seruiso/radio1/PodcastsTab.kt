@@ -25,6 +25,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.DownloadDone
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Podcasts
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
@@ -97,13 +99,15 @@ fun PodcastsTabContent(
     var selected by remember { mutableStateOf<PodcastShow?>(null) }
     var episodes by remember { mutableStateOf<List<PodcastEpisode>>(emptyList()) }
     var loadingEps by remember { mutableStateOf(false) }
-    var subs by remember { mutableStateOf(PodcastStore.subs(ctx)) }
+    var tick by remember { mutableStateOf(0) }
     var dlBusy by remember { mutableStateOf<String?>(null) }
-    var dlTick by remember { mutableStateOf(0) }
 
-    fun refreshSubs() { subs = PodcastStore.subs(ctx) }
+    fun refresh() { tick++ }
+    val subs = remember(tick) { PodcastStore.subs(ctx) }
+    val favEps = remember(tick) { PodcastStore.favEpisodes(ctx) }
+    val dlEps = remember(tick) { PodcastStore.downloadedList(ctx) }
 
-    fun playEpisode(show: PodcastShow, list: List<PodcastEpisode>, index: Int) {
+    fun playEpisode(showTitle: String, artwork: String, list: List<PodcastEpisode>, index: Int) {
         if (index !in list.indices) return
         val ep = list[index]
         if (ep.audioUrl.isBlank()) return
@@ -117,23 +121,22 @@ fun PodcastsTabContent(
         val localArtists = JSONArray()
         val localAlbums = JSONArray()
         list.forEach { e ->
-            val playUrl = if (PodcastStore.isDownloaded(ctx, e.audioUrl))
-                PodcastStore.episodeFile(ctx, e.audioUrl).absolutePath
-            else e.audioUrl
-            urls.put(playUrl)
-            names.put(e.title.ifBlank { show.title })
-            favs.put(show.artwork)
+            val path = if (PodcastStore.isDownloaded(ctx, e.audioUrl))
+                PodcastStore.episodeFile(ctx, e.audioUrl).absolutePath else e.audioUrl
+            val media = if (path.startsWith("/")) "file://$path" else path
+            urls.put(media)
+            names.put(e.title.ifBlank { showTitle })
+            favs.put(artwork)
             genres.put("podcast")
             countries.put("")
-            localUris.put(if (playUrl.startsWith("/")) "file://$playUrl" else playUrl)
-            localTitles.put(e.title.ifBlank { show.title })
-            localArtists.put(show.title)
+            localUris.put(media)
+            localTitles.put(e.title.ifBlank { showTitle })
+            localArtists.put(showTitle)
             localAlbums.put("0")
         }
-        val playUrl = if (PodcastStore.isDownloaded(ctx, ep.audioUrl))
-            PodcastStore.episodeFile(ctx, ep.audioUrl).absolutePath
-        else ep.audioUrl
-        val mediaUrl = if (playUrl.startsWith("/")) "file://$playUrl" else playUrl
+        val path0 = if (PodcastStore.isDownloaded(ctx, ep.audioUrl))
+            PodcastStore.episodeFile(ctx, ep.audioUrl).absolutePath else ep.audioUrl
+        val mediaUrl = if (path0.startsWith("/")) "file://$path0" else path0
         val p = ctx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, android.content.Context.MODE_PRIVATE)
         p.edit()
             .putString(LocalMusicPlugin.KEY_MODE, "podcast")
@@ -149,9 +152,9 @@ fun PodcastsTabContent(
             .putString(LocalMusicPlugin.KEY_LOCAL_ALBUM_IDS, localAlbums.toString())
             .putInt(LocalMusicPlugin.KEY_LOCAL_INDEX, index)
             .putString(BluetoothAutoPlayPlugin.KEY_URL, mediaUrl)
-            .putString(BluetoothAutoPlayPlugin.KEY_NAME, ep.title.ifBlank { show.title })
-            .putString(BluetoothAutoPlayPlugin.KEY_TRACK, show.title)
-            .putString(BluetoothAutoPlayPlugin.KEY_FAVICON, show.artwork)
+            .putString(BluetoothAutoPlayPlugin.KEY_NAME, ep.title.ifBlank { showTitle })
+            .putString(BluetoothAutoPlayPlugin.KEY_TRACK, showTitle)
+            .putString(BluetoothAutoPlayPlugin.KEY_FAVICON, artwork)
             .putString(BluetoothAutoPlayPlugin.KEY_GENRE, "podcast")
             .putString(BluetoothAutoPlayPlugin.KEY_COUNTRY, "")
             .putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, true)
@@ -160,7 +163,7 @@ fun PodcastsTabContent(
         val i = Intent(ctx, RadioWatchService::class.java).apply {
             action = RadioWatchService.ACTION_PLAY_URL
             putExtra(RadioWatchService.EXTRA_URL, mediaUrl)
-            putExtra(RadioWatchService.EXTRA_NAME, ep.title.ifBlank { show.title })
+            putExtra(RadioWatchService.EXTRA_NAME, ep.title.ifBlank { showTitle })
         }
         try {
             if (Build.VERSION.SDK_INT >= 26) ctx.startForegroundService(i)
@@ -169,6 +172,14 @@ fun PodcastsTabContent(
             try { ctx.startService(i) } catch (_: Exception) {}
         }
         status = ctx.getString(R.string.podcast_playing, ep.title)
+    }
+
+    fun playFavOrDl(ep: PodcastFavEpisode, list: List<PodcastFavEpisode>) {
+        val mapped = list.map {
+            PodcastEpisode(it.title, it.audioUrl, it.pubDate, it.duration, it.artwork)
+        }
+        val idx = list.indexOfFirst { it.audioUrl == ep.audioUrl }.coerceAtLeast(0)
+        playEpisode(ep.showTitle.ifBlank { ep.title }, ep.artwork, mapped, idx)
     }
 
     fun doSearch() {
@@ -219,7 +230,7 @@ fun PodcastsTabContent(
         }
     }
 
-    fun downloadEp(ep: PodcastEpisode) {
+    fun downloadEp(ep: PodcastEpisode, show: PodcastShow) {
         if (dlBusy != null) return
         if (PodcastStore.isDownloaded(ctx, ep.audioUrl)) {
             status = ctx.getString(R.string.podcast_already_dl)
@@ -228,19 +239,33 @@ fun PodcastsTabContent(
         dlBusy = ep.audioUrl
         status = ctx.getString(R.string.podcast_downloading)
         scope.launch {
-            val r = withContext(Dispatchers.IO) { PodcastStore.download(ctx, ep.audioUrl) }
-            dlBusy = null
-            dlTick++
-            r.onSuccess {
-                status = ctx.getString(R.string.podcast_downloaded)
-            }.onFailure {
-                error = it.message ?: ctx.getString(R.string.scan_error)
+            val r = withContext(Dispatchers.IO) {
+                PodcastStore.download(ctx, ep.audioUrl).onSuccess {
+                    PodcastStore.rememberDownload(
+                        ctx, ep.audioUrl, ep.title, show.title,
+                        show.artwork, ep.pubDate, ep.duration,
+                    )
+                }
             }
+            dlBusy = null
+            refresh()
+            r.onSuccess { status = ctx.getString(R.string.podcast_downloaded) }
+                .onFailure { error = it.message ?: ctx.getString(R.string.scan_error) }
         }
     }
 
     @Composable
-    fun ShowRow(show: PodcastShow, showPin: Boolean) {
+    fun SectionTitle(s: String) {
+        Text(
+            s,
+            color = acc,
+            style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
+        )
+    }
+
+    @Composable
+    fun ShowRow(show: PodcastShow) {
         val pinned = subs.any { it.feedUrl == show.feedUrl }
         Row(
             Modifier
@@ -252,82 +277,81 @@ fun PodcastsTabContent(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
-                Modifier
-                    .size(56.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(Palette.panel2),
+                Modifier.size(56.dp).clip(RoundedCornerShape(10.dp)).background(Palette.panel2),
                 contentAlignment = Alignment.Center,
             ) {
                 if (show.artwork.isNotBlank()) {
-                    AsyncImage(
-                        model = show.artwork,
-                        contentDescription = show.title,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop,
-                    )
+                    AsyncImage(model = show.artwork, contentDescription = show.title,
+                        modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                 } else {
                     Icon(Icons.Filled.Podcasts, null, tint = muted, modifier = Modifier.size(28.dp))
                 }
             }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(
-                    show.title,
-                    color = text,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
+                Text(show.title, color = text, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodyMedium)
                 if (show.author.isNotBlank()) {
-                    Text(
-                        show.author,
-                        color = muted,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        style = MaterialTheme.typography.labelSmall,
-                    )
-                }
-                if (show.trackCount > 0) {
-                    Text(
-                        ctx.getString(R.string.podcast_episodes, show.trackCount),
-                        color = muted,
-                        style = MaterialTheme.typography.labelSmall,
-                    )
+                    Text(show.author, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.labelSmall)
                 }
             }
-            if (showPin) {
-                Icon(
-                    if (pinned) Icons.Filled.Star else Icons.Filled.StarBorder,
-                    contentDescription = ctx.getString(R.string.podcast_pin),
-                    tint = if (pinned) acc else muted,
-                    modifier = Modifier
-                        .size(28.dp)
-                        .clickable {
-                            PodcastStore.toggle(ctx, show)
-                            refreshSubs()
-                        },
-                )
+            Icon(
+                if (pinned) Icons.Filled.Star else Icons.Filled.StarBorder,
+                contentDescription = ctx.getString(R.string.podcast_pin),
+                tint = if (pinned) acc else muted,
+                modifier = Modifier.size(28.dp).clickable {
+                    PodcastStore.toggle(ctx, show)
+                    refresh()
+                },
+            )
+        }
+    }
+
+    @Composable
+    fun EpFavRow(ep: PodcastFavEpisode) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(card)
+                .clickable { playFavOrDl(ep, listOf(ep)) }
+                .padding(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)).background(Palette.panel2),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (ep.artwork.isNotBlank()) {
+                    AsyncImage(model = ep.artwork, contentDescription = null,
+                        modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                } else {
+                    Icon(Icons.Filled.Podcasts, null, tint = muted, modifier = Modifier.size(22.dp))
+                }
+            }
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text(ep.title, color = text, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodyMedium)
+                val sub = listOf(ep.showTitle, ep.pubDate).filter { it.isNotBlank() }.joinToString(" · ")
+                if (sub.isNotBlank()) {
+                    Text(sub, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.labelSmall)
+                }
             }
         }
     }
 
     Column(
-        Modifier
-            .fillMaxSize()
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+        Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 8.dp),
     ) {
         if (selected == null) {
-            Text(
-                ctx.getString(R.string.nav_podcasts),
-                color = acc,
-                style = MaterialTheme.typography.titleMedium,
-            )
-            Text(
-                ctx.getString(R.string.podcast_hint),
-                color = muted,
+            Text(ctx.getString(R.string.nav_podcasts), color = acc,
+                style = MaterialTheme.typography.titleMedium)
+            Text(ctx.getString(R.string.podcast_hint), color = muted,
                 style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(top = 2.dp, bottom = 8.dp),
-            )
+                modifier = Modifier.padding(top = 2.dp, bottom = 8.dp))
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
@@ -335,83 +359,49 @@ fun PodcastsTabContent(
                 singleLine = true,
                 placeholder = { Text(ctx.getString(R.string.podcast_search_hint), color = muted) },
                 trailingIcon = {
-                    Icon(
-                        Icons.Filled.Search,
-                        contentDescription = ctx.getString(R.string.find),
-                        tint = acc,
-                        modifier = Modifier.size(28.dp).clickable { doSearch() },
-                    )
+                    Icon(Icons.Filled.Search, contentDescription = ctx.getString(R.string.find),
+                        tint = acc, modifier = Modifier.size(28.dp).clickable { doSearch() })
                 },
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = { doSearch() }),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = text,
-                    unfocusedTextColor = text,
-                    focusedBorderColor = acc,
-                    unfocusedBorderColor = muted.copy(alpha = 0.4f),
+                    focusedTextColor = text, unfocusedTextColor = text,
+                    focusedBorderColor = acc, unfocusedBorderColor = muted.copy(alpha = 0.4f),
                     cursorColor = acc,
                 ),
                 shape = RoundedCornerShape(14.dp),
             )
         } else {
-            Row(
-                Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = ctx.getString(R.string.back_again),
-                    tint = acc,
-                    modifier = Modifier
-                        .size(28.dp)
-                        .clickable {
-                            selected = null
-                            episodes = emptyList()
-                            error = ""
-                        },
-                )
+            Row(Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = ctx.getString(R.string.back_again), tint = acc,
+                    modifier = Modifier.size(28.dp).clickable {
+                        selected = null; episodes = emptyList(); error = ""
+                    })
                 Spacer(Modifier.width(8.dp))
                 if (selected!!.artwork.isNotBlank()) {
-                    AsyncImage(
-                        model = selected!!.artwork,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(RoundedCornerShape(8.dp)),
-                        contentScale = ContentScale.Crop,
-                    )
+                    AsyncImage(model = selected!!.artwork, contentDescription = null,
+                        modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)),
+                        contentScale = ContentScale.Crop)
                     Spacer(Modifier.width(8.dp))
                 }
                 Column(Modifier.weight(1f)) {
-                    Text(
-                        selected!!.title,
-                        color = text,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        style = MaterialTheme.typography.titleSmall,
-                    )
+                    Text(selected!!.title, color = text, maxLines = 1,
+                        overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
                     if (selected!!.author.isNotBlank()) {
-                        Text(
-                            selected!!.author,
-                            color = muted,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            style = MaterialTheme.typography.labelSmall,
-                        )
+                        Text(selected!!.author, color = muted, maxLines = 1,
+                            overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall)
                     }
                 }
                 val pinned = subs.any { it.feedUrl == selected!!.feedUrl }
-                Icon(
-                    if (pinned) Icons.Filled.Star else Icons.Filled.StarBorder,
+                Icon(if (pinned) Icons.Filled.Star else Icons.Filled.StarBorder,
                     contentDescription = ctx.getString(R.string.podcast_pin),
                     tint = if (pinned) acc else muted,
-                    modifier = Modifier
-                        .size(28.dp)
-                        .clickable {
-                            PodcastStore.toggle(ctx, selected!!)
-                            refreshSubs()
-                        },
-                )
+                    modifier = Modifier.size(28.dp).clickable {
+                        PodcastStore.toggle(ctx, selected!!)
+                        refresh()
+                    })
             }
         }
 
@@ -421,20 +411,12 @@ fun PodcastsTabContent(
             }
         }
         if (error.isNotBlank()) {
-            Text(
-                error,
-                color = Color(0xFFE57373),
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(top = 8.dp),
-            )
+            Text(error, color = Color(0xFFE57373), style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(top = 8.dp))
         }
         if (status.isNotBlank() && !loading && !loadingEps) {
-            Text(
-                status,
-                color = muted,
-                style = MaterialTheme.typography.labelMedium,
-                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
-            )
+            Text(status, color = muted, style = MaterialTheme.typography.labelMedium,
+                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp))
         }
 
         if (selected == null) {
@@ -443,47 +425,44 @@ fun PodcastsTabContent(
                 contentPadding = PaddingValues(bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                if (subs.isNotEmpty() && results.isEmpty()) {
+                // 1. Мої подкасти
+                item { SectionTitle(ctx.getString(R.string.podcast_my)) }
+                if (subs.isEmpty()) {
                     item {
-                        Text(
-                            ctx.getString(R.string.podcast_my),
-                            color = acc,
-                            style = MaterialTheme.typography.labelLarge,
-                            modifier = Modifier.padding(bottom = 4.dp),
-                        )
+                        Text(ctx.getString(R.string.podcast_my_empty), color = muted,
+                            style = MaterialTheme.typography.bodySmall)
                     }
-                    items(subs, key = { "sub-${it.feedUrl}" }) { show ->
-                        ShowRow(show, showPin = true)
-                    }
+                } else {
+                    items(subs, key = { "sub-${it.feedUrl}" }) { ShowRow(it) }
                 }
+                // 2. Обрані епізоди
+                item { SectionTitle(ctx.getString(R.string.podcast_fav_eps)) }
+                if (favEps.isEmpty()) {
+                    item {
+                        Text(ctx.getString(R.string.podcast_fav_eps_empty), color = muted,
+                            style = MaterialTheme.typography.bodySmall)
+                    }
+                } else {
+                    items(favEps, key = { "fav-${it.audioUrl}" }) { EpFavRow(it) }
+                }
+                // 3. Завантажені
+                item { SectionTitle(ctx.getString(R.string.podcast_downloaded_sec)) }
+                if (dlEps.isEmpty()) {
+                    item {
+                        Text(ctx.getString(R.string.podcast_downloaded_empty), color = muted,
+                            style = MaterialTheme.typography.bodySmall)
+                    }
+                } else {
+                    items(dlEps, key = { "dl-${it.audioUrl}" }) { EpFavRow(it) }
+                }
+                // 4. Результати пошуку
                 if (results.isNotEmpty()) {
-                    item {
-                        Text(
-                            ctx.getString(R.string.podcast_search_results),
-                            color = acc,
-                            style = MaterialTheme.typography.labelLarge,
-                            modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
-                        )
-                    }
-                    items(results, key = { it.id }) { show ->
-                        ShowRow(show, showPin = true)
-                    }
-                }
-                if (subs.isEmpty() && results.isEmpty() && !loading && query.isBlank()) {
-                    item {
-                        Text(
-                            ctx.getString(R.string.podcast_my_empty),
-                            color = muted,
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.padding(top = 12.dp),
-                        )
-                    }
+                    item { SectionTitle(ctx.getString(R.string.podcast_search_results)) }
+                    items(results, key = { it.id }) { ShowRow(it) }
                 }
             }
         } else {
             val art = selected!!.artwork
-            // dlTick forces recomposition after download
-            val _tick = dlTick
             LazyColumn(
                 modifier = Modifier.fillMaxSize().padding(top = 4.dp),
                 contentPadding = PaddingValues(bottom = 24.dp),
@@ -491,50 +470,58 @@ fun PodcastsTabContent(
             ) {
                 itemsIndexed(episodes, key = { i, e -> "${e.audioUrl}|$i" }) { index, ep ->
                     val downloaded = PodcastStore.isDownloaded(ctx, ep.audioUrl)
+                    val fav = PodcastStore.isFavEpisode(ctx, ep.audioUrl)
                     val busy = dlBusy == ep.audioUrl
                     Row(
                         Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
                             .background(card)
-                            .clickable { playEpisode(selected!!, episodes, index) }
+                            .clickable { playEpisode(selected!!.title, art, episodes, index) }
                             .padding(horizontal = 10.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Box(
-                            Modifier
-                                .size(48.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Palette.panel2),
+                            Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)).background(Palette.panel2),
                             contentAlignment = Alignment.Center,
                         ) {
                             val img = ep.image.ifBlank { art }
                             if (img.isNotBlank()) {
-                                AsyncImage(
-                                    model = img,
-                                    contentDescription = null,
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Crop,
-                                )
+                                AsyncImage(model = img, contentDescription = null,
+                                    modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                             } else {
                                 Icon(Icons.Filled.Podcasts, null, tint = muted, modifier = Modifier.size(22.dp))
                             }
                         }
                         Spacer(Modifier.width(10.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(
-                                ep.title,
-                                color = text,
-                                maxLines = 3,
-                                overflow = TextOverflow.Ellipsis,
-                                style = MaterialTheme.typography.bodyMedium,
-                            )
+                            Text(ep.title, color = text, maxLines = 3, overflow = TextOverflow.Ellipsis,
+                                style = MaterialTheme.typography.bodyMedium)
                             val meta = listOf(ep.pubDate, ep.duration).filter { it.isNotBlank() }.joinToString(" · ")
                             if (meta.isNotBlank()) {
                                 Text(meta, color = muted, style = MaterialTheme.typography.labelSmall)
                             }
                         }
-                        Spacer(Modifier.width(6.dp))
+                        Icon(
+                            if (fav) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                            contentDescription = ctx.getString(R.string.podcast_fav_ep),
+                            tint = if (fav) acc else muted,
+                            modifier = Modifier.size(24.dp).clickable {
+                                PodcastStore.toggleFavEpisode(
+                                    ctx,
+                                    PodcastFavEpisode(
+                                        title = ep.title,
+                                        audioUrl = ep.audioUrl,
+                                        showTitle = selected!!.title,
+                                        artwork = ep.image.ifBlank { art },
+                                        pubDate = ep.pubDate,
+                                        duration = ep.duration,
+                                    ),
+                                )
+                                refresh()
+                            },
+                        )
+                        Spacer(Modifier.width(8.dp))
                         if (busy) {
                             CircularProgressIndicator(color = acc, modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
                         } else {
@@ -542,9 +529,7 @@ fun PodcastsTabContent(
                                 if (downloaded) Icons.Filled.DownloadDone else Icons.Filled.Download,
                                 contentDescription = ctx.getString(R.string.podcast_download),
                                 tint = if (downloaded) acc else muted,
-                                modifier = Modifier
-                                    .size(26.dp)
-                                    .clickable { downloadEp(ep) },
+                                modifier = Modifier.size(26.dp).clickable { downloadEp(ep, selected!!) },
                             )
                         }
                     }
@@ -594,8 +579,7 @@ object ItunesPodcasts {
             setRequestProperty("Accept", "application/rss+xml, application/xml, text/xml, */*")
         }
         try {
-            val code = conn.responseCode
-            if (code !in 200..299) error("HTTP $code")
+            if (conn.responseCode !in 200..299) error("HTTP ${conn.responseCode}")
             return conn.inputStream.bufferedReader(StandardCharsets.UTF_8).use { it.readText() }
         } finally {
             conn.disconnect()
@@ -606,19 +590,10 @@ object ItunesPodcasts {
         val out = ArrayList<PodcastEpisode>()
         val itemRe = Regex("<item(\\s[^>]*)?>([\\s\\S]*?)</item>", RegexOption.IGNORE_CASE)
         val titleRe = Regex("<title[^>]*>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:]]>)?</title>", RegexOption.IGNORE_CASE)
-        val encRe = Regex(
-            """<enclosure[^>]*url\s*=\s*["']([^"']+)["'][^>]*>""",
-            RegexOption.IGNORE_CASE,
-        )
-        val encRe2 = Regex(
-            """url\s*=\s*["']([^"']+\.(?:mp3|m4a|aac|ogg|mp4)[^"']*)["']""",
-            RegexOption.IGNORE_CASE,
-        )
+        val encRe = Regex("""<enclosure[^>]*url\s*=\s*["']([^"']+)["'][^>]*>""", RegexOption.IGNORE_CASE)
+        val encRe2 = Regex("""url\s*=\s*["']([^"']+\.(?:mp3|m4a|aac|ogg|mp4)[^"']*)["']""", RegexOption.IGNORE_CASE)
         val dateRe = Regex("<pubDate[^>]*>([\\s\\S]*?)</pubDate>", RegexOption.IGNORE_CASE)
-        val durRe = Regex(
-            "<itunes:duration[^>]*>([\\s\\S]*?)</itunes:duration>",
-            RegexOption.IGNORE_CASE,
-        )
+        val durRe = Regex("<itunes:duration[^>]*>([\\s\\S]*?)</itunes:duration>", RegexOption.IGNORE_CASE)
         val imgRe = Regex(
             """<(?:itunes:image|media:thumbnail)[^>]*(?:href|url)\s*=\s*["']([^"']+)["'][^>]*/?>""",
             RegexOption.IGNORE_CASE,
@@ -630,21 +605,15 @@ object ItunesPodcasts {
                 ?: continue
             if (!audio.startsWith("http")) continue
             var title = titleRe.find(block)?.groupValues?.get(1)?.trim().orEmpty()
-            title = title
-                .replace("&amp;", "&")
-                .replace("&lt;", "<")
-                .replace("&gt;", ">")
-                .replace("&quot;", "\"")
-                .replace("&#39;", "'")
-                .replace(Regex("<[^>]+>"), "")
-                .trim()
+            title = title.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
+                .replace("&quot;", "\"").replace("&#39;", "'")
+                .replace(Regex("<[^>]+>"), "").trim()
             if (title.isBlank()) title = audio.substringAfterLast('/').substringBefore('?')
             val pub = dateRe.find(block)?.groupValues?.get(1)?.trim().orEmpty()
-                .replace(Regex("\\s+\\d{2}:\\d{2}:\\d{2}.*"), "")
-                .take(32)
+                .replace(Regex("\\s+\\d{2}:\\d{2}:\\d{2}.*"), "").take(32)
             val dur = durRe.find(block)?.groupValues?.get(1)?.trim().orEmpty()
             val img = imgRe.find(block)?.groupValues?.get(1)?.trim().orEmpty()
-            out.add(PodcastEpisode(title = title, audioUrl = audio, pubDate = pub, duration = dur, image = img))
+            out.add(PodcastEpisode(title, audio, pub, dur, img))
             if (out.size >= 80) break
         }
         return out

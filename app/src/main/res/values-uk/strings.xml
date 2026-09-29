@@ -217,5 +217,10 @@
     <string name="podcast_downloading">Завантаження…</string>
     <string name="podcast_downloaded">Епізод збережено</string>
     <string name="podcast_already_dl">Уже завантажено</string>
+    <string name="podcast_fav_eps">Обрані епізоди</string>
+    <string name="podcast_fav_eps_empty">Ще немає обраних епізодів</string>
+    <string name="podcast_fav_ep">В обрані епізоди</string>
+    <string name="podcast_downloaded_sec">Завантажені</string>
+    <string name="podcast_downloaded_empty">Немає завантажених епізодів</string>
 </resources>
 

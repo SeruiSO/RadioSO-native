@@ -9,12 +9,25 @@ import java.net.URL
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 
+data class PodcastFavEpisode(
+    val title: String,
+    val audioUrl: String,
+    val showTitle: String = "",
+    val artwork: String = "",
+    val pubDate: String = "",
+    val duration: String = "",
+)
+
 object PodcastStore {
     private const val KEY_SUBS = "podcastSubsJson"
+    private const val KEY_FAV_EPS = "podcastFavEpsJson"
 
+    private fun prefs(ctx: Context) =
+        ctx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)
+
+    // ── shows (підписки) ─────────────────────────────────
     fun subs(ctx: Context): List<PodcastShow> {
-        val raw = prefs(ctx).getString(KEY_SUBS, "[]") ?: "[]"
-        val arr = JSONArray(raw)
+        val arr = JSONArray(prefs(ctx).getString(KEY_SUBS, "[]") ?: "[]")
         val out = ArrayList<PodcastShow>(arr.length())
         for (i in 0 until arr.length()) {
             val o = arr.optJSONObject(i) ?: continue
@@ -37,11 +50,9 @@ object PodcastStore {
 
     fun isSub(ctx: Context, feedUrl: String): Boolean {
         val f = feedUrl.trim()
-        if (f.isBlank()) return false
-        return subs(ctx).any { it.feedUrl == f }
+        return f.isNotBlank() && subs(ctx).any { it.feedUrl == f }
     }
 
-    /** true = тепер підписаний */
     fun toggle(ctx: Context, show: PodcastShow): Boolean {
         val cur = subs(ctx).toMutableList()
         val idx = cur.indexOfFirst { it.feedUrl == show.feedUrl }
@@ -53,11 +64,11 @@ object PodcastStore {
             cur.add(0, show)
             now = true
         }
-        save(ctx, cur)
+        saveSubs(ctx, cur)
         return now
     }
 
-    private fun save(ctx: Context, list: List<PodcastShow>) {
+    private fun saveSubs(ctx: Context, list: List<PodcastShow>) {
         val arr = JSONArray()
         list.forEach {
             arr.put(
@@ -73,9 +84,62 @@ object PodcastStore {
         prefs(ctx).edit().putString(KEY_SUBS, arr.toString()).apply()
     }
 
-    private fun prefs(ctx: Context) =
-        ctx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)
+    // ── favorite episodes ────────────────────────────────
+    fun favEpisodes(ctx: Context): List<PodcastFavEpisode> {
+        val arr = JSONArray(prefs(ctx).getString(KEY_FAV_EPS, "[]") ?: "[]")
+        val out = ArrayList<PodcastFavEpisode>(arr.length())
+        for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i) ?: continue
+            val url = o.optString("audioUrl").trim()
+            val title = o.optString("title").trim()
+            if (url.isBlank() || title.isBlank()) continue
+            out.add(
+                PodcastFavEpisode(
+                    title = title,
+                    audioUrl = url,
+                    showTitle = o.optString("showTitle").trim(),
+                    artwork = o.optString("artwork").trim(),
+                    pubDate = o.optString("pubDate").trim(),
+                    duration = o.optString("duration").trim(),
+                ),
+            )
+        }
+        return out
+    }
 
+    fun isFavEpisode(ctx: Context, audioUrl: String): Boolean {
+        val u = audioUrl.trim()
+        return u.isNotBlank() && favEpisodes(ctx).any { it.audioUrl == u }
+    }
+
+    fun toggleFavEpisode(ctx: Context, ep: PodcastFavEpisode): Boolean {
+        val cur = favEpisodes(ctx).toMutableList()
+        val idx = cur.indexOfFirst { it.audioUrl == ep.audioUrl }
+        val now: Boolean
+        if (idx >= 0) {
+            cur.removeAt(idx)
+            now = false
+        } else {
+            cur.add(0, ep)
+            now = true
+        }
+        val arr = JSONArray()
+        cur.forEach {
+            arr.put(
+                JSONObject()
+                    .put("title", it.title)
+                    .put("audioUrl", it.audioUrl)
+                    .put("showTitle", it.showTitle)
+                    .put("artwork", it.artwork)
+                    .put("pubDate", it.pubDate)
+                    .put("duration", it.duration),
+            )
+        }
+        prefs(ctx).edit().putString(KEY_FAV_EPS, arr.toString()).apply()
+        return now
+    }
+
+    // ── downloads ────────────────────────────────────────
     fun episodeFile(ctx: Context, audioUrl: String): File {
         val dir = File(ctx.filesDir, "podcasts").apply { mkdirs() }
         val hash = MessageDigest.getInstance("SHA-1")
@@ -117,9 +181,63 @@ object PodcastStore {
                 tmp.copyTo(out, overwrite = true)
                 tmp.delete()
             }
+            // index meta for "Downloaded" section
+            rememberDownload(ctx, audioUrl)
             out
         } finally {
             conn.disconnect()
         }
+    }
+
+    private const val KEY_DL_META = "podcastDlMetaJson"
+
+    fun rememberDownload(
+        ctx: Context,
+        audioUrl: String,
+        title: String = "",
+        showTitle: String = "",
+        artwork: String = "",
+        pubDate: String = "",
+        duration: String = "",
+    ) {
+        val arr = JSONArray(prefs(ctx).getString(KEY_DL_META, "[]") ?: "[]")
+        val out = JSONArray()
+        // newest first
+        out.put(
+            JSONObject()
+                .put("audioUrl", audioUrl)
+                .put("title", title)
+                .put("showTitle", showTitle)
+                .put("artwork", artwork)
+                .put("pubDate", pubDate)
+                .put("duration", duration),
+        )
+        for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i) ?: continue
+            if (o.optString("audioUrl") == audioUrl) continue
+            out.put(o)
+        }
+        prefs(ctx).edit().putString(KEY_DL_META, out.toString()).apply()
+    }
+
+    fun downloadedList(ctx: Context): List<PodcastFavEpisode> {
+        val arr = JSONArray(prefs(ctx).getString(KEY_DL_META, "[]") ?: "[]")
+        val out = ArrayList<PodcastFavEpisode>()
+        for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i) ?: continue
+            val url = o.optString("audioUrl").trim()
+            if (url.isBlank() || !isDownloaded(ctx, url)) continue
+            out.add(
+                PodcastFavEpisode(
+                    title = o.optString("title").ifBlank { url.substringAfterLast('/') },
+                    audioUrl = url,
+                    showTitle = o.optString("showTitle"),
+                    artwork = o.optString("artwork"),
+                    pubDate = o.optString("pubDate"),
+                    duration = o.optString("duration"),
+                ),
+            )
+        }
+        return out
     }
 }

@@ -196,4 +196,9 @@
     <string name="podcast_downloading">Downloading…</string>
     <string name="podcast_downloaded">Episode saved</string>
     <string name="podcast_already_dl">Already downloaded</string>
+    <string name="podcast_fav_eps">Favorite episodes</string>
+    <string name="podcast_fav_eps_empty">No favorite episodes yet</string>
+    <string name="podcast_fav_ep">Favorite episode</string>
+    <string name="podcast_downloaded_sec">Downloaded</string>
+    <string name="podcast_downloaded_empty">No downloaded episodes</string>
 </resources>

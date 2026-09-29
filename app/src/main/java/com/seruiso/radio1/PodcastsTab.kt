@@ -182,19 +182,31 @@ fun PodcastsTabContent(
         tick++
     }
 
-    fun currentPlayUrl(): String = try {
-        ctx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, android.content.Context.MODE_PRIVATE)
-            .getString(BluetoothAutoPlayPlugin.KEY_URL, "") ?: ""
-    } catch (_: Exception) { "" }
+    fun urlsMatch(a: String, b: String): Boolean {
+        if (a.isBlank() || b.isBlank()) return false
+        if (a == b) return true
+        fun norm(u: String): String {
+            var s = u.trim()
+            if (s.startsWith("file://")) s = s.removePrefix("file://")
+            return s.substringBefore('?')
+        }
+        val na = norm(a)
+        val nb = norm(b)
+        if (na == nb) return true
+        if (na.endsWith(nb) || nb.endsWith(na)) return true
+        val leaf = na.substringAfterLast('/')
+        return leaf.length > 10 && nb.contains(leaf)
+    }
 
     fun isPlayingAudio(audioUrl: String): Boolean {
-        val cur = currentPlayUrl()
-        if (cur.isBlank() || audioUrl.isBlank()) return false
-        if (cur == audioUrl) return true
-        val leaf = audioUrl.substringAfterLast('/').substringBefore('?')
-        if (leaf.length > 8 && cur.contains(leaf)) return true
-        val local = PodcastStore.episodeFile(ctx, audioUrl).absolutePath
-        return cur == "file://$local" || cur.endsWith(local)
+        // обов'язково читаємо playUrl — інакше LazyColumn не рекомпонує рядок
+        val cur = playUrl
+        if (urlsMatch(audioUrl, cur)) return true
+        try {
+            val local = PodcastStore.episodeFile(ctx, audioUrl).absolutePath
+            if (urlsMatch(cur, local) || urlsMatch(cur, "file://$local")) return true
+        } catch (_: Exception) {}
+        return false
     }
 
     /** Черга як radio/temp — щоб NP карусель і skip бачили епізоди */
@@ -260,6 +272,7 @@ fun PodcastsTabContent(
             .putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, true)
             .putLong("localPositionMs", 0L)
             .apply()
+        playUrl = mediaUrl  // миттєва підсвітка
         val i = Intent(ctx, RadioWatchService::class.java).apply {
             action = RadioWatchService.ACTION_PLAY_URL
             putExtra(RadioWatchService.EXTRA_URL, mediaUrl)
@@ -417,6 +430,7 @@ fun PodcastsTabContent(
         showFav: Boolean = true,
         showDl: Boolean = true,
     ) {
+        val _watch = playUrl
         val playing = isPlayingAudio(ep.audioUrl)
         val fav = ep.audioUrl in favLocal
         val downloaded = PodcastStore.isDownloaded(ctx, ep.audioUrl)
@@ -427,7 +441,7 @@ fun PodcastsTabContent(
             Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
-                .background(if (playing) acc.copy(alpha = 0.18f) else card)
+                .background(if (playing) acc.copy(alpha = 0.28f) else card)
                 .clickable { playEpisodeList(showTitle, artwork, list, index) }
                 .padding(horizontal = 10.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -445,7 +459,7 @@ fun PodcastsTabContent(
             }
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
-                Text(ep.title, color = text, maxLines = 3, overflow = TextOverflow.Ellipsis,
+                Text(ep.title, color = if (playing) acc else text, maxLines = 3, overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.bodyMedium)
                 val meta = buildList {
                     if (showTitle.isNotBlank()) add(showTitle)
@@ -572,7 +586,9 @@ fun PodcastsTabContent(
                     contentPadding = PaddingValues(bottom = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    itemsIndexed(episodes, key = { i, e -> "${e.audioUrl}|$i" }) { index, ep ->
+                    itemsIndexed(episodes, key = { i, e -> "${e.audioUrl}|$i|${playUrl.hashCode()}" }) { index, ep ->
+                        // playUrl — щоб рядок рекомпонувався при skip
+                        val _ = playUrl
                         EpRow(ep, selected!!.title, art, episodes, index)
                     }
                 }
@@ -602,7 +618,7 @@ fun PodcastsTabContent(
                                     style = MaterialTheme.typography.bodySmall)
                             }
                         } else {
-                            itemsIndexed(list, key = { _, e -> "f-${e.audioUrl}" }) { i, ep ->
+                            itemsIndexed(list, key = { _, e -> "f-${e.audioUrl}|${playUrl.hashCode()}" }) { i, ep ->
                                 EpRow(ep, favEps[i].showTitle, ep.image, list, i, showFav = true, showDl = true)
                             }
                         }
@@ -622,7 +638,7 @@ fun PodcastsTabContent(
                                     style = MaterialTheme.typography.bodySmall)
                             }
                         } else {
-                            itemsIndexed(list, key = { _, e -> "d-${e.audioUrl}" }) { i, ep ->
+                            itemsIndexed(list, key = { _, e -> "d-${e.audioUrl}|${playUrl.hashCode()}" }) { i, ep ->
                                 EpRow(ep, dlEps[i].showTitle, ep.image, list, i, showFav = true, showDl = false)
                             }
                         }

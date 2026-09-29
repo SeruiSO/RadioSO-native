@@ -119,6 +119,9 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
     private boolean permanentFocusLoss = false;
     /** Пауза бо інший app грає media (Telegram/Chrome без focus). */
     private boolean pausedByOtherMedia = false;
+    /** Відкладена пауза при чужому media — ігнор біпів 1–2 с (Chrome). */
+    private Runnable foreignPauseRunnable;
+    private static final long FOREIGN_BEEP_GRACE_MS = 1800L;
     private AudioManager.AudioPlaybackCallback playbackCallback;
     private String lastTrackTitle = "";
     private Bitmap stationArt = null;
@@ -857,25 +860,56 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         if (foreignActive) {
             if (!(player.isPlaying() || player.getPlayWhenReady())) return;
             if (isUserPaused()) return;
-            android.util.Log.i("RadioWatch", "foreign media active — pause radio");
-            if (reconnectHandler != null) {
-                reconnectHandler.removeCallbacksAndMessages(null);
-            }
-            pausedByOtherMedia = true;
-            pausedByFocusLoss = true;
-            pausedByFocusAtMs = System.currentTimeMillis();
-            permanentFocusLoss = false;
-            try {
-                player.setPlayWhenReady(false);
-                player.pause();
-            } catch (Exception e) {
-                android.util.Log.w("RadioWatch", "foreign pause", e);
-            }
-            notifyForeground();
-            try { notifyUiPlayback(false); } catch (Exception ignored) {}
+            // Вже чекаємо відкладену паузу — не дублюємо
+            if (foreignPauseRunnable != null) return;
+            // Вже на паузі через foreign — нічого
+            if (pausedByOtherMedia) return;
+            // Короткий біп Chrome/WebView (1–2 с): НЕ паузимо одразу.
+            // Якщо через FOREIGN_BEEP_GRACE_MS media ще активне (YouTube тощо) — тоді pause.
+            android.util.Log.i("RadioWatch", "foreign media — grace " + FOREIGN_BEEP_GRACE_MS + "ms (ignore short beep)");
+            foreignPauseRunnable = () -> {
+                foreignPauseRunnable = null;
+                if (player == null) return;
+                if (isUserPaused() || isVoiceCallActive()) return;
+                if (!(player.isPlaying() || player.getPlayWhenReady())) return;
+                // Перевірка: чи ще є чужий media
+                boolean still;
+                try {
+                    still = Build.VERSION.SDK_INT >= 26
+                            && isForeignMediaActive(audioManager.getActivePlaybackConfigurations());
+                } catch (Exception e) {
+                    still = true;
+                }
+                if (!still) {
+                    android.util.Log.i("RadioWatch", "foreign grace end — beep gone, keep playing");
+                    return;
+                }
+                android.util.Log.i("RadioWatch", "foreign media still active after grace — pause radio");
+                if (reconnectHandler != null) {
+                    reconnectHandler.removeCallbacksAndMessages(null);
+                }
+                pausedByOtherMedia = true;
+                pausedByFocusLoss = true;
+                pausedByFocusAtMs = System.currentTimeMillis();
+                permanentFocusLoss = false;
+                try {
+                    player.setPlayWhenReady(false);
+                    player.pause();
+                } catch (Exception e) {
+                    android.util.Log.w("RadioWatch", "foreign pause", e);
+                }
+                notifyForeground();
+                try { notifyUiPlayback(false); } catch (Exception ignored) {}
+            };
+            mainHandler.postDelayed(foreignPauseRunnable, FOREIGN_BEEP_GRACE_MS);
             return;
         }
-        // Чужий media зупинився
+        // Чужий media зупинився — скасувати відкладену паузу (біп закінчився)
+        if (foreignPauseRunnable != null) {
+            mainHandler.removeCallbacks(foreignPauseRunnable);
+            foreignPauseRunnable = null;
+            android.util.Log.i("RadioWatch", "foreign ended during grace — cancel pause");
+        }
         if (!pausedByOtherMedia) return;
         pausedByOtherMedia = false;
         if (isUserPaused() || isVoiceCallActive()) {
@@ -896,7 +930,6 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                 notifyUiPlayback(true);
                 notifyUiStatus(lc().getString(R.string.playing), 0);
             } else {
-                // DELAYED — GAIN підхопить
                 pausedByFocusLoss = true;
             }
         } catch (Exception e) {
@@ -1019,6 +1052,43 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         mainHandler.postDelayed(holder[0], 300);
     }
 
+
+    /** Після короткого TRANSIENT/CAN_DUCK (біп браузера) — resume якщо GAIN не прийшов. */
+    private void scheduleShortBlipResume() {
+        final long at = System.currentTimeMillis();
+        mainHandler.postDelayed(() -> {
+            if (player == null) return;
+            if (!pausedByFocusLoss && !pausedByOtherMedia) return;
+            if (isUserPaused() || isVoiceCallActive()) return;
+            if (!PlaybackPrefs.isIntended(this)) return;
+            // Лише короткі паузи (біп), не довге відео/дзвінок
+            long pausedFor = pausedByFocusAtMs > 0L ? System.currentTimeMillis() - pausedByFocusAtMs : 99999L;
+            if (pausedFor > 2800L || pausedFor < 400L) return;
+            // Якщо чужий media досі «важкий» (YouTube) — не чіпаємо
+            try {
+                if (Build.VERSION.SDK_INT >= 26
+                        && isForeignMediaActive(audioManager.getActivePlaybackConfigurations())) {
+                    // але якщо пауза < 2.5с і foreign — все одно спробуємо focus (біп Chrome)
+                    if (pausedFor > 2500L) return;
+                }
+            } catch (Exception ignored) {}
+            android.util.Log.i("RadioWatch", "short blip resume after " + pausedFor + "ms");
+            pausedByFocusLoss = false;
+            pausedByOtherMedia = false;
+            permanentFocusLoss = false;
+            try {
+                if (requestFocus()) {
+                    player.setVolume(1f);
+                    player.setPlayWhenReady(true);
+                    notifyUiPlayback(true);
+                    notifyForeground();
+                }
+            } catch (Exception e) {
+                android.util.Log.w("RadioWatch", "blip resume", e);
+            }
+        }, 2200L);
+    }
+
     @Override
     public void onAudioFocusChange(int focusChange) {
 
@@ -1056,6 +1126,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                     pausedByFocusLoss = true;
                     pausedByFocusAtMs = System.currentTimeMillis();
                     android.util.Log.i("RadioWatch", "focus LOSS_TRANSIENT — pause, wait GAIN");
+                    scheduleShortBlipResume();
                 } else {
                     // Інший плеєр/відео: GAIN може не прийти — без авто-resume
                     permanentFocusLoss = true;
@@ -1080,6 +1151,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                     notifyForeground();
                     try { notifyUiPlayback(false); } catch (Exception ignored) {}
                     android.util.Log.i("RadioWatch", "focus CAN_DUCK — pause (not duck volume)");
+                    scheduleShortBlipResume();
                 }
                 break;
             case AudioManager.AUDIOFOCUS_GAIN:
@@ -1090,8 +1162,11 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                 permanentFocusLoss = false;
                 // Якщо лише volume був 0.2 без pausedByFocusLoss — GAIN уже відновив volume вище
                 if (!pausedByFocusLoss && !pausedByOtherMedia) break;
-                if (pausedByOtherMedia && !pausedByFocusLoss) {
-                    // resume лише з callback-шляху нижче через tryResumeAfterExternalMedia
+                // Chrome WebAudio після біпа може лишати «foreign» до закриття вкладки,
+                // але GAIN уже прийшов — resume радіо (не чекати закриття вкладки).
+                if (pausedByOtherMedia) {
+                    pausedByOtherMedia = false;
+                    if (!pausedByFocusLoss) pausedByFocusLoss = true;
                 }
                 if (!pausedByFocusLoss) break;
                 new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {

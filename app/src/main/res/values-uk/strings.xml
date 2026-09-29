@@ -209,5 +209,13 @@
     <string name="podcast_no_feed">Немає RSS у цього шоу</string>
     <string name="podcast_no_episodes">У стрічці немає епізодів для відтворення</string>
     <string name="podcast_playing">Грає: %1$s</string>
+    <string name="podcast_my">Мої подкасти</string>
+    <string name="podcast_my_empty">Немає збережених. Знайдіть шоу й натисніть ★</string>
+    <string name="podcast_search_results">Результати пошуку</string>
+    <string name="podcast_pin">Закріпити подкаст</string>
+    <string name="podcast_download">Завантажити епізод</string>
+    <string name="podcast_downloading">Завантаження…</string>
+    <string name="podcast_downloaded">Епізод збережено</string>
+    <string name="podcast_already_dl">Уже завантажено</string>
 </resources>
 

@@ -188,4 +188,12 @@
     <string name="podcast_no_feed">No RSS feed for this show</string>
     <string name="podcast_no_episodes">No playable episodes in feed</string>
     <string name="podcast_playing">Playing: %1$s</string>
+    <string name="podcast_my">My podcasts</string>
+    <string name="podcast_my_empty">No saved podcasts. Search and tap ★ to pin.</string>
+    <string name="podcast_search_results">Search results</string>
+    <string name="podcast_pin">Pin podcast</string>
+    <string name="podcast_download">Download episode</string>
+    <string name="podcast_downloading">Downloading…</string>
+    <string name="podcast_downloaded">Episode saved</string>
+    <string name="podcast_already_dl">Already downloaded</string>
 </resources>

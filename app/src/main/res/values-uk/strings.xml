@@ -206,5 +206,8 @@
     <string name="podcast_empty_query">Введіть запит</string>
     <string name="podcast_found">знайдено: %1$d</string>
     <string name="podcast_episodes">%1$d епізодів</string>
+    <string name="podcast_no_feed">Немає RSS у цього шоу</string>
+    <string name="podcast_no_episodes">У стрічці немає епізодів для відтворення</string>
+    <string name="podcast_playing">Грає: %1$s</string>
 </resources>
 

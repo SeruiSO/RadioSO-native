@@ -1,7 +1,6 @@
 package com.seruiso.radio1
 
 import android.content.Intent
-import android.net.Uri
 import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -13,16 +12,17 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Podcasts
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
@@ -51,6 +51,7 @@ import coil.compose.AsyncImage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -64,6 +65,13 @@ data class PodcastShow(
     val feedUrl: String,
     val artwork: String,
     val trackCount: Int,
+)
+
+data class PodcastEpisode(
+    val title: String,
+    val audioUrl: String,
+    val pubDate: String = "",
+    val duration: String = "",
 )
 
 @Composable
@@ -81,6 +89,56 @@ fun PodcastsTabContent(
     var error by remember { mutableStateOf("") }
     var results by remember { mutableStateOf<List<PodcastShow>>(emptyList()) }
     var status by remember { mutableStateOf("") }
+    var selected by remember { mutableStateOf<PodcastShow?>(null) }
+    var episodes by remember { mutableStateOf<List<PodcastEpisode>>(emptyList()) }
+    var loadingEps by remember { mutableStateOf(false) }
+
+    fun playEpisode(show: PodcastShow, list: List<PodcastEpisode>, index: Int) {
+        if (index !in list.indices) return
+        val ep = list[index]
+        if (ep.audioUrl.isBlank()) return
+        val urls = JSONArray()
+        val names = JSONArray()
+        val favs = JSONArray()
+        val genres = JSONArray()
+        val countries = JSONArray()
+        list.forEach { e ->
+            urls.put(e.audioUrl)
+            names.put(e.title.ifBlank { show.title })
+            favs.put(show.artwork)
+            genres.put("")
+            countries.put("")
+        }
+        val p = ctx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, android.content.Context.MODE_PRIVATE)
+        p.edit()
+            .putString(LocalMusicPlugin.KEY_MODE, "radio")
+            .putString(BluetoothAutoPlayPlugin.KEY_QUEUE_URLS, urls.toString())
+            .putString(BluetoothAutoPlayPlugin.KEY_QUEUE_NAMES, names.toString())
+            .putString(BluetoothAutoPlayPlugin.KEY_QUEUE_FAVICONS, favs.toString())
+            .putString(BluetoothAutoPlayPlugin.KEY_QUEUE_GENRES, genres.toString())
+            .putString(BluetoothAutoPlayPlugin.KEY_QUEUE_COUNTRIES, countries.toString())
+            .putInt(BluetoothAutoPlayPlugin.KEY_QUEUE_INDEX, index)
+            .putString(BluetoothAutoPlayPlugin.KEY_URL, ep.audioUrl)
+            .putString(BluetoothAutoPlayPlugin.KEY_NAME, ep.title.ifBlank { show.title })
+            .putString(BluetoothAutoPlayPlugin.KEY_TRACK, show.title)
+            .putString(BluetoothAutoPlayPlugin.KEY_FAVICON, show.artwork)
+            .putString(BluetoothAutoPlayPlugin.KEY_GENRE, "")
+            .putString(BluetoothAutoPlayPlugin.KEY_COUNTRY, "")
+            .putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, true)
+            .apply()
+        val i = Intent(ctx, RadioWatchService::class.java).apply {
+            action = RadioWatchService.ACTION_PLAY_URL
+            putExtra(RadioWatchService.EXTRA_URL, ep.audioUrl)
+            putExtra(RadioWatchService.EXTRA_NAME, ep.title.ifBlank { show.title })
+        }
+        try {
+            if (Build.VERSION.SDK_INT >= 26) ctx.startForegroundService(i)
+            else ctx.startService(i)
+        } catch (_: Exception) {
+            try { ctx.startService(i) } catch (_: Exception) {}
+        }
+        status = ctx.getString(R.string.podcast_playing, ep.title)
+    }
 
     fun doSearch() {
         val q = query.trim()
@@ -92,6 +150,8 @@ fun PodcastsTabContent(
         loading = true
         error = ""
         status = ""
+        selected = null
+        episodes = emptyList()
         scope.launch {
             val r = withContext(Dispatchers.IO) { ItunesPodcasts.searchUa(q) }
             loading = false
@@ -106,129 +166,219 @@ fun PodcastsTabContent(
         }
     }
 
+    fun openShow(show: PodcastShow) {
+        if (show.feedUrl.isBlank()) {
+            error = ctx.getString(R.string.podcast_no_feed)
+            return
+        }
+        selected = show
+        loadingEps = true
+        error = ""
+        episodes = emptyList()
+        scope.launch {
+            val r = withContext(Dispatchers.IO) { ItunesPodcasts.fetchEpisodes(show.feedUrl) }
+            loadingEps = false
+            r.onSuccess {
+                episodes = it
+                if (it.isEmpty()) error = ctx.getString(R.string.podcast_no_episodes)
+                else status = ctx.getString(R.string.podcast_episodes, it.size)
+            }.onFailure {
+                error = it.message ?: ctx.getString(R.string.scan_error)
+            }
+        }
+    }
+
     Column(
         Modifier
             .fillMaxSize()
             .padding(horizontal = 12.dp, vertical = 8.dp),
     ) {
-        Text(
-            ctx.getString(R.string.nav_podcasts),
-            color = acc,
-            style = MaterialTheme.typography.titleMedium,
-        )
-        Text(
-            ctx.getString(R.string.podcast_hint),
-            color = muted,
-            style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.padding(top = 2.dp, bottom = 8.dp),
-        )
-        OutlinedTextField(
-            value = query,
-            onValueChange = { query = it },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            placeholder = { Text(ctx.getString(R.string.podcast_search_hint), color = muted) },
-            trailingIcon = {
+        if (selected == null) {
+            Text(
+                ctx.getString(R.string.nav_podcasts),
+                color = acc,
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Text(
+                ctx.getString(R.string.podcast_hint),
+                color = muted,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(top = 2.dp, bottom = 8.dp),
+            )
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                placeholder = { Text(ctx.getString(R.string.podcast_search_hint), color = muted) },
+                trailingIcon = {
+                    Icon(
+                        Icons.Filled.Search,
+                        contentDescription = ctx.getString(R.string.find),
+                        tint = acc,
+                        modifier = Modifier.size(28.dp).clickable { doSearch() },
+                    )
+                },
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = { doSearch() }),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = text,
+                    unfocusedTextColor = text,
+                    focusedBorderColor = acc,
+                    unfocusedBorderColor = muted.copy(alpha = 0.4f),
+                    cursorColor = acc,
+                ),
+                shape = RoundedCornerShape(14.dp),
+            )
+        } else {
+            Row(
+                Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Icon(
-                    Icons.Filled.Search,
-                    contentDescription = ctx.getString(R.string.find),
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = ctx.getString(R.string.back_again),
                     tint = acc,
                     modifier = Modifier
                         .size(28.dp)
-                        .clickable { doSearch() },
+                        .clickable {
+                            selected = null
+                            episodes = emptyList()
+                            error = ""
+                        },
                 )
-            },
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(onSearch = { doSearch() }),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = text,
-                unfocusedTextColor = text,
-                focusedBorderColor = acc,
-                unfocusedBorderColor = muted.copy(alpha = 0.4f),
-                cursorColor = acc,
-            ),
-            shape = RoundedCornerShape(14.dp),
-        )
-        if (loading) {
+                Spacer(Modifier.width(8.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        selected!!.title,
+                        color = text,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.titleSmall,
+                    )
+                    if (selected!!.author.isNotBlank()) {
+                        Text(
+                            selected!!.author,
+                            color = muted,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            style = MaterialTheme.typography.labelSmall,
+                        )
+                    }
+                }
+            }
+        }
+
+        if (loading || loadingEps) {
             Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = acc, modifier = Modifier.size(36.dp))
             }
         }
         if (error.isNotBlank()) {
-            Text(error, color = Color(0xFFE57373), style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(top = 8.dp))
+            Text(
+                error,
+                color = Color(0xFFE57373),
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(top = 8.dp),
+            )
         }
-        if (status.isNotBlank() && !loading) {
-            Text(status, color = muted, style = MaterialTheme.typography.labelMedium,
-                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp))
+        if (status.isNotBlank() && !loading && !loadingEps) {
+            Text(
+                status,
+                color = muted,
+                style = MaterialTheme.typography.labelMedium,
+                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
+            )
         }
-        LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(top = 4.dp),
-            contentPadding = PaddingValues(bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            items(results, key = { it.id }) { show ->
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(card)
-                        .clickable {
-                            if (show.feedUrl.isNotBlank()) {
-                                try {
-                                    val i = Intent(Intent.ACTION_VIEW, Uri.parse(show.feedUrl))
-                                    ctx.startActivity(i)
-                                } catch (_: Exception) {}
+
+        if (selected == null) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize().padding(top = 4.dp),
+                contentPadding = PaddingValues(bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(results, key = { it.id }) { show ->
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(card)
+                            .clickable { openShow(show) }
+                            .padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(
+                            Modifier
+                                .size(56.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Palette.panel2),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            if (show.artwork.isNotBlank()) {
+                                AsyncImage(
+                                    model = show.artwork,
+                                    contentDescription = show.title,
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop,
+                                )
+                            } else {
+                                Icon(Icons.Filled.Podcasts, null, tint = muted, modifier = Modifier.size(28.dp))
                             }
                         }
-                        .padding(10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Box(
-                        Modifier
-                            .size(56.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(Palette.panel2),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        if (show.artwork.isNotBlank()) {
-                            AsyncImage(
-                                model = show.artwork,
-                                contentDescription = show.title,
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop,
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                show.title,
+                                color = text,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                style = MaterialTheme.typography.bodyMedium,
                             )
-                        } else {
-                            Icon(Icons.Filled.Podcasts, null, tint = muted, modifier = Modifier.size(28.dp))
+                            if (show.author.isNotBlank()) {
+                                Text(
+                                    show.author,
+                                    color = muted,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    style = MaterialTheme.typography.labelSmall,
+                                )
+                            }
+                            if (show.trackCount > 0) {
+                                Text(
+                                    ctx.getString(R.string.podcast_episodes, show.trackCount),
+                                    color = muted,
+                                    style = MaterialTheme.typography.labelSmall,
+                                )
+                            }
                         }
                     }
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
+                }
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize().padding(top = 4.dp),
+                contentPadding = PaddingValues(bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                itemsIndexed(episodes, key = { i, e -> "${e.audioUrl}|$i" }) { index, ep ->
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(card)
+                            .clickable { playEpisode(selected!!, episodes, index) }
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                    ) {
                         Text(
-                            show.title,
+                            ep.title,
                             color = text,
-                            maxLines = 2,
+                            maxLines = 3,
                             overflow = TextOverflow.Ellipsis,
                             style = MaterialTheme.typography.bodyMedium,
                         )
-                        if (show.author.isNotBlank()) {
-                            Text(
-                                show.author,
-                                color = muted,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                style = MaterialTheme.typography.labelSmall,
-                            )
-                        }
-                        val sub = buildString {
-                            if (show.trackCount > 0) append(ctx.getString(R.string.podcast_episodes, show.trackCount))
-                            if (show.feedUrl.isNotBlank()) {
-                                if (isNotEmpty()) append(" · ")
-                                append("RSS")
-                            }
-                        }
-                        if (sub.isNotBlank()) {
-                            Text(sub, color = muted, style = MaterialTheme.typography.labelSmall)
+                        val meta = listOf(ep.pubDate, ep.duration).filter { it.isNotBlank() }.joinToString(" · ")
+                        if (meta.isNotBlank()) {
+                            Text(meta, color = muted, style = MaterialTheme.typography.labelSmall)
                         }
                     }
                 }
@@ -241,37 +391,91 @@ object ItunesPodcasts {
     fun searchUa(term: String): Result<List<PodcastShow>> = runCatching {
         val enc = URLEncoder.encode(term, StandardCharsets.UTF_8.name())
         val url = "https://itunes.apple.com/search?term=$enc&media=podcast&entity=podcast&country=ua&limit=40"
+        val body = httpGet(url)
+        val arr = JSONObject(body).optJSONArray("results") ?: return@runCatching emptyList()
+        val out = ArrayList<PodcastShow>(arr.length())
+        for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i) ?: continue
+            val feed = o.optString("feedUrl").trim()
+            val title = o.optString("collectionName").ifBlank { o.optString("trackName") }.trim()
+            if (title.isBlank()) continue
+            out.add(
+                PodcastShow(
+                    id = o.optLong("collectionId", o.optLong("trackId")),
+                    title = title,
+                    author = o.optString("artistName").trim(),
+                    feedUrl = feed,
+                    artwork = o.optString("artworkUrl600").ifBlank { o.optString("artworkUrl100") },
+                    trackCount = o.optInt("trackCount", 0),
+                ),
+            )
+        }
+        out
+    }
+
+    fun fetchEpisodes(feedUrl: String): Result<List<PodcastEpisode>> = runCatching {
+        val xml = httpGet(feedUrl)
+        parseRss(xml)
+    }
+
+    private fun httpGet(url: String): String {
         val conn = (URL(url).openConnection() as HttpURLConnection).apply {
-            connectTimeout = 12_000
-            readTimeout = 15_000
+            connectTimeout = 15_000
+            readTimeout = 20_000
             requestMethod = "GET"
-            setRequestProperty("User-Agent", "RadioSO/1.0")
+            instanceFollowRedirects = true
+            setRequestProperty("User-Agent", "RadioSO/1.0 (podcast)")
+            setRequestProperty("Accept", "application/rss+xml, application/xml, text/xml, */*")
         }
         try {
             val code = conn.responseCode
             if (code !in 200..299) error("HTTP $code")
-            val body = conn.inputStream.bufferedReader(StandardCharsets.UTF_8).use { it.readText() }
-            val arr = JSONObject(body).optJSONArray("results") ?: return@runCatching emptyList()
-            val out = ArrayList<PodcastShow>(arr.length())
-            for (i in 0 until arr.length()) {
-                val o = arr.optJSONObject(i) ?: continue
-                val feed = o.optString("feedUrl").trim()
-                val title = o.optString("collectionName").ifBlank { o.optString("trackName") }.trim()
-                if (title.isBlank()) continue
-                out.add(
-                    PodcastShow(
-                        id = o.optLong("collectionId", o.optLong("trackId")),
-                        title = title,
-                        author = o.optString("artistName").trim(),
-                        feedUrl = feed,
-                        artwork = o.optString("artworkUrl600").ifBlank { o.optString("artworkUrl100") },
-                        trackCount = o.optInt("trackCount", 0),
-                    ),
-                )
-            }
-            out
+            return conn.inputStream.bufferedReader(StandardCharsets.UTF_8).use { it.readText() }
         } finally {
             conn.disconnect()
         }
+    }
+
+    private fun parseRss(xml: String): List<PodcastEpisode> {
+        val out = ArrayList<PodcastEpisode>()
+        val itemRe = Regex("<item(\\s[^>]*)?>([\\s\\S]*?)</item>", RegexOption.IGNORE_CASE)
+        val titleRe = Regex("<title[^>]*>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:]]>)?</title>", RegexOption.IGNORE_CASE)
+        val encRe = Regex(
+            """<enclosure[^>]*url\s*=\s*["']([^"']+)["'][^>]*>""",
+            RegexOption.IGNORE_CASE,
+        )
+        val encRe2 = Regex(
+            """url\s*=\s*["']([^"']+\.(?:mp3|m4a|aac|ogg|mp4)[^"']*)["']""",
+            RegexOption.IGNORE_CASE,
+        )
+        val dateRe = Regex("<pubDate[^>]*>([\\s\\S]*?)</pubDate>", RegexOption.IGNORE_CASE)
+        val durRe = Regex(
+            "<itunes:duration[^>]*>([\\s\\S]*?)</itunes:duration>",
+            RegexOption.IGNORE_CASE,
+        )
+        for (m in itemRe.findAll(xml)) {
+            val block = m.groupValues[2]
+            val audio = encRe.find(block)?.groupValues?.get(1)?.trim()
+                ?: encRe2.find(block)?.groupValues?.get(1)?.trim()
+                ?: continue
+            if (!audio.startsWith("http")) continue
+            var title = titleRe.find(block)?.groupValues?.get(1)?.trim().orEmpty()
+            title = title
+                .replace("&amp;", "&")
+                .replace("&lt;", "<")
+                .replace("&gt;", ">")
+                .replace("&quot;", "\"")
+                .replace("&#39;", "'")
+                .replace(Regex("<[^>]+>"), "")
+                .trim()
+            if (title.isBlank()) title = audio.substringAfterLast('/').substringBefore('?')
+            val pub = dateRe.find(block)?.groupValues?.get(1)?.trim().orEmpty()
+                .replace(Regex("\\s+\\d{2}:\\d{2}:\\d{2}.*"), "")
+                .take(32)
+            val dur = durRe.find(block)?.groupValues?.get(1)?.trim().orEmpty()
+            out.add(PodcastEpisode(title = title, audioUrl = audio, pubDate = pub, duration = dur))
+            if (out.size >= 80) break
+        }
+        return out
     }
 }

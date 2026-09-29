@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -47,6 +48,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -81,6 +83,13 @@ data class PodcastEpisode(
     val image: String = "",
 )
 
+private enum class PodSub(val key: String) {
+    SHOWS("shows"),      // ★ мої подкасти
+    FAV_EPS("fav"),      // ♥ обрані епізоди
+    DOWNLOADED("dl"),    // ↓ завантажені
+    SEARCH("search"),
+}
+
 @Composable
 fun PodcastsTabContent(
     acc: Color,
@@ -91,6 +100,8 @@ fun PodcastsTabContent(
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val kb = LocalSoftwareKeyboardController.current
+
+    var sub by remember { mutableStateOf(PodSub.SHOWS) }
     var query by remember { mutableStateOf("") }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf("") }
@@ -101,13 +112,33 @@ fun PodcastsTabContent(
     var loadingEps by remember { mutableStateOf(false) }
     var tick by remember { mutableStateOf(0) }
     var dlBusy by remember { mutableStateOf<String?>(null) }
+    // миттєве замальовування ★ у пошуку (до перечитування store)
+    var pinnedLocal by remember { mutableStateOf<Set<String>>(emptySet()) }
 
-    fun refresh() { tick++ }
-    val subs = remember(tick) { PodcastStore.subs(ctx) }
+    fun refresh() {
+        tick++
+        pinnedLocal = PodcastStore.subs(ctx).map { it.feedUrl }.toSet()
+    }
+    // sync local pin set once / after tick
+    val subs = remember(tick) {
+        val s = PodcastStore.subs(ctx)
+        pinnedLocal = s.map { it.feedUrl }.toSet()
+        s
+    }
     val favEps = remember(tick) { PodcastStore.favEpisodes(ctx) }
     val dlEps = remember(tick) { PodcastStore.downloadedList(ctx) }
 
-    fun playEpisode(showTitle: String, artwork: String, list: List<PodcastEpisode>, index: Int) {
+    fun isPinned(feed: String) = feed in pinnedLocal || subs.any { it.feedUrl == feed }
+
+    fun togglePin(show: PodcastShow) {
+        // миттєво в UI
+        pinnedLocal = if (show.feedUrl in pinnedLocal) pinnedLocal - show.feedUrl
+        else pinnedLocal + show.feedUrl
+        PodcastStore.toggle(ctx, show)
+        tick++
+    }
+
+    fun playEpisodeList(showTitle: String, artwork: String, list: List<PodcastEpisode>, index: Int) {
         if (index !in list.indices) return
         val ep = list[index]
         if (ep.audioUrl.isBlank()) return
@@ -121,12 +152,13 @@ fun PodcastsTabContent(
         val localArtists = JSONArray()
         val localAlbums = JSONArray()
         list.forEach { e ->
+            val art = e.image.ifBlank { artwork }
             val path = if (PodcastStore.isDownloaded(ctx, e.audioUrl))
                 PodcastStore.episodeFile(ctx, e.audioUrl).absolutePath else e.audioUrl
             val media = if (path.startsWith("/")) "file://$path" else path
             urls.put(media)
             names.put(e.title.ifBlank { showTitle })
-            favs.put(artwork)
+            favs.put(art)
             genres.put("podcast")
             countries.put("")
             localUris.put(media)
@@ -137,6 +169,7 @@ fun PodcastsTabContent(
         val path0 = if (PodcastStore.isDownloaded(ctx, ep.audioUrl))
             PodcastStore.episodeFile(ctx, ep.audioUrl).absolutePath else ep.audioUrl
         val mediaUrl = if (path0.startsWith("/")) "file://$path0" else path0
+        val art0 = ep.image.ifBlank { artwork }
         val p = ctx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, android.content.Context.MODE_PRIVATE)
         p.edit()
             .putString(LocalMusicPlugin.KEY_MODE, "podcast")
@@ -154,7 +187,7 @@ fun PodcastsTabContent(
             .putString(BluetoothAutoPlayPlugin.KEY_URL, mediaUrl)
             .putString(BluetoothAutoPlayPlugin.KEY_NAME, ep.title.ifBlank { showTitle })
             .putString(BluetoothAutoPlayPlugin.KEY_TRACK, showTitle)
-            .putString(BluetoothAutoPlayPlugin.KEY_FAVICON, artwork)
+            .putString(BluetoothAutoPlayPlugin.KEY_FAVICON, art0)
             .putString(BluetoothAutoPlayPlugin.KEY_GENRE, "podcast")
             .putString(BluetoothAutoPlayPlugin.KEY_COUNTRY, "")
             .putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, true)
@@ -174,12 +207,12 @@ fun PodcastsTabContent(
         status = ctx.getString(R.string.podcast_playing, ep.title)
     }
 
-    fun playFavOrDl(ep: PodcastFavEpisode, list: List<PodcastFavEpisode>) {
+    fun playFavList(list: List<PodcastFavEpisode>, ep: PodcastFavEpisode) {
         val mapped = list.map {
             PodcastEpisode(it.title, it.audioUrl, it.pubDate, it.duration, it.artwork)
         }
         val idx = list.indexOfFirst { it.audioUrl == ep.audioUrl }.coerceAtLeast(0)
-        playEpisode(ep.showTitle.ifBlank { ep.title }, ep.artwork, mapped, idx)
+        playEpisodeList(ep.showTitle.ifBlank { ep.title }, ep.artwork, mapped, idx)
     }
 
     fun doSearch() {
@@ -230,7 +263,7 @@ fun PodcastsTabContent(
         }
     }
 
-    fun downloadEp(ep: PodcastEpisode, show: PodcastShow) {
+    fun downloadEp(ep: PodcastEpisode, showTitle: String, artwork: String) {
         if (dlBusy != null) return
         if (PodcastStore.isDownloaded(ctx, ep.audioUrl)) {
             status = ctx.getString(R.string.podcast_already_dl)
@@ -242,8 +275,8 @@ fun PodcastsTabContent(
             val r = withContext(Dispatchers.IO) {
                 PodcastStore.download(ctx, ep.audioUrl).onSuccess {
                     PodcastStore.rememberDownload(
-                        ctx, ep.audioUrl, ep.title, show.title,
-                        show.artwork, ep.pubDate, ep.duration,
+                        ctx, ep.audioUrl, ep.title, showTitle,
+                        ep.image.ifBlank { artwork }, ep.pubDate, ep.duration,
                     )
                 }
             }
@@ -255,18 +288,8 @@ fun PodcastsTabContent(
     }
 
     @Composable
-    fun SectionTitle(s: String) {
-        Text(
-            s,
-            color = acc,
-            style = MaterialTheme.typography.labelLarge,
-            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
-        )
-    }
-
-    @Composable
     fun ShowRow(show: PodcastShow) {
-        val pinned = subs.any { it.feedUrl == show.feedUrl }
+        val pinned = isPinned(show.feedUrl)
         Row(
             Modifier
                 .fillMaxWidth()
@@ -281,8 +304,10 @@ fun PodcastsTabContent(
                 contentAlignment = Alignment.Center,
             ) {
                 if (show.artwork.isNotBlank()) {
-                    AsyncImage(model = show.artwork, contentDescription = show.title,
-                        modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                    AsyncImage(
+                        model = show.artwork, contentDescription = show.title,
+                        modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop,
+                    )
                 } else {
                     Icon(Icons.Filled.Podcasts, null, tint = muted, modifier = Modifier.size(28.dp))
                 }
@@ -300,31 +325,40 @@ fun PodcastsTabContent(
                 if (pinned) Icons.Filled.Star else Icons.Filled.StarBorder,
                 contentDescription = ctx.getString(R.string.podcast_pin),
                 tint = if (pinned) acc else muted,
-                modifier = Modifier.size(28.dp).clickable {
-                    PodcastStore.toggle(ctx, show)
-                    refresh()
-                },
+                modifier = Modifier.size(28.dp).clickable { togglePin(show) },
             )
         }
     }
 
     @Composable
-    fun EpFavRow(ep: PodcastFavEpisode) {
+    fun EpRow(
+        ep: PodcastEpisode,
+        showTitle: String,
+        artwork: String,
+        list: List<PodcastEpisode>,
+        index: Int,
+        showFav: Boolean = true,
+        showDl: Boolean = true,
+    ) {
+        val downloaded = PodcastStore.isDownloaded(ctx, ep.audioUrl)
+        val fav = PodcastStore.isFavEpisode(ctx, ep.audioUrl)
+        val busy = dlBusy == ep.audioUrl
+        val img = ep.image.ifBlank { artwork }
         Row(
             Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
                 .background(card)
-                .clickable { playFavOrDl(ep, listOf(ep)) }
-                .padding(10.dp),
+                .clickable { playEpisodeList(showTitle, artwork, list, index) }
+                .padding(horizontal = 10.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
                 Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)).background(Palette.panel2),
                 contentAlignment = Alignment.Center,
             ) {
-                if (ep.artwork.isNotBlank()) {
-                    AsyncImage(model = ep.artwork, contentDescription = null,
+                if (img.isNotBlank()) {
+                    AsyncImage(model = img, contentDescription = null,
                         modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                 } else {
                     Icon(Icons.Filled.Podcasts, null, tint = muted, modifier = Modifier.size(22.dp))
@@ -332,208 +366,278 @@ fun PodcastsTabContent(
             }
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
-                Text(ep.title, color = text, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                Text(ep.title, color = text, maxLines = 3, overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.bodyMedium)
-                val sub = listOf(ep.showTitle, ep.pubDate).filter { it.isNotBlank() }.joinToString(" · ")
-                if (sub.isNotBlank()) {
-                    Text(sub, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                val meta = buildList {
+                    if (showTitle.isNotBlank()) add(showTitle)
+                    if (ep.pubDate.isNotBlank()) add(ep.pubDate)
+                    if (ep.duration.isNotBlank()) add(ep.duration)
+                }.joinToString(" · ")
+                if (meta.isNotBlank()) {
+                    Text(meta, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis,
                         style = MaterialTheme.typography.labelSmall)
+                }
+            }
+            if (showFav) {
+                Icon(
+                    if (fav) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                    contentDescription = ctx.getString(R.string.podcast_fav_ep),
+                    tint = if (fav) acc else muted,
+                    modifier = Modifier.size(24.dp).clickable {
+                        PodcastStore.toggleFavEpisode(
+                            ctx,
+                            PodcastFavEpisode(
+                                title = ep.title, audioUrl = ep.audioUrl,
+                                showTitle = showTitle, artwork = img,
+                                pubDate = ep.pubDate, duration = ep.duration,
+                            ),
+                        )
+                        refresh()
+                    },
+                )
+                Spacer(Modifier.width(8.dp))
+            }
+            if (showDl) {
+                if (busy) {
+                    CircularProgressIndicator(color = acc, modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+                } else {
+                    Icon(
+                        if (downloaded) Icons.Filled.DownloadDone else Icons.Filled.Download,
+                        contentDescription = ctx.getString(R.string.podcast_download),
+                        tint = if (downloaded) acc else muted,
+                        modifier = Modifier.size(26.dp).clickable {
+                            downloadEp(ep, showTitle, artwork)
+                        },
+                    )
                 }
             }
         }
     }
 
-    Column(
-        Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 8.dp),
-    ) {
-        if (selected == null) {
-            Text(ctx.getString(R.string.nav_podcasts), color = acc,
-                style = MaterialTheme.typography.titleMedium)
-            Text(ctx.getString(R.string.podcast_hint), color = muted,
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(top = 2.dp, bottom = 8.dp))
-            OutlinedTextField(
-                value = query,
-                onValueChange = { query = it },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                placeholder = { Text(ctx.getString(R.string.podcast_search_hint), color = muted) },
-                trailingIcon = {
-                    Icon(Icons.Filled.Search, contentDescription = ctx.getString(R.string.find),
-                        tint = acc, modifier = Modifier.size(28.dp).clickable { doSearch() })
+    @Composable
+    fun SubTab(icon: ImageVector, key: PodSub, desc: String) {
+        val on = sub == key && selected == null
+        Icon(
+            icon,
+            contentDescription = desc,
+            tint = if (on) acc else muted,
+            modifier = Modifier
+                .size(28.dp)
+                .clickable {
+                    selected = null
+                    episodes = emptyList()
+                    error = ""
+                    sub = key
                 },
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(onSearch = { doSearch() }),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = text, unfocusedTextColor = text,
-                    focusedBorderColor = acc, unfocusedBorderColor = muted.copy(alpha = 0.4f),
-                    cursorColor = acc,
-                ),
-                shape = RoundedCornerShape(14.dp),
-            )
-        } else {
-            Row(Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = ctx.getString(R.string.back_again), tint = acc,
-                    modifier = Modifier.size(28.dp).clickable {
-                        selected = null; episodes = emptyList(); error = ""
-                    })
-                Spacer(Modifier.width(8.dp))
-                if (selected!!.artwork.isNotBlank()) {
-                    AsyncImage(model = selected!!.artwork, contentDescription = null,
-                        modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)),
-                        contentScale = ContentScale.Crop)
+        )
+    }
+
+    Column(Modifier.fillMaxSize()) {
+        // ── контент ──
+        Column(
+            Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+        ) {
+            if (selected != null) {
+                Row(
+                    Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = ctx.getString(R.string.back_again),
+                        tint = acc,
+                        modifier = Modifier.size(28.dp).clickable {
+                            selected = null
+                            episodes = emptyList()
+                            error = ""
+                        },
+                    )
                     Spacer(Modifier.width(8.dp))
-                }
-                Column(Modifier.weight(1f)) {
-                    Text(selected!!.title, color = text, maxLines = 1,
-                        overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
-                    if (selected!!.author.isNotBlank()) {
-                        Text(selected!!.author, color = muted, maxLines = 1,
-                            overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall)
-                    }
-                }
-                val pinned = subs.any { it.feedUrl == selected!!.feedUrl }
-                Icon(if (pinned) Icons.Filled.Star else Icons.Filled.StarBorder,
-                    contentDescription = ctx.getString(R.string.podcast_pin),
-                    tint = if (pinned) acc else muted,
-                    modifier = Modifier.size(28.dp).clickable {
-                        PodcastStore.toggle(ctx, selected!!)
-                        refresh()
-                    })
-            }
-        }
-
-        if (loading || loadingEps) {
-            Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = acc, modifier = Modifier.size(36.dp))
-            }
-        }
-        if (error.isNotBlank()) {
-            Text(error, color = Color(0xFFE57373), style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(top = 8.dp))
-        }
-        if (status.isNotBlank() && !loading && !loadingEps) {
-            Text(status, color = muted, style = MaterialTheme.typography.labelMedium,
-                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp))
-        }
-
-        if (selected == null) {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(top = 4.dp),
-                contentPadding = PaddingValues(bottom = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                // 1. Мої подкасти
-                item { SectionTitle(ctx.getString(R.string.podcast_my)) }
-                if (subs.isEmpty()) {
-                    item {
-                        Text(ctx.getString(R.string.podcast_my_empty), color = muted,
-                            style = MaterialTheme.typography.bodySmall)
-                    }
-                } else {
-                    items(subs, key = { "sub-${it.feedUrl}" }) { ShowRow(it) }
-                }
-                // 2. Обрані епізоди
-                item { SectionTitle(ctx.getString(R.string.podcast_fav_eps)) }
-                if (favEps.isEmpty()) {
-                    item {
-                        Text(ctx.getString(R.string.podcast_fav_eps_empty), color = muted,
-                            style = MaterialTheme.typography.bodySmall)
-                    }
-                } else {
-                    items(favEps, key = { "fav-${it.audioUrl}" }) { EpFavRow(it) }
-                }
-                // 3. Завантажені
-                item { SectionTitle(ctx.getString(R.string.podcast_downloaded_sec)) }
-                if (dlEps.isEmpty()) {
-                    item {
-                        Text(ctx.getString(R.string.podcast_downloaded_empty), color = muted,
-                            style = MaterialTheme.typography.bodySmall)
-                    }
-                } else {
-                    items(dlEps, key = { "dl-${it.audioUrl}" }) { EpFavRow(it) }
-                }
-                // 4. Результати пошуку
-                if (results.isNotEmpty()) {
-                    item { SectionTitle(ctx.getString(R.string.podcast_search_results)) }
-                    items(results, key = { it.id }) { ShowRow(it) }
-                }
-            }
-        } else {
-            val art = selected!!.artwork
-            LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(top = 4.dp),
-                contentPadding = PaddingValues(bottom = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                itemsIndexed(episodes, key = { i, e -> "${e.audioUrl}|$i" }) { index, ep ->
-                    val downloaded = PodcastStore.isDownloaded(ctx, ep.audioUrl)
-                    val fav = PodcastStore.isFavEpisode(ctx, ep.audioUrl)
-                    val busy = dlBusy == ep.audioUrl
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(card)
-                            .clickable { playEpisode(selected!!.title, art, episodes, index) }
-                            .padding(horizontal = 10.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Box(
-                            Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)).background(Palette.panel2),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            val img = ep.image.ifBlank { art }
-                            if (img.isNotBlank()) {
-                                AsyncImage(model = img, contentDescription = null,
-                                    modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-                            } else {
-                                Icon(Icons.Filled.Podcasts, null, tint = muted, modifier = Modifier.size(22.dp))
-                            }
-                        }
-                        Spacer(Modifier.width(10.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(ep.title, color = text, maxLines = 3, overflow = TextOverflow.Ellipsis,
-                                style = MaterialTheme.typography.bodyMedium)
-                            val meta = listOf(ep.pubDate, ep.duration).filter { it.isNotBlank() }.joinToString(" · ")
-                            if (meta.isNotBlank()) {
-                                Text(meta, color = muted, style = MaterialTheme.typography.labelSmall)
-                            }
-                        }
-                        Icon(
-                            if (fav) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                            contentDescription = ctx.getString(R.string.podcast_fav_ep),
-                            tint = if (fav) acc else muted,
-                            modifier = Modifier.size(24.dp).clickable {
-                                PodcastStore.toggleFavEpisode(
-                                    ctx,
-                                    PodcastFavEpisode(
-                                        title = ep.title,
-                                        audioUrl = ep.audioUrl,
-                                        showTitle = selected!!.title,
-                                        artwork = ep.image.ifBlank { art },
-                                        pubDate = ep.pubDate,
-                                        duration = ep.duration,
-                                    ),
-                                )
-                                refresh()
-                            },
+                    if (selected!!.artwork.isNotBlank()) {
+                        AsyncImage(
+                            model = selected!!.artwork, contentDescription = null,
+                            modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)),
+                            contentScale = ContentScale.Crop,
                         )
                         Spacer(Modifier.width(8.dp))
-                        if (busy) {
-                            CircularProgressIndicator(color = acc, modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
-                        } else {
+                    }
+                    Column(Modifier.weight(1f)) {
+                        Text(selected!!.title, color = text, maxLines = 1,
+                            overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
+                        if (selected!!.author.isNotBlank()) {
+                            Text(selected!!.author, color = muted, maxLines = 1,
+                                overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                    Icon(
+                        if (isPinned(selected!!.feedUrl)) Icons.Filled.Star else Icons.Filled.StarBorder,
+                        contentDescription = ctx.getString(R.string.podcast_pin),
+                        tint = if (isPinned(selected!!.feedUrl)) acc else muted,
+                        modifier = Modifier.size(28.dp).clickable { togglePin(selected!!) },
+                    )
+                }
+            } else {
+                val title = when (sub) {
+                    PodSub.SHOWS -> ctx.getString(R.string.podcast_my)
+                    PodSub.FAV_EPS -> ctx.getString(R.string.podcast_fav_eps)
+                    PodSub.DOWNLOADED -> ctx.getString(R.string.podcast_downloaded_sec)
+                    PodSub.SEARCH -> ctx.getString(R.string.nav_podcasts)
+                }
+                Text(title, color = acc, style = MaterialTheme.typography.titleMedium)
+                if (sub == PodSub.SEARCH) {
+                    Text(
+                        ctx.getString(R.string.podcast_hint),
+                        color = muted,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(top = 2.dp, bottom = 6.dp),
+                    )
+                    OutlinedTextField(
+                        value = query,
+                        onValueChange = { query = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        placeholder = { Text(ctx.getString(R.string.podcast_search_hint), color = muted) },
+                        trailingIcon = {
                             Icon(
-                                if (downloaded) Icons.Filled.DownloadDone else Icons.Filled.Download,
-                                contentDescription = ctx.getString(R.string.podcast_download),
-                                tint = if (downloaded) acc else muted,
-                                modifier = Modifier.size(26.dp).clickable { downloadEp(ep, selected!!) },
+                                Icons.Filled.Search,
+                                contentDescription = ctx.getString(R.string.find),
+                                tint = acc,
+                                modifier = Modifier.size(28.dp).clickable { doSearch() },
                             )
+                        },
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = KeyboardActions(onSearch = { doSearch() }),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = text, unfocusedTextColor = text,
+                            focusedBorderColor = acc, unfocusedBorderColor = muted.copy(alpha = 0.4f),
+                            cursorColor = acc,
+                        ),
+                        shape = RoundedCornerShape(14.dp),
+                    )
+                } else {
+                    Spacer(Modifier.height(4.dp))
+                }
+            }
+
+            if (loading || loadingEps) {
+                Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = acc, modifier = Modifier.size(36.dp))
+                }
+            }
+            if (error.isNotBlank()) {
+                Text(error, color = Color(0xFFE57373), style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(top = 8.dp))
+            }
+            if (status.isNotBlank() && !loading && !loadingEps) {
+                Text(status, color = muted, style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.padding(top = 6.dp, bottom = 2.dp))
+            }
+
+            if (selected != null) {
+                val art = selected!!.artwork
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize().padding(top = 4.dp),
+                    contentPadding = PaddingValues(bottom = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    itemsIndexed(episodes, key = { i, e -> "${e.audioUrl}|$i" }) { index, ep ->
+                        EpRow(ep, selected!!.title, art, episodes, index)
+                    }
+                }
+            } else when (sub) {
+                PodSub.SHOWS -> {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize().padding(top = 4.dp),
+                        contentPadding = PaddingValues(bottom = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        if (subs.isEmpty()) {
+                            item {
+                                Text(ctx.getString(R.string.podcast_my_empty), color = muted,
+                                    style = MaterialTheme.typography.bodySmall)
+                            }
+                        } else {
+                            items(subs, key = { "sub-${it.feedUrl}" }) { ShowRow(it) }
                         }
                     }
                 }
+                PodSub.FAV_EPS -> {
+                    val list = favEps.map {
+                        PodcastEpisode(it.title, it.audioUrl, it.pubDate, it.duration, it.artwork)
+                    }
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize().padding(top = 4.dp),
+                        contentPadding = PaddingValues(bottom = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        if (favEps.isEmpty()) {
+                            item {
+                                Text(ctx.getString(R.string.podcast_fav_eps_empty), color = muted,
+                                    style = MaterialTheme.typography.bodySmall)
+                            }
+                        } else {
+                            itemsIndexed(list, key = { _, e -> "fav-${e.audioUrl}" }) { index, ep ->
+                                EpRow(
+                                    ep, favEps[index].showTitle, ep.image,
+                                    list, index, showFav = true, showDl = true,
+                                )
+                            }
+                        }
+                    }
+                }
+                PodSub.DOWNLOADED -> {
+                    val list = dlEps.map {
+                        PodcastEpisode(it.title, it.audioUrl, it.pubDate, it.duration, it.artwork)
+                    }
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize().padding(top = 4.dp),
+                        contentPadding = PaddingValues(bottom = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        if (dlEps.isEmpty()) {
+                            item {
+                                Text(ctx.getString(R.string.podcast_downloaded_empty), color = muted,
+                                    style = MaterialTheme.typography.bodySmall)
+                            }
+                        } else {
+                            itemsIndexed(list, key = { _, e -> "dl-${e.audioUrl}" }) { index, ep ->
+                                EpRow(
+                                    ep, dlEps[index].showTitle, ep.image,
+                                    list, index, showFav = true, showDl = false,
+                                )
+                            }
+                        }
+                    }
+                }
+                PodSub.SEARCH -> {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize().padding(top = 4.dp),
+                        contentPadding = PaddingValues(bottom = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        items(results, key = { it.id }) { ShowRow(it) }
+                    }
+                }
+            }
+        }
+
+        // ── міні-вкладки над нижньою навігацією ──
+        if (selected == null) {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .background(card)
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                SubTab(Icons.Filled.Star, PodSub.SHOWS, ctx.getString(R.string.podcast_my))
+                SubTab(Icons.Filled.Favorite, PodSub.FAV_EPS, ctx.getString(R.string.podcast_fav_eps))
+                SubTab(Icons.Filled.Download, PodSub.DOWNLOADED, ctx.getString(R.string.podcast_downloaded_sec))
+                SubTab(Icons.Filled.Search, PodSub.SEARCH, ctx.getString(R.string.find))
             }
         }
     }

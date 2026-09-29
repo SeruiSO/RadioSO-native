@@ -1958,9 +1958,17 @@ notifyForeground();
             }
             ed.commit();
             if (isLocalMode()) {
-                String albumId = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-                    .getString(BluetoothAutoPlayPlugin.KEY_FAVICON, "0");
-                loadLocalAlbumArt(albumId);
+                String mode = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                    .getString(LocalMusicPlugin.KEY_MODE, "radio");
+                String fav = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                    .getString(BluetoothAutoPlayPlugin.KEY_FAVICON, "");
+                if ("podcast".equals(mode) && fav != null && fav.startsWith("http")) {
+                    stationArtUrl = "";
+                    loadStationArtAsync();
+                } else {
+                    String albumId = (fav == null || fav.isEmpty()) ? "0" : fav;
+                    loadLocalAlbumArt(albumId);
+                }
             }
             playUrl(url);
             long seekPos = intent.getLongExtra(EXTRA_POSITION_MS, -1L);

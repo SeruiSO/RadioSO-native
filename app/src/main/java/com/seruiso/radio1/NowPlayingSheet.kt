@@ -529,15 +529,16 @@ private fun TrackHistoryBack(
                 cameraDistance = cameraDist
                 alpha = if (show) 1f else 0f
             }
-            .padding(horizontal = 4.dp)
-            .clickable(enabled = show) { onClose() },
+            .padding(horizontal = 4.dp),
     ) {
         item(key = "hdr") {
             Text(
                 ctx.getString(R.string.track_history_hint),
                 color = acc,
                 style = MaterialTheme.typography.titleSmall,
-                modifier = Modifier.padding(bottom = 8.dp),
+                modifier = Modifier
+                    .padding(bottom = 8.dp)
+                    .clickable(enabled = show) { onClose() },
             )
             if (rows.isEmpty()) {
                 Text(
@@ -611,13 +612,16 @@ private fun TrackHistoryRow(
                 .padding(start = 10.dp)
                 .weight(1f),
         ) {
-            Text(
-                item.title,
-                color = text,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.bodyMedium,
-            )
+            // довгий тап: копіювати / шукати в Google
+            TrackLongBox(text = item.title) {
+                Text(
+                    item.title,
+                    color = text,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
             val sub = buildString {
                 if (item.station.isNotBlank()) append(item.station)
                 if (isNotEmpty()) append(" · ")

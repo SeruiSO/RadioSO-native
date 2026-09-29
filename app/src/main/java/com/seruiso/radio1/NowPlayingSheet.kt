@@ -555,6 +555,7 @@ private fun TrackHistoryBack(
                 muted = muted,
                 loadArt = loadArt,
                 fmt = fmt,
+                onClose = onClose,
             )
         }
     }
@@ -567,6 +568,7 @@ private fun TrackHistoryRow(
     muted: Color,
     loadArt: Boolean,
     fmt: SimpleDateFormat,
+    onClose: () -> Unit,
 ) {
     val artist = artistFromTrackTitle(item.title)
     val photo by rememberArtistPhotoUrl(
@@ -581,7 +583,8 @@ private fun TrackHistoryRow(
     Row(
         Modifier
             .fillMaxWidth()
-            .padding(vertical = 6.dp),
+            .padding(vertical = 6.dp)
+            .clickable { onClose() },
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
@@ -613,7 +616,7 @@ private fun TrackHistoryRow(
                 .weight(1f),
         ) {
             // довгий тап: копіювати / шукати в Google
-            TrackLongBox(text = item.title) {
+            TrackLongBox(text = item.title, onClick = onClose) {
                 Text(
                     item.title,
                     color = text,

@@ -30,10 +30,22 @@ fun openTrackCopySearch(ctx: Context, raw: String) {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun TrackLongBox(text: String, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+fun TrackLongBox(
+    text: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit = {},
+    content: @Composable () -> Unit,
+) {
     val ctx = LocalContext.current
     var menu by remember { mutableStateOf(false) }
-    Box(modifier.then(Modifier.combinedClickable(onClick = {}, onLongClick = { menu = true }))) {
+    Box(
+        modifier.then(
+            modifier.combinedClickable(
+                onClick = onClick,
+                onLongClick = { menu = true },
+            ),
+        ),
+    ) {
         content()
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
             DropdownMenuItem(

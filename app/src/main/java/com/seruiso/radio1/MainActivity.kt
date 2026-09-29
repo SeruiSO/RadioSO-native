@@ -105,7 +105,7 @@ class MainActivity : ComponentActivity() {
     private var isPlaying by mutableStateOf(false)
     private var statusText by mutableStateOf("")  // set in onCreate
     private var tabIndex by mutableIntStateOf(0)
-    // Нижні вкладки: "home" | "stations"(★) | "heart"(♥) | "music" | "search"
+    // Нижні вкладки: "home" | "podcasts" | "stations"(★) | "heart"(♥) | "music" | "search"
     private var bottomTab by mutableStateOf("home")
     private var sourceTabs by mutableStateOf(listOf<String>())
     private var stations by mutableStateOf(listOf<Station>())
@@ -239,7 +239,7 @@ class MainActivity : ComponentActivity() {
         if (idx >= 0) tabIndex = idx
         val lastBottom = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
             .getString("bottomTab", "home") ?: "home"
-        if (lastBottom in listOf("home", "stations", "heart", "music", "tabs", "search", "library")) {
+        if (lastBottom in listOf("home", "stations", "heart", "music", "tabs", "search", "library", "podcasts")) {
             bottomTab = if (lastBottom == "library") "stations" else lastBottom
         }
         if (bottomTab == "home") refreshHomeRails(wantSimilar = true)

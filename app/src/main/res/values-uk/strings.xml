@@ -200,5 +200,11 @@
     <string name="alarm_search_google">Шукати в Google</string>
     <string name="sleep_left">Залишилось: %1$s</string>
     <string name="sleep_pick">Зупинити ефір через</string>
+    <string name="nav_podcasts">Подкасти</string>
+    <string name="podcast_hint">Пошук українських подкастів (Apple, country=ua)</string>
+    <string name="podcast_search_hint">назва подкасту…</string>
+    <string name="podcast_empty_query">Введіть запит</string>
+    <string name="podcast_found">знайдено: %1$d</string>
+    <string name="podcast_episodes">%1$d епізодів</string>
 </resources>
 

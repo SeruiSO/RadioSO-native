@@ -179,4 +179,10 @@
     <string name="alarm_search_google">Search Google</string>
     <string name="sleep_left">Left: %1$s</string>
     <string name="sleep_pick">Stop playback after</string>
+    <string name="nav_podcasts">Podcasts</string>
+    <string name="podcast_hint">Search Ukrainian podcasts (Apple, country=UA)</string>
+    <string name="podcast_search_hint">podcast name…</string>
+    <string name="podcast_empty_query">Enter a search term</string>
+    <string name="podcast_found">found: %1$d</string>
+    <string name="podcast_episodes">%1$d episodes</string>
 </resources>

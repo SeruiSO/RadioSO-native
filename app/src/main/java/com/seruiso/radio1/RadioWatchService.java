@@ -1994,8 +1994,9 @@ notifyForeground();
 
     private boolean isLocalMode() {
         try {
-            return "local".equals(getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-                .getString(LocalMusicPlugin.KEY_MODE, "radio"));
+            String mode = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                .getString(LocalMusicPlugin.KEY_MODE, "radio");
+            return "local".equals(mode) || "podcast".equals(mode);
         } catch (Exception e) {
             return false;
         }

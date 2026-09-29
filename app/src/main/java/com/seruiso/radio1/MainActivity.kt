@@ -95,7 +95,7 @@ class MainActivity : ComponentActivity() {
             val p = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
             posMs = p.getLong("localPositionMs", 0L)
             durMs = p.getLong("localDurationMs", 0L)
-            isLocalNow = p.getString(LocalMusicPlugin.KEY_MODE, "radio") == "local"
+            isLocalNow = p.getString(LocalMusicPlugin.KEY_MODE, "radio").let { it == "local" || it == "podcast" }
             if ((nowOpen || isLocalNow) && !holdSeek) posHandler.postDelayed(this, 400)
         }
     }
@@ -175,7 +175,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     isLocalNow = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-                        .getString(LocalMusicPlugin.KEY_MODE, "radio") == "local"
+                        .getString(LocalMusicPlugin.KEY_MODE, "radio").let { it == "local" || it == "podcast" }
                     if (isLocalNow) {
                         posHandler.removeCallbacks(posTick)
                         posHandler.post(posTick)

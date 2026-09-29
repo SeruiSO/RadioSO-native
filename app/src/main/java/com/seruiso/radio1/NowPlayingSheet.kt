@@ -455,7 +455,7 @@ fun NowPlayingSheet(
                         }
                     }
                 }
-                if (isLocalNow || currentUrl.startsWith("content:")) {
+                if (isLocalNow || currentUrl.startsWith("content:") || currentUrl.startsWith("file:")) {
                     NowPlayingLocalProgress(
                         posMs = posMs,
                         durMs = durMs,

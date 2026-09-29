@@ -117,6 +117,9 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
     private long pausedByFocusAtMs = 0L;
     /** AUDIOFOCUS_LOSS (не transient): без авто-resume, лише явний Play. */
     private boolean permanentFocusLoss = false;
+    /** CAN_DUCK: лише зменшили volume, чекаємо GAIN. */
+    private boolean duckedByFocus = false;
+    private long foreignSinceMs = 0L;
     /** Пауза бо інший app грає media (Telegram/Chrome без focus). */
     private boolean pausedByOtherMedia = false;
     /** Відкладена пауза при чужому media — ігнор біпів 1–2 с (Chrome). */
@@ -810,6 +813,8 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         }
         permanentFocusLoss = false;
         pausedByOtherMedia = false;
+        duckedByFocus = false;
+        try { if (player != null) player.setVolume(1f); } catch (Exception ignored) {}
         return true;
     }
 
@@ -858,27 +863,51 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
     private void onForeignMediaChanged(boolean foreignActive) {
         if (player == null) return;
         if (foreignActive) {
-            // НЕ ставимо на паузу через «чужий media».
-            // Chrome/WebView після біпа форми (Web Audio) ще кілька секунд
-            // лишається в getActivePlaybackConfigurations → хибна пауза.
-            // Реальна пауза: AUDIOFOCUS_LOSS / TRANSIENT / дзвінок.
-            if (foreignPauseRunnable != null) {
-                mainHandler.removeCallbacks(foreignPauseRunnable);
-                foreignPauseRunnable = null;
+            if (foreignSinceMs == 0L) foreignSinceMs = System.currentTimeMillis();
+            long held = System.currentTimeMillis() - foreignSinceMs;
+            // Біп Chrome ~0.5–2 с — ігноруємо.
+            // Відео Telegram/Chrome > 3 с — пауза.
+            if (held < 3000L) {
+                android.util.Log.i("RadioWatch", "foreign media <3s — ignore (beep grace) held=" + held);
+                return;
             }
-            android.util.Log.i("RadioWatch", "foreign media active — ignore (no pause; focus handles real takeover)");
+            if (!(player.isPlaying() || player.getPlayWhenReady())) return;
+            if (isUserPaused() || isVoiceCallActive()) return;
+            if (pausedByOtherMedia) return;
+            android.util.Log.i("RadioWatch", "foreign media >3s — pause radio");
+            if (reconnectHandler != null) {
+                reconnectHandler.removeCallbacksAndMessages(null);
+            }
+            pausedByOtherMedia = true;
+            pausedByFocusLoss = true;
+            pausedByFocusAtMs = System.currentTimeMillis();
+            permanentFocusLoss = false;
+            duckedByFocus = false;
+            try {
+                player.setVolume(1f);
+                player.setPlayWhenReady(false);
+                player.pause();
+            } catch (Exception e) {
+                android.util.Log.w("RadioWatch", "foreign pause", e);
+            }
+            notifyForeground();
+            try { notifyUiPlayback(false); } catch (Exception ignored) {}
             return;
         }
         // Чужий media зник
+        foreignSinceMs = 0L;
         if (foreignPauseRunnable != null) {
             mainHandler.removeCallbacks(foreignPauseRunnable);
             foreignPauseRunnable = null;
         }
-        if (!pausedByOtherMedia && !pausedByFocusLoss) return;
-        // Якщо пауза була лише «foreign» — зняти і resume
-        if (pausedByOtherMedia) {
-            pausedByOtherMedia = false;
+        // Відновити гучність після duck (Telegram voice)
+        if (duckedByFocus) {
+            duckedByFocus = false;
+            try { player.setVolume(1f); } catch (Exception ignored) {}
+            android.util.Log.i("RadioWatch", "foreign ended — unduck volume");
         }
+        if (!pausedByOtherMedia && !pausedByFocusLoss) return;
+        if (pausedByOtherMedia) pausedByOtherMedia = false;
         if (isUserPaused() || isVoiceCallActive()) {
             pausedByFocusLoss = false;
             return;
@@ -887,13 +916,14 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             pausedByFocusLoss = false;
             return;
         }
-        if (!pausedByFocusLoss && player != null
-                && (player.isPlaying() || player.getPlayWhenReady())) {
-            return; // уже граємо
+        if (player.isPlaying() || player.getPlayWhenReady()) {
+            try { player.setVolume(1f); } catch (Exception ignored) {}
+            return;
         }
-        android.util.Log.i("RadioWatch", "foreign media ended — try resume");
+        android.util.Log.i("RadioWatch", "foreign media ended — resume radio");
         pausedByFocusLoss = false;
         permanentFocusLoss = false;
+        duckedByFocus = false;
         try {
             if (requestFocus()) {
                 player.setVolume(1f);
@@ -1101,25 +1131,26 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                 break;
             }
             case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK:
-                // Telegram/інші часто лише CAN_DUCK: volume 0.2 + паралель + GAIN не завжди.
-                // Краще коротка пауза (як TRANSIENT), resume на GAIN.
+                // Telegram voice/короткі звуки: лише тихіше, без pause.
+                // GAIN або foreign-end повертає volume=1.
                 if (player.isPlaying() || player.getPlayWhenReady()) {
-                    if (reconnectHandler != null) {
-                        reconnectHandler.removeCallbacksAndMessages(null);
-                    }
                     permanentFocusLoss = false;
-                    pausedByFocusLoss = true;
-                    pausedByFocusAtMs = System.currentTimeMillis();
-                    try { player.setVolume(1f); } catch (Exception ignored) {}
-                    player.pause();
-                    notifyForeground();
-                    try { notifyUiPlayback(false); } catch (Exception ignored) {}
-                    android.util.Log.i("RadioWatch", "focus CAN_DUCK — pause (not duck volume)");
-                    scheduleShortBlipResume();
+                    duckedByFocus = true;
+                    try { player.setVolume(0.25f); } catch (Exception ignored) {}
+                    android.util.Log.i("RadioWatch", "focus CAN_DUCK — volume 0.25, keep playing");
+                    // страховка: якщо GAIN не прийде — unduck через 8 с
+                    mainHandler.postDelayed(() -> {
+                        if (player == null || !duckedByFocus) return;
+                        if (isUserPaused() || isVoiceCallActive()) return;
+                        duckedByFocus = false;
+                        try { player.setVolume(1f); } catch (Exception ignored) {}
+                        android.util.Log.i("RadioWatch", "CAN_DUCK timeout — restore volume");
+                    }, 8000L);
                 }
                 break;
             case AudioManager.AUDIOFOCUS_GAIN:
-                // Завжди вертати гучність (після duck/Telegram), крім активного call
+                // Завжди повна гучність після Telegram/Chrome duck
+                duckedByFocus = false;
                 if (!isVoiceCallActive()) {
                     try { player.setVolume(1f); } catch (Exception ignored) {}
                 }

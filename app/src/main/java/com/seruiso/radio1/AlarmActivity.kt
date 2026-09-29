@@ -51,9 +51,10 @@ class AlarmActivity : ComponentActivity() {
             AlarmBanner(
                 station = name,
                 acc = Color(ThemeStore.get(this).accent),
-                onDismiss = { finish() },
+                onDismiss = { RadioAlarm.setRinging(this, false); finish() },
                 onSnooze = {
                     RadioAlarm.postponeMinutes(this, 5)
+                    RadioAlarm.setRinging(this, false)
                     finish()
                 },
             )

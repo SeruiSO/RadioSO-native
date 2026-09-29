@@ -30,6 +30,7 @@ object RadioAlarm {
     const val KEY_COUNTRY = "alarmCountry"
     private const val KEY_ITEMS = "alarmItemsJson"
     private const val KEY_LAST_ID = "alarmLastId"
+    private const val KEY_RINGING = "alarmRinging"
 
     const val REPEAT_ONCE = "once"
     const val REPEAT_DAILY = "daily"
@@ -213,6 +214,11 @@ object RadioAlarm {
 
     fun itemById(ctx: Context, id: Long): Item? = items(ctx).firstOrNull { it.id == id }
 
+    fun setRinging(ctx: Context, on: Boolean) {
+        prefs(ctx).edit().putBoolean(KEY_RINGING, on).apply()
+    }
+    fun isRinging(ctx: Context): Boolean = prefs(ctx).getBoolean(KEY_RINGING, false)
+
     fun canExact(ctx: Context): Boolean {
         if (Build.VERSION.SDK_INT < 31) return true
         return try {
@@ -379,6 +385,7 @@ object RadioAlarm {
             android.util.Log.i("AlarmReceiver", "skip")
             return
         }
+        setRinging(ctx, true)
         onFiredItem(ctx, s)
         val svc = Intent(ctx, RadioWatchService::class.java)
         svc.action = RadioWatchService.ACTION_ALARM

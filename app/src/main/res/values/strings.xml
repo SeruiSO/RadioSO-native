@@ -174,4 +174,9 @@
     <string name="alarm_list">Alarms</string>
     <string name="alarm_add_hint">Set time, then add a type — several allowed</string>
     <string name="alarm_row">%1$s  %2$s</string>
+    <string name="alarm_pick_station">Choose station</string>
+    <string name="alarm_search_copy">Copy</string>
+    <string name="alarm_search_google">Search Google</string>
+    <string name="sleep_left">Left: %1$s</string>
+    <string name="sleep_pick">Stop playback after</string>
 </resources>

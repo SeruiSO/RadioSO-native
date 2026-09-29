@@ -195,5 +195,10 @@
     <string name="alarm_list">Мої будильники</string>
     <string name="alarm_add_hint">Час вище, далі обери тип — можна кілька</string>
     <string name="alarm_row">%1$s  %2$s</string>
+    <string name="alarm_pick_station">Обери станцію</string>
+    <string name="alarm_search_copy">Копіювати</string>
+    <string name="alarm_search_google">Шукати в Google</string>
+    <string name="sleep_left">Залишилось: %1$s</string>
+    <string name="sleep_pick">Зупинити ефір через</string>
 </resources>
 

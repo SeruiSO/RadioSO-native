@@ -2788,8 +2788,17 @@ notifyForeground();
         }
         if (title.equals(lastTrackTitle)) return;
         lastTrackTitle = title;
-        getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-            .edit().putString(BluetoothAutoPlayPlugin.KEY_TRACK, title).apply();
+        android.content.SharedPreferences sp = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE);
+        sp.edit().putString(BluetoothAutoPlayPlugin.KEY_TRACK, title).apply();
+        try {
+            String u = sp.getString(BluetoothAutoPlayPlugin.KEY_URL, "");
+            String fv = sp.getString(BluetoothAutoPlayPlugin.KEY_FAVICON, "");
+            if (u == null) u = "";
+            if (fv == null) fv = "";
+            if (!u.startsWith("content:")) {
+                TrackHistoryStore.INSTANCE.push(this, title, currentName == null ? "" : currentName, u, fv);
+            }
+        } catch (Exception ignored) {}
         Intent i = new Intent(ACTION_TRACK_META);
         i.setPackage(getPackageName());
         i.putExtra(EXTRA_TRACK, title);

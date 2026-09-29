@@ -417,6 +417,7 @@ class MainActivity : ComponentActivity() {
                         nowOpen = nowOpen,
                         onNow = {
                             nowOpen = true
+                            trackHistory = TrackHistoryStore.list(this@MainActivity)
                             getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
                                 .edit().putBoolean("nowOpenUi", true).apply()
                             posHandler.removeCallbacks(posTick)
@@ -460,6 +461,9 @@ class MainActivity : ComponentActivity() {
                         showTrackHistory = showTrackHistory,
                         onToggleTrackHistory = {
                             showTrackHistory = !showTrackHistory
+                            if (showTrackHistory) {
+                                trackHistory = TrackHistoryStore.list(this@MainActivity)
+                            }
                             getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
                                 .edit().putBoolean("showTrackHistory", showTrackHistory).apply()
                         },
@@ -1191,6 +1195,7 @@ class MainActivity : ComponentActivity() {
             registerReceiver(uiReceiver, f)
         }
         readPrefs()
+        trackHistory = TrackHistoryStore.list(this)
         if (RadioAlarm.isRinging(this)) {
             startActivity(Intent(this, AlarmActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP))
         }

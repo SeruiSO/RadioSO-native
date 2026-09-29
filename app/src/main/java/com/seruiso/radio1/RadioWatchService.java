@@ -2200,6 +2200,13 @@ notifyForeground();
                 }
                 player.setPlayWhenReady(false);
                 player.pause();
+                // Радіо після BT/NOISY: скинути буфер, щоб автостарт був live, не «хвіст»
+                if (routeLost && !isLocalMode()) {
+                    try {
+                        player.stop();
+                        android.util.Log.i("RadioWatch", "forceStop radio routeLost → stop() drop buffer");
+                    } catch (Exception ignored) {}
+                }
             } catch (Exception e) {
                 android.util.Log.w("RadioWatch", "forceStop player", e);
             }
@@ -2580,14 +2587,33 @@ notifyForeground();
             }
             String cur = player.getCurrentMediaItem().localConfiguration.uri.toString();
             if (!url.equals(cur)) return false;
-            // BT settle: якщо вже реально грає — ок. Якщо на паузі — треба resume, не «ніби грає».
+            // BT settle: якщо вже реально грає/буфериться — не чіпати (handoff).
+            // Радіо на паузі після довгого BT-off: НЕ resume буфера — свіжий live (playUrl).
+            // Local — можна resume з позиції.
             if (withinBtSettle()) {
-                if (player.isPlaying() || player.getPlayWhenReady()) return true;
+                try {
+                    int st = player.getPlaybackState();
+                    boolean liveNow = player.isPlaying()
+                            || (player.getPlayWhenReady()
+                                && (st == Player.STATE_BUFFERING
+                                    || st == Player.STATE_READY));
+                    if (liveNow && player.isPlaying()) {
+                        return true;
+                    }
+                    if (liveNow && st == Player.STATE_BUFFERING) {
+                        return true;
+                    }
+                } catch (Exception ignored) {}
+                if (!isLocalMode()) {
+                    android.util.Log.i("RadioWatch",
+                        "tryResumeSameItem settle radio paused → live re-open (drop buffer)");
+                    return false;
+                }
                 try {
                     player.setVolume(1f);
                     player.setPlayWhenReady(true);
                     player.play();
-                    android.util.Log.i("RadioWatch", "tryResumeSameItem settle → play()");
+                    android.util.Log.i("RadioWatch", "tryResumeSameItem settle local → play()");
                     notifyForeground();
                     return true;
                 } catch (Exception e) {

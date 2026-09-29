@@ -238,6 +238,7 @@ fun BottomNavRail(
             NavIco("heart", Icons.Filled.Favorite, ctx.getString(R.string.favorites_plural))
         }
         NavIco("home", Icons.Filled.Home, ctx.getString(R.string.nav_home))
+        NavIco("podcasts", Icons.Filled.Podcasts, ctx.getString(R.string.nav_podcasts))
         NavIco("search", Icons.Filled.Search, ctx.getString(R.string.nav_search))
         Capsule(current == "stations" || current == "tabs") {
             NavIco("stations", Icons.Filled.Star, ctx.getString(R.string.nav_stations))
@@ -967,7 +968,16 @@ fun StationScreen(
         }
 
         androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(8.dp))
-        if (bottomTab == "home") {
+        if (bottomTab == "podcasts") {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .fillMaxSize(),
+            ) {
+                PodcastsTabContent(acc = acc, muted = muted, text = text, card = card)
+            }
+        } else if (bottomTab == "home") {
             // weight + fillMaxSize: список сам скролить, без боротьби з parent drag
             Box(
                 modifier = Modifier

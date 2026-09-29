@@ -222,5 +222,9 @@
     <string name="podcast_fav_ep">В обрані епізоди</string>
     <string name="podcast_downloaded_sec">Завантажені</string>
     <string name="podcast_downloaded_empty">Немає завантажених епізодів</string>
+    <string name="podcast_tab_shows">Шоу</string>
+    <string name="podcast_tab_eps">Епізоди</string>
+    <string name="podcast_tab_dl">Збережені</string>
+    <string name="podcast_tab_search">Пошук</string>
 </resources>
 

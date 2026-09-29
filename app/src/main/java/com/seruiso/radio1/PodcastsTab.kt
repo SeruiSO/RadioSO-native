@@ -30,6 +30,9 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Podcasts
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.BookmarkBorder
+import androidx.compose.material.icons.filled.LibraryBooks
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.CircularProgressIndicator
@@ -129,6 +132,22 @@ fun PodcastsTabContent(
     val dlEps = remember(tick) { PodcastStore.downloadedList(ctx) }
 
     fun isPinned(feed: String) = feed in pinnedLocal || subs.any { it.feedUrl == feed }
+
+    fun currentPlayUrl(): String {
+        return try {
+            ctx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, android.content.Context.MODE_PRIVATE)
+                .getString(BluetoothAutoPlayPlugin.KEY_URL, "") ?: ""
+        } catch (_: Exception) { "" }
+    }
+    fun isPlayingAudio(audioUrl: String): Boolean {
+        val cur = currentPlayUrl()
+        if (cur.isBlank() || audioUrl.isBlank()) return false
+        if (cur == audioUrl) return true
+        if (cur.contains(audioUrl.substringAfterLast('/').take(40))) return true
+        val local = PodcastStore.episodeFile(ctx, audioUrl).absolutePath
+        return cur.contains(local) || cur.endsWith(local) || ("file://$local" == cur)
+    }
+
 
     fun togglePin(show: PodcastShow) {
         // миттєво в UI
@@ -322,7 +341,7 @@ fun PodcastsTabContent(
                 }
             }
             Icon(
-                if (pinned) Icons.Filled.Star else Icons.Filled.StarBorder,
+                if (pinned) Icons.Filled.Bookmark else Icons.Filled.BookmarkBorder,
                 contentDescription = ctx.getString(R.string.podcast_pin),
                 tint = if (pinned) acc else muted,
                 modifier = Modifier.size(28.dp).clickable { togglePin(show) },
@@ -344,11 +363,12 @@ fun PodcastsTabContent(
         val fav = PodcastStore.isFavEpisode(ctx, ep.audioUrl)
         val busy = dlBusy == ep.audioUrl
         val img = ep.image.ifBlank { artwork }
+        val playing = isPlayingAudio(ep.audioUrl)
         Row(
             Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
-                .background(card)
+                .background(if (playing) acc.copy(alpha = 0.18f) else card)
                 .clickable { playEpisodeList(showTitle, artwork, list, index) }
                 .padding(horizontal = 10.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -380,7 +400,7 @@ fun PodcastsTabContent(
             }
             if (showFav) {
                 Icon(
-                    if (fav) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                    if (fav) Icons.Filled.Bookmark else Icons.Filled.BookmarkBorder,
                     contentDescription = ctx.getString(R.string.podcast_fav_ep),
                     tint = if (fav) acc else muted,
                     modifier = Modifier.size(24.dp).clickable {
@@ -415,21 +435,28 @@ fun PodcastsTabContent(
     }
 
     @Composable
-    fun SubTab(icon: ImageVector, key: PodSub, desc: String) {
+    fun SubTab(icon: ImageVector, key: PodSub, label: String) {
         val on = sub == key && selected == null
-        Icon(
-            icon,
-            contentDescription = desc,
-            tint = if (on) acc else muted,
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
-                .size(28.dp)
+                .clip(RoundedCornerShape(12.dp))
                 .clickable {
                     selected = null
                     episodes = emptyList()
                     error = ""
                     sub = key
-                },
-        )
+                }
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+        ) {
+            Icon(icon, contentDescription = label, tint = if (on) acc else muted, modifier = Modifier.size(24.dp))
+            Text(
+                label,
+                color = if (on) acc else muted,
+                style = MaterialTheme.typography.labelSmall,
+                maxLines = 1,
+            )
+        }
     }
 
     Column(Modifier.fillMaxSize()) {
@@ -473,31 +500,18 @@ fun PodcastsTabContent(
                         }
                     }
                     Icon(
-                        if (isPinned(selected!!.feedUrl)) Icons.Filled.Star else Icons.Filled.StarBorder,
+                        if (isPinned(selected!!.feedUrl)) Icons.Filled.Bookmark else Icons.Filled.BookmarkBorder,
                         contentDescription = ctx.getString(R.string.podcast_pin),
                         tint = if (isPinned(selected!!.feedUrl)) acc else muted,
                         modifier = Modifier.size(28.dp).clickable { togglePin(selected!!) },
                     )
                 }
             } else {
-                val title = when (sub) {
-                    PodSub.SHOWS -> ctx.getString(R.string.podcast_my)
-                    PodSub.FAV_EPS -> ctx.getString(R.string.podcast_fav_eps)
-                    PodSub.DOWNLOADED -> ctx.getString(R.string.podcast_downloaded_sec)
-                    PodSub.SEARCH -> ctx.getString(R.string.nav_podcasts)
-                }
-                Text(title, color = acc, style = MaterialTheme.typography.titleMedium)
                 if (sub == PodSub.SEARCH) {
-                    Text(
-                        ctx.getString(R.string.podcast_hint),
-                        color = muted,
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(top = 2.dp, bottom = 6.dp),
-                    )
                     OutlinedTextField(
                         value = query,
                         onValueChange = { query = it },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
                         singleLine = true,
                         placeholder = { Text(ctx.getString(R.string.podcast_search_hint), color = muted) },
                         trailingIcon = {
@@ -517,9 +531,8 @@ fun PodcastsTabContent(
                         ),
                         shape = RoundedCornerShape(14.dp),
                     )
-                } else {
-                    Spacer(Modifier.height(4.dp))
                 }
+                // інші міні-вкладки — без великого заголовка (підписи вже внизу)
             }
 
             if (loading || loadingEps) {
@@ -630,14 +643,14 @@ fun PodcastsTabContent(
                 Modifier
                     .fillMaxWidth()
                     .background(card)
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .padding(horizontal = 4.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                SubTab(Icons.Filled.Star, PodSub.SHOWS, ctx.getString(R.string.podcast_my))
-                SubTab(Icons.Filled.Favorite, PodSub.FAV_EPS, ctx.getString(R.string.podcast_fav_eps))
-                SubTab(Icons.Filled.Download, PodSub.DOWNLOADED, ctx.getString(R.string.podcast_downloaded_sec))
-                SubTab(Icons.Filled.Search, PodSub.SEARCH, ctx.getString(R.string.find))
+                SubTab(Icons.Filled.LibraryBooks, PodSub.SHOWS, ctx.getString(R.string.podcast_tab_shows))
+                SubTab(Icons.Filled.Bookmark, PodSub.FAV_EPS, ctx.getString(R.string.podcast_tab_eps))
+                SubTab(Icons.Filled.Download, PodSub.DOWNLOADED, ctx.getString(R.string.podcast_tab_dl))
+                SubTab(Icons.Filled.Search, PodSub.SEARCH, ctx.getString(R.string.podcast_tab_search))
             }
         }
     }

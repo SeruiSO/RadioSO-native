@@ -192,8 +192,12 @@ fun NowPlayingSheet(
             }
             else -> nowRadioRows.map { it.favicon }
         }
-        val curI0 = if (nowLocal) nowLocalRows.indexOfFirst { it.uri == currentUrl }
-                    else nowRadioRows.indexOfFirst { it.url == currentUrl }
+        val curI0 = when {
+            isPodcastNow || genre.equals("podcast", ignoreCase = true) ->
+                nowRadioRows.indexOfFirst { it.url == currentUrl || currentUrl.contains(it.url.takeLast(24)) }
+            nowLocal -> nowLocalRows.indexOfFirst { it.uri == currentUrl }
+            else -> nowRadioRows.indexOfFirst { it.url == currentUrl }
+        }
         val curI = if (curI0 >= 0) curI0 else 0
         // Динамічний колір з поточної обкладинки (як у Spotify) — для розмитого фону картки Now Playing
         val artCtx = LocalContext.current
@@ -382,7 +386,7 @@ fun NowPlayingSheet(
                     )
                     }
                     val pagerDragModifier: Modifier =
-                        if (!nowLocal && arts.isNotEmpty() && !blockPagerSwipe) {
+                        if ((!nowLocal || isPodcastNow || genre.equals("podcast", ignoreCase = true)) && arts.isNotEmpty() && !blockPagerSwipe) {
                             Modifier.pointerInput(currentUrl, pageCount, blockPagerSwipe) {
                                 detectHorizontalDragGestures(
                                     onDragStart = {

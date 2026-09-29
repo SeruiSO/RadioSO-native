@@ -201,4 +201,8 @@
     <string name="podcast_fav_ep">Favorite episode</string>
     <string name="podcast_downloaded_sec">Downloaded</string>
     <string name="podcast_downloaded_empty">No downloaded episodes</string>
+    <string name="podcast_tab_shows">Shows</string>
+    <string name="podcast_tab_eps">Episodes</string>
+    <string name="podcast_tab_dl">Saved</string>
+    <string name="podcast_tab_search">Search</string>
 </resources>

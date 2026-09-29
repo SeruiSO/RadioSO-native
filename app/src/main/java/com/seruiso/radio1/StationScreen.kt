@@ -387,11 +387,7 @@ fun StationScreen(
     }
     fun skipUi(next: Boolean) {
         if (nowLocalUi) {
-            val n = nowLocalRowsUi.size
-            if (n == 0) { if (next) onNext() else onPrev(); return }
-            val i0 = nowLocalRowsUi.indexOfFirst { it.uri == currentUrl }.let { if (it < 0) 0 else it }
-            val i = if (next) (i0 + 1) % n else (i0 - 1 + n) % n
-            onPickLocal(nowLocalRowsUi, i)
+            if (next) onNext() else onPrev()
         } else {
             val n = nowRadioRowsUi.size
             if (n == 0) { if (next) onNext() else onPrev(); return }
@@ -565,8 +561,11 @@ fun StationScreen(
             }
         }
         // Інфо-панель: іконки на всю висоту, пульс як Play, жанр+країна
-        val infoArtist = artistFromTrackTitle(track)
-        val infoPhoto by rememberArtistPhotoUrl(infoArtist, bust = currentUrl)
+        val localNow = isLocalNow || currentUrl.startsWith("content:")
+        val infoArtist = if (localNow) {
+            track.trim().ifBlank { artistFromTrackTitle(name) }
+        } else artistFromTrackTitle(track)
+        val infoPhoto by rememberArtistPhotoUrl(infoArtist, bust = if (localNow) infoArtist else currentUrl)
         val infoH = 100.dp
         val infoBusy = !playing && run {
             val stt = status.lowercase()

@@ -112,42 +112,11 @@ fun AppOverflowMenu(
                 MenuRow(
                     icon = Icons.Filled.Timer,
                     label = sleepLabel,
-                    selected = sleepMenu,
+                    selected = false,
                     acc = acc,
                     text = text,
                     onClick = { onSleepMenu() },
                 )
-                if (sleepMenu) {
-                    Column(
-                        modifier = Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, bottom = 6.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        listOf(15 to 30, 60 to 0).forEach { (a, b) ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                listOf(a, b).forEach { m ->
-                                    Box(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .height(44.dp)
-                                            .background(Palette.panel, RoundedCornerShape(12.dp))
-                                            .clickable { onSleep(m); onCloseMenu() },
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            if (m == 0) LocalContext.current.getString(R.string.off)
-                                            else LocalContext.current.getString(R.string.mins_short, m),
-                                            color = acc,
-                                            style = MaterialTheme.typography.labelLarge
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
 
 
                 MenuRow(
@@ -256,43 +225,33 @@ fun AppSleepDialog(
     card: Color,
 ) {
     if (!open) return
+    val ctxs = LocalContext.current
     AlertDialog(
         containerColor = card,
         onDismissRequest = onDismiss,
-        title = { Text(LocalContext.current.getString(R.string.sleep_timer), color = text) },
+        title = { Text(ctxs.getString(R.string.sleep_timer), color = text) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(15 to 30, 60 to 0).forEach { (a, b) ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        listOf(a, b).forEach { m ->
-                            val lab = if (m == 0) LocalContext.current.getString(R.string.disable)
-                            else LocalContext.current.getString(R.string.mins_short, m)
-                            val selected = if (m == 0) sleepLabel == LocalContext.current.getString(R.string.sleep_timer)
-                            else sleepLabel.contains(LocalContext.current.getString(R.string.mins_short, m))
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Text(ctxs.getString(R.string.sleep_pick), color = muted, style = MaterialTheme.typography.labelLarge)
+                Text(sleepLabel, color = acc, style = MaterialTheme.typography.titleMedium)
+                val mins = listOf(5, 10, 15, 20, 30, 45, 60, 90, 120, 0)
+                mins.chunked(2).forEach { pair ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        pair.forEach { m ->
+                            val lab = if (m == 0) ctxs.getString(R.string.disable)
+                            else ctxs.getString(R.string.mins_short, m)
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height(44.dp)
-                                    .background(
-                                        if (selected) acc.copy(alpha = 0.28f) else Palette.panel,
-                                        RoundedCornerShape(12.dp)
-                                    )
-                                    .border(
-                                        1.dp,
-                                        if (selected) acc else muted.copy(alpha = 0.25f),
-                                        RoundedCornerShape(12.dp)
-                                    )
-                                    .clickable {
-                                        onSleep(m)
-                                        onDismiss()
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(lab, color = if (selected) acc else text)
-                            }
+                                    .height(46.dp)
+                                    .background(acc.copy(alpha = 0.12f), RoundedCornerShape(14.dp))
+                                    .border(1.dp, acc.copy(alpha = 0.35f), RoundedCornerShape(14.dp))
+                                    .clickable { onSleep(m); onDismiss() },
+                                contentAlignment = Alignment.Center,
+                            ) { Text(lab, color = text) }
                         }
                     }
                 }
@@ -300,110 +259,8 @@ fun AppSleepDialog(
         },
         confirmButton = {},
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(LocalContext.current.getString(R.string.close), color = muted)
-            }
-        }
-    )
-}
-
-@Composable
-fun AppThemeDialog(
-    open: Boolean,
-    onDismiss: () -> Unit,
-    themeName: String,
-    onPickTheme: (String) -> Unit,
-    acc: Color,
-    muted: Color,
-    text: Color,
-    card: Color,
-) {
-    if (!open) return
-    val ctx = LocalContext.current
-    AlertDialog(
-        containerColor = card,
-        onDismissRequest = onDismiss,
-        title = { Text(LocalContext.current.getString(R.string.theme), color = text) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Text(
-                    LocalContext.current.getString(R.string.theme_title),
-                    color = muted,
-                    style = MaterialTheme.typography.labelLarge
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    listOf(
-                        false to (Icons.Filled.DarkMode to R.string.theme_dark),
-                        true to (Icons.Filled.LightMode to R.string.theme_light),
-                    ).forEach { (light, pair) ->
-                        val (ico, strRes) = pair
-                        val selected = Palette.isLight == light
-                        val shape = RoundedCornerShape(14.dp)
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(52.dp)
-                                .background(
-                                    if (selected) acc.copy(alpha = 0.22f) else Palette.panel,
-                                    shape
-                                )
-                                .border(
-                                    1.5.dp,
-                                    if (selected) acc else muted.copy(alpha = 0.2f),
-                                    shape
-                                )
-                                .clickable { Palette.setLight(ctx, light) }
-                                .padding(horizontal = 12.dp)
-                        ) {
-                            Icon(ico, contentDescription = null, tint = if (selected) acc else text, modifier = Modifier.size(24.dp))
-                            Text(
-                                LocalContext.current.getString(strRes),
-                                color = if (selected) acc else text,
-                                style = MaterialTheme.typography.titleSmall
-                            )
-                        }
-                    }
-                }
-                Text(
-                    LocalContext.current.getString(R.string.theme),
-                    color = muted,
-                    style = MaterialTheme.typography.labelLarge
-                )
-                ThemeStore.all.chunked(4).forEach { row ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                        horizontalArrangement = Arrangement.SpaceEvenly
-                    ) {
-                        row.forEach { th ->
-                            val selected = th.id == themeName
-                            Box(
-                                modifier = Modifier
-                                    .size(48.dp)
-                                    .background(Color(th.accent), RoundedCornerShape(14.dp))
-                                    .then(
-                                        if (selected) Modifier.border(3.dp, text, RoundedCornerShape(14.dp))
-                                        else Modifier.border(1.dp, muted.copy(alpha = 0.2f), RoundedCornerShape(14.dp))
-                                    )
-                                    .clickable {
-                                        onPickTheme(th.id)
-                                    }
-                            )
-                        }
-                    }
-                }
-            }
+            TextButton(onClick = onDismiss) { Text(ctxs.getString(R.string.close), color = muted) }
         },
-        confirmButton = {},
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(LocalContext.current.getString(R.string.close), color = muted)
-            }
-        }
     )
 }
 
@@ -432,6 +289,7 @@ fun AppAlarmDialog(
     var month by remember(open) { mutableIntStateOf(now.get(java.util.Calendar.MONTH)) }
     var day by remember(open) { mutableIntStateOf(now.get(java.util.Calendar.DAY_OF_MONTH)) }
     var showCal by remember { mutableStateOf(false) }
+    var stOpen by remember { mutableStateOf(false) }
     var url by remember(open) { mutableStateOf(nowUrl) }
     var stName by remember(open) { mutableStateOf(nowName) }
     var stFav by remember(open) { mutableStateOf(nowFavicon) }
@@ -441,23 +299,21 @@ fun AppAlarmDialog(
     val extra = if (nowUrl.isNotBlank() && favs.none { it.url == nowUrl }) {
         listOf(Station(nowUrl, nowName.ifBlank { ctx.getString(R.string.alarm_use_current) }, nowGenre, nowCountry, nowFavicon, "now"))
     } else emptyList()
-    val rows = extra + favs
-    fun stationOf() = Triple(url, stName, stFav)
+    val choices = (extra + favs).distinctBy { it.url }
     fun addMode(rep: String) {
-        if (url.isBlank() && nowUrl.isNotBlank()) {
-            url = nowUrl; stName = nowName; stFav = nowFavicon; stGen = nowGenre; stCtry = nowCountry
-        }
+        val u = url.ifBlank { nowUrl }
+        val nm = stName.ifBlank { nowName }
+        if (u.isBlank()) return
         if (!RadioAlarm.canExact(ctx)) RadioAlarm.requestExact(ctx)
         RadioAlarm.add(
             ctx,
             RadioAlarm.Item(
                 id = System.currentTimeMillis(),
                 enabled = true,
-                hour = hour,
-                minute = minute,
-                repeat = rep,
+                hour = hour, minute = minute, repeat = rep,
                 year = year, month = month, day = day,
-                url = url, name = stName, favicon = stFav, genre = stGen, country = stCtry,
+                url = u, name = nm, favicon = stFav.ifBlank { nowFavicon },
+                genre = stGen.ifBlank { nowGenre }, country = stCtry.ifBlank { nowCountry },
             ),
         )
         tick++
@@ -477,6 +333,35 @@ fun AppAlarmDialog(
             dlg.setOnCancelListener { showCal = false }
             dlg.show()
             onDispose { try { dlg.dismiss() } catch (_: Exception) {} }
+        }
+    }
+    @Composable
+    fun ItemCard(item: RadioAlarm.Item) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 6.dp)
+                .background(acc.copy(alpha = 0.10f), RoundedCornerShape(12.dp))
+                .padding(horizontal = 10.dp, vertical = 8.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    RadioAlarm.rowTitle(ctx, item),
+                    color = text, modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.titleSmall, maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Switch(checked = item.enabled, onCheckedChange = {
+                    RadioAlarm.setEnabled(ctx, item.id, it); tick++
+                })
+                Text("✕", color = muted, modifier = Modifier.padding(start = 6.dp).clickable {
+                    RadioAlarm.remove(ctx, item.id); tick++
+                })
+            }
+            Text(RadioAlarm.nextLabel(ctx, item), color = acc, style = MaterialTheme.typography.bodySmall)
+            if (item.name.isNotBlank()) {
+                Text(item.name, color = muted, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+            }
         }
     }
     AlertDialog(
@@ -505,87 +390,58 @@ fun AppAlarmDialog(
                         Icon(Icons.Filled.Remove, null, tint = acc, modifier = Modifier.size(26.dp).clickable { minute = (minute + 55) % 60 })
                     }
                 }
-                Text(ctx.getString(R.string.alarm_add_hint), color = muted, style = MaterialTheme.typography.bodySmall)
-                AlarmAddLine(ctx.getString(R.string.alarm_daily), acc, text) { addMode(RadioAlarm.REPEAT_DAILY) }
-                AlarmAddLine(ctx.getString(R.string.alarm_weekdays), acc, text) { addMode(RadioAlarm.REPEAT_WEEKDAYS) }
-                AlarmAddLine(ctx.getString(R.string.alarm_once), acc, text) { addMode(RadioAlarm.REPEAT_ONCE) }
-                AlarmAddLine(ctx.getString(R.string.alarm_pick_date), acc, text) { showCal = true }
-                Text(ctx.getString(R.string.alarm_station), color = muted, style = MaterialTheme.typography.labelLarge)
-                if (nowUrl.isNotBlank()) {
-                    Text(
-                        ctx.getString(R.string.alarm_use_current) + ": " + nowName,
-                        color = acc,
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.clickable {
-                            url = nowUrl; stName = nowName; stFav = nowFavicon
-                            stGen = nowGenre; stCtry = nowCountry
-                        },
-                    )
-                }
-                rows.take(8).forEach { s ->
-                    val sel = s.url == url
-                    Text(
-                        s.name,
-                        color = if (sel) acc else text,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
+                Text(ctx.getString(R.string.alarm_pick_station), color = muted, style = MaterialTheme.typography.labelLarge)
+                Column {
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(if (sel) acc.copy(alpha = 0.18f) else Color.Transparent, RoundedCornerShape(10.dp))
-                            .clickable {
-                                url = s.url; stName = s.name; stFav = s.favicon
-                                stGen = s.genre; stCtry = s.country
-                            }
-                            .padding(horizontal = 10.dp, vertical = 7.dp),
-                    )
-                }
-                if (list.isNotEmpty()) {
-                    Text(ctx.getString(R.string.alarm_list), color = muted, style = MaterialTheme.typography.labelLarge)
-                    list.forEach { item ->
+                            .background(acc.copy(alpha = 0.10f), RoundedCornerShape(12.dp))
+                            .clickable { stOpen = !stOpen }
+                            .padding(horizontal = 12.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            stName.ifBlank { ctx.getString(R.string.alarm_pick_station) },
+                            color = text, modifier = Modifier.weight(1f),
+                            maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(if (stOpen) "▲" else "▼", color = acc)
+                    }
+                    if (stOpen) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(acc.copy(alpha = 0.10f), RoundedCornerShape(12.dp))
-                                .padding(horizontal = 10.dp, vertical = 8.dp),
+                                .background(Palette.panel, RoundedCornerShape(12.dp))
+                                .padding(6.dp),
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                            choices.take(24).forEach { s ->
+                                val sel = s.url == url
                                 Text(
-                                    RadioAlarm.rowTitle(ctx, item),
-                                    color = text,
-                                    modifier = Modifier.weight(1f),
-                                    style = MaterialTheme.typography.titleSmall,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                                Switch(
-                                    checked = item.enabled,
-                                    onCheckedChange = {
-                                        RadioAlarm.setEnabled(ctx, item.id, it)
-                                        tick++
-                                    },
-                                )
-                                Text(
-                                    "✕",
-                                    color = muted,
+                                    s.name,
+                                    color = if (sel) acc else text,
+                                    maxLines = 1, overflow = TextOverflow.Ellipsis,
                                     modifier = Modifier
-                                        .padding(start = 6.dp)
+                                        .fillMaxWidth()
+                                        .background(if (sel) acc.copy(alpha = 0.18f) else Color.Transparent, RoundedCornerShape(8.dp))
                                         .clickable {
-                                            RadioAlarm.remove(ctx, item.id)
-                                            tick++
-                                        },
+                                            url = s.url; stName = s.name; stFav = s.favicon
+                                            stGen = s.genre; stCtry = s.country
+                                            stOpen = false
+                                        }
+                                        .padding(horizontal = 10.dp, vertical = 8.dp),
                                 )
-                            }
-                            Text(
-                                RadioAlarm.nextLabel(ctx, item),
-                                color = acc,
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                            if (item.name.isNotBlank()) {
-                                Text(item.name, color = muted, style = MaterialTheme.typography.labelSmall, maxLines = 1)
                             }
                         }
                     }
                 }
+                AlarmAddLine(ctx.getString(R.string.alarm_daily), acc, text) { addMode(RadioAlarm.REPEAT_DAILY) }
+                list.filter { it.repeat == RadioAlarm.REPEAT_DAILY }.forEach { ItemCard(it) }
+                AlarmAddLine(ctx.getString(R.string.alarm_weekdays), acc, text) { addMode(RadioAlarm.REPEAT_WEEKDAYS) }
+                list.filter { it.repeat == RadioAlarm.REPEAT_WEEKDAYS }.forEach { ItemCard(it) }
+                AlarmAddLine(ctx.getString(R.string.alarm_once), acc, text) { addMode(RadioAlarm.REPEAT_ONCE) }
+                list.filter { it.repeat == RadioAlarm.REPEAT_ONCE }.forEach { ItemCard(it) }
+                AlarmAddLine(ctx.getString(R.string.alarm_pick_date), acc, text) { showCal = true }
+                list.filter { it.repeat == RadioAlarm.REPEAT_DATE }.forEach { ItemCard(it) }
             }
         },
         confirmButton = {

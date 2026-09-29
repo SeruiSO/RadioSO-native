@@ -59,14 +59,15 @@ fun NowPlayingMeta(
             .then(pagerDragModifier),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            name,
-            color = text,
-            style = MaterialTheme.typography.titleLarge,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f)
-        )
+        TrackLongBox(text = name, modifier = Modifier.weight(1f)) {
+            Text(
+                name,
+                color = text,
+                style = MaterialTheme.typography.titleLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
         val isLocalCard = currentUrl.startsWith("content:")
         if (isLocalCard) {
             Icon(
@@ -133,17 +134,21 @@ fun NowPlayingMeta(
             }
         }
     }
-    Text(
-        metaLine,
-        color = muted,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-        style = MaterialTheme.typography.bodyMedium,
+    TrackLongBox(
+        text = metaLine,
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = 0.dp, bottom = 2.dp)
-            .then(pagerDragModifier)
-    )
+            .then(pagerDragModifier),
+    ) {
+        Text(
+            metaLine,
+            color = muted,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+    }
 }
 
 @Composable

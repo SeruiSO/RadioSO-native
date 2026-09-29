@@ -133,6 +133,17 @@ class MainActivity : ComponentActivity() {
     private var btWatch by mutableStateOf(true)
     private var sleepLabel by mutableStateOf("")  // set in onCreate
     private val sleepHandler = Handler(Looper.getMainLooper())
+    private val sleepTickUi = object : Runnable {
+        override fun run() {
+            val until = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                .getLong("sleepUntilMs", 0L)
+            val left = until - System.currentTimeMillis()
+            if (until <= 0L || left <= 0L) return
+            val tot = (left / 1000L).toInt().coerceAtLeast(1)
+            sleepLabel = getString(R.string.sleep_left, "%d:%02d".format(tot / 60, tot % 60))
+            sleepHandler.postDelayed(this, 1000)
+        }
+    }
     private var sleepRunnable: Runnable? = null
 
     private val uiTabs: List<String>
@@ -637,6 +648,8 @@ class MainActivity : ComponentActivity() {
         sleepRunnable = r
         sleepHandler.postDelayed(r, mins * 60_000L)
         sleepMenu = false
+        sleepHandler.removeCallbacks(sleepTickUi)
+        sleepHandler.post(sleepTickUi)
     }
 
     private fun restoreSleepTimer() {
@@ -663,6 +676,8 @@ class MainActivity : ComponentActivity() {
         }
         sleepRunnable = r
         sleepHandler.postDelayed(r, left)
+        sleepHandler.removeCallbacks(sleepTickUi)
+        sleepHandler.post(sleepTickUi)
     }
 
     private fun normalizeCountry(raw: String): String {
@@ -1176,6 +1191,11 @@ class MainActivity : ComponentActivity() {
             registerReceiver(uiReceiver, f)
         }
         readPrefs()
+        if (RadioAlarm.isRinging(this)) {
+            startActivity(Intent(this, AlarmActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP))
+        }
+        sleepHandler.removeCallbacks(sleepTickUi)
+        sleepHandler.post(sleepTickUi)
     }
 
     override fun onStop() {

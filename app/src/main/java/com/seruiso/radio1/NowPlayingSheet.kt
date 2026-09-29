@@ -26,6 +26,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -521,7 +522,8 @@ private fun TrackHistoryBack(
     val ctx = LocalContext.current
     val show = flipAngle > 90f
     val rows = remember(items) { items.take(30) }
-    LazyColumn(
+    // Box ловить тап по вільному місці; рядки — окремо (long-press на назві)
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .graphicsLayer {
@@ -529,34 +531,42 @@ private fun TrackHistoryBack(
                 cameraDistance = cameraDist
                 alpha = if (show) 1f else 0f
             }
-            .padding(horizontal = 4.dp),
+            .clickable(enabled = show) { onClose() },
     ) {
-        item(key = "hdr") {
-            Text(
-                ctx.getString(R.string.track_history_hint),
-                color = acc,
-                style = MaterialTheme.typography.titleSmall,
-                modifier = Modifier
-                    .padding(bottom = 8.dp)
-                    .clickable(enabled = show) { onClose() },
-            )
-            if (rows.isEmpty()) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 4.dp),
+        ) {
+            item(key = "hdr") {
                 Text(
-                    ctx.getString(R.string.track_history_empty),
-                    color = muted,
-                    style = MaterialTheme.typography.bodySmall,
+                    ctx.getString(R.string.track_history_hint),
+                    color = acc,
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+                if (rows.isEmpty()) {
+                    Text(
+                        ctx.getString(R.string.track_history_empty),
+                        color = muted,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
+            items(rows, key = { it.atMs.toString() + it.title }) { item ->
+                TrackHistoryRow(
+                    item = item,
+                    text = text,
+                    muted = muted,
+                    loadArt = loadArt,
+                    fmt = fmt,
+                    onClose = onClose,
                 )
             }
-        }
-        items(rows, key = { it.atMs.toString() + it.title }) { item ->
-            TrackHistoryRow(
-                item = item,
-                text = text,
-                muted = muted,
-                loadArt = loadArt,
-                fmt = fmt,
-                onClose = onClose,
-            )
+            // місце під списком — тап проходить на Box → закриття
+            item(key = "tail") {
+                Spacer(Modifier = Modifier.fillMaxWidth().height(320.dp))
+            }
         }
     }
 }

@@ -117,6 +117,7 @@ fun PodcastsTabContent(
     var dlBusy by remember { mutableStateOf<String?>(null) }
     // миттєве замальовування ★ у пошуку (до перечитування store)
     var pinnedLocal by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var favLocal by remember { mutableStateOf<Set<String>>(emptySet()) }
 
     fun refresh() {
         tick++
@@ -128,8 +129,26 @@ fun PodcastsTabContent(
         pinnedLocal = s.map { it.feedUrl }.toSet()
         s
     }
-    val favEps = remember(tick) { PodcastStore.favEpisodes(ctx) }
+    val favEps = remember(tick) {
+        val f = PodcastStore.favEpisodes(ctx)
+        favLocal = f.map { it.audioUrl }.toSet()
+        f
+    }
     val dlEps = remember(tick) { PodcastStore.downloadedList(ctx) }
+
+    
+    // оновлення підсвітки при skip з сервісу / NP
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        val prefs = ctx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, android.content.Context.MODE_PRIVATE)
+        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == BluetoothAutoPlayPlugin.KEY_URL || key == LocalMusicPlugin.KEY_LOCAL_INDEX
+                || key == BluetoothAutoPlayPlugin.KEY_QUEUE_INDEX) {
+                tick++
+            }
+        }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
 
     fun isPinned(feed: String) = feed in pinnedLocal || subs.any { it.feedUrl == feed }
 
@@ -223,7 +242,8 @@ fun PodcastsTabContent(
         } catch (_: Exception) {
             try { ctx.startService(i) } catch (_: Exception) {}
         }
-        status = ctx.getString(R.string.podcast_playing, ep.title)
+        // статус «Грає:» не пишемо — є інфо-панель / NP
+        tick++ // оновити підсвітку рядка
     }
 
     fun playFavList(list: List<PodcastFavEpisode>, ep: PodcastFavEpisode) {
@@ -360,7 +380,7 @@ fun PodcastsTabContent(
         showDl: Boolean = true,
     ) {
         val downloaded = PodcastStore.isDownloaded(ctx, ep.audioUrl)
-        val fav = PodcastStore.isFavEpisode(ctx, ep.audioUrl)
+        val fav = ep.audioUrl in favLocal || PodcastStore.isFavEpisode(ctx, ep.audioUrl)
         val busy = dlBusy == ep.audioUrl
         val img = ep.image.ifBlank { artwork }
         val playing = isPlayingAudio(ep.audioUrl)
@@ -388,10 +408,11 @@ fun PodcastsTabContent(
             Column(Modifier.weight(1f)) {
                 Text(ep.title, color = text, maxLines = 3, overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.bodyMedium)
+                val durTxt = formatPodDuration(ep.duration)
                 val meta = buildList {
                     if (showTitle.isNotBlank()) add(showTitle)
                     if (ep.pubDate.isNotBlank()) add(ep.pubDate)
-                    if (ep.duration.isNotBlank()) add(ep.duration)
+                    if (durTxt.isNotBlank()) add(durTxt)
                 }.joinToString(" · ")
                 if (meta.isNotBlank()) {
                     Text(meta, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -404,6 +425,8 @@ fun PodcastsTabContent(
                     contentDescription = ctx.getString(R.string.podcast_fav_ep),
                     tint = if (fav) acc else muted,
                     modifier = Modifier.size(24.dp).clickable {
+                        favLocal = if (ep.audioUrl in favLocal) favLocal - ep.audioUrl
+                        else favLocal + ep.audioUrl
                         PodcastStore.toggleFavEpisode(
                             ctx,
                             PodcastFavEpisode(
@@ -412,7 +435,7 @@ fun PodcastsTabContent(
                                 pubDate = ep.pubDate, duration = ep.duration,
                             ),
                         )
-                        refresh()
+                        tick++
                     },
                 )
                 Spacer(Modifier.width(8.dp))
@@ -544,7 +567,7 @@ fun PodcastsTabContent(
                 Text(error, color = Color(0xFFE57373), style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(top = 8.dp))
             }
-            if (status.isNotBlank() && !loading && !loadingEps) {
+            if (status.isNotBlank() && !loading && !loadingEps && sub != PodSub.SEARCH) {
                 Text(status, color = muted, style = MaterialTheme.typography.labelMedium,
                     modifier = Modifier.padding(top = 6.dp, bottom = 2.dp))
             }
@@ -654,6 +677,19 @@ fun PodcastsTabContent(
             }
         }
     }
+}
+
+
+private fun formatPodDuration(raw: String): String {
+    val s = raw.trim()
+    if (s.isEmpty()) return ""
+    // already H:MM:SS or M:SS
+    if (s.contains(":")) return s
+    val sec = s.toIntOrNull() ?: return s
+    val h = sec / 3600
+    val m = (sec % 3600) / 60
+    val r = sec % 60
+    return if (h > 0) "%d:%02d:%02d".format(h, m, r) else "%d:%02d".format(m, r)
 }
 
 object ItunesPodcasts {

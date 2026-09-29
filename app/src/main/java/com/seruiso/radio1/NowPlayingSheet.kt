@@ -167,7 +167,9 @@ fun NowPlayingSheet(
                     }
                 }
         )
-        val nowLocal = isLocalNow || currentUrl.startsWith("content:")
+        val isPodcastNow = genre.equals("podcast", ignoreCase = true)
+        val nowLocal = (isLocalNow || currentUrl.startsWith("content:")) && !isPodcastNow
+        // podcast: черга як радіо (URL+favicon), seek/progress — як local (isLocalNow у ui)
         val nowLocalRows = when {
             showLocal -> localRows
             nowLocal && bestRows.isNotEmpty() -> bestRows
@@ -178,7 +180,6 @@ fun NowPlayingSheet(
             skipMode == "temp" && tempRows.isNotEmpty() -> tempRows
             else -> radioRows
         }
-        val isPodcastNow = genre.equals("podcast", ignoreCase = true)
         val arts: List<String> = when {
             isPodcastNow -> {
                 // обкладинка шоу з KEY_FAVICON / черги

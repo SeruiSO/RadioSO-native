@@ -141,8 +141,8 @@ fun BottomNavBar(
             tint = if (selected) acc else muted,
             modifier = Modifier
                 .clickable { onSelect(key) }
-                .padding(horizontal = 8.dp, vertical = 6.dp)
-                .size(34.dp)
+                .padding(horizontal = 3.dp, vertical = 6.dp)
+                .size(30.dp)
         )
     }
     @Composable
@@ -153,7 +153,7 @@ fun BottomNavBar(
                     if (active) acc.copy(alpha = 0.14f) else muted.copy(alpha = 0.08f),
                     RoundedCornerShape(16.dp)
                 )
-                .padding(horizontal = 2.dp),
+                .padding(horizontal = 0.dp),
             verticalAlignment = Alignment.CenterVertically
         ) { content() }
     }
@@ -171,7 +171,7 @@ fun BottomNavBar(
                     else onPull(drag)
                 }
             }
-            .padding(horizontal = 8.dp, vertical = 4.dp),
+            .padding(horizontal = 2.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically
     ) {

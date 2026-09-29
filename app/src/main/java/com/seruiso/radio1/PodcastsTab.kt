@@ -430,7 +430,7 @@ fun PodcastsTabContent(
         showFav: Boolean = true,
         showDl: Boolean = true,
     ) {
-        val _watch = playUrl
+        val watchPlayUrl = playUrl
         val playing = isPlayingAudio(ep.audioUrl)
         val fav = ep.audioUrl in favLocal
         val downloaded = PodcastStore.isDownloaded(ctx, ep.audioUrl)
@@ -588,7 +588,7 @@ fun PodcastsTabContent(
                 ) {
                     itemsIndexed(episodes, key = { i, e -> "${e.audioUrl}|$i|${playUrl.hashCode()}" }) { index, ep ->
                         // playUrl — щоб рядок рекомпонувався при skip
-                        val _ = playUrl
+                        val watchPlayUrl = playUrl
                         EpRow(ep, selected!!.title, art, episodes, index)
                     }
                 }

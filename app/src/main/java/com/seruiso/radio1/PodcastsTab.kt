@@ -171,6 +171,12 @@ fun PodcastsTabContent(
         error = ""
     }
     var tick by remember { mutableStateOf(0) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(250)
+            if (PodcastStore.anyBusy()) tick++
+        }
+    }
     var dlBusy by remember { mutableStateOf<String?>(null) }
     var pinnedLocal by remember { mutableStateOf<Set<String>>(emptySet()) }
     var favLocal by remember { mutableStateOf<Set<String>>(emptySet()) }
@@ -490,6 +496,7 @@ fun PodcastsTabContent(
             if (err != null) error = err
             tick++
         }
+        tick++
     }
 
     @Composable

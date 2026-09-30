@@ -265,6 +265,7 @@ object PodcastStore {
     @Volatile var busyUrl: String = ""
 
     fun isBusy(url: String) = url.isNotBlank() && (busyUrl == url || waiting.contains(url))
+    fun anyBusy() = busyUrl.isNotBlank() || waiting.isNotEmpty()
     fun fracOf(url: String): Float = fracs[url] ?: -1f
 
     fun enqueue(

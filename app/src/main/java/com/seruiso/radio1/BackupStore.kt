@@ -37,7 +37,25 @@ object BackupStore {
             .put(BluetoothAutoPlayPlugin.KEY_HIDDEN_TABS, try {
                 org.json.JSONArray(p.getString(BluetoothAutoPlayPlugin.KEY_HIDDEN_TABS, "[]") ?: "[]")
             } catch (_: Exception) { org.json.JSONArray() })
+            .put("podcast", podcastSection(p))
             .toString(2)
+    }
+
+    private fun podcastSection(p: android.content.SharedPreferences): JSONObject {
+        val o = JSONObject()
+        listOf(
+            "podcastSubsJson",
+            "podcastFavEpsJson",
+            "podcastDlMetaJson",
+            "podcastFeedCache",
+            "podPosJson",
+            "podcastRecentEps",
+            "podcastPlayedUrls",
+        ).forEach { k ->
+            val v = p.getString(k, null)
+            if (v != null) o.put(k, v)
+        }
+        return o
     }
 
     fun importJson(ctx: Context, rawIn: String): String {
@@ -95,6 +113,14 @@ object BackupStore {
                 BluetoothAutoPlayPlugin.KEY_HIDDEN_TABS,
                 o.get(BluetoothAutoPlayPlugin.KEY_HIDDEN_TABS).toString()
             )
+        }
+        val pod = o.optJSONObject("podcast")
+        if (pod != null) {
+            val keys = pod.keys()
+            while (keys.hasNext()) {
+                val k = keys.next()
+                e.putString(k, pod.optString(k))
+            }
         }
         e.apply()
         // нормалізувати favicon у вже записаних favorites / userAdded

@@ -1801,9 +1801,6 @@ notifyForeground();
             setUserPausedWhileBt(false);
             PlaybackPrefs.setPauseReason(this, PlaybackPrefs.REASON_NONE);
             setIntendedPlaying(true);
-            if (RadioSlot.restoreIfPodcast(this)) {
-                android.util.Log.i("RadioWatch", "ACTION_BT restored radio slot");
-            }
             ignoreNoisyUntilMs = System.currentTimeMillis() + 8000L;
             try { notifyUiStatus(lc().getString(R.string.connecting), 0); } catch (Exception ignored) {}
             try {
@@ -2082,10 +2079,17 @@ notifyForeground();
             long pos = Math.max(0, player.getCurrentPosition());
             long dur = player.getDuration();
             if (dur < 0 || dur == androidx.media3.common.C.TIME_UNSET) dur = 0;
-            getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE).edit()
+            android.content.SharedPreferences spWr = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE);
+            spWr.edit()
                 .putLong("localPositionMs", pos)
                 .putLong("localDurationMs", dur)
                 .apply();
+            try {
+                if ("podcast".equals(spWr.getString(LocalMusicPlugin.KEY_MODE, ""))) {
+                    String pu = spWr.getString(BluetoothAutoPlayPlugin.KEY_URL, "");
+                    if (pu != null && !pu.isEmpty()) PodcastStore.INSTANCE.savePos(this, pu, pos);
+                }
+            } catch (Exception ignored) {}
             Intent i = new Intent(ACTION_PLAYBACK_UI);
             i.setPackage(getPackageName());
             i.putExtra("playing", player.isPlaying());
@@ -2178,6 +2182,7 @@ notifyForeground();
 
     private void forceStopPlayback(String reason) {
         android.util.Log.i("RadioWatch", "forceStopPlayback: " + reason);
+        try { writeLocalPosition(); } catch (Exception ignored) {}
         // VoIP (WhatsApp/Viber) через BT: A2DP→SCO може дати pause.
         // Не затираємо intended при soft focus, інакше AUDIOFOCUS_GAIN не відновить ефір.
         // ROUTE_LOST (disconnect) ≠ USER_PAUSE (палець) — інакше «вийшов→сів» ламається.
@@ -2786,6 +2791,17 @@ notifyForeground();
                     .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, true).apply();
             } catch (Exception ignored) {}
             boolean localMode = isLocalMode();
+            if (localMode) {
+                try {
+                    SharedPreferences spSeek = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE);
+                    long saved = spSeek.getLong("localPositionMs", 0L);
+                    if ("podcast".equals(spSeek.getString(LocalMusicPlugin.KEY_MODE, ""))) {
+                        long pod = PodcastStore.INSTANCE.pos(this, url);
+                        if (pod > saved) saved = pod;
+                    }
+                    if (saved > 800L) pendingSeekMs = saved;
+                } catch (Exception ignored) {}
+            }
             // Радіо: трек ще не відомий (прийде з ICY/onMediaMetadataChanged) — чистимо.
             // Локальна музика: артист/назва вже відомі заздалегідь (playLocal/skip їх щойно
             // записали) — не затирати тим самим стартом відтворення.

@@ -52,6 +52,7 @@ import androidx.compose.material3.TextButton
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -127,7 +128,14 @@ fun PodcastsTabContent(
     val scope = rememberCoroutineScope()
     val kb = LocalSoftwareKeyboardController.current
 
-    var sub by remember { mutableStateOf(PodSub.SHOWS) }
+    var sub by remember {
+        mutableStateOf(
+            enumValues<PodSub>().firstOrNull {
+                it.name == ctx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, android.content.Context.MODE_PRIVATE)
+                    .getString("podUiSub", "SHOWS")
+            } ?: PodSub.SHOWS
+        )
+    }
     var epFilter by remember { mutableStateOf("all") }
     var showQ by remember { mutableStateOf("") }
     var showSort by remember { mutableStateOf("new") }
@@ -170,6 +178,7 @@ fun PodcastsTabContent(
     var searchTerm by remember { mutableStateOf("") }
     var canLoadMore by remember { mutableStateOf(false) }
     val showsState = rememberLazyListState()
+    val episodeListState = rememberLazyListState()
     val searchState = rememberLazyListState()
 
     DisposableEffect(Unit) {
@@ -432,6 +441,40 @@ fun PodcastsTabContent(
                 error = it.message ?: ctx.getString(R.string.scan_error)
             }
         }
+    }
+
+    LaunchedEffect(Unit) {
+        val p = ctx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, android.content.Context.MODE_PRIVATE)
+        val raw = p.getString("podUiShow", "") ?: ""
+        if (raw.isBlank()) return@LaunchedEffect
+        val o = org.json.JSONObject(raw)
+        val show = PodcastShow(
+            id = o.optLong("id"),
+            title = o.optString("title"),
+            author = o.optString("author"),
+            feedUrl = o.optString("feedUrl"),
+            artwork = o.optString("artwork"),
+            trackCount = o.optInt("trackCount"),
+        )
+        if (show.feedUrl.isNotBlank()) openShow(show)
+    }
+    LaunchedEffect(sub, selected?.feedUrl, selected?.title) {
+        val ed = ctx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, android.content.Context.MODE_PRIVATE).edit()
+            .putString("podUiSub", sub.name)
+        val s = selected
+        if (s == null) ed.putString("podUiShow", "")
+        else ed.putString(
+            "podUiShow",
+            org.json.JSONObject()
+                .put("id", s.id)
+                .put("title", s.title)
+                .put("author", s.author)
+                .put("feedUrl", s.feedUrl)
+                .put("artwork", s.artwork)
+                .put("trackCount", s.trackCount)
+                .toString(),
+        )
+        ed.apply()
     }
 
     fun downloadEp(ep: PodcastEpisode, showTitle: String, artwork: String) {
@@ -769,7 +812,25 @@ fun PodcastsTabContent(
                         )
                     }
                 }
+                LaunchedEffect(selected?.feedUrl, episodes.size) {
+                    val feed = selected?.feedUrl ?: return@LaunchedEffect
+                    if (episodes.isEmpty()) return@LaunchedEffect
+                    val p = ctx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, android.content.Context.MODE_PRIVATE)
+                    if (p.getString("podUiFeed", "") != feed && p.getString("podUiShow", "")?.contains(feed) != true) return@LaunchedEffect
+                    val want = p.getString(BluetoothAutoPlayPlugin.KEY_URL, "") ?: ""
+                    var idx = episodes.indexOfFirst { it.audioUrl == want || (want.isNotBlank() && want.contains(it.audioUrl)) }
+                    if (idx < 0) idx = p.getInt("podUiEpIndex", 0)
+                    episodeListState.scrollToItem(idx.coerceIn(0, episodes.lastIndex))
+                }
+                LaunchedEffect(episodeListState, selected?.feedUrl) {
+                    val feed = selected?.feedUrl ?: return@LaunchedEffect
+                    snapshotFlow { episodeListState.firstVisibleItemIndex }.collect { i ->
+                        ctx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, android.content.Context.MODE_PRIVATE)
+                            .edit().putInt("podUiEpIndex", i).putString("podUiFeed", feed).apply()
+                    }
+                }
                 LazyColumn(
+                    state = episodeListState,
                     modifier = Modifier.fillMaxSize().padding(top = 2.dp),
                     contentPadding = PaddingValues(bottom = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),

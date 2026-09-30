@@ -253,6 +253,9 @@ class MainActivity : ComponentActivity() {
         if (lastBottom in listOf("home", "stations", "heart", "music", "tabs", "search", "library", "podcasts")) {
             bottomTab = if (lastBottom == "library") "stations" else lastBottom
         }
+        val modeOpen = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+            .getString(LocalMusicPlugin.KEY_MODE, "radio")
+        if (modeOpen == "podcast") bottomTab = "podcasts"
         if (bottomTab == "home") refreshHomeRails(wantSimilar = true)
 
         setContent {

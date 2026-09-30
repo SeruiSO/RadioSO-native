@@ -690,7 +690,7 @@ fun PodcastsTabContent(
                         showSort = if (showSort == "new") "old" else "new"
                     },
                 )
-            } else {
+            } else if (sub == PodSub.SEARCH) {
                 OutlinedTextField(
                     value = query,
                     onValueChange = { query = it },
@@ -710,17 +710,6 @@ fun PodcastsTabContent(
                     ),
                     shape = RoundedCornerShape(14.dp),
                 )
-                Row(
-                    Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    SubTab(Icons.AutoMirrored.Filled.LibraryBooks, PodSub.SHOWS, ctx.getString(R.string.podcast_tab_shows))
-                    SubTab(Icons.Filled.Bookmark, PodSub.FAV_EPS, ctx.getString(R.string.podcast_tab_eps))
-                    SubTab(Icons.Filled.Download, PodSub.DOWNLOADED, ctx.getString(R.string.podcast_tab_dl))
-                    SubTab(Icons.Filled.Search, PodSub.SEARCH, ctx.getString(R.string.podcast_tab_search))
-                    SubTab(Icons.Filled.Podcasts, PodSub.NEW, "Нові")
-                }
             }
 
             if (loading || loadingEps) {
@@ -800,20 +789,6 @@ fun PodcastsTabContent(
                                 style = MaterialTheme.typography.bodySmall)
                         }
                     } else items(subs, key = { "s-${it.feedUrl}" }) { ShowRow(it) }
-                    item { Text("Збережені", color = text, style = MaterialTheme.typography.titleSmall) }
-                    if (favEps.isEmpty()) {
-                        item {
-                            Text(ctx.getString(R.string.podcast_fav_eps_empty), color = muted,
-                                style = MaterialTheme.typography.bodySmall)
-                        }
-                    } else {
-                        val saved = favEps.map {
-                            PodcastEpisode(it.title, it.audioUrl, it.pubDate, it.duration, it.artwork)
-                        }
-                        itemsIndexed(saved, key = { _, e -> "sv-${e.audioUrl}" }) { i, ep ->
-                            EpRow(ep, favEps[i].showTitle, ep.image, saved, i, showFav = true, showDl = true)
-                        }
-                    }
                 }
                 PodSub.FAV_EPS -> {
                     val list = favEps.map {
@@ -912,6 +887,19 @@ fun PodcastsTabContent(
                         }
                     }
                 }
+            }
+        }
+        if (selected == null) {
+            Row(
+                Modifier.fillMaxWidth().padding(top = 2.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                SubTab(Icons.AutoMirrored.Filled.LibraryBooks, PodSub.SHOWS, ctx.getString(R.string.podcast_tab_shows))
+                SubTab(Icons.Filled.Bookmark, PodSub.FAV_EPS, ctx.getString(R.string.podcast_tab_eps))
+                SubTab(Icons.Filled.Download, PodSub.DOWNLOADED, ctx.getString(R.string.podcast_tab_dl))
+                SubTab(Icons.Filled.Search, PodSub.SEARCH, ctx.getString(R.string.podcast_tab_search))
+                SubTab(Icons.Filled.Podcasts, PodSub.NEW, "Нові")
             }
         }
 

@@ -224,7 +224,7 @@
     <string name="podcast_downloaded_empty">Немає завантажених епізодів</string>
     <string name="podcast_tab_shows">Шоу</string>
     <string name="podcast_tab_eps">Епізоди</string>
-    <string name="podcast_tab_dl">Збережені</string>
+    <string name="podcast_tab_dl">Завантажені</string>
     <string name="podcast_tab_search">Пошук</string>
     <string name="podcast_more50">Ще 50</string>
 </resources>

@@ -244,7 +244,7 @@ fun NowPlayingSheet(
         }
         // Лише жест користувача по пейджеру змінює станцію
         LaunchedEffect(pagerState.settledPage) {
-            if (pagerIgnorePick) return@LaunchedEffect
+            if (isPodcastNow || pagerIgnorePick) return@LaunchedEffect
             val i = pagerState.settledPage
             if (i == curI) return@LaunchedEffect
             if (arts.isEmpty()) return@LaunchedEffect
@@ -258,7 +258,8 @@ fun NowPlayingSheet(
             }
         }
         LaunchedEffect(curI, arts.size) {
-            if (arts.isNotEmpty()) stripState.animateScrollToItem(curI)
+            if (isPodcastNow || arts.isEmpty()) return@LaunchedEffect
+            stripState.animateScrollToItem(curI.coerceAtMost(arts.lastIndex))
         }
         Box(
             modifier = Modifier

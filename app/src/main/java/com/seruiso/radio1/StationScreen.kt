@@ -141,8 +141,8 @@ fun BottomNavBar(
             tint = if (selected) acc else muted,
             modifier = Modifier
                 .clickable { onSelect(key) }
-                .padding(horizontal = 3.dp, vertical = if (current == "podcasts") 1.dp else 6.dp)
-                .size(if (current == "podcasts") 22.dp else 30.dp)
+                .padding(horizontal = 3.dp, vertical = 6.dp)
+                .size(30.dp)
         )
     }
     @Composable
@@ -171,7 +171,7 @@ fun BottomNavBar(
                     else onPull(drag)
                 }
             }
-            .padding(horizontal = 2.dp, vertical = if (current == "podcasts") 0.dp else 4.dp),
+            .padding(horizontal = 2.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -845,7 +845,7 @@ fun StationScreen(
                 modifier = Modifier.weight(1f).fillMaxWidth(),
                 verticalAlignment = Alignment.Top
             ) {
-                if (bottomTab != "podcasts") InfoLand()
+                InfoLand()
                 Column(
                     modifier = Modifier
                         .weight(1f)
@@ -871,7 +871,6 @@ fun StationScreen(
                 )
             }
         } else {
-        if (bottomTab != "podcasts") {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -967,9 +966,8 @@ fun StationScreen(
                 }
             }
         }
-        }
 
-        androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(if (bottomTab == "podcasts") 0.dp else 8.dp))
+        androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(8.dp))
         if (bottomTab == "podcasts") {
             Box(
                 modifier = Modifier
@@ -1140,25 +1138,12 @@ fun StationScreen(
                 }
             }
         ) {
-        if (bottomTab == "podcasts" && name.isNotBlank()) {
-            Text(
-                if (track.isNotBlank()) "$name · $track" else name,
-                color = text,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.labelMedium,
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .fillMaxWidth()
-                    .padding(start = 12.dp, end = 40.dp, top = 3.dp),
-            )
-        }
         Row(
             modifier = Modifier
                 .align(Alignment.Center)
                 .fillMaxWidth()
-                .padding(start = 8.dp, end = 8.dp, top = if (bottomTab == "podcasts") 18.dp else 4.dp, bottom = 2.dp)
-                .height(if (bottomTab == "podcasts") 44.dp else 68.dp)
+                .padding(horizontal = 8.dp, vertical = 4.dp)
+                .height(68.dp)
                 .background(card, RoundedCornerShape(20.dp)),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
@@ -1176,7 +1161,7 @@ fun StationScreen(
                 )
             }
             }
-            PlayBtn(playing = playing, status = status, sizeDp = if (bottomTab == "podcasts") 40.dp else 60.dp, onClick = onPlayPause, accent = acc, shape = RoundedCornerShape(14.dp))
+            PlayBtn(playing = playing, status = status, sizeDp = 60.dp, onClick = onPlayPause, accent = acc, shape = RoundedCornerShape(14.dp))
             if (canSkip) {
             Box(
                 modifier = Modifier.fillMaxHeight().width(52.dp).background(card, RoundedCornerShape(20.dp)).clickable { skipUi(true) },

@@ -31,7 +31,10 @@ import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.DownloadDone
 import androidx.compose.material.icons.filled.Podcasts
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -113,6 +116,7 @@ fun PodcastsTabContent(
     val kb = LocalSoftwareKeyboardController.current
 
     var sub by remember { mutableStateOf(PodSub.SHOWS) }
+    var epFilter by remember { mutableStateOf("all") }
     var query by remember { mutableStateOf("") }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf("") }
@@ -176,6 +180,7 @@ fun PodcastsTabContent(
     }
     val dlEps = remember(tick) { PodcastStore.downloadedList(ctx) }
     val continueEps = remember(tick) { PodcastStore.recent(ctx) }
+    val playedSet = remember(tick) { PodcastStore.played(ctx) }
     fun podFrac(mediaUrl: String, duration: String): Float {
         val ms = PodcastStore.pos(ctx, mediaUrl)
         val raw = duration.trim()
@@ -495,7 +500,8 @@ fun PodcastsTabContent(
             }
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
-                Text(ep.title, color = if (playing) acc else text, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                val heard = ep.audioUrl in playedSet
+                Text(ep.title, color = if (playing) acc else if (heard) muted else text, maxLines = 2, overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.bodyMedium)
                 val meta = buildList {
                     if (showTitle.isNotBlank()) add(showTitle)
@@ -519,36 +525,54 @@ fun PodcastsTabContent(
                     }
                 }
             }
-            if (showFav) {
-                Icon(
-                    if (fav) Icons.Filled.Bookmark else Icons.Filled.BookmarkBorder,
-                    contentDescription = ctx.getString(R.string.podcast_fav_ep),
-                    tint = if (fav) acc else muted,
-                    modifier = Modifier.size(24.dp).clickable {
-                        favLocal = if (ep.audioUrl in favLocal) favLocal - ep.audioUrl else favLocal + ep.audioUrl
-                        PodcastStore.toggleFavEpisode(
-                            ctx,
-                            PodcastFavEpisode(
-                                title = ep.title, audioUrl = ep.audioUrl,
-                                showTitle = showTitle, artwork = img,
-                                pubDate = ep.pubDate, duration = ep.duration,
-                            ),
-                        )
-                        tick++
-                    },
-                )
-                Spacer(Modifier.width(8.dp))
-            }
-            if (showDl) {
-                if (busy) {
-                    CircularProgressIndicator(color = acc, modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
-                } else {
+            if (busy) {
+                CircularProgressIndicator(color = acc, modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+            } else {
+                var menu by remember(ep.audioUrl) { mutableStateOf(false) }
+                Box {
                     Icon(
-                        if (downloaded) Icons.Filled.DownloadDone else Icons.Filled.Download,
-                        contentDescription = ctx.getString(R.string.podcast_download),
-                        tint = if (downloaded) acc else muted,
-                        modifier = Modifier.size(26.dp).clickable { downloadEp(ep, showTitle, artwork) },
+                        Icons.Filled.MoreVert,
+                        contentDescription = "меню",
+                        tint = muted,
+                        modifier = Modifier.size(40.dp).clickable { menu = true },
                     )
+                    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                        if (showFav) {
+                            DropdownMenuItem(
+                                text = { Text(if (fav) "Прибрати з обраних" else "Обране") },
+                                onClick = {
+                                    menu = false
+                                    favLocal = if (ep.audioUrl in favLocal) favLocal - ep.audioUrl else favLocal + ep.audioUrl
+                                    PodcastStore.toggleFavEpisode(
+                                        ctx,
+                                        PodcastFavEpisode(
+                                            title = ep.title, audioUrl = ep.audioUrl,
+                                            showTitle = showTitle, artwork = img,
+                                            pubDate = ep.pubDate, duration = ep.duration,
+                                        ),
+                                    )
+                                    tick++
+                                },
+                            )
+                        }
+                        if (showDl) {
+                            DropdownMenuItem(
+                                text = { Text(if (downloaded) "Видалити файл" else "Завантажити") },
+                                onClick = {
+                                    menu = false
+                                    downloadEp(ep, showTitle, artwork)
+                                },
+                            )
+                        }
+                        DropdownMenuItem(
+                            text = { Text(if (ep.audioUrl in playedSet) "Не прослухано" else "Прослухано") },
+                            onClick = {
+                                menu = false
+                                PodcastStore.togglePlayed(ctx, ep.audioUrl)
+                                tick++
+                            },
+                        )
+                    }
                 }
             }
         }
@@ -639,14 +663,34 @@ fun PodcastsTabContent(
 
             if (selected != null) {
                 val art = selected!!.artwork
+                val shown = episodes.filter { ep ->
+                    when (epFilter) {
+                        "new" -> ep.audioUrl !in playedSet
+                        "dl" -> PodcastStore.isDownloaded(ctx, ep.audioUrl)
+                        else -> true
+                    }
+                }
+                Row(
+                    Modifier.fillMaxWidth().padding(bottom = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    listOf("all" to "Усі", "new" to "Непрослухані", "dl" to "Завантажені").forEach { (k, label) ->
+                        Text(
+                            label,
+                            color = if (epFilter == k) acc else muted,
+                            style = MaterialTheme.typography.labelLarge,
+                            modifier = Modifier.clickable { epFilter = k },
+                        )
+                    }
+                }
                 LazyColumn(
                     modifier = Modifier.fillMaxSize().padding(top = 2.dp),
                     contentPadding = PaddingValues(bottom = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    itemsIndexed(episodes, key = { _, e -> e.audioUrl }) { index, ep ->
-                        // playUrl — щоб рядок рекомпонувався при skip
+                    itemsIndexed(shown, key = { _, e -> e.audioUrl }) { _, ep ->
                         val watchPlayUrl = playUrl
+                        val index = episodes.indexOfFirst { it.audioUrl == ep.audioUrl }
                         EpRow(ep, selected!!.title, art, episodes, index)
                     }
                 }

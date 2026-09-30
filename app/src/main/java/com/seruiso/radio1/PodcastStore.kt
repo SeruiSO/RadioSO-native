@@ -333,6 +333,35 @@ object PodcastStore {
         }
         return out
     }
+
+    private const val KEY_PLAYED = "podcastPlayedUrls"
+
+    fun played(ctx: Context): Set<String> {
+        val arr = JSONArray(prefs(ctx).getString(KEY_PLAYED, "[]") ?: "[]")
+        val out = HashSet<String>()
+        for (i in 0 until arr.length()) {
+            val u = arr.optString(i).trim()
+            if (u.isNotBlank()) out.add(u)
+        }
+        return out
+    }
+
+    fun togglePlayed(ctx: Context, audioUrl: String): Boolean {
+        val u = audioUrl.trim()
+        if (u.isBlank()) return false
+        val cur = played(ctx).toMutableSet()
+        val now = if (u in cur) {
+            cur.remove(u)
+            false
+        } else {
+            cur.add(u)
+            true
+        }
+        val arr = JSONArray()
+        cur.forEach { arr.put(it) }
+        prefs(ctx).edit().putString(KEY_PLAYED, arr.toString()).apply()
+        return now
+    }
 }
 
 data class PodcastRecent(

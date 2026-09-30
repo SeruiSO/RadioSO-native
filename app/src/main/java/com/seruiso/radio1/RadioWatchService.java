@@ -1416,12 +1416,18 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         try {
             String title = (track != null && !track.isEmpty()) ? track : (station != null ? station : "Radio S O");
             String artist = (station != null && !station.isEmpty()) ? station : "Radio S O";
+            String album = "Radio S O";
+            try {
+                String mode = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                    .getString(LocalMusicPlugin.KEY_MODE, "radio");
+                if ("podcast".equals(mode)) album = artist;
+            } catch (Exception ignored) {}
             MediaMetadata.Builder mdb = new MediaMetadata.Builder()
                 .setTitle(title)
                 .setArtist(artist)
                 .setDisplayTitle(title)
                 .setSubtitle(artist)
-                .setAlbumTitle("Radio S O");
+                .setAlbumTitle(album);
             if (stationArt != null) {
                 try {
                     ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -1947,6 +1953,9 @@ notifyForeground();
             PlaybackPrefs.setPauseReason(this, PlaybackPrefs.REASON_NONE);
             String url = intent.getStringExtra(EXTRA_URL);
             String name = intent.getStringExtra(EXTRA_NAME);
+            String favExtra = intent.getStringExtra("favicon");
+            String genExtra = intent.getStringExtra("genre");
+            String trackExtra = intent.getStringExtra("track");
             SharedPreferences.Editor ed = getSharedPreferences(
                 BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE).edit()
                 .putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, true);
@@ -1957,15 +1966,28 @@ notifyForeground();
                 currentName = name;
                 ed.putString(BluetoothAutoPlayPlugin.KEY_NAME, name);
             }
+            if (favExtra != null && !favExtra.isEmpty()) {
+                ed.putString(BluetoothAutoPlayPlugin.KEY_FAVICON, favExtra);
+            }
+            if (genExtra != null && !genExtra.isEmpty()) {
+                ed.putString(BluetoothAutoPlayPlugin.KEY_GENRE, genExtra);
+            }
+            if (trackExtra != null && !trackExtra.isEmpty()) {
+                ed.putString(BluetoothAutoPlayPlugin.KEY_TRACK, trackExtra);
+                lastTrackTitle = trackExtra;
+            }
             ed.commit();
             if (isLocalMode()) {
                 String mode = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
                     .getString(LocalMusicPlugin.KEY_MODE, "radio");
                 String fav = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
                     .getString(BluetoothAutoPlayPlugin.KEY_FAVICON, "");
-                if ("podcast".equals(mode) && fav != null && fav.startsWith("http")) {
+                if ("podcast".equals(mode)) {
+                    stationArt = null;
                     stationArtUrl = "";
-                    loadStationArtAsync();
+                    artGen++;
+                    if (fav != null && fav.startsWith("http")) loadStationArtAsync();
+                    else notifyForeground();
                 } else {
                     String albumId = (fav == null || fav.isEmpty()) ? "0" : fav;
                     loadLocalAlbumArt(albumId);

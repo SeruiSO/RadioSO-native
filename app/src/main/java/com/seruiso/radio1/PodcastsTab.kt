@@ -353,12 +353,15 @@ fun PodcastsTabContent(
             .putString(BluetoothAutoPlayPlugin.KEY_COUNTRY, "")
             .putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, true)
             .putLong("localPositionMs", resumeMs)
-            .apply()
+            .commit()
         playUrl = mediaUrl  // миттєва підсвітка
         val i = Intent(ctx, RadioWatchService::class.java).apply {
             action = RadioWatchService.ACTION_PLAY_URL
             putExtra(RadioWatchService.EXTRA_URL, mediaUrl)
             putExtra(RadioWatchService.EXTRA_NAME, ep.title.ifBlank { showTitle })
+            putExtra("favicon", art0)
+            putExtra("genre", "podcast")
+            putExtra("track", showTitle)
             if (resumeMs > 1500L) putExtra(RadioWatchService.EXTRA_POSITION_MS, resumeMs)
         }
         try {

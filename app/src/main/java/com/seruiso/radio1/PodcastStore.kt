@@ -371,16 +371,87 @@ object PodcastStore {
         }
     }
 
-    fun savePos(ctx: Context, audioUrl: String, ms: Long) {
+    fun savePos(ctx: Context, audioUrl: String, ms: Long) = savePos(ctx, audioUrl, ms, 0L)
+
+    fun savePos(ctx: Context, audioUrl: String, ms: Long, durMs: Long) {
         val u = audioUrl.trim()
         if (u.isBlank() || ms < 0L) return
         try {
+            val keys = linkedSetOf<String>()
+            fun add(raw: String) {
+                val s = raw.trim()
+                if (s.isBlank()) return
+                keys.add(s)
+                if (s.startsWith("file://")) keys.add(s.removePrefix("file://"))
+                else if (s.startsWith("/")) keys.add("file://$s")
+            }
+            add(u)
+            for (r in recent(ctx)) {
+                if (r.audioUrl == u || r.mediaUrl == u) {
+                    add(r.audioUrl)
+                    add(r.mediaUrl)
+                }
+            }
             val o = org.json.JSONObject(prefs(ctx).getString(BluetoothAutoPlayPlugin.KEY_POD_POS, "{}") ?: "{}")
-            o.put(u, ms)
-            if (u.startsWith("file://")) o.put(u.removePrefix("file://"), ms)
-            else if (u.startsWith("/")) o.put("file://$u", ms)
-            prefs(ctx).edit().putString(BluetoothAutoPlayPlugin.KEY_POD_POS, o.toString()).apply()
+            for (k in keys) o.put(k, ms)
+            val ed = prefs(ctx).edit().putString(BluetoothAutoPlayPlugin.KEY_POD_POS, o.toString())
+            if (durMs > 1000L) {
+                val d = org.json.JSONObject(prefs(ctx).getString("podDurJson", "{}") ?: "{}")
+                for (k in keys) d.put(k, durMs)
+                ed.putString("podDurJson", d.toString())
+            }
+            ed.apply()
         } catch (_: Exception) {}
+    }
+
+    fun progressMs(ctx: Context, audioUrl: String, extra: String = ""): Long {
+        var best = 0L
+        for (k in progressKeys(ctx, audioUrl, extra)) {
+            val v = pos(ctx, k)
+            if (v > best) best = v
+        }
+        return best
+    }
+
+    fun progressDur(ctx: Context, audioUrl: String, extra: String = ""): Long {
+        val root = try {
+            org.json.JSONObject(prefs(ctx).getString("podDurJson", "{}") ?: "{}")
+        } catch (_: Exception) {
+            return 0L
+        }
+        var best = 0L
+        for (k in progressKeys(ctx, audioUrl, extra)) {
+            val v = root.optLong(k, 0L)
+            if (v > best) best = v
+        }
+        return best
+    }
+
+    private fun progressKeys(ctx: Context, audioUrl: String, extra: String): Set<String> {
+        val keys = linkedSetOf<String>()
+        fun add(raw: String) {
+            val s = raw.trim()
+            if (s.isBlank()) return
+            keys.add(s)
+            if (s.startsWith("file://")) keys.add(s.removePrefix("file://"))
+            else if (s.startsWith("/")) keys.add("file://$s")
+            if (s.startsWith("http")) {
+                val f = episodeFile(ctx, s)
+                if (f.isFile && f.length() > 1024) {
+                    keys.add(f.absolutePath)
+                    keys.add("file://${f.absolutePath}")
+                }
+            }
+        }
+        add(audioUrl)
+        add(extra)
+        for (r in recent(ctx)) {
+            if (r.audioUrl == audioUrl || r.mediaUrl == audioUrl || r.mediaUrl == extra || r.audioUrl == extra) {
+                add(r.audioUrl)
+                add(r.mediaUrl)
+            }
+        }
+        return keys
     }
 
     fun deleteDownload(ctx: Context, audioUrl: String) {

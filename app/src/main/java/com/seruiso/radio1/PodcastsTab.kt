@@ -227,6 +227,22 @@ fun PodcastsTabContent(
     val dlEps = remember(tick) { PodcastStore.downloadedList(ctx) }
     val continueEps = remember(tick) { PodcastStore.recent(ctx) }
     val playedSet = remember(tick) { PodcastStore.played(ctx) }
+    fun rssMs(duration: String): Long {
+        val raw = duration.trim()
+        val sec = when {
+            raw.isBlank() -> 0
+            raw.contains(":") -> {
+                val p = raw.split(":").map { it.toIntOrNull() ?: 0 }
+                when (p.size) {
+                    3 -> p[0] * 3600 + p[1] * 60 + p[2]
+                    2 -> p[0] * 60 + p[1]
+                    else -> 0
+                }
+            }
+            else -> raw.toIntOrNull() ?: 0
+        }
+        return if (sec > 0) sec * 1000L else 0L
+    }
     fun podFrac(mediaUrl: String, duration: String): Float {
         val ms = PodcastStore.pos(ctx, mediaUrl)
         val raw = duration.trim()
@@ -335,8 +351,12 @@ fun PodcastsTabContent(
             artwork = art0,
             duration = ep.duration,
         )
-        val resumeMs = PodcastStore.pos(ctx, mediaUrl).coerceAtLeast(0L)
         val p = ctx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, android.content.Context.MODE_PRIVATE)
+        val cur = p.getString(BluetoothAutoPlayPlugin.KEY_URL, "") ?: ""
+        val resumeMs = (
+            if (urlsMatch(cur, mediaUrl) || urlsMatch(cur, ep.audioUrl)) p.getLong("localPositionMs", 0L)
+            else PodcastStore.progressMs(ctx, ep.audioUrl, mediaUrl)
+        ).coerceAtLeast(0L)
         p.edit()
             .putString(LocalMusicPlugin.KEY_MODE, "podcast")
             .putString(BluetoothAutoPlayPlugin.KEY_SKIP_MODE, "temp")
@@ -627,13 +647,12 @@ fun PodcastsTabContent(
                     Text(meta, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis,
                         style = MaterialTheme.typography.labelSmall)
                 }
-                val playedFrac = if (frac >= 0f) frac else listenFrac(ep.audioUrl, ep.duration)
-                val liveFrac = if (playing && liveDur > 0L) (livePos.toFloat() / liveDur.toFloat()).coerceIn(0f, 1f) else -1f
-                val bar = when {
-                    busy -> PodcastStore.fracOf(ep.audioUrl)
-                    liveFrac >= 0f -> liveFrac
-                    else -> playedFrac
-                }
+                val ms = if (playing) livePos else PodcastStore.progressMs(ctx, ep.audioUrl)
+                val savedDur = if (playing && liveDur > 0L) liveDur else PodcastStore.progressDur(ctx, ep.audioUrl)
+                val rss = rssMs(ep.duration)
+                val durMs = if (savedDur > 0L) savedDur else rss
+                val playedFrac = if (ms > 0L && durMs > 0L) (ms.toFloat() / durMs.toFloat()).coerceIn(0f, 1f) else -1f
+                val bar = if (busy) PodcastStore.fracOf(ep.audioUrl) else playedFrac
                 if (bar in 0.004f..0.995f) {
                     Box(
                         Modifier
@@ -749,7 +768,7 @@ fun PodcastsTabContent(
                 BasicTextField(
                     value = query,
                     onValueChange = { query = it },
-                    modifier = Modifier.fillMaxWidth().height(24.dp),
+                    modifier = Modifier.fillMaxWidth().height(32.dp),
                     singleLine = true,
                     textStyle = MaterialTheme.typography.bodyLarge.copy(
                         color = text,

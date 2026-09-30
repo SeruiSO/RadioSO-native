@@ -2035,7 +2035,12 @@ notifyForeground();
                 try {
                     if ("podcast".equals(spSeek.getString(LocalMusicPlugin.KEY_MODE, ""))) {
                         String pu = spSeek.getString(BluetoothAutoPlayPlugin.KEY_URL, "");
-                        if (pu != null && !pu.isEmpty()) PodcastStore.INSTANCE.savePos(this, pu, pos);
+                        long durNow = 0L;
+                        try {
+                            durNow = player.getDuration();
+                            if (durNow < 0L || durNow == androidx.media3.common.C.TIME_UNSET) durNow = 0L;
+                        } catch (Exception ignored2) {}
+                        if (pu != null && !pu.isEmpty()) PodcastStore.INSTANCE.savePos(this, pu, pos, durNow);
                     }
                 } catch (Exception ignored) {}
                 try {
@@ -2100,7 +2105,7 @@ notifyForeground();
                 try {
                     if ("podcast".equals(spPos.getString(LocalMusicPlugin.KEY_MODE, ""))) {
                         String pu = spPos.getString(BluetoothAutoPlayPlugin.KEY_URL, "");
-                        if (pu != null && !pu.isEmpty()) PodcastStore.INSTANCE.savePos(this, pu, pos);
+                        if (pu != null && !pu.isEmpty()) PodcastStore.INSTANCE.savePos(this, pu, pos, dur);
                     }
                 } catch (Exception ignored) {}
             }
@@ -2836,10 +2841,7 @@ notifyForeground();
                     SharedPreferences spSeek = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE);
                     long saved;
                     if ("podcast".equals(spSeek.getString(LocalMusicPlugin.KEY_MODE, ""))) {
-                        saved = PodcastStore.INSTANCE.pos(this, url);
-                        if (saved <= 0L && url != null && url.startsWith("file://")) {
-                            saved = PodcastStore.INSTANCE.pos(this, url.substring(7));
-                        }
+                        saved = PodcastStore.INSTANCE.progressMs(this, url, "");
                         if (saved < 0L) saved = 0L;
                     } else {
                         saved = spSeek.getLong("localPositionMs", 0L);

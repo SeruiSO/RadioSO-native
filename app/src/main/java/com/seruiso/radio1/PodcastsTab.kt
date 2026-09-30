@@ -151,6 +151,18 @@ fun PodcastsTabContent(
     var episodes by remember { mutableStateOf<List<PodcastEpisode>>(emptyList()) }
     var loadingEps by remember { mutableStateOf(false) }
 
+    var livePos by remember { mutableStateOf(0L) }
+    var liveDur by remember { mutableStateOf(0L) }
+    LaunchedEffect(Unit) {
+        val p = ctx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, android.content.Context.MODE_PRIVATE)
+        while (true) {
+            val pos = p.getLong("localPositionMs", 0L)
+            val dur = p.getLong("localDurationMs", 0L)
+            if (pos != livePos) livePos = pos
+            if (dur != liveDur) liveDur = dur
+            delay(250)
+        }
+    }
     var playUrl by remember {
         mutableStateOf(
             ctx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, android.content.Context.MODE_PRIVATE)
@@ -616,8 +628,13 @@ fun PodcastsTabContent(
                         style = MaterialTheme.typography.labelSmall)
                 }
                 val playedFrac = if (frac >= 0f) frac else listenFrac(ep.audioUrl, ep.duration)
-                val bar = if (busy) PodcastStore.fracOf(ep.audioUrl) else playedFrac
-                if (bar in 0.02f..0.98f) {
+                val liveFrac = if (playing && liveDur > 0L) (livePos.toFloat() / liveDur.toFloat()).coerceIn(0f, 1f) else -1f
+                val bar = when {
+                    busy -> PodcastStore.fracOf(ep.audioUrl)
+                    liveFrac >= 0f -> liveFrac
+                    else -> playedFrac
+                }
+                if (bar in 0.004f..0.995f) {
                     Box(
                         Modifier
                             .padding(top = 4.dp)

@@ -377,6 +377,8 @@ object PodcastStore {
         try {
             val o = org.json.JSONObject(prefs(ctx).getString(BluetoothAutoPlayPlugin.KEY_POD_POS, "{}") ?: "{}")
             o.put(u, ms)
+            if (u.startsWith("file://")) o.put(u.removePrefix("file://"), ms)
+            else if (u.startsWith("/")) o.put("file://$u", ms)
             prefs(ctx).edit().putString(BluetoothAutoPlayPlugin.KEY_POD_POS, o.toString()).apply()
         } catch (_: Exception) {}
     }

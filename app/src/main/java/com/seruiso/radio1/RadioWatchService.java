@@ -133,7 +133,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             return size() > 24;
         }
     };
-    private static final int ART_MAX_BYTES = 512 * 1024;
+    private static final int ART_MAX_BYTES = 2 * 1024 * 1024;
     private final android.os.Handler mainHandler = new android.os.Handler(android.os.Looper.getMainLooper());
     private AudioManager audioManager;
     private AudioFocusRequest focusRequest;
@@ -1347,7 +1347,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                 conn.setConnectTimeout(8000);
                 conn.setReadTimeout(8000);
                 conn.setInstanceFollowRedirects(true);
-                conn.setRequestProperty("User-Agent", "RadioSO/1.0 (Android)");
+                conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 RadioSO/1.0");
                 conn.setRequestProperty("Accept", "image/*,*/*");
                 artConn = conn;
                 conn.connect();
@@ -1408,7 +1408,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                         artCache.put(fav, result);
                     }
                 }
-                stationArt = result;
+                if (result != null) stationArt = result;
                 applySessionMetadata(currentName, lastTrackTitle);
                 notifyForeground();
             });
@@ -1432,13 +1432,6 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                 .setDisplayTitle(title)
                 .setSubtitle(artist)
                 .setAlbumTitle(album);
-            try {
-                String fav = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-                    .getString(BluetoothAutoPlayPlugin.KEY_FAVICON, "");
-                if (fav != null && fav.startsWith("http")) {
-                    mdb.setArtworkUri(android.net.Uri.parse(fav));
-                }
-            } catch (Exception ignored) {}
             if (stationArt != null) {
                 try {
                     ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -2036,9 +2029,23 @@ notifyForeground();
                 } else {
                     pendingSeekMs = pos;
                 }
-                getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-                    .edit().putLong("localPositionMs", pos).apply();
-                writeLocalPosition();
+                android.content.SharedPreferences spSeek = getSharedPreferences(
+                    BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE);
+                spSeek.edit().putLong("localPositionMs", pos).apply();
+                try {
+                    if ("podcast".equals(spSeek.getString(LocalMusicPlugin.KEY_MODE, ""))) {
+                        String pu = spSeek.getString(BluetoothAutoPlayPlugin.KEY_URL, "");
+                        if (pu != null && !pu.isEmpty()) PodcastStore.INSTANCE.savePos(this, pu, pos);
+                    }
+                } catch (Exception ignored) {}
+                try {
+                    Intent ui = new Intent(ACTION_PLAYBACK_UI);
+                    ui.setPackage(getPackageName());
+                    ui.putExtra("playing", player.isPlaying());
+                    ui.putExtra("positionMs", pos);
+                    ui.putExtra("durationMs", spSeek.getLong("localDurationMs", 0L));
+                    sendBroadcast(ui);
+                } catch (Exception ignored) {}
             }
             return START_STICKY;
         }
@@ -2830,6 +2837,9 @@ notifyForeground();
                     long saved;
                     if ("podcast".equals(spSeek.getString(LocalMusicPlugin.KEY_MODE, ""))) {
                         saved = PodcastStore.INSTANCE.pos(this, url);
+                        if (saved <= 0L && url != null && url.startsWith("file://")) {
+                            saved = PodcastStore.INSTANCE.pos(this, url.substring(7));
+                        }
                         if (saved < 0L) saved = 0L;
                     } else {
                         saved = spSeek.getLong("localPositionMs", 0L);

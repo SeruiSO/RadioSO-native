@@ -95,6 +95,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
     public static final String ACTION_TRACK_META = "com.seruiso.radio1.TRACK_META";
     public static final String ACTION_PLAYBACK_UI = "com.seruiso.radio1.PLAYBACK_UI";
     public static final String ACTION_SEEK = "com.seruiso.radio1.SEEK";
+    public static final String ACTION_SPEED = "com.seruiso.radio1.SPEED";
     public static final String EXTRA_POSITION_MS = "positionMs";
     public static final String EXTRA_TRACK = "track";
 
@@ -1978,6 +1979,18 @@ notifyForeground();
             if (seekPos >= 0 && player != null) {
                 player.seekTo(seekPos);
             }
+            return START_STICKY;
+        }
+
+        if (ACTION_SPEED.equals(action) && intent != null) {
+            float sp = intent.getFloatExtra("speed", 1f);
+            if (sp < 0.8f) sp = 0.8f;
+            if (sp > 2f) sp = 2f;
+            try {
+                if (player != null) player.setPlaybackSpeed(sp);
+                getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                    .edit().putFloat("podSpeed", sp).apply();
+            } catch (Exception ignored) {}
             return START_STICKY;
         }
 

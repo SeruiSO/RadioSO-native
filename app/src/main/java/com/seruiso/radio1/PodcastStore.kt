@@ -174,9 +174,21 @@ object PodcastStore {
         try {
             val code = conn.responseCode
             if (code !in 200..299) error("HTTP $code")
+            val total = conn.contentLengthLong
             conn.inputStream.use { input ->
-                tmp.outputStream().use { input.copyTo(it) }
+                tmp.outputStream().use { outS ->
+                    val buf = ByteArray(16 * 1024)
+                    var got = 0L
+                    while (true) {
+                        val n = input.read(buf)
+                        if (n < 0) break
+                        outS.write(buf, 0, n)
+                        got += n
+                        if (total > 0) fracs[audioUrl] = (got.toFloat() / total).coerceIn(0f, 1f)
+                    }
+                }
             }
+            fracs.remove(audioUrl)
             if (!tmp.renameTo(out)) {
                 tmp.copyTo(out, overwrite = true)
                 tmp.delete()
@@ -244,6 +256,107 @@ object PodcastStore {
     val io = kotlinx.coroutines.CoroutineScope(
         kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO,
     )
+    private val fracs = java.util.concurrent.ConcurrentHashMap<String, Float>()
+    private val waiting = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+    private val dlq = java.util.concurrent.ConcurrentLinkedQueue<DlJob>()
+    private val pumping = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    @Volatile var busyUrl: String = ""
+
+    fun isBusy(url: String) = url.isNotBlank() && (busyUrl == url || waiting.contains(url))
+    fun fracOf(url: String): Float = fracs[url] ?: -1f
+
+    fun enqueue(
+        ctx: Context,
+        audioUrl: String,
+        title: String,
+        showTitle: String,
+        artwork: String,
+        pubDate: String,
+        duration: String,
+        done: (String?) -> Unit,
+    ) {
+        val u = audioUrl.trim()
+        if (u.isBlank() || isDownloaded(ctx, u) || !waiting.add(u)) return
+        dlq.add(DlJob(ctx.applicationContext, u, title, showTitle, artwork, pubDate, duration, done))
+        pump()
+    }
+
+    private fun pump() {
+        if (!pumping.compareAndSet(false, true)) return
+        io.launch {
+            try {
+                while (true) {
+                    val job = dlq.poll() ?: break
+                    busyUrl = job.url
+                    val err = download(job.ctx, job.url).fold(
+                        onSuccess = {
+                            rememberDownload(job.ctx, job.url, job.title, job.show, job.art, job.pub, job.dur)
+                            null
+                        },
+                        onFailure = { it.message ?: "download" },
+                    )
+                    waiting.remove(job.url)
+                    fracs.remove(job.url)
+                    busyUrl = ""
+                    job.done(err)
+                }
+            } finally {
+                pumping.set(false)
+                if (dlq.isNotEmpty()) pump()
+            }
+        }
+    }
+
+    private const val KEY_FEED_CACHE = "podcastFeedCache"
+
+    fun cacheShow(ctx: Context, feedUrl: String, showTitle: String, artwork: String, eps: List<PodcastEpisode>) {
+        val feed = feedUrl.trim()
+        if (feed.isBlank()) return
+        val root = org.json.JSONObject(prefs(ctx).getString(KEY_FEED_CACHE, "{}") ?: "{}")
+        val arr = JSONArray()
+        eps.take(25).forEach { e ->
+            arr.put(
+                JSONObject()
+                    .put("title", e.title)
+                    .put("audioUrl", e.audioUrl)
+                    .put("pubDate", e.pubDate)
+                    .put("duration", e.duration)
+                    .put("image", e.image.ifBlank { artwork })
+                    .put("description", e.description)
+                    .put("showTitle", showTitle),
+            )
+        }
+        root.put(feed, JSONObject().put("title", showTitle).put("artwork", artwork).put("eps", arr))
+        prefs(ctx).edit().putString(KEY_FEED_CACHE, root.toString()).apply()
+    }
+
+    fun news(ctx: Context): List<PodcastEpisode> {
+        val root = org.json.JSONObject(prefs(ctx).getString(KEY_FEED_CACHE, "{}") ?: "{}")
+        val out = ArrayList<PodcastEpisode>()
+        val keys = root.keys()
+        while (keys.hasNext()) {
+            val o = root.optJSONObject(keys.next()) ?: continue
+            val eps = o.optJSONArray("eps") ?: continue
+            val n = minOf(4, eps.length())
+            for (i in 0 until n) {
+                val e = eps.optJSONObject(i) ?: continue
+                val url = e.optString("audioUrl").trim()
+                if (url.isBlank()) continue
+                out.add(
+                    PodcastEpisode(
+                        title = e.optString("title"),
+                        audioUrl = url,
+                        pubDate = e.optString("pubDate"),
+                        duration = e.optString("duration"),
+                        image = e.optString("image"),
+                        description = e.optString("showTitle"),
+                    ),
+                )
+            }
+        }
+        return out.take(40)
+    }
 
     fun pos(ctx: Context, audioUrl: String): Long {
         val u = audioUrl.trim()
@@ -363,6 +476,17 @@ object PodcastStore {
         return now
     }
 }
+
+private class DlJob(
+    val ctx: Context,
+    val url: String,
+    val title: String,
+    val show: String,
+    val art: String,
+    val pub: String,
+    val dur: String,
+    val done: (String?) -> Unit,
+)
 
 data class PodcastRecent(
     val title: String,

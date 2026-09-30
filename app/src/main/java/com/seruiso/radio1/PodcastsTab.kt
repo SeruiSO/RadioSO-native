@@ -89,9 +89,10 @@ data class PodcastEpisode(
     val pubDate: String = "",
     val duration: String = "",
     val image: String = "",
+    val description: String = "",
 )
 
-private enum class PodSub { SHOWS, FAV_EPS, DOWNLOADED, SEARCH }
+private enum class PodSub { SHOWS, FAV_EPS, DOWNLOADED, SEARCH, NEW }
 
 private fun formatPodDuration(raw: String): String {
     val s = raw.trim()
@@ -117,6 +118,11 @@ fun PodcastsTabContent(
 
     var sub by remember { mutableStateOf(PodSub.SHOWS) }
     var epFilter by remember { mutableStateOf("all") }
+    var showQ by remember { mutableStateOf("") }
+    var showSort by remember { mutableStateOf("new") }
+    var blurb by remember { mutableStateOf("") }
+    var descOpen by remember { mutableStateOf(false) }
+    var refreshing by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf("") }
@@ -371,6 +377,9 @@ fun PodcastsTabContent(
             loadingEps = false
             r.onSuccess {
                 episodes = it
+                blurb = ItunesPodcasts.lastBlurb
+                descOpen = false
+                PodcastStore.cacheShow(ctx, show.feedUrl, show.title, show.artwork, it)
                 if (it.isEmpty()) error = ctx.getString(R.string.podcast_no_episodes)
             }.onFailure {
                 error = it.message ?: ctx.getString(R.string.scan_error)
@@ -384,18 +393,12 @@ fun PodcastsTabContent(
             tick++
             return
         }
-        if (dlBusy != null) return
-        dlBusy = ep.audioUrl
-        PodcastStore.io.launch {
-            val r = PodcastStore.download(ctx, ep.audioUrl).onSuccess {
-                PodcastStore.rememberDownload(
-                    ctx, ep.audioUrl, ep.title, showTitle,
-                    ep.image.ifBlank { artwork }, ep.pubDate, ep.duration,
-                )
-            }
-            dlBusy = null
+        PodcastStore.enqueue(
+            ctx, ep.audioUrl, ep.title, showTitle,
+            ep.image.ifBlank { artwork }, ep.pubDate, ep.duration,
+        ) { err ->
+            if (err != null) error = err
             tick++
-            r.onFailure { error = it.message ?: ctx.getString(R.string.scan_error) }
         }
     }
 
@@ -475,7 +478,7 @@ fun PodcastsTabContent(
         val playing = isPlayingAudio(ep.audioUrl)
         val fav = ep.audioUrl in favLocal
         val downloaded = PodcastStore.isDownloaded(ctx, ep.audioUrl)
-        val busy = dlBusy == ep.audioUrl
+        val busy = PodcastStore.isBusy(ep.audioUrl)
         val img = ep.image.ifBlank { artwork }
         val durTxt = formatPodDuration(ep.duration)
         Row(
@@ -512,7 +515,8 @@ fun PodcastsTabContent(
                     Text(meta, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis,
                         style = MaterialTheme.typography.labelSmall)
                 }
-                if (frac in 0.02f..0.98f) {
+                val bar = if (busy) PodcastStore.fracOf(ep.audioUrl) else frac
+                if (bar in 0.02f..0.98f) {
                     Box(
                         Modifier
                             .padding(top = 4.dp)
@@ -521,7 +525,7 @@ fun PodcastsTabContent(
                             .clip(RoundedCornerShape(2.dp))
                             .background(muted.copy(alpha = 0.28f)),
                     ) {
-                        Box(Modifier.fillMaxWidth(frac).fillMaxHeight().background(acc))
+                        Box(Modifier.fillMaxWidth(bar).fillMaxHeight().background(acc))
                     }
                 }
             }
@@ -619,6 +623,37 @@ fun PodcastsTabContent(
                         modifier = Modifier.size(28.dp).clickable { togglePin(selected!!) },
                     )
                 }
+                if (blurb.isNotBlank()) {
+                    Text(
+                        blurb,
+                        color = muted,
+                        maxLines = if (descOpen) 8 else 2,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(bottom = 6.dp).clickable { descOpen = !descOpen },
+                    )
+                }
+                OutlinedTextField(
+                    value = showQ,
+                    onValueChange = { showQ = it },
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
+                    singleLine = true,
+                    placeholder = { Text("Пошук у шоу", color = muted) },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = text, unfocusedTextColor = text,
+                        focusedBorderColor = acc, unfocusedBorderColor = muted.copy(alpha = 0.4f),
+                        cursorColor = acc,
+                    ),
+                    shape = RoundedCornerShape(14.dp),
+                )
+                Text(
+                    if (showSort == "new") "Спочатку нові" else "Спочатку старі",
+                    color = acc,
+                    style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier.padding(bottom = 6.dp).clickable {
+                        showSort = if (showSort == "new") "old" else "new"
+                    },
+                )
             } else {
                 OutlinedTextField(
                     value = query,
@@ -648,6 +683,7 @@ fun PodcastsTabContent(
                     SubTab(Icons.Filled.Bookmark, PodSub.FAV_EPS, ctx.getString(R.string.podcast_tab_eps))
                     SubTab(Icons.Filled.Download, PodSub.DOWNLOADED, ctx.getString(R.string.podcast_tab_dl))
                     SubTab(Icons.Filled.Search, PodSub.SEARCH, ctx.getString(R.string.podcast_tab_search))
+                    SubTab(Icons.Filled.Podcasts, PodSub.NEW, "Нові")
                 }
             }
 
@@ -664,12 +700,15 @@ fun PodcastsTabContent(
             if (selected != null) {
                 val art = selected!!.artwork
                 val shown = episodes.filter { ep ->
-                    when (epFilter) {
+                    val byTab = when (epFilter) {
                         "new" -> ep.audioUrl !in playedSet
                         "dl" -> PodcastStore.isDownloaded(ctx, ep.audioUrl)
                         else -> true
                     }
-                }
+                    val q = showQ.trim()
+                    val byQ = q.isBlank() || ep.title.contains(q, true) || ep.description.contains(q, true)
+                    byTab && byQ
+                }.let { if (showSort == "old") it.asReversed() else it }
                 Row(
                     Modifier.fillMaxWidth().padding(bottom = 6.dp),
                     horizontalArrangement = Arrangement.spacedBy(14.dp),
@@ -760,6 +799,45 @@ fun PodcastsTabContent(
                         }
                     }
                 }
+                PodSub.NEW -> {
+                    val fresh = remember(tick) { PodcastStore.news(ctx) }
+                    Column(Modifier.fillMaxSize()) {
+                        Text(
+                            if (refreshing) "Оновлюю…" else "Оновити підписки",
+                            color = acc,
+                            style = MaterialTheme.typography.labelLarge,
+                            modifier = Modifier.padding(bottom = 8.dp).clickable {
+                                if (refreshing) return@clickable
+                                refreshing = true
+                                PodcastStore.io.launch {
+                                    val shows = PodcastStore.subs(ctx).take(12)
+                                    for (s in shows) {
+                                        val eps = ItunesPodcasts.fetchEpisodes(s.feedUrl).getOrNull() ?: continue
+                                        PodcastStore.cacheShow(ctx, s.feedUrl, s.title, s.artwork, eps)
+                                    }
+                                    refreshing = false
+                                    tick++
+                                }
+                            },
+                        )
+                        LazyColumn(
+                            Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(bottom = 8.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            if (fresh.isEmpty()) {
+                                item {
+                                    Text("Відкрий шоу або натисни оновлення", color = muted,
+                                        style = MaterialTheme.typography.bodySmall)
+                                }
+                            } else {
+                                itemsIndexed(fresh, key = { _, e -> "n-${e.audioUrl}" }) { i, ep ->
+                                    EpRow(ep, ep.showTitle, ep.artwork, fresh, i, showFav = true, showDl = true)
+                                }
+                            }
+                        }
+                    }
+                }
                 PodSub.SEARCH -> LazyColumn(
                     Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -811,8 +889,14 @@ object ItunesPodcasts {
         out
     }
 
+    @Volatile var lastBlurb: String = ""
+
     fun fetchEpisodes(feedUrl: String): Result<List<PodcastEpisode>> = runCatching {
-        parseRss(httpGet(feedUrl))
+        val xml = httpGet(feedUrl)
+        val d = Regex("<description[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:]]>)?</description>", RegexOption.IGNORE_CASE)
+            .find(xml)?.groupValues?.get(1)?.trim().orEmpty()
+        lastBlurb = d.replace(Regex("<[^>]+>"), " ").replace(Regex("\\s+"), " ").trim().take(360)
+        parseRss(xml)
     }
 
     private fun httpGet(url: String): String {
@@ -859,7 +943,12 @@ object ItunesPodcasts {
                 .replace(Regex("\\s+\\d{2}:\\d{2}:\\d{2}.*"), "").take(32)
             val dur = durRe.find(block)?.groupValues?.get(1)?.trim().orEmpty()
             val img = imgRe.find(block)?.groupValues?.get(1)?.trim().orEmpty()
-            out.add(PodcastEpisode(title, audio, pub, dur, img))
+            val descRe = Regex("<description[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:]]>)?</description>", RegexOption.IGNORE_CASE)
+            var desc = descRe.find(block)?.groupValues?.get(1)?.trim().orEmpty()
+            desc = desc.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
+                .replace("&quot;", "\"").replace("&#39;", "'")
+                .replace(Regex("<[^>]+>"), " ").replace(Regex("\\s+"), " ").trim().take(280)
+            out.add(PodcastEpisode(title, audio, pub, dur, img, desc))
             if (out.size >= 80) break
         }
         return out

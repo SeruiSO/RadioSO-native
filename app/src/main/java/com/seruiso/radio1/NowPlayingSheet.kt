@@ -181,12 +181,7 @@ fun NowPlayingSheet(
             else -> radioRows
         }
         val arts: List<String> = when {
-            isPodcastNow -> {
-                // обкладинка шоу з KEY_FAVICON / черги
-                val fromQueue = nowRadioRows.map { it.favicon }.filter { it.isNotBlank() }
-                if (fromQueue.isNotEmpty()) fromQueue
-                else List(maxOf(1, nowLocalRows.size, nowRadioRows.size)) { favicon }
-            }
+            isPodcastNow -> listOf(favicon)
             nowLocal -> nowLocalRows.map {
                 if (it.albumId.isNotBlank() && it.albumId != "0")
                     "content://media/external/audio/albumart/${it.albumId}" else ""
@@ -368,18 +363,19 @@ fun NowPlayingSheet(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable(enabled = !showBack) { ui.onToggleTrackHistory() },
+                            .clickable(enabled = !showBack && !isPodcastNow) { ui.onToggleTrackHistory() },
                     ) {
                     NowPlayingPager(
                         pagerState = pagerState,
-                        userScrollEnabled = !blockPagerSwipe,
+                        userScrollEnabled = !blockPagerSwipe && !isPodcastNow,
                         nowLocal = nowLocal,
                         pageKeys = pageKeys,
                         arts = arts,
                         currentUrl = currentUrl,
                         track = track,
                         pageArtistFor = { page ->
-                            if (nowLocal) nowLocalRows.getOrNull(page)?.artist ?: ""
+                            if (isPodcastNow) ""
+                            else if (nowLocal) nowLocalRows.getOrNull(page)?.artist ?: ""
                             else artistFromTrackTitle(track)
                         },
                         acc = acc,
@@ -387,7 +383,7 @@ fun NowPlayingSheet(
                     )
                     }
                     val pagerDragModifier: Modifier =
-                        if ((!nowLocal || isPodcastNow || genre.equals("podcast", ignoreCase = true)) && arts.isNotEmpty() && !blockPagerSwipe) {
+                        if (!isPodcastNow && !nowLocal && arts.isNotEmpty() && !blockPagerSwipe) {
                             Modifier.pointerInput(currentUrl, pageCount, blockPagerSwipe) {
                                 detectHorizontalDragGestures(
                                     onDragStart = {
@@ -472,7 +468,7 @@ fun NowPlayingSheet(
                         }
                     }
                 }
-                if (isLocalNow || currentUrl.startsWith("content:") || currentUrl.startsWith("file:")) {
+                if (isPodcastNow || isLocalNow || currentUrl.startsWith("content:") || currentUrl.startsWith("file:")) {
                     NowPlayingLocalProgress(
                         posMs = posMs,
                         durMs = durMs,
@@ -484,6 +480,10 @@ fun NowPlayingSheet(
                         onRepeat = actions.onRepeat,
                     )
                 }
+                if (isPodcastNow) {
+                    PodcastJumpRow(posMs = posMs, durMs = durMs, acc = acc, text = text, onSeek = actions.onSeek)
+                }
+                if (!isPodcastNow) {
                 val stripLabels = List(arts.size) { i ->
                     when {
                         nowLocal && i in nowLocalRows.indices -> nowLocalRows[i].title
@@ -508,6 +508,7 @@ fun NowPlayingSheet(
                         }
                     },
                 )
+                }
                 NowPlayingTransport(
                     canSkip = canSkip,
                     playing = playing,

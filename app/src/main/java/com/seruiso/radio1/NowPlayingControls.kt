@@ -1,3 +1,4 @@
+import android.content.Intent
 package com.seruiso.radio1
 
 import androidx.compose.foundation.background
@@ -117,7 +118,7 @@ fun NowPlayingMeta(
     }
     // Один рядок: виконавець — трек (або сирий track), майже без відступу під назвою
     val raw = track.trim()
-    val metaLine = run {
+    val metaLine = if (!showStationActions) raw else run {
         if (raw.isBlank()) {
             LocalContext.current.getString(R.string.track_unknown2)
         } else {
@@ -335,5 +336,57 @@ private fun MiniProgressBar(
                     .clickable { onRepeat() }
             )
         }
+    }
+}
+
+@Composable
+fun PodcastJumpRow(
+    posMs: Long,
+    durMs: Long,
+    acc: Color,
+    text: Color,
+    onSeek: (Long) -> Unit,
+) {
+    val ctx = LocalContext.current
+    var speed by remember {
+        mutableStateOf(
+            ctx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, android.content.Context.MODE_PRIVATE)
+                .getFloat("podSpeed", 1f)
+        )
+    }
+    fun send(sp: Float) {
+        val i = Intent(ctx, RadioWatchService::class.java).apply {
+            action = RadioWatchService.ACTION_SPEED
+            putExtra("speed", sp)
+        }
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= 26) ctx.startForegroundService(i) else ctx.startService(i)
+        } catch (_: Exception) {
+            try { ctx.startService(i) } catch (_: Exception) {}
+        }
+    }
+    Row(
+        Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 2.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("−15", color = text, style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.clickable { onSeek((posMs - 15_000L).coerceAtLeast(0L)) })
+        Text("+30", color = text, style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.clickable {
+                val cap = if (durMs > 0) durMs else posMs + 30_000L
+                onSeek((posMs + 30_000L).coerceAtMost(cap))
+            })
+        Text(
+            if (speed == 1f) "1×" else "${speed}×".replace(".0×", "×"),
+            color = acc,
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.clickable {
+                val steps = floatArrayOf(0.8f, 1f, 1.25f, 1.5f, 1.75f, 2f)
+                val i = steps.indexOfFirst { kotlin.math.abs(it - speed) < 0.05f }.let { if (it < 0) 1 else it }
+                speed = steps[(i + 1) % steps.size]
+                send(speed)
+            },
+        )
     }
 }

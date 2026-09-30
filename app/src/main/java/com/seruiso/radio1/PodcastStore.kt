@@ -240,4 +240,42 @@ object PodcastStore {
         }
         return out
     }
+
+    val io = kotlinx.coroutines.CoroutineScope(
+        kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO,
+    )
+
+    fun pos(ctx: Context, audioUrl: String): Long {
+        val u = audioUrl.trim()
+        if (u.isBlank()) return 0L
+        return try {
+            org.json.JSONObject(prefs(ctx).getString(BluetoothAutoPlayPlugin.KEY_POD_POS, "{}") ?: "{}")
+                .optLong(u, 0L)
+        } catch (_: Exception) {
+            0L
+        }
+    }
+
+    fun savePos(ctx: Context, audioUrl: String, ms: Long) {
+        val u = audioUrl.trim()
+        if (u.isBlank() || ms < 0L) return
+        try {
+            val o = org.json.JSONObject(prefs(ctx).getString(BluetoothAutoPlayPlugin.KEY_POD_POS, "{}") ?: "{}")
+            o.put(u, ms)
+            prefs(ctx).edit().putString(BluetoothAutoPlayPlugin.KEY_POD_POS, o.toString()).apply()
+        } catch (_: Exception) {}
+    }
+
+    fun deleteDownload(ctx: Context, audioUrl: String) {
+        try { episodeFile(ctx, audioUrl).delete() } catch (_: Exception) {}
+        try { File(episodeFile(ctx, audioUrl).absolutePath + ".part").delete() } catch (_: Exception) {}
+        val arr = JSONArray(prefs(ctx).getString(KEY_DL_META, "[]") ?: "[]")
+        val out = JSONArray()
+        for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i) ?: continue
+            if (o.optString("audioUrl") == audioUrl) continue
+            out.put(o)
+        }
+        prefs(ctx).edit().putString(KEY_DL_META, out.toString()).apply()
+    }
 }

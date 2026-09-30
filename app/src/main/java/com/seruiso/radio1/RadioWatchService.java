@@ -1800,6 +1800,9 @@ notifyForeground();
             setUserPausedWhileBt(false);
             PlaybackPrefs.setPauseReason(this, PlaybackPrefs.REASON_NONE);
             setIntendedPlaying(true);
+            if (RadioSlot.restoreIfPodcast(this)) {
+                android.util.Log.i("RadioWatch", "ACTION_BT restored radio slot");
+            }
             ignoreNoisyUntilMs = System.currentTimeMillis() + 8000L;
             try { notifyUiStatus(lc().getString(R.string.connecting), 0); } catch (Exception ignored) {}
             try {
@@ -2038,10 +2041,18 @@ notifyForeground();
             if (dur < 0 || dur == androidx.media3.common.C.TIME_UNSET) dur = 0;
             positionTickCount++;
             if (positionTickCount % 3 == 0) {
-                getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE).edit()
+                android.content.SharedPreferences spPos = getSharedPreferences(
+                        BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE);
+                spPos.edit()
                     .putLong("localPositionMs", pos)
                     .putLong("localDurationMs", dur)
                     .apply();
+                try {
+                    if ("podcast".equals(spPos.getString(LocalMusicPlugin.KEY_MODE, ""))) {
+                        String pu = spPos.getString(BluetoothAutoPlayPlugin.KEY_URL, "");
+                        if (pu != null && !pu.isEmpty()) PodcastStore.INSTANCE.savePos(this, pu, pos);
+                    }
+                } catch (Exception ignored) {}
             }
             Intent i = new Intent(ACTION_PLAYBACK_UI);
             i.setPackage(getPackageName());
@@ -2830,7 +2841,10 @@ notifyForeground();
             String fv = sp.getString(BluetoothAutoPlayPlugin.KEY_FAVICON, "");
             if (u == null) u = "";
             if (fv == null) fv = "";
-            if (!u.startsWith("content:")) {
+            String gen = sp.getString(BluetoothAutoPlayPlugin.KEY_GENRE, "");
+            String mode = sp.getString(LocalMusicPlugin.KEY_MODE, "radio");
+            if (!u.startsWith("content:") && !u.startsWith("file:")
+                    && !"podcast".equals(gen) && !"podcast".equals(mode)) {
                 TrackHistoryStore.INSTANCE.push(this, title, currentName == null ? "" : currentName, u, fv);
             }
         } catch (Exception ignored) {}

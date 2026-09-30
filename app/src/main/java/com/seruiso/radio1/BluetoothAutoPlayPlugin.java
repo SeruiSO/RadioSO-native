@@ -5,6 +5,13 @@ public class BluetoothAutoPlayPlugin {
     public static final String KEY_APP_LANG = "appLanguage";
     public static final String KEY_URL = "lastStationUrl";
     public static final String KEY_NAME = "lastStationName";
+    /** Остання справжня радіостанція. Подкаст її не затирає. */
+    public static final String KEY_RADIO_URL = "radioSlotUrl";
+    public static final String KEY_RADIO_NAME = "radioSlotName";
+    public static final String KEY_RADIO_FAV = "radioSlotFavicon";
+    public static final String KEY_RADIO_GENRE = "radioSlotGenre";
+    public static final String KEY_RADIO_COUNTRY = "radioSlotCountry";
+    public static final String KEY_POD_POS = "podPosJson";
     /** Намір: користувач/автостарт хоче playback (resume після focus/мережі). */
     public static final String KEY_PLAY = "intendedPlaying";
     public static final String KEY_QUEUE_URLS = "queueUrls";

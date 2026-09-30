@@ -1069,7 +1069,8 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun pushRecentStation(s: Station) {
-        if (s.url.isBlank() || s.url.startsWith("content:")) return
+        if (s.url.isBlank() || s.url.startsWith("content:") || s.url.startsWith("file:")) return
+        if (s.genre.equals("podcast", ignoreCase = true)) return
         try {
             val cur = loadRecentStations().filter { it.url != s.url }.toMutableList()
             cur.add(0, s)
@@ -1395,6 +1396,7 @@ class MainActivity : ComponentActivity() {
     private fun playRadio(list: List<Station>, index: Int, asQueue: Boolean = true) {
         if (index !in list.indices) return
         val s = list[index]
+        RadioSlot.remember(this)
         pushRecentStation(s)
         stationName = s.name
         trackTitle = ""

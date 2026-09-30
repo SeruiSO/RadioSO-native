@@ -242,6 +242,8 @@ fun PodcastsTabContent(
             PodcastStore.episodeFile(ctx, ep.audioUrl).absolutePath else ep.audioUrl
         val mediaUrl = if (path0.startsWith("/")) "file://$path0" else path0
         val art0 = ep.image.ifBlank { artwork }
+        RadioSlot.remember(ctx)
+        val resumeMs = PodcastStore.pos(ctx, mediaUrl).coerceAtLeast(0L)
         val p = ctx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, android.content.Context.MODE_PRIVATE)
         p.edit()
             .putString(LocalMusicPlugin.KEY_MODE, "podcast")
@@ -270,13 +272,14 @@ fun PodcastsTabContent(
             .putString(BluetoothAutoPlayPlugin.KEY_GENRE, "podcast")
             .putString(BluetoothAutoPlayPlugin.KEY_COUNTRY, "")
             .putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, true)
-            .putLong("localPositionMs", 0L)
+            .putLong("localPositionMs", resumeMs)
             .apply()
         playUrl = mediaUrl  // миттєва підсвітка
         val i = Intent(ctx, RadioWatchService::class.java).apply {
             action = RadioWatchService.ACTION_PLAY_URL
             putExtra(RadioWatchService.EXTRA_URL, mediaUrl)
             putExtra(RadioWatchService.EXTRA_NAME, ep.title.ifBlank { showTitle })
+            if (resumeMs > 1500L) putExtra(RadioWatchService.EXTRA_POSITION_MS, resumeMs)
         }
         try {
             if (Build.VERSION.SDK_INT >= 26) ctx.startForegroundService(i)
@@ -341,17 +344,19 @@ fun PodcastsTabContent(
     }
 
     fun downloadEp(ep: PodcastEpisode, showTitle: String, artwork: String) {
+        if (PodcastStore.isDownloaded(ctx, ep.audioUrl)) {
+            PodcastStore.deleteDownload(ctx, ep.audioUrl)
+            tick++
+            return
+        }
         if (dlBusy != null) return
-        if (PodcastStore.isDownloaded(ctx, ep.audioUrl)) return
         dlBusy = ep.audioUrl
-        scope.launch {
-            val r = withContext(Dispatchers.IO) {
-                PodcastStore.download(ctx, ep.audioUrl).onSuccess {
-                    PodcastStore.rememberDownload(
-                        ctx, ep.audioUrl, ep.title, showTitle,
-                        ep.image.ifBlank { artwork }, ep.pubDate, ep.duration,
-                    )
-                }
+        PodcastStore.io.launch {
+            val r = PodcastStore.download(ctx, ep.audioUrl).onSuccess {
+                PodcastStore.rememberDownload(
+                    ctx, ep.audioUrl, ep.title, showTitle,
+                    ep.image.ifBlank { artwork }, ep.pubDate, ep.duration,
+                )
             }
             dlBusy = null
             tick++
@@ -586,7 +591,7 @@ fun PodcastsTabContent(
                     contentPadding = PaddingValues(bottom = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    itemsIndexed(episodes, key = { i, e -> "${e.audioUrl}|$i|${playUrl.hashCode()}" }) { index, ep ->
+                    itemsIndexed(episodes, key = { _, e -> e.audioUrl }) { index, ep ->
                         // playUrl — щоб рядок рекомпонувався при skip
                         val watchPlayUrl = playUrl
                         EpRow(ep, selected!!.title, art, episodes, index)
@@ -618,7 +623,7 @@ fun PodcastsTabContent(
                                     style = MaterialTheme.typography.bodySmall)
                             }
                         } else {
-                            itemsIndexed(list, key = { _, e -> "f-${e.audioUrl}|${playUrl.hashCode()}" }) { i, ep ->
+                            itemsIndexed(list, key = { _, e -> "f-${e.audioUrl}" }) { i, ep ->
                                 EpRow(ep, favEps[i].showTitle, ep.image, list, i, showFav = true, showDl = true)
                             }
                         }
@@ -638,8 +643,8 @@ fun PodcastsTabContent(
                                     style = MaterialTheme.typography.bodySmall)
                             }
                         } else {
-                            itemsIndexed(list, key = { _, e -> "d-${e.audioUrl}|${playUrl.hashCode()}" }) { i, ep ->
-                                EpRow(ep, dlEps[i].showTitle, ep.image, list, i, showFav = true, showDl = false)
+                            itemsIndexed(list, key = { _, e -> "d-${e.audioUrl}" }) { i, ep ->
+                                EpRow(ep, dlEps[i].showTitle, ep.image, list, i, showFav = true, showDl = true)
                             }
                         }
                     }

@@ -65,6 +65,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
@@ -559,7 +560,8 @@ fun PodcastsTabContent(
                     Text(meta, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis,
                         style = MaterialTheme.typography.labelSmall)
                 }
-                val bar = if (busy) PodcastStore.fracOf(ep.audioUrl) else frac
+                val playedFrac = if (frac >= 0f) frac else listenFrac(ep.audioUrl, ep.duration)
+                val bar = if (busy) PodcastStore.fracOf(ep.audioUrl) else playedFrac
                 if (bar in 0.02f..0.98f) {
                     Box(
                         Modifier
@@ -663,10 +665,6 @@ fun PodcastsTabContent(
                     Column(Modifier.weight(1f)) {
                         Text(selected!!.title, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis,
                             style = MaterialTheme.typography.titleSmall)
-                        if (selected!!.author.isNotBlank()) {
-                            Text(selected!!.author, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                                style = MaterialTheme.typography.labelSmall)
-                        }
                     }
                     Icon(
                         if (isPinned(selected!!.feedUrl)) Icons.Filled.Bookmark else Icons.Filled.BookmarkBorder,
@@ -675,56 +673,22 @@ fun PodcastsTabContent(
                         modifier = Modifier.size(28.dp).clickable { togglePin(selected!!) },
                     )
                 }
-                if (sub == PodSub.SEARCH) {
-                    if (!loadingEps) {
-                        Text(
-                            "${episodes.size} епізодів",
-                            color = muted,
-                            style = MaterialTheme.typography.labelLarge,
-                            modifier = Modifier.padding(bottom = 6.dp),
-                        )
-                    }
-                } else if (blurb.isNotBlank()) {
-                    Text(
-                        blurb,
-                        color = muted,
-                        maxLines = if (descOpen) 8 else 2,
-                        overflow = TextOverflow.Ellipsis,
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(bottom = 6.dp).clickable { descOpen = !descOpen },
-                    )
-                }
-                if (sub != PodSub.SEARCH) {
-                OutlinedTextField(
-                    value = showQ,
-                    onValueChange = { showQ = it },
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
-                    singleLine = true,
-                    placeholder = { Text("Пошук у шоу", color = muted) },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = text, unfocusedTextColor = text,
-                        focusedBorderColor = acc, unfocusedBorderColor = muted.copy(alpha = 0.4f),
-                        cursorColor = acc,
-                    ),
-                    shape = RoundedCornerShape(14.dp),
-                )
-                }
-                Text(
-                    if (showSort == "new") "Спочатку нові" else "Спочатку старі",
-                    color = acc,
-                    style = MaterialTheme.typography.labelLarge,
-                    modifier = Modifier.padding(bottom = 6.dp).clickable {
-                        showSort = if (showSort == "new") "old" else "new"
-                    },
-                )
             } else if (sub == PodSub.SEARCH) {
                 OutlinedTextField(
                     value = query,
                     onValueChange = { query = it },
-                    modifier = Modifier.fillMaxWidth().height(46.dp).padding(bottom = 4.dp),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
                     singleLine = true,
-                    textStyle = MaterialTheme.typography.bodyMedium,
-                    placeholder = { Text(ctx.getString(R.string.podcast_search_hint), color = muted, style = MaterialTheme.typography.bodyMedium) },
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(textAlign = TextAlign.Center),
+                    placeholder = {
+                        Text(
+                            ctx.getString(R.string.podcast_search_hint),
+                            color = muted,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth(),
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                    },
                     trailingIcon = {
                         Icon(Icons.Filled.Search, contentDescription = ctx.getString(R.string.find),
                             tint = acc, modifier = Modifier.size(22.dp).clickable { doSearch(false) })
@@ -762,20 +726,38 @@ fun PodcastsTabContent(
                         "dl" -> PodcastStore.isDownloaded(ctx, ep.audioUrl)
                         else -> true
                     }
-                    val q = showQ.trim()
-                    val byQ = q.isBlank() || ep.title.contains(q, true) || ep.description.contains(q, true)
-                    byTab && byQ
-                }.let { if (showSort == "old") it.asReversed() else it }
+                    byTab
+                }
                 Row(
-                    Modifier.fillMaxWidth().padding(bottom = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
+                        .padding(bottom = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    Text(
+                        "${episodes.size} епізодів",
+                        color = text,
+                        maxLines = 1,
+                        style = MaterialTheme.typography.labelLarge,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(muted.copy(alpha = 0.12f))
+                            .padding(horizontal = 12.dp, vertical = 7.dp),
+                    )
                     listOf("all" to "Усі", "new" to "Непрослухані", "dl" to "Завантажені").forEach { (k, label) ->
+                        val on = epFilter == k
                         Text(
                             label,
-                            color = if (epFilter == k) acc else muted,
+                            color = if (on) acc else muted,
+                            maxLines = 1,
                             style = MaterialTheme.typography.labelLarge,
-                            modifier = Modifier.clickable { epFilter = k },
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(if (on) acc.copy(alpha = 0.20f) else muted.copy(alpha = 0.12f))
+                                .clickable { epFilter = k }
+                                .padding(horizontal = 12.dp, vertical = 7.dp),
                         )
                     }
                 }

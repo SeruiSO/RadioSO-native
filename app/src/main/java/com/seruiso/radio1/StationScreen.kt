@@ -1175,7 +1175,7 @@ fun StationScreen(
                 )
             }
             }
-            if (tabs.getOrNull(tabIndex) == "local") {
+            if (bottomTab != "podcasts" && tabs.getOrNull(tabIndex) == "local") {
                 Box(
                     modifier = Modifier.size(40.dp).background(Palette.panel.copy(alpha = 0.90f), RoundedCornerShape(12.dp)).clickable { onScan() },
                     contentAlignment = Alignment.Center

@@ -124,6 +124,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
     private String lastTrackTitle = "";
     private Bitmap stationArt = null;
     private String stationArtUrl = "";
+    private volatile boolean artLoading = false;
     private int artGen = 0;
     /** Поточне HTTP-з'єднання завантаження обкладинки — щоб можна було скасувати. */
     private volatile java.net.HttpURLConnection artConn = null;
@@ -1325,8 +1326,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         }
         // Уже завантажено і є bitmap — нічого не робимо.
         if (fav.equals(stationArtUrl) && stationArt != null) return;
-        // Той самий URL уже качається — не стартуємо другий потік.
-        if (fav.equals(stationArtUrl) && artConn != null) return;
+        if (fav.equals(stationArtUrl) && (artLoading || artConn != null)) return;
 
         // Скасувати попереднє завантаження (інший URL або застаріле).
         java.net.HttpURLConnection prev = artConn;
@@ -1337,15 +1337,18 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
 
         final int gen = ++artGen;
         stationArtUrl = fav;
+        artLoading = true;
         new Thread(() -> {
             Bitmap bmp = null;
             HttpURLConnection conn = null;
             try {
                 URL u = new URL(fav);
                 conn = (HttpURLConnection) u.openConnection();
-                conn.setConnectTimeout(4000);
-                conn.setReadTimeout(4000);
+                conn.setConnectTimeout(8000);
+                conn.setReadTimeout(8000);
                 conn.setInstanceFollowRedirects(true);
+                conn.setRequestProperty("User-Agent", "RadioSO/1.0 (Android)");
+                conn.setRequestProperty("Accept", "image/*,*/*");
                 artConn = conn;
                 conn.connect();
                 int code = conn.getResponseCode();
@@ -1392,6 +1395,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             }
             final Bitmap result = bmp;
             mainHandler.post(() -> {
+                if (gen == artGen) artLoading = false;
                 // застаріла відповідь — ігноруємо
                 if (gen != artGen) {
                     if (result != null) {
@@ -1428,6 +1432,13 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                 .setDisplayTitle(title)
                 .setSubtitle(artist)
                 .setAlbumTitle(album);
+            try {
+                String fav = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                    .getString(BluetoothAutoPlayPlugin.KEY_FAVICON, "");
+                if (fav != null && fav.startsWith("http")) {
+                    mdb.setArtworkUri(android.net.Uri.parse(fav));
+                }
+            } catch (Exception ignored) {}
             if (stationArt != null) {
                 try {
                     ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -2816,12 +2827,15 @@ notifyForeground();
             if (localMode) {
                 try {
                     SharedPreferences spSeek = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE);
-                    long saved = spSeek.getLong("localPositionMs", 0L);
+                    long saved;
                     if ("podcast".equals(spSeek.getString(LocalMusicPlugin.KEY_MODE, ""))) {
-                        long pod = PodcastStore.INSTANCE.pos(this, url);
-                        if (pod > saved) saved = pod;
+                        saved = PodcastStore.INSTANCE.pos(this, url);
+                        if (saved < 0L) saved = 0L;
+                    } else {
+                        saved = spSeek.getLong("localPositionMs", 0L);
                     }
-                    if (saved > 800L) pendingSeekMs = saved;
+                    pendingSeekMs = saved > 800L ? saved : -1L;
+                    spSeek.edit().putLong("localPositionMs", Math.max(0L, saved)).apply();
                 } catch (Exception ignored) {}
             }
             // Радіо: трек ще не відомий (прийде з ICY/onMediaMetadataChanged) — чистимо.
@@ -2862,7 +2876,8 @@ notifyForeground();
             hasEverPlayedThisUrl = false;
             streamStartMs = System.currentTimeMillis();
             lastBufferedMs = 0L;
-            if (!isLocalMode()) armSilenceWatch(); // лише для радіо-потоків
+            if (isLocalMode()) disarmSilenceWatch();
+            else armSilenceWatch();
             notifyForeground();
         } catch (Exception e) {
             android.util.Log.e("RadioWatch", "playUrl failed: " + url, e);

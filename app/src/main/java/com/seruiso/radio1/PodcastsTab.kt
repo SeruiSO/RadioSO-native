@@ -3,7 +3,9 @@ package com.seruiso.radio1
 import android.content.Intent
 import android.os.Build
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
@@ -60,6 +62,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -673,33 +676,48 @@ fun PodcastsTabContent(
                     )
                 }
             } else if (sub == PodSub.SEARCH) {
-                OutlinedTextField(
+                BasicTextField(
                     value = query,
                     onValueChange = { query = it },
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
+                    modifier = Modifier.fillMaxWidth().height(24.dp),
                     singleLine = true,
-                    textStyle = MaterialTheme.typography.bodyLarge.copy(textAlign = androidx.compose.ui.text.style.TextAlign.Center),
-                    placeholder = {
-                        Text(
-                            ctx.getString(R.string.podcast_search_hint),
-                            color = muted,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth(),
-                            style = MaterialTheme.typography.bodyLarge,
-                        )
-                    },
-                    trailingIcon = {
-                        Icon(Icons.Filled.Search, contentDescription = ctx.getString(R.string.find),
-                            tint = acc, modifier = Modifier.size(22.dp).clickable { doSearch(false) })
-                    },
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(
+                        color = text,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    ),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                     keyboardActions = KeyboardActions(onSearch = { doSearch(false) }),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = text, unfocusedTextColor = text,
-                        focusedBorderColor = acc, unfocusedBorderColor = muted.copy(alpha = 0.4f),
-                        cursorColor = acc,
-                    ),
-                    shape = RoundedCornerShape(14.dp),
+                    cursorBrush = SolidColor(acc),
+                    decorationBox = { inner ->
+                        Row(
+                            Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(8.dp))
+                                .border(1.dp, muted.copy(alpha = 0.45f), RoundedCornerShape(8.dp))
+                                .padding(horizontal = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                                if (query.isEmpty()) {
+                                    Text(
+                                        ctx.getString(R.string.podcast_search_hint),
+                                        color = muted,
+                                        maxLines = 1,
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        style = MaterialTheme.typography.bodyLarge,
+                                    )
+                                }
+                                inner()
+                            }
+                            Icon(
+                                Icons.Filled.Search,
+                                contentDescription = ctx.getString(R.string.find),
+                                tint = acc,
+                                modifier = Modifier.size(18.dp).clickable { doSearch(false) },
+                            )
+                        }
+                    },
                 )
             }
 
@@ -731,32 +749,23 @@ fun PodcastsTabContent(
                     Modifier
                         .fillMaxWidth()
                         .horizontalScroll(rememberScrollState())
-                        .padding(bottom = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        .padding(bottom = 2.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
                         "${episodes.size} епізодів",
-                        color = text,
+                        color = muted,
                         maxLines = 1,
-                        style = MaterialTheme.typography.labelLarge,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(muted.copy(alpha = 0.12f))
-                            .padding(horizontal = 12.dp, vertical = 7.dp),
+                        style = MaterialTheme.typography.labelSmall,
                     )
                     listOf("all" to "Усі", "new" to "Непрослухані", "dl" to "Завантажені").forEach { (k, label) ->
-                        val on = epFilter == k
                         Text(
                             label,
-                            color = if (on) acc else muted,
+                            color = if (epFilter == k) acc else muted,
                             maxLines = 1,
-                            style = MaterialTheme.typography.labelLarge,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(20.dp))
-                                .background(if (on) acc.copy(alpha = 0.20f) else muted.copy(alpha = 0.12f))
-                                .clickable { epFilter = k }
-                                .padding(horizontal = 12.dp, vertical = 7.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.clickable { epFilter = k },
                         )
                     }
                 }

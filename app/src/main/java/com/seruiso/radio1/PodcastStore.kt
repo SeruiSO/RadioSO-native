@@ -278,4 +278,68 @@ object PodcastStore {
         }
         prefs(ctx).edit().putString(KEY_DL_META, out.toString()).apply()
     }
+
+    private const val KEY_RECENT_EP = "podcastRecentEps"
+
+    fun notePlay(
+        ctx: Context,
+        title: String,
+        audioUrl: String,
+        mediaUrl: String,
+        showTitle: String,
+        artwork: String,
+        duration: String,
+    ) {
+        val u = audioUrl.trim()
+        if (u.isBlank()) return
+        val arr = JSONArray(prefs(ctx).getString(KEY_RECENT_EP, "[]") ?: "[]")
+        val out = JSONArray()
+        out.put(
+            JSONObject()
+                .put("title", title)
+                .put("audioUrl", u)
+                .put("mediaUrl", mediaUrl)
+                .put("showTitle", showTitle)
+                .put("artwork", artwork)
+                .put("duration", duration),
+        )
+        for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i) ?: continue
+            if (o.optString("audioUrl") == u) continue
+            out.put(o)
+            if (out.length() >= 8) break
+        }
+        prefs(ctx).edit().putString(KEY_RECENT_EP, out.toString()).apply()
+    }
+
+    fun recent(ctx: Context): List<PodcastRecent> {
+        val arr = JSONArray(prefs(ctx).getString(KEY_RECENT_EP, "[]") ?: "[]")
+        val out = ArrayList<PodcastRecent>()
+        for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i) ?: continue
+            val url = o.optString("audioUrl").trim()
+            if (url.isBlank()) continue
+            out.add(
+                PodcastRecent(
+                    title = o.optString("title").ifBlank { url.substringAfterLast('/') },
+                    audioUrl = url,
+                    mediaUrl = o.optString("mediaUrl").ifBlank { url },
+                    showTitle = o.optString("showTitle"),
+                    artwork = o.optString("artwork"),
+                    duration = o.optString("duration"),
+                ),
+            )
+            if (out.size >= 3) break
+        }
+        return out
+    }
 }
+
+data class PodcastRecent(
+    val title: String,
+    val audioUrl: String,
+    val mediaUrl: String,
+    val showTitle: String,
+    val artwork: String,
+    val duration: String,
+)

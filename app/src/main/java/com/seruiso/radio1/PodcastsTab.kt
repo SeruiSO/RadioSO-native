@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -174,6 +175,25 @@ fun PodcastsTabContent(
         f
     }
     val dlEps = remember(tick) { PodcastStore.downloadedList(ctx) }
+    val continueEps = remember(tick) { PodcastStore.recent(ctx) }
+    fun podFrac(mediaUrl: String, duration: String): Float {
+        val ms = PodcastStore.pos(ctx, mediaUrl)
+        val raw = duration.trim()
+        val sec = when {
+            raw.isBlank() || ms <= 0L -> 0
+            raw.contains(":") -> {
+                val p = raw.split(":").map { it.toIntOrNull() ?: 0 }
+                when (p.size) {
+                    3 -> p[0] * 3600 + p[1] * 60 + p[2]
+                    2 -> p[0] * 60 + p[1]
+                    else -> 0
+                }
+            }
+            else -> raw.toIntOrNull() ?: 0
+        }
+        if (sec <= 0) return -1f
+        return (ms / 1000f / sec).coerceIn(0f, 1f)
+    }
 
     fun isPinned(feed: String) = feed in pinnedLocal
     fun togglePin(show: PodcastShow) {
@@ -243,6 +263,15 @@ fun PodcastsTabContent(
         val mediaUrl = if (path0.startsWith("/")) "file://$path0" else path0
         val art0 = ep.image.ifBlank { artwork }
         RadioSlot.remember(ctx)
+        PodcastStore.notePlay(
+            ctx,
+            title = ep.title.ifBlank { showTitle },
+            audioUrl = ep.audioUrl,
+            mediaUrl = mediaUrl,
+            showTitle = showTitle,
+            artwork = art0,
+            duration = ep.duration,
+        )
         val resumeMs = PodcastStore.pos(ctx, mediaUrl).coerceAtLeast(0L)
         val p = ctx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, android.content.Context.MODE_PRIVATE)
         p.edit()
@@ -296,6 +325,7 @@ fun PodcastsTabContent(
             error = ctx.getString(R.string.podcast_empty_query)
             return
         }
+        sub = PodSub.SEARCH
         kb?.hide()
         loading = true
         error = ""
@@ -370,17 +400,17 @@ fun PodcastsTabContent(
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
-                .clip(RoundedCornerShape(10.dp))
+                .clip(RoundedCornerShape(20.dp))
+                .background(if (on) acc.copy(alpha = 0.22f) else Color.Transparent)
                 .clickable {
                     selected = null
                     episodes = emptyList()
                     error = ""
                     sub = key
                 }
-                .padding(horizontal = 6.dp, vertical = 2.dp),
+                .padding(horizontal = 12.dp, vertical = 8.dp),
         ) {
-            Icon(icon, contentDescription = label, tint = if (on) acc else muted, modifier = Modifier.size(20.dp))
-            Text(label, color = if (on) acc else muted, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+            Text(label, color = if (on) acc else muted, style = MaterialTheme.typography.labelLarge, maxLines = 1)
         }
     }
 
@@ -434,6 +464,7 @@ fun PodcastsTabContent(
         index: Int,
         showFav: Boolean = true,
         showDl: Boolean = true,
+        frac: Float = -1f,
     ) {
         val watchPlayUrl = playUrl
         val playing = isPlayingAudio(ep.audioUrl)
@@ -452,7 +483,7 @@ fun PodcastsTabContent(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
-                Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)).background(Palette.panel2),
+                Modifier.size(56.dp).clip(RoundedCornerShape(8.dp)).background(Palette.panel2),
                 contentAlignment = Alignment.Center,
             ) {
                 if (img.isNotBlank()) {
@@ -464,7 +495,7 @@ fun PodcastsTabContent(
             }
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
-                Text(ep.title, color = if (playing) acc else text, maxLines = 3, overflow = TextOverflow.Ellipsis,
+                Text(ep.title, color = if (playing) acc else text, maxLines = 2, overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.bodyMedium)
                 val meta = buildList {
                     if (showTitle.isNotBlank()) add(showTitle)
@@ -474,6 +505,18 @@ fun PodcastsTabContent(
                 if (meta.isNotBlank()) {
                     Text(meta, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis,
                         style = MaterialTheme.typography.labelSmall)
+                }
+                if (frac in 0.02f..0.98f) {
+                    Box(
+                        Modifier
+                            .padding(top = 4.dp)
+                            .fillMaxWidth()
+                            .height(3.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(muted.copy(alpha = 0.28f)),
+                    ) {
+                        Box(Modifier.fillMaxWidth(frac).fillMaxHeight().background(acc))
+                    }
                 }
             }
             if (showFav) {
@@ -552,11 +595,11 @@ fun PodcastsTabContent(
                         modifier = Modifier.size(28.dp).clickable { togglePin(selected!!) },
                     )
                 }
-            } else if (sub == PodSub.SEARCH) {
+            } else {
                 OutlinedTextField(
                     value = query,
                     onValueChange = { query = it },
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
                     singleLine = true,
                     placeholder = { Text(ctx.getString(R.string.podcast_search_hint), color = muted) },
                     trailingIcon = {
@@ -572,6 +615,16 @@ fun PodcastsTabContent(
                     ),
                     shape = RoundedCornerShape(14.dp),
                 )
+                Row(
+                    Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    SubTab(Icons.AutoMirrored.Filled.LibraryBooks, PodSub.SHOWS, ctx.getString(R.string.podcast_tab_shows))
+                    SubTab(Icons.Filled.Bookmark, PodSub.FAV_EPS, ctx.getString(R.string.podcast_tab_eps))
+                    SubTab(Icons.Filled.Download, PodSub.DOWNLOADED, ctx.getString(R.string.podcast_tab_dl))
+                    SubTab(Icons.Filled.Search, PodSub.SEARCH, ctx.getString(R.string.podcast_tab_search))
+                }
             }
 
             if (loading || loadingEps) {
@@ -602,7 +655,21 @@ fun PodcastsTabContent(
                     Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    if (subs.isEmpty()) {
+                    if (continueEps.isNotEmpty()) {
+                        item {
+                            Text("Продовжити", color = text, style = MaterialTheme.typography.titleSmall)
+                        }
+                        itemsIndexed(continueEps, key = { _, e -> "c-${e.audioUrl}" }) { i, ep ->
+                            val list = continueEps.map {
+                                PodcastEpisode(it.title, it.audioUrl, "", it.duration, it.artwork)
+                            }
+                            EpRow(
+                                list[i], ep.showTitle, ep.artwork, list, i,
+                                frac = podFrac(ep.mediaUrl, ep.duration),
+                            )
+                        }
+                    }
+                    if (subs.isEmpty() && continueEps.isEmpty()) {
                         item {
                             Text(ctx.getString(R.string.podcast_my_empty), color = muted,
                                 style = MaterialTheme.typography.bodySmall)
@@ -668,22 +735,6 @@ fun PodcastsTabContent(
             }
         }
 
-        if (selected == null) {
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .height(44.dp)
-                    .background(card)
-                    .padding(horizontal = 4.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                SubTab(Icons.AutoMirrored.Filled.LibraryBooks, PodSub.SHOWS, ctx.getString(R.string.podcast_tab_shows))
-                SubTab(Icons.Filled.Bookmark, PodSub.FAV_EPS, ctx.getString(R.string.podcast_tab_eps))
-                SubTab(Icons.Filled.Download, PodSub.DOWNLOADED, ctx.getString(R.string.podcast_tab_dl))
-                SubTab(Icons.Filled.Search, PodSub.SEARCH, ctx.getString(R.string.podcast_tab_search))
-            }
-        }
     }
 }
 

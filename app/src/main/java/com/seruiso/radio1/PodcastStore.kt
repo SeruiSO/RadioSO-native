@@ -334,11 +334,18 @@ object PodcastStore {
     }
 
     fun news(ctx: Context): List<PodcastEpisode> {
+        val allowed = subs(ctx).map { it.feedUrl.trim() }.filter { it.isNotBlank() }.toSet()
         val root = org.json.JSONObject(prefs(ctx).getString(KEY_FEED_CACHE, "{}") ?: "{}")
         val out = ArrayList<PodcastEpisode>()
+        val drop = ArrayList<String>()
         val keys = root.keys()
         while (keys.hasNext()) {
-            val o = root.optJSONObject(keys.next()) ?: continue
+            val feed = keys.next()
+            if (feed !in allowed) {
+                drop.add(feed)
+                continue
+            }
+            val o = root.optJSONObject(feed) ?: continue
             val eps = o.optJSONArray("eps") ?: continue
             val n = minOf(4, eps.length())
             for (i in 0 until n) {
@@ -356,6 +363,10 @@ object PodcastStore {
                     ),
                 )
             }
+        }
+        if (drop.isNotEmpty()) {
+            drop.forEach { root.remove(it) }
+            prefs(ctx).edit().putString(KEY_FEED_CACHE, root.toString()).apply()
         }
         return out.take(40)
     }

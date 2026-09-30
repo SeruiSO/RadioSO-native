@@ -476,7 +476,9 @@ fun PodcastsTabContent(
                 episodes = it
                 blurb = ItunesPodcasts.lastBlurb
                 descOpen = false
-                PodcastStore.cacheShow(ctx, show.feedUrl, show.title, show.artwork, it)
+                if (PodcastStore.subs(ctx).any { it.feedUrl == show.feedUrl }) {
+                    PodcastStore.cacheShow(ctx, show.feedUrl, show.title, show.artwork, it)
+                }
                 if (it.isEmpty()) error = ctx.getString(R.string.podcast_no_episodes)
             }.onFailure {
                 error = it.message ?: ctx.getString(R.string.scan_error)
@@ -977,10 +979,14 @@ fun PodcastsTabContent(
                                 }
                             },
                             enabled = !refreshing,
-                            modifier = Modifier.padding(bottom = 8.dp).height(40.dp),
+                            modifier = Modifier.padding(bottom = 4.dp).height(30.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = acc, contentColor = Color.White),
                         ) {
-                            Text(if (refreshing) "Оновлюю…" else "Оновити підписки")
+                            Text(
+                                if (refreshing) "Оновлюю…" else "Оновити підписки",
+                                style = MaterialTheme.typography.labelLarge,
+                            )
                         }
                         LazyColumn(
                             Modifier.fillMaxSize(),
@@ -989,7 +995,7 @@ fun PodcastsTabContent(
                         ) {
                             if (fresh.isEmpty()) {
                                 item {
-                                    Text("Відкрий шоу або натисни оновлення", color = muted,
+                                    Text("Немає нових епізодів у збережених шоу", color = muted,
                                         style = MaterialTheme.typography.bodySmall)
                                 }
                             } else {

@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -65,6 +66,9 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -158,6 +162,8 @@ fun PodcastsTabContent(
     var searchOffset by remember { mutableStateOf(0) }
     var searchTerm by remember { mutableStateOf("") }
     var canLoadMore by remember { mutableStateOf(false) }
+    val showsState = rememberLazyListState()
+    val searchState = rememberLazyListState()
 
     DisposableEffect(Unit) {
         val prefs = ctx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, android.content.Context.MODE_PRIVATE)
@@ -350,13 +356,35 @@ fun PodcastsTabContent(
         val offset = if (more) searchOffset else 0
         scope.launch {
             val r = withContext(Dispatchers.IO) { ItunesPodcasts.searchUa(q, limit = 50, offset = offset) }
-            loading = false
-            r.onSuccess {
-                results = if (more) results + it else it
-                searchOffset = results.size
-                canLoadMore = it.size >= 50
+            r.onSuccess { batch ->
+                searchOffset = offset + batch.size
+                canLoadMore = batch.size >= 50
+                val cand = batch.filter { it.feedUrl.startsWith("http") }
+                if (!more) results = emptyList()
+                loading = false
+                if (cand.isEmpty()) {
+                    status = ""
+                    error = "Немає робочих шоу"
+                    return@onSuccess
+                }
+                status = "Перевіряю 0/${cand.size}"
+                var checked = 0
+                coroutineScope {
+                    cand.map { show ->
+                        async(Dispatchers.IO) {
+                            val ok = ItunesPodcasts.feedAlive(show.feedUrl)
+                            withContext(Dispatchers.Main) {
+                                checked++
+                                status = "Перевіряю $checked/${cand.size}"
+                                if (ok && results.none { it.feedUrl == show.feedUrl }) results = results + show
+                            }
+                        }
+                    }.awaitAll()
+                }
                 status = ""
+                if (results.isEmpty()) error = "Немає робочих шоу"
             }.onFailure {
+                loading = false
                 if (!more) results = emptyList()
                 error = it.message ?: ctx.getString(R.string.scan_error)
             }
@@ -529,6 +557,14 @@ fun PodcastsTabContent(
                     }
                 }
             }
+            if (showDl && !busy) {
+                Icon(
+                    if (downloaded) Icons.Filled.DownloadDone else Icons.Filled.Download,
+                    contentDescription = ctx.getString(R.string.podcast_download),
+                    tint = if (downloaded) acc else muted,
+                    modifier = Modifier.size(22.dp).clickable { downloadEp(ep, showTitle, artwork) },
+                )
+            }
             if (busy) {
                 CircularProgressIndicator(color = acc, modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
             } else {
@@ -692,6 +728,10 @@ fun PodcastsTabContent(
                     CircularProgressIndicator(color = acc, modifier = Modifier.size(32.dp))
                 }
             }
+            if (status.isNotBlank()) {
+                Text(status, color = muted, style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(top = 4.dp))
+            }
             if (error.isNotBlank()) {
                 Text(error, color = Color(0xFFE57373), style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(top = 6.dp))
@@ -735,29 +775,45 @@ fun PodcastsTabContent(
                 }
             } else when (sub) {
                 PodSub.SHOWS -> LazyColumn(
-                    Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 8.dp),
+                    state = showsState,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     if (continueEps.isNotEmpty()) {
-                        item {
-                            Text("Продовжити", color = text, style = MaterialTheme.typography.titleSmall)
-                        }
+                        item { Text("Продовжити", color = text, style = MaterialTheme.typography.titleSmall) }
                         itemsIndexed(continueEps, key = { _, e -> "c-${e.audioUrl}" }) { i, ep ->
                             val list = continueEps.map {
                                 PodcastEpisode(it.title, it.audioUrl, "", it.duration, it.artwork)
                             }
                             EpRow(
                                 list[i], ep.showTitle, ep.artwork, list, i,
+                                showDl = true,
                                 frac = podFrac(ep.mediaUrl, ep.duration),
                             )
                         }
                     }
-                    if (subs.isEmpty() && continueEps.isEmpty()) {
+                    item { Text("Мої шоу", color = text, style = MaterialTheme.typography.titleSmall) }
+                    if (subs.isEmpty()) {
                         item {
                             Text(ctx.getString(R.string.podcast_my_empty), color = muted,
                                 style = MaterialTheme.typography.bodySmall)
                         }
                     } else items(subs, key = { "s-${it.feedUrl}" }) { ShowRow(it) }
+                    item { Text("Збережені", color = text, style = MaterialTheme.typography.titleSmall) }
+                    if (favEps.isEmpty()) {
+                        item {
+                            Text(ctx.getString(R.string.podcast_fav_eps_empty), color = muted,
+                                style = MaterialTheme.typography.bodySmall)
+                        }
+                    } else {
+                        val saved = favEps.map {
+                            PodcastEpisode(it.title, it.audioUrl, it.pubDate, it.duration, it.artwork)
+                        }
+                        itemsIndexed(saved, key = { _, e -> "sv-${e.audioUrl}" }) { i, ep ->
+                            EpRow(ep, favEps[i].showTitle, ep.image, saved, i, showFav = true, showDl = true)
+                        }
+                    }
                 }
                 PodSub.FAV_EPS -> {
                     val list = favEps.map {
@@ -839,7 +895,9 @@ fun PodcastsTabContent(
                     }
                 }
                 PodSub.SEARCH -> LazyColumn(
-                    Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 8.dp),
+                    state = searchState,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     items(results, key = { it.id }) { ShowRow(it) }
@@ -897,6 +955,28 @@ object ItunesPodcasts {
             .find(xml)?.groupValues?.get(1)?.trim().orEmpty()
         lastBlurb = d.replace(Regex("<[^>]+>"), " ").replace(Regex("\\s+"), " ").trim().take(360)
         parseRss(xml)
+    }
+
+    fun feedAlive(url: String): Boolean {
+        if (!url.startsWith("http")) return false
+        val conn = (URL(url).openConnection() as HttpURLConnection).apply {
+            connectTimeout = 7_000
+            readTimeout = 8_000
+            requestMethod = "GET"
+            instanceFollowRedirects = true
+            setRequestProperty("User-Agent", "RadioSO/1.0 (podcast)")
+            setRequestProperty("Range", "bytes=0-8191")
+        }
+        return try {
+            val code = conn.responseCode
+            if (code !in 200..299 && code != 206) return false
+            val body = conn.inputStream.bufferedReader(StandardCharsets.UTF_8).use { it.readText() }.lowercase()
+            "enclosure" in body || "<item" in body
+        } catch (_: Exception) {
+            false
+        } finally {
+            conn.disconnect()
+        }
     }
 
     private fun httpGet(url: String): String {

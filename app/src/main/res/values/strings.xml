@@ -202,7 +202,7 @@
     <string name="podcast_downloaded_sec">Downloaded</string>
     <string name="podcast_downloaded_empty">No downloaded episodes</string>
     <string name="podcast_tab_shows">Shows</string>
-    <string name="podcast_tab_eps">Episodes</string>
+    <string name="podcast_tab_eps">Favorites</string>
     <string name="podcast_tab_dl">Downloaded</string>
     <string name="podcast_tab_search">Search</string>
     <string name="podcast_more50">Load 50 more</string>

@@ -832,7 +832,7 @@ fun PodcastsTabContent(
                                 }
                             } else {
                                 itemsIndexed(fresh, key = { _, e -> "n-${e.audioUrl}" }) { i, ep ->
-                                    EpRow(ep, ep.showTitle, ep.artwork, fresh, i, showFav = true, showDl = true)
+                                    EpRow(ep, ep.description, ep.image, fresh, i, showFav = true, showDl = true)
                                 }
                             }
                         }
@@ -893,7 +893,7 @@ object ItunesPodcasts {
 
     fun fetchEpisodes(feedUrl: String): Result<List<PodcastEpisode>> = runCatching {
         val xml = httpGet(feedUrl)
-        val d = Regex("<description[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:]]>)?</description>", RegexOption.IGNORE_CASE)
+        val d = Regex("<description[^>]*>(?:<!\[CDATA\[)?([\\s\\S]*?)(?:]]>)?</description>", RegexOption.IGNORE_CASE)
             .find(xml)?.groupValues?.get(1)?.trim().orEmpty()
         lastBlurb = d.replace(Regex("<[^>]+>"), " ").replace(Regex("\\s+"), " ").trim().take(360)
         parseRss(xml)
@@ -943,7 +943,7 @@ object ItunesPodcasts {
                 .replace(Regex("\\s+\\d{2}:\\d{2}:\\d{2}.*"), "").take(32)
             val dur = durRe.find(block)?.groupValues?.get(1)?.trim().orEmpty()
             val img = imgRe.find(block)?.groupValues?.get(1)?.trim().orEmpty()
-            val descRe = Regex("<description[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:]]>)?</description>", RegexOption.IGNORE_CASE)
+            val descRe = Regex("<description[^>]*>(?:<!\[CDATA\[)?([\\s\\S]*?)(?:]]>)?</description>", RegexOption.IGNORE_CASE)
             var desc = descRe.find(block)?.groupValues?.get(1)?.trim().orEmpty()
             desc = desc.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
                 .replace("&quot;", "\"").replace("&#39;", "'")

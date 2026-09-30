@@ -4,6 +4,8 @@ import android.content.Intent
 import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,6 +39,8 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -210,6 +214,18 @@ fun PodcastsTabContent(
         }
         if (sec <= 0) return -1f
         return (ms / 1000f / sec).coerceIn(0f, 1f)
+    }
+    fun listenFrac(audioUrl: String, duration: String): Float {
+        val urls = ArrayList<String>()
+        if (audioUrl.isNotBlank()) urls.add(audioUrl)
+        continueEps.firstOrNull { it.audioUrl == audioUrl }?.mediaUrl?.let { if (it.isNotBlank()) urls.add(it) }
+        if (PodcastStore.isDownloaded(ctx, audioUrl)) {
+            val path = PodcastStore.episodeFile(ctx, audioUrl).absolutePath
+            urls.add(path)
+            urls.add("file://$path")
+        }
+        val best = urls.maxByOrNull { PodcastStore.pos(ctx, it) } ?: audioUrl
+        return podFrac(best, duration)
     }
 
     fun isPinned(feed: String) = feed in pinnedLocal
@@ -437,14 +453,14 @@ fun PodcastsTabContent(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
                 .clip(RoundedCornerShape(20.dp))
-                .background(if (on) acc.copy(alpha = 0.22f) else Color.Transparent)
+                .background(if (on) acc.copy(alpha = 0.20f) else muted.copy(alpha = 0.12f))
                 .clickable {
                     selected = null
                     episodes = emptyList()
                     error = ""
                     sub = key
                 }
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .padding(horizontal = 14.dp, vertical = 7.dp),
         ) {
             Text(label, color = if (on) acc else muted, style = MaterialTheme.typography.labelLarge, maxLines = 1)
         }
@@ -659,7 +675,16 @@ fun PodcastsTabContent(
                         modifier = Modifier.size(28.dp).clickable { togglePin(selected!!) },
                     )
                 }
-                if (blurb.isNotBlank()) {
+                if (sub == PodSub.SEARCH) {
+                    if (!loadingEps) {
+                        Text(
+                            "${episodes.size} епізодів",
+                            color = muted,
+                            style = MaterialTheme.typography.labelLarge,
+                            modifier = Modifier.padding(bottom = 6.dp),
+                        )
+                    }
+                } else if (blurb.isNotBlank()) {
                     Text(
                         blurb,
                         color = muted,
@@ -669,6 +694,7 @@ fun PodcastsTabContent(
                         modifier = Modifier.padding(bottom = 6.dp).clickable { descOpen = !descOpen },
                     )
                 }
+                if (sub != PodSub.SEARCH) {
                 OutlinedTextField(
                     value = showQ,
                     onValueChange = { showQ = it },
@@ -682,6 +708,7 @@ fun PodcastsTabContent(
                     ),
                     shape = RoundedCornerShape(14.dp),
                 )
+                }
                 Text(
                     if (showSort == "new") "Спочатку нові" else "Спочатку старі",
                     color = acc,
@@ -694,12 +721,13 @@ fun PodcastsTabContent(
                 OutlinedTextField(
                     value = query,
                     onValueChange = { query = it },
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
+                    modifier = Modifier.fillMaxWidth().height(46.dp).padding(bottom = 4.dp),
                     singleLine = true,
-                    placeholder = { Text(ctx.getString(R.string.podcast_search_hint), color = muted) },
+                    textStyle = MaterialTheme.typography.bodyMedium,
+                    placeholder = { Text(ctx.getString(R.string.podcast_search_hint), color = muted, style = MaterialTheme.typography.bodyMedium) },
                     trailingIcon = {
                         Icon(Icons.Filled.Search, contentDescription = ctx.getString(R.string.find),
-                            tint = acc, modifier = Modifier.size(28.dp).clickable { doSearch(false) })
+                            tint = acc, modifier = Modifier.size(22.dp).clickable { doSearch(false) })
                     },
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                     keyboardActions = KeyboardActions(onSearch = { doSearch(false) }),
@@ -717,7 +745,7 @@ fun PodcastsTabContent(
                     CircularProgressIndicator(color = acc, modifier = Modifier.size(32.dp))
                 }
             }
-            if (status.isNotBlank()) {
+            if (status.isNotBlank() && selected == null) {
                 Text(status, color = muted, style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(top = 4.dp))
             }
@@ -805,7 +833,11 @@ fun PodcastsTabContent(
                             }
                         } else {
                             itemsIndexed(list, key = { _, e -> "f-${e.audioUrl}" }) { i, ep ->
-                                EpRow(ep, favEps[i].showTitle, ep.image, list, i, showFav = true, showDl = true)
+                                EpRow(
+                                    ep, favEps[i].showTitle, ep.image, list, i,
+                                    showFav = true, showDl = true,
+                                    frac = listenFrac(ep.audioUrl, ep.duration),
+                                )
                             }
                         }
                     }
@@ -833,12 +865,9 @@ fun PodcastsTabContent(
                 PodSub.NEW -> {
                     val fresh = remember(tick) { PodcastStore.news(ctx) }
                     Column(Modifier.fillMaxSize()) {
-                        Text(
-                            if (refreshing) "Оновлюю…" else "Оновити підписки",
-                            color = acc,
-                            style = MaterialTheme.typography.labelLarge,
-                            modifier = Modifier.padding(bottom = 8.dp).clickable {
-                                if (refreshing) return@clickable
+                        Button(
+                            onClick = {
+                                if (refreshing) return@Button
                                 refreshing = true
                                 PodcastStore.io.launch {
                                     val shows = PodcastStore.subs(ctx).take(12)
@@ -850,7 +879,12 @@ fun PodcastsTabContent(
                                     tick++
                                 }
                             },
-                        )
+                            enabled = !refreshing,
+                            modifier = Modifier.padding(bottom = 8.dp).height(40.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = acc, contentColor = Color.White),
+                        ) {
+                            Text(if (refreshing) "Оновлюю…" else "Оновити підписки")
+                        }
                         LazyColumn(
                             Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(bottom = 8.dp),
@@ -891,8 +925,11 @@ fun PodcastsTabContent(
         }
         if (selected == null) {
             Row(
-                Modifier.fillMaxWidth().padding(top = 2.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,
+                Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(top = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 SubTab(Icons.AutoMirrored.Filled.LibraryBooks, PodSub.SHOWS, ctx.getString(R.string.podcast_tab_shows))

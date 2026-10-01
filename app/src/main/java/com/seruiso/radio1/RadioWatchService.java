@@ -128,6 +128,9 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
     private AudioManager.AudioPlaybackCallback playbackCallback;
     private String lastTrackTitle = "";
     private Bitmap stationArt = null;
+    private MediaMetadata carMeta;
+    private final java.util.List<Player.Listener> carMetaListeners =
+            new java.util.concurrent.CopyOnWriteArrayList<>();
     private String stationArtUrl = "";
     private volatile boolean artLoading = false;
     private int artGen = 0;
@@ -308,6 +311,25 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                         .add(Player.COMMAND_SEEK_TO_PREVIOUS)
                         .add(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
                         .build();
+            }
+
+            @Override
+            public MediaMetadata getMediaMetadata() {
+                MediaMetadata o = carMeta;
+                return o != null ? o : super.getMediaMetadata();
+            }
+
+            @Override
+            public long getDuration() {
+                long d = super.getDuration();
+                if (!isLocalMode() && (d < 0L || d == C.TIME_UNSET)) return 0L;
+                return d;
+            }
+
+            @Override
+            public void addListener(Player.Listener listener) {
+                carMetaListeners.add(listener);
+                super.addListener(listener);
             }
 
             private boolean withinBtSettle() {
@@ -1437,7 +1459,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                             byte[] data = bos.toByteArray();
                             Bitmap raw = IcoBitmap.decode(data);
                             if (raw != null) {
-                                int max = 256;
+                                int max = 200;
                                 int w = raw.getWidth(), h = raw.getHeight();
                                 if (w > max || h > max) {
                                     float s = Math.min((float) max / w, (float) max / h);
@@ -1497,20 +1519,26 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                 .setDisplayTitle(title)
                 .setSubtitle(artist)
                 .setAlbumTitle(album);
-            if (stationArt != null) {
+            if (stationArt != null && !stationArt.isRecycled()) {
                 try {
+                    Bitmap small = shrinkArt(stationArt, 200);
                     ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                    stationArt.compress(Bitmap.CompressFormat.PNG, 90, baos);
+                    int q = 70;
+                    small.compress(Bitmap.CompressFormat.JPEG, q, baos);
+                    while (baos.size() > 32 * 1024 && q > 40) {
+                        q -= 10;
+                        baos.reset();
+                        small.compress(Bitmap.CompressFormat.JPEG, q, baos);
+                    }
+                    if (small != stationArt) small.recycle();
                     mdb.setArtworkData(baos.toByteArray(), MediaMetadata.PICTURE_TYPE_FRONT_COVER);
                 } catch (Exception ignored) {}
             }
             MediaMetadata md = mdb.build();
-            MediaItem current = player.getCurrentMediaItem();
-            if (current == null) return;
-            int idx = player.getCurrentMediaItemIndex();
-            if (idx < 0) idx = 0;
-            MediaItem updated = current.buildUpon().setMediaMetadata(md).build();
-            player.replaceMediaItem(idx, updated);
+            carMeta = md;
+            for (Player.Listener l : carMetaListeners) {
+                try { l.onMediaMetadataChanged(md); } catch (Exception ignored) {}
+            }
         } catch (Exception e) {
             android.util.Log.w("RadioWatch", "applySessionMetadata", e);
         }
@@ -2225,6 +2253,15 @@ notifyForeground();
         } catch (Exception ignored) {}
     }
 
+    private static Bitmap shrinkArt(Bitmap src, int max) {
+        if (src == null) return null;
+        int w = src.getWidth();
+        int h = src.getHeight();
+        if (w <= max && h <= max) return src;
+        float s = Math.min((float) max / w, (float) max / h);
+        return Bitmap.createScaledBitmap(src, Math.max(1, Math.round(w * s)), Math.max(1, Math.round(h * s)), true);
+    }
+
     private void loadLocalAlbumArt(String albumIdStr) {
         try {
             long albumId = 0;
@@ -2235,7 +2272,11 @@ notifyForeground();
             try (java.io.InputStream is = getContentResolver().openInputStream(artUri)) {
                 if (is != null) {
                     Bitmap bmp = BitmapFactory.decodeStream(is);
-                    if (bmp != null) { stationArt = bmp; stationArtUrl = artUri.toString(); }
+                    if (bmp != null) {
+                        stationArt = shrinkArt(bmp, 200);
+                        if (stationArt != bmp) bmp.recycle();
+                        stationArtUrl = artUri.toString();
+                    }
                 }
             }
         } catch (Exception e) {

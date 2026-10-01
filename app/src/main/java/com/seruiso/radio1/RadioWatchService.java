@@ -1146,6 +1146,57 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         String skipMode = p.getString(BluetoothAutoPlayPlugin.KEY_SKIP_MODE, "radio");
         if ("off".equals(skipMode)) return;
 
+        if ("podcast".equals(p.getString(LocalMusicPlugin.KEY_MODE, ""))) {
+            try {
+                JSONArray urls = new JSONArray(p.getString(BluetoothAutoPlayPlugin.KEY_TEMP_URLS, "[]"));
+                JSONArray names = new JSONArray(p.getString(BluetoothAutoPlayPlugin.KEY_TEMP_NAMES, "[]"));
+                JSONArray favs = new JSONArray(p.getString(BluetoothAutoPlayPlugin.KEY_TEMP_FAVICONS, "[]"));
+                int n = urls.length();
+                if (n == 0) { notifyUiSkip(next); return; }
+                int index = p.getInt(BluetoothAutoPlayPlugin.KEY_TEMP_INDEX, 0);
+                if (next) {
+                    if (index >= n - 1) {
+                        if (player != null) player.pause();
+                        clearPlaybackIntent();
+                        notifyUiPlayback(false);
+                        notifyForeground();
+                        return;
+                    }
+                    index++;
+                } else {
+                    if (index <= 0) return;
+                    index--;
+                }
+                String url = urls.optString(index, "");
+                if (url.isEmpty()) return;
+                String name = names.optString(index, "");
+                String show = p.getString(BluetoothAutoPlayPlugin.KEY_TRACK, "");
+                String fav = favs.optString(index, "");
+                p.edit()
+                    .putInt(BluetoothAutoPlayPlugin.KEY_TEMP_INDEX, index)
+                    .putInt(BluetoothAutoPlayPlugin.KEY_QUEUE_INDEX, index)
+                    .putInt(LocalMusicPlugin.KEY_LOCAL_INDEX, index)
+                    .putString(BluetoothAutoPlayPlugin.KEY_URL, url)
+                    .putString(BluetoothAutoPlayPlugin.KEY_NAME, name)
+                    .putString(BluetoothAutoPlayPlugin.KEY_FAVICON, fav)
+                    .putString(BluetoothAutoPlayPlugin.KEY_TRACK, show == null ? "" : show)
+                    .putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, true)
+                    .apply();
+                currentName = name;
+                lastTrackTitle = show == null ? "" : show;
+                try {
+                    PodcastStore.INSTANCE.notePlay(this, name, url, url, show == null ? "" : show, fav, "");
+                } catch (Exception ignored) {}
+                stationArt = null;
+                stationArtUrl = "";
+                artGen++;
+                playUrl(url);
+                loadStationArtAsync();
+                notifyUiSkip(next);
+            } catch (Exception e) { notifyUiSkip(next); }
+            return;
+        }
+
         if ("temp".equals(skipMode)) {
             try {
                 JSONArray urls = new JSONArray(p.getString(BluetoothAutoPlayPlugin.KEY_TEMP_URLS, "[]"));
@@ -2088,6 +2139,17 @@ notifyForeground();
      * бо похибка відновлення позиції після рестарту сервісу в 1-2с некритична.
      * Менше диск-I/O і менше broadcast'ів → плавніше й економніше по батареї.
      */
+    private String currentPlayingUrl() {
+        try {
+            if (player != null && player.getCurrentMediaItem() != null
+                    && player.getCurrentMediaItem().localConfiguration != null) {
+                return player.getCurrentMediaItem().localConfiguration.uri.toString();
+            }
+        } catch (Exception ignored) {}
+        return getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                .getString(BluetoothAutoPlayPlugin.KEY_URL, "");
+    }
+
     private void tickLocalPosition() {
         if (player == null || !isLocalMode()) return;
         try {
@@ -2104,8 +2166,11 @@ notifyForeground();
                     .apply();
                 try {
                     if ("podcast".equals(spPos.getString(LocalMusicPlugin.KEY_MODE, ""))) {
-                        String pu = spPos.getString(BluetoothAutoPlayPlugin.KEY_URL, "");
-                        if (pu != null && !pu.isEmpty()) PodcastStore.INSTANCE.savePos(this, pu, pos, dur);
+                        String pu = currentPlayingUrl();
+                        if (pu != null && !pu.isEmpty()) {
+                            PodcastStore.INSTANCE.savePos(this, pu, pos, dur);
+                            if (dur > 0L && pos * 100L >= dur * 95L) PodcastStore.INSTANCE.markPlayed(this, pu);
+                        }
                     }
                 } catch (Exception ignored) {}
             }
@@ -2131,8 +2196,8 @@ notifyForeground();
                 .apply();
             try {
                 if ("podcast".equals(spWr.getString(LocalMusicPlugin.KEY_MODE, ""))) {
-                    String pu = spWr.getString(BluetoothAutoPlayPlugin.KEY_URL, "");
-                    if (pu != null && !pu.isEmpty()) PodcastStore.INSTANCE.savePos(this, pu, pos);
+                    String pu = currentPlayingUrl();
+                    if (pu != null && !pu.isEmpty()) PodcastStore.INSTANCE.savePos(this, pu, pos, dur);
                 }
             } catch (Exception ignored) {}
             Intent i = new Intent(ACTION_PLAYBACK_UI);
@@ -2164,6 +2229,17 @@ notifyForeground();
 
     private void handleLocalEnded() {
         SharedPreferences sp = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE);
+        if ("podcast".equals(sp.getString(LocalMusicPlugin.KEY_MODE, ""))) {
+            try {
+                String doneUrl = currentPlayingUrl();
+                if (doneUrl != null && !doneUrl.isEmpty()) {
+                    PodcastStore.INSTANCE.savePos(this, doneUrl, 0L, 0L);
+                    PodcastStore.INSTANCE.markPlayed(this, doneUrl);
+                }
+            } catch (Exception ignored) {}
+            skip(true);
+            return;
+        }
         String repeat = sp.getString(LocalMusicPlugin.KEY_LOCAL_REPEAT, "off");
         if ("one".equals(repeat) && player != null) {
             player.seekTo(0); player.play(); return;
@@ -2841,8 +2917,11 @@ notifyForeground();
                     SharedPreferences spSeek = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE);
                     long saved;
                     if ("podcast".equals(spSeek.getString(LocalMusicPlugin.KEY_MODE, ""))) {
-                        saved = PodcastStore.INSTANCE.progressMs(this, url, "");
-                        if (saved < 0L) saved = 0L;
+                        long stored = PodcastStore.INSTANCE.progressMs(this, url, "");
+                        long uiPos = spSeek.getLong("localPositionMs", 0L);
+                        long durKnown = PodcastStore.INSTANCE.progressDur(this, url, "");
+                        boolean nearEnd = durKnown > 15000L && stored >= durKnown - 10000L;
+                        saved = (uiPos <= 1500L && (nearEnd || stored <= 1500L)) ? 0L : Math.max(0L, stored);
                     } else {
                         saved = spSeek.getLong("localPositionMs", 0L);
                     }

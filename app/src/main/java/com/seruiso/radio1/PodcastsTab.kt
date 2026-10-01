@@ -125,6 +125,7 @@ fun PodcastsTabContent(
     muted: Color,
     text: Color,
     card: Color,
+    blockBack: Boolean = false,
 ) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -180,7 +181,7 @@ fun PodcastsTabContent(
             delay(400)
         }
     }
-    BackHandler(enabled = selected != null) {
+    BackHandler(enabled = selected != null && !blockBack) {
         selected = null
         episodes = emptyList()
         error = ""
@@ -198,6 +199,9 @@ fun PodcastsTabContent(
     var searchOffset by remember { mutableStateOf(0) }
     var searchTerm by remember { mutableStateOf("") }
     var canLoadMore by remember { mutableStateOf(false) }
+    var searchPool by remember { mutableStateOf<List<PodcastShow>>(emptyList()) }
+    var visibleN by remember { mutableStateOf(50) }
+    var epSort by remember { mutableStateOf(false) }
     val showsState = rememberLazyListState()
     val episodeListState = rememberLazyListState()
     val searchState = rememberLazyListState()
@@ -356,10 +360,12 @@ fun PodcastsTabContent(
         )
         val p = ctx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, android.content.Context.MODE_PRIVATE)
         val cur = p.getString(BluetoothAutoPlayPlugin.KEY_URL, "") ?: ""
-        val resumeMs = (
+        var resumeMs = (
             if (urlsMatch(cur, mediaUrl) || urlsMatch(cur, ep.audioUrl)) p.getLong("localPositionMs", 0L)
             else PodcastStore.progressMs(ctx, ep.audioUrl, mediaUrl)
         ).coerceAtLeast(0L)
+        val knownDur = PodcastStore.progressDur(ctx, ep.audioUrl, mediaUrl)
+        if (ep.audioUrl in playedSet || (knownDur > 15_000L && resumeMs >= knownDur - 10_000L)) resumeMs = 0L
         p.edit()
             .putString(LocalMusicPlugin.KEY_MODE, "podcast")
             .putString(BluetoothAutoPlayPlugin.KEY_SKIP_MODE, "temp")
@@ -416,49 +422,54 @@ fun PodcastsTabContent(
         }
         sub = PodSub.SEARCH
         kb?.hide()
+        if (more) {
+            visibleN += 50
+            return
+        }
         loading = true
         error = ""
         status = ""
-        if (!more) {
-            selected = null
-            episodes = emptyList()
-            searchOffset = 0
-            searchTerm = q
-            kindFilter = "all"
-        }
-        val offset = if (more) searchOffset else 0
+        selected = null
+        episodes = emptyList()
+        searchTerm = q
+        kindFilter = "all"
+        epSort = false
+        visibleN = 50
+        searchPool = emptyList()
+        results = emptyList()
         scope.launch {
-            val r = withContext(Dispatchers.IO) { ItunesPodcasts.searchUa(q, limit = 50, offset = offset) }
+            val r = withContext(Dispatchers.IO) { ItunesPodcasts.searchUa(q, limit = 600, offset = 0) }
             r.onSuccess { batch ->
-                searchOffset = offset + batch.size
-                canLoadMore = batch.size >= 50
                 val cand = batch.filter { it.feedUrl.startsWith("http") }
-                if (!more) results = emptyList()
                 loading = false
                 if (cand.isEmpty()) {
                     status = ""
                     error = "Немає робочих шоу"
                     return@onSuccess
                 }
-                status = "Перевіряю 0/${cand.size}"
+                val alive = BooleanArray(cand.size)
                 var checked = 0
+                status = "Перевіряю 0/${cand.size}"
                 coroutineScope {
-                    cand.map { show ->
+                    cand.mapIndexed { i, show ->
                         async(Dispatchers.IO) {
-                            val ok = ItunesPodcasts.feedAlive(show.feedUrl)
+                            val ok = try { ItunesPodcasts.feedAlive(show.feedUrl) } catch (_: Exception) { false }
                             withContext(Dispatchers.Main) {
+                                alive[i] = ok
                                 checked++
                                 status = "Перевіряю $checked/${cand.size}"
-                                if (ok && results.none { it.feedUrl == show.feedUrl }) results = results + show
+                                val kept = ArrayList<PodcastShow>()
+                                for (n in cand.indices) if (alive[n]) kept.add(cand[n])
+                                searchPool = kept
                             }
                         }
                     }.awaitAll()
                 }
                 status = ""
-                if (results.isEmpty()) error = "Немає робочих шоу"
+                if (searchPool.isEmpty()) error = "Немає робочих шоу"
             }.onFailure {
                 loading = false
-                if (!more) results = emptyList()
+                searchPool = emptyList()
                 error = it.message ?: ctx.getString(R.string.scan_error)
             }
         }
@@ -841,6 +852,13 @@ fun PodcastsTabContent(
                                 modifier = Modifier.clickable { kindFilter = k },
                             )
                         }
+                        Text(
+                            "Більше епізодів",
+                            color = if (epSort) acc else muted,
+                            maxLines = 1,
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.clickable { epSort = !epSort },
+                        )
                     }
                 }
             }
@@ -1045,15 +1063,17 @@ fun PodcastsTabContent(
                     contentPadding = PaddingValues(bottom = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    val shown = if (kindFilter == "all") results else results.filter { it.kind == kindFilter }
+                    val ordered = if (epSort) searchPool.sortedByDescending { it.trackCount } else searchPool
+                    val filtered = if (kindFilter == "all") ordered else ordered.filter { it.kind == kindFilter }
+                    val shown = filtered.take(visibleN)
                     if (shown.isEmpty()) {
                         item { Text("Немає шоу в цьому фільтрі", color = muted, style = MaterialTheme.typography.bodySmall) }
                     }
                     items(shown, key = { it.feedUrl.ifBlank { it.id.toString() } }) { ShowRow(it) }
-                    if (canLoadMore && results.isNotEmpty()) {
+                    if (shown.size < filtered.size) {
                         item {
                             TextButton(
-                                onClick = { doSearch(more = true) },
+                                onClick = { visibleN += 50 },
                                 modifier = Modifier.fillMaxWidth(),
                             ) {
                                 Text(ctx.getString(R.string.podcast_more50), color = acc)
@@ -1089,7 +1109,7 @@ object ItunesPodcasts {
         val countries = listOf("us", "de", "gb", "nl", "gr", "ua")
         val perCountry = ArrayList<List<PodcastShow>>()
         for (country in countries) {
-            val url = "https://itunes.apple.com/search?term=$enc&media=podcast&entity=podcast&country=$country&limit=40"
+            val url = "https://itunes.apple.com/search?term=$enc&media=podcast&entity=podcast&country=$country&limit=100"
             val list = ArrayList<PodcastShow>()
             try {
                 val arr = JSONObject(httpGet(url)).optJSONArray("results") ?: JSONArray()

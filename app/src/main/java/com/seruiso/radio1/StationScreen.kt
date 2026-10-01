@@ -704,7 +704,7 @@ fun StationScreen(
                     .fillMaxWidth()
                     .fillMaxSize(),
             ) {
-                PodcastsTabContent(acc = acc, muted = muted, text = text, card = card)
+                PodcastsTabContent(acc = acc, muted = muted, text = text, card = card, blockBack = nowOpen || sheetShow)
             }
         } else if (bottomTab == "home") {
             // weight + fillMaxSize: список сам скролить, без боротьби з parent drag
@@ -975,7 +975,7 @@ fun StationScreen(
                     .fillMaxWidth()
                     .fillMaxSize(),
             ) {
-                PodcastsTabContent(acc = acc, muted = muted, text = text, card = card)
+                PodcastsTabContent(acc = acc, muted = muted, text = text, card = card, blockBack = nowOpen || sheetShow)
             }
         } else if (bottomTab == "home") {
             // weight + fillMaxSize: список сам скролить, без боротьби з parent drag

@@ -545,6 +545,25 @@ object PodcastStore {
         return out
     }
 
+    fun markPlayed(ctx: Context, audioUrl: String) {
+        val u = audioUrl.trim()
+        if (u.isBlank()) return
+        val keys = linkedSetOf(u)
+        for (r in recent(ctx)) {
+            if (r.audioUrl == u || r.mediaUrl == u) {
+                if (r.audioUrl.isNotBlank()) keys.add(r.audioUrl)
+                if (r.mediaUrl.isNotBlank()) keys.add(r.mediaUrl)
+            }
+        }
+        val cur = played(ctx).toMutableSet()
+        var changed = false
+        for (k in keys) if (cur.add(k)) changed = true
+        if (!changed) return
+        val arr = JSONArray()
+        cur.forEach { arr.put(it) }
+        prefs(ctx).edit().putString(KEY_PLAYED, arr.toString()).apply()
+    }
+
     fun togglePlayed(ctx: Context, audioUrl: String): Boolean {
         val u = audioUrl.trim()
         if (u.isBlank()) return false

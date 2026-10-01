@@ -1286,6 +1286,10 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                 currentName = title;
                 lastTrackTitle = artist != null ? artist : "";
                 loadLocalAlbumArt(albumId);
+                p.edit()
+                    .putLong("localPositionMs", 0L)
+                    .putString("localPositionUrl", uri)
+                    .apply();
                 playUrl(uri);
                 notifyUiSkip(next);
                 notifyForeground();
@@ -2200,9 +2204,11 @@ notifyForeground();
             long dur = player.getDuration();
             if (dur < 0 || dur == androidx.media3.common.C.TIME_UNSET) dur = 0;
             android.content.SharedPreferences spWr = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE);
+            String posUrl = currentPlayingUrl();
             spWr.edit()
                 .putLong("localPositionMs", pos)
                 .putLong("localDurationMs", dur)
+                .putString("localPositionUrl", posUrl != null ? posUrl : "")
                 .apply();
             try {
                 if ("podcast".equals(spWr.getString(LocalMusicPlugin.KEY_MODE, ""))) {
@@ -2239,6 +2245,13 @@ notifyForeground();
 
     private void handleLocalEnded() {
         SharedPreferences sp = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE);
+        try {
+            sp.edit()
+                .putLong("localPositionMs", 0L)
+                .putLong("localDurationMs", 0L)
+                .putString("localPositionUrl", "")
+                .commit();
+        } catch (Exception ignored) {}
         if ("podcast".equals(sp.getString(LocalMusicPlugin.KEY_MODE, ""))) {
             try {
                 String doneUrl = currentPlayingUrl();
@@ -2800,13 +2813,26 @@ notifyForeground();
             // Підстрахування позиції для local після forceStop/pause
             if (isLocalMode()) {
                 long pos = player.getCurrentPosition();
-                long saved = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-                        .getLong("localPositionMs", 0L);
-                if (pos < 400L && saved > 400L) {
-                    try { player.seekTo(saved); } catch (Exception ignored) {}
+                long dur = player.getDuration();
+                if (dur < 0 || dur == androidx.media3.common.C.TIME_UNSET) dur = 0;
+                int stNow = player.getPlaybackState();
+                boolean ended = stNow == Player.STATE_ENDED
+                        || (dur > 8000L && pos >= dur - 2000L);
+                if (ended) {
+                    try { player.seekTo(0); } catch (Exception ignored) {}
+                    getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                        .edit().putLong("localPositionMs", 0L).apply();
+                    android.util.Log.i("RadioWatch", "tryResumeSameItem ended → start 0");
+                } else {
+                    long saved = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                            .getLong("localPositionMs", 0L);
+                    if (pos < 400L && saved > 400L) {
+                        try { player.seekTo(saved); } catch (Exception ignored) {}
+                    }
                 }
             }
-            if (player.getPlaybackState() == Player.STATE_IDLE) {
+            if (player.getPlaybackState() == Player.STATE_IDLE
+                    || player.getPlaybackState() == Player.STATE_ENDED) {
                 player.prepare();
             }
             player.setPlayWhenReady(true);
@@ -2928,15 +2954,22 @@ notifyForeground();
                     long saved;
                     if ("podcast".equals(spSeek.getString(LocalMusicPlugin.KEY_MODE, ""))) {
                         long stored = PodcastStore.INSTANCE.progressMs(this, url, "");
-                        long uiPos = spSeek.getLong("localPositionMs", 0L);
                         long durKnown = PodcastStore.INSTANCE.progressDur(this, url, "");
-                        boolean nearEnd = durKnown > 15000L && stored >= durKnown - 10000L;
-                        saved = (uiPos <= 1500L && (nearEnd || stored <= 1500L)) ? 0L : Math.max(0L, stored);
+                        boolean done = durKnown > 8000L && stored >= durKnown - 12000L;
+                        saved = done ? 0L : Math.max(0L, stored);
                     } else {
-                        saved = spSeek.getLong("localPositionMs", 0L);
+                        String posUrl = spSeek.getString("localPositionUrl", "");
+                        long stored = spSeek.getLong("localPositionMs", 0L);
+                        long durKnown = spSeek.getLong("localDurationMs", 0L);
+                        boolean same = posUrl != null && posUrl.equals(url);
+                        boolean done = same && durKnown > 8000L && stored >= durKnown - 2500L;
+                        saved = (!same || done) ? 0L : Math.max(0L, stored);
                     }
                     pendingSeekMs = saved > 800L ? saved : -1L;
-                    spSeek.edit().putLong("localPositionMs", Math.max(0L, saved)).apply();
+                    spSeek.edit()
+                        .putLong("localPositionMs", Math.max(0L, saved))
+                        .putString("localPositionUrl", url)
+                        .apply();
                 } catch (Exception ignored) {}
             }
             // Радіо: трек ще не відомий (прийде з ICY/onMediaMetadataChanged) — чистимо.

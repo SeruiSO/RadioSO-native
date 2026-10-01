@@ -535,7 +535,7 @@ object PodcastStore {
                 for (k in keys) d.put(k, durMs)
                 ed.putString("podDurJson", d.toString())
             }
-            ed.apply()
+            if (ms <= 1500L) ed.commit() else ed.apply()
         } catch (_: Exception) {}
     }
 

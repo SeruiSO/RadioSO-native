@@ -144,7 +144,12 @@ fun BottomNavBar(
         Row(
             modifier = Modifier
                 .background(
-                    if (active) acc.copy(alpha = 0.14f) else muted.copy(alpha = 0.08f),
+                    if (active) acc.copy(alpha = 0.22f) else muted.copy(alpha = 0.16f),
+                    RoundedCornerShape(16.dp)
+                )
+                .border(
+                    1.dp,
+                    if (active) acc.copy(alpha = 0.50f) else muted.copy(alpha = 0.32f),
                     RoundedCornerShape(16.dp)
                 )
                 .padding(horizontal = 0.dp),
@@ -207,7 +212,12 @@ fun BottomNavRail(
         Column(
             modifier = Modifier
                 .background(
-                    if (active) acc.copy(alpha = 0.14f) else muted.copy(alpha = 0.08f),
+                    if (active) acc.copy(alpha = 0.22f) else muted.copy(alpha = 0.16f),
+                    RoundedCornerShape(16.dp)
+                )
+                .border(
+                    1.dp,
+                    if (active) acc.copy(alpha = 0.50f) else muted.copy(alpha = 0.32f),
                     RoundedCornerShape(16.dp)
                 )
                 .padding(vertical = 2.dp, horizontal = 2.dp),

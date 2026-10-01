@@ -170,7 +170,22 @@ fun NowPlayingSheet(
         val isPodcastNow = genre.equals("podcast", ignoreCase = true)
         val nowLocal = (isLocalNow || currentUrl.startsWith("content:")) && !isPodcastNow
         // podcast: черга як радіо (URL+favicon), seek/progress — як local (isLocalNow у ui)
-        val nowLocalRows = when {
+        val queueCtx = LocalContext.current
+        val queueLocal = remember(currentUrl, name) {
+            val p = queueCtx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, android.content.Context.MODE_PRIVATE)
+            val uris = org.json.JSONArray(p.getString(LocalMusicPlugin.KEY_LOCAL_URIS, "[]") ?: "[]")
+            val titles = org.json.JSONArray(p.getString(LocalMusicPlugin.KEY_LOCAL_TITLES, "[]") ?: "[]")
+            val artists = org.json.JSONArray(p.getString(LocalMusicPlugin.KEY_LOCAL_ARTISTS, "[]") ?: "[]")
+            val albums = org.json.JSONArray(p.getString(LocalMusicPlugin.KEY_LOCAL_ALBUM_IDS, "[]") ?: "[]")
+            val out = ArrayList<LocalTrack>()
+            for (i in 0 until uris.length()) {
+                val u = uris.optString(i)
+                if (u.isBlank()) continue
+                out.add(LocalTrack(i.toString(), u, titles.optString(i, ""), artists.optString(i, ""), "", albums.optString(i, "0")))
+            }
+            out
+        }
+        val nowLocalRows = if (nowLocal && queueLocal.isNotEmpty()) queueLocal else when {
             showLocal -> localRows
             nowLocal && bestRows.isNotEmpty() -> bestRows
             else -> localRows
@@ -181,7 +196,7 @@ fun NowPlayingSheet(
             else -> radioRows
         }
         val arts: List<String> = when {
-            isPodcastNow -> listOf(favicon)
+            isPodcastNow -> if (nowRadioRows.isNotEmpty()) nowRadioRows.map { it.favicon } else listOf(favicon)
             nowLocal -> nowLocalRows.map {
                 if (it.albumId.isNotBlank() && it.albumId != "0")
                     "content://media/external/audio/albumart/${it.albumId}" else ""
@@ -243,8 +258,50 @@ fun NowPlayingSheet(
             pagerIgnorePick = false
         }
         // Лише жест користувача по пейджеру змінює станцію
+        fun playPodcastPage(i: Int) {
+            val p = artCtx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, android.content.Context.MODE_PRIVATE)
+            val urls = org.json.JSONArray(p.getString(BluetoothAutoPlayPlugin.KEY_TEMP_URLS, "[]") ?: "[]")
+            val names = org.json.JSONArray(p.getString(BluetoothAutoPlayPlugin.KEY_TEMP_NAMES, "[]") ?: "[]")
+            val favs = org.json.JSONArray(p.getString(BluetoothAutoPlayPlugin.KEY_TEMP_FAVICONS, "[]") ?: "[]")
+            if (i !in 0 until urls.length()) return
+            val url = urls.optString(i)
+            if (url.isBlank() || url == currentUrl) return
+            val nm = names.optString(i, name)
+            val fav = favs.optString(i, favicon)
+            val show = p.getString(BluetoothAutoPlayPlugin.KEY_TRACK, track) ?: track
+            p.edit()
+                .putString(LocalMusicPlugin.KEY_MODE, "podcast")
+                .putString(BluetoothAutoPlayPlugin.KEY_SKIP_MODE, "temp")
+                .putInt(BluetoothAutoPlayPlugin.KEY_TEMP_INDEX, i)
+                .putInt(BluetoothAutoPlayPlugin.KEY_QUEUE_INDEX, i)
+                .putInt(LocalMusicPlugin.KEY_LOCAL_INDEX, i)
+                .putString(BluetoothAutoPlayPlugin.KEY_URL, url)
+                .putString(BluetoothAutoPlayPlugin.KEY_NAME, nm)
+                .putString(BluetoothAutoPlayPlugin.KEY_FAVICON, fav)
+                .putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, true)
+                .apply()
+            val intent = android.content.Intent(artCtx, RadioWatchService::class.java).apply {
+                action = RadioWatchService.ACTION_PLAY_URL
+                putExtra(RadioWatchService.EXTRA_URL, url)
+                putExtra(RadioWatchService.EXTRA_NAME, nm)
+                putExtra("favicon", fav)
+                putExtra("genre", "podcast")
+                putExtra("track", show)
+            }
+            try {
+                if (android.os.Build.VERSION.SDK_INT >= 26) artCtx.startForegroundService(intent)
+                else artCtx.startService(intent)
+            } catch (_: Exception) {
+                try { artCtx.startService(intent) } catch (_: Exception) {}
+            }
+        }
         LaunchedEffect(pagerState.settledPage) {
-            if (isPodcastNow || pagerIgnorePick) return@LaunchedEffect
+            if (pagerIgnorePick) return@LaunchedEffect
+            val i0 = pagerState.settledPage
+            if (isPodcastNow) {
+                if (i0 != curI) playPodcastPage(i0)
+                return@LaunchedEffect
+            }
             val i = pagerState.settledPage
             if (i == curI) return@LaunchedEffect
             if (arts.isEmpty()) return@LaunchedEffect
@@ -258,7 +315,7 @@ fun NowPlayingSheet(
             }
         }
         LaunchedEffect(curI, arts.size) {
-            if (isPodcastNow || arts.isEmpty()) return@LaunchedEffect
+            if (arts.isEmpty()) return@LaunchedEffect
             stripState.animateScrollToItem(curI.coerceAtMost(arts.lastIndex))
         }
         Box(
@@ -368,7 +425,7 @@ fun NowPlayingSheet(
                     ) {
                     NowPlayingPager(
                         pagerState = pagerState,
-                        userScrollEnabled = !blockPagerSwipe && !isPodcastNow,
+                        userScrollEnabled = !blockPagerSwipe,
                         nowLocal = nowLocal,
                         pageKeys = pageKeys,
                         arts = arts,
@@ -453,6 +510,7 @@ fun NowPlayingSheet(
                             }
                         },
                         showStationActions = !isPodcastNow && !currentUrl.startsWith("file:"),
+                        titleMaxLines = if (isPodcastNow) 3 else 1,
                     )
                     }
                         if (ui.showTrackHistory || flipAngle > 0.5f) {

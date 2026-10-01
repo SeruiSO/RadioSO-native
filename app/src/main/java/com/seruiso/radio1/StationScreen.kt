@@ -100,18 +100,11 @@ private fun InfoMarquee(
     Text(
         text = text,
         color = color,
-        maxLines = 1,
-        softWrap = false,
-        overflow = TextOverflow.Clip,
+        maxLines = 2,
+        softWrap = true,
+        overflow = TextOverflow.Ellipsis,
         style = style,
-        modifier = modifier
-            .fillMaxWidth()
-            .basicMarquee(
-                iterations = Int.MAX_VALUE,
-                animationMode = MarqueeAnimationMode.Immediately,
-                initialDelayMillis = 800,
-                repeatDelayMillis = 1200,
-            ),
+        modifier = modifier.fillMaxWidth(),
     )
 }
 
@@ -135,15 +128,16 @@ fun BottomNavBar(
     @Composable
     fun NavIco(key: String, icon: androidx.compose.ui.graphics.vector.ImageVector, desc: String) {
         val selected = current == key
-        Icon(
-            icon,
-            contentDescription = desc,
-            tint = if (selected) acc else muted,
+        Box(
             modifier = Modifier
+                .clip(RoundedCornerShape(16.dp))
+                .background(if (selected) acc.copy(alpha = 0.16f) else Color.Transparent)
                 .clickable { onSelect(key) }
-                .padding(horizontal = 3.dp, vertical = 6.dp)
-                .size(30.dp)
-        )
+                .padding(horizontal = 10.dp, vertical = 8.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(icon, contentDescription = desc, tint = if (selected) acc else muted, modifier = Modifier.size(28.dp))
+        }
     }
     @Composable
     fun Capsule(active: Boolean, content: @Composable () -> Unit) {
@@ -175,18 +169,13 @@ fun BottomNavBar(
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // [♫|♥] · Дім · Подкасти · Пошук · [★|📻]
-        Capsule(current == "music" || current == "heart") {
-            NavIco("music", Icons.Filled.LibraryMusic, ctx.getString(R.string.nav_music))
-            NavIco("heart", Icons.Filled.Favorite, ctx.getString(R.string.favorites_plural))
-        }
+        NavIco("music", Icons.Filled.LibraryMusic, ctx.getString(R.string.nav_music))
+        NavIco("heart", Icons.Filled.Favorite, ctx.getString(R.string.favorites_plural))
         NavIco("home", Icons.Filled.Home, ctx.getString(R.string.nav_home))
         NavIco("podcasts", Icons.Filled.Podcasts, ctx.getString(R.string.nav_podcasts))
         NavIco("search", Icons.Filled.Search, ctx.getString(R.string.nav_search))
-        Capsule(current == "stations" || current == "tabs") {
-            NavIco("stations", Icons.Filled.Star, ctx.getString(R.string.nav_stations))
-            NavIco("tabs", Icons.Filled.Radio, ctx.getString(R.string.tabs))
-        }
+        NavIco("stations", Icons.Filled.Star, ctx.getString(R.string.nav_stations))
+        NavIco("tabs", Icons.Filled.Radio, ctx.getString(R.string.tabs))
     }
 }
 
@@ -202,15 +191,16 @@ fun BottomNavRail(
     @Composable
     fun NavIco(key: String, icon: androidx.compose.ui.graphics.vector.ImageVector, desc: String) {
         val selected = current == key
-        Icon(
-            icon,
-            contentDescription = desc,
-            tint = if (selected) acc else muted,
+        Box(
             modifier = Modifier
+                .clip(RoundedCornerShape(16.dp))
+                .background(if (selected) acc.copy(alpha = 0.16f) else Color.Transparent)
                 .clickable { onSelect(key) }
-                .padding(vertical = 4.dp)
-                .size(28.dp)
-        )
+                .padding(vertical = 8.dp, horizontal = 6.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(icon, contentDescription = desc, tint = if (selected) acc else muted, modifier = Modifier.size(26.dp))
+        }
     }
     @Composable
     fun Capsule(active: Boolean, content: @Composable () -> Unit) {
@@ -233,17 +223,13 @@ fun BottomNavRail(
         verticalArrangement = Arrangement.SpaceEvenly,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Capsule(current == "music" || current == "heart") {
-            NavIco("music", Icons.Filled.LibraryMusic, ctx.getString(R.string.nav_music))
-            NavIco("heart", Icons.Filled.Favorite, ctx.getString(R.string.favorites_plural))
-        }
+        NavIco("music", Icons.Filled.LibraryMusic, ctx.getString(R.string.nav_music))
+        NavIco("heart", Icons.Filled.Favorite, ctx.getString(R.string.favorites_plural))
         NavIco("home", Icons.Filled.Home, ctx.getString(R.string.nav_home))
         NavIco("podcasts", Icons.Filled.Podcasts, ctx.getString(R.string.nav_podcasts))
         NavIco("search", Icons.Filled.Search, ctx.getString(R.string.nav_search))
-        Capsule(current == "stations" || current == "tabs") {
-            NavIco("stations", Icons.Filled.Star, ctx.getString(R.string.nav_stations))
-            NavIco("tabs", Icons.Filled.Radio, ctx.getString(R.string.tabs))
-        }
+        NavIco("stations", Icons.Filled.Star, ctx.getString(R.string.nav_stations))
+        NavIco("tabs", Icons.Filled.Radio, ctx.getString(R.string.tabs))
     }
 }
 
@@ -536,7 +522,7 @@ fun StationScreen(
             .padding(top = if (isLandscape) 8.dp else 28.dp, start = 12.dp, end = 12.dp, bottom = if (isLandscape) 8.dp else 16.dp)
     ) {
 
-        Box(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).height(48.dp)) {
+        Box(modifier = Modifier.fillMaxWidth().padding(bottom = 0.dp).height(40.dp)) {
             Row(
                 modifier = Modifier.align(Alignment.CenterStart),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -569,7 +555,8 @@ fun StationScreen(
             track.trim().ifBlank { artistFromTrackTitle(name) }
         } else artistFromTrackTitle(track)
         val infoPhoto by rememberArtistPhotoUrl(infoArtist, bust = if (localNow) infoArtist else currentUrl)
-        val infoH = 100.dp
+        val podcastNow = genre.equals("podcast", ignoreCase = true)
+        val infoH = 116.dp
         val infoBusy = !playing && run {
             val stt = status.lowercase()
             run {
@@ -617,7 +604,7 @@ fun StationScreen(
                         modifier = Modifier.fillMaxSize(),
                     )
                 }
-                if (!infoPhoto.isNullOrBlank()) {
+                if (!podcastNow && !infoPhoto.isNullOrBlank()) {
                     AsyncImage(
                         model = infoPhoto,
                         contentDescription = infoArtist,
@@ -635,7 +622,7 @@ fun StationScreen(
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
                     InfoMarquee(
-                        name.uppercase(),
+                        if (podcastNow) name else name.uppercase(),
                         color = acc,
                         style = MaterialTheme.typography.titleSmall.copy(
                             letterSpacing = 0.8.sp,
@@ -907,7 +894,7 @@ fun StationScreen(
                     verticalArrangement = Arrangement.spacedBy(1.dp),
                 ) {
                     InfoMarquee(
-                        name.uppercase(),
+                        if (podcastNow) name else name.uppercase(),
                         color = acc,
                         style = MaterialTheme.typography.titleSmall.copy(
                             letterSpacing = 0.8.sp,
@@ -953,7 +940,7 @@ fun StationScreen(
                         )
                     }
                 }
-                if (!infoPhoto.isNullOrBlank()) {
+                if (!podcastNow && !infoPhoto.isNullOrBlank()) {
                     AsyncImage(
                         model = infoPhoto,
                         contentDescription = infoArtist,

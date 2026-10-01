@@ -356,11 +356,7 @@ fun PodcastsTabContent(
         val localTitles = JSONArray()
         val localArtists = JSONArray()
         val localAlbums = JSONArray()
-        val from = (index - 40).coerceAtLeast(0)
-        val to = (index + 60).coerceAtMost(list.size)
-        val window = if (from < to) list.subList(from, to) else listOf(ep)
-        val at = (index - from).coerceIn(0, window.lastIndex)
-        window.forEach { e ->
+        list.forEach { e ->
             val art = e.image.ifBlank { artwork }
             val path = PodcastStore.localPath(ctx, e.audioUrl).ifBlank { e.audioUrl }
             val media = if (path.startsWith("/")) "file://$path" else path
@@ -403,18 +399,18 @@ fun PodcastsTabContent(
             .putString(BluetoothAutoPlayPlugin.KEY_QUEUE_FAVICONS, favs.toString())
             .putString(BluetoothAutoPlayPlugin.KEY_QUEUE_GENRES, genres.toString())
             .putString(BluetoothAutoPlayPlugin.KEY_QUEUE_COUNTRIES, countries.toString())
-            .putInt(BluetoothAutoPlayPlugin.KEY_QUEUE_INDEX, at)
+            .putInt(BluetoothAutoPlayPlugin.KEY_QUEUE_INDEX, index)
             .putString(BluetoothAutoPlayPlugin.KEY_TEMP_URLS, urls.toString())
             .putString(BluetoothAutoPlayPlugin.KEY_TEMP_NAMES, names.toString())
             .putString(BluetoothAutoPlayPlugin.KEY_TEMP_FAVICONS, favs.toString())
             .putString(BluetoothAutoPlayPlugin.KEY_TEMP_GENRES, genres.toString())
             .putString(BluetoothAutoPlayPlugin.KEY_TEMP_COUNTRIES, countries.toString())
-            .putInt(BluetoothAutoPlayPlugin.KEY_TEMP_INDEX, at)
+            .putInt(BluetoothAutoPlayPlugin.KEY_TEMP_INDEX, index)
             .putString(LocalMusicPlugin.KEY_LOCAL_URIS, localUris.toString())
             .putString(LocalMusicPlugin.KEY_LOCAL_TITLES, localTitles.toString())
             .putString(LocalMusicPlugin.KEY_LOCAL_ARTISTS, localArtists.toString())
             .putString(LocalMusicPlugin.KEY_LOCAL_ALBUM_IDS, localAlbums.toString())
-            .putInt(LocalMusicPlugin.KEY_LOCAL_INDEX, at)
+            .putInt(LocalMusicPlugin.KEY_LOCAL_INDEX, index)
             .putString(BluetoothAutoPlayPlugin.KEY_URL, mediaUrl)
             .putString(BluetoothAutoPlayPlugin.KEY_NAME, ep.title.ifBlank { showTitle })
             .putString(BluetoothAutoPlayPlugin.KEY_TRACK, showTitle)

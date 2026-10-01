@@ -54,6 +54,7 @@ fun NowPlayingMeta(
     onToggleBest: () -> Unit,
     onAddToTab: () -> Unit = {},
     showStationActions: Boolean = true,
+    titleMaxLines: Int = 1,
 ) {
     Row(
         modifier = Modifier
@@ -67,7 +68,7 @@ fun NowPlayingMeta(
                 name,
                 color = text,
                 style = MaterialTheme.typography.titleLarge,
-                maxLines = 1,
+                maxLines = titleMaxLines,
                 overflow = TextOverflow.Ellipsis,
             )
         }
@@ -149,7 +150,7 @@ fun NowPlayingMeta(
         Text(
             metaLine,
             color = muted,
-            maxLines = 1,
+            maxLines = if (titleMaxLines > 1) 2 else 1,
             overflow = TextOverflow.Ellipsis,
             style = MaterialTheme.typography.bodyMedium,
         )

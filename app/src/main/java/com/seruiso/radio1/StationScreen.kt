@@ -144,12 +144,12 @@ fun BottomNavBar(
         Row(
             modifier = Modifier
                 .background(
-                    muted.copy(alpha = 0.20f),
+                    acc.copy(alpha = 0.14f),
                     RoundedCornerShape(16.dp)
                 )
                 .border(
                     1.dp,
-                    muted.copy(alpha = 0.42f),
+                    acc.copy(alpha = 0.45f),
                     RoundedCornerShape(16.dp)
                 )
                 .padding(horizontal = 0.dp),
@@ -212,12 +212,12 @@ fun BottomNavRail(
         Column(
             modifier = Modifier
                 .background(
-                    muted.copy(alpha = 0.20f),
+                    acc.copy(alpha = 0.14f),
                     RoundedCornerShape(16.dp)
                 )
                 .border(
                     1.dp,
-                    muted.copy(alpha = 0.42f),
+                    acc.copy(alpha = 0.45f),
                     RoundedCornerShape(16.dp)
                 )
                 .padding(vertical = 2.dp, horizontal = 2.dp),

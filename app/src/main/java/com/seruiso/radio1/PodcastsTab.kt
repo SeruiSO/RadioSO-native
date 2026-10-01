@@ -93,6 +93,8 @@ data class PodcastShow(
     val feedUrl: String,
     val artwork: String,
     val trackCount: Int,
+    val store: String = "",
+    val kind: String = "",
 )
 
 data class PodcastEpisode(
@@ -137,6 +139,7 @@ fun PodcastsTabContent(
         )
     }
     var epFilter by remember { mutableStateOf("all") }
+    var kindFilter by remember { mutableStateOf("all") }
     var showQ by remember { mutableStateOf("") }
     var showSort by remember { mutableStateOf("new") }
     var blurb by remember { mutableStateOf("") }
@@ -421,6 +424,7 @@ fun PodcastsTabContent(
             episodes = emptyList()
             searchOffset = 0
             searchTerm = q
+            kindFilter = "all"
         }
         val offset = if (more) searchOffset else 0
         scope.launch {
@@ -583,8 +587,13 @@ fun PodcastsTabContent(
             Column(Modifier.weight(1f)) {
                 Text(show.title, color = text, maxLines = 2, overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.bodyMedium)
-                if (show.author.isNotBlank()) {
-                    Text(show.author, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                val meta = buildList {
+                    if (show.author.isNotBlank()) add(show.author)
+                    if (show.trackCount > 0) add("${show.trackCount} еп.")
+                    if (show.store.isNotBlank()) add(show.store)
+                }.joinToString(" · ")
+                if (meta.isNotBlank()) {
+                    Text(meta, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis,
                         style = MaterialTheme.typography.labelSmall)
                 }
             }
@@ -810,6 +819,30 @@ fun PodcastsTabContent(
                         }
                     },
                 )
+                if (results.isNotEmpty()) {
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                            .padding(top = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        listOf(
+                            "all" to "Усі",
+                            "music" to "Музика",
+                            "about" to "Про музику",
+                            "other" to "Інше",
+                        ).forEach { (k, label) ->
+                            Text(
+                                label,
+                                color = if (kindFilter == k) acc else muted,
+                                maxLines = 1,
+                                style = MaterialTheme.typography.labelSmall,
+                                modifier = Modifier.clickable { kindFilter = k },
+                            )
+                        }
+                    }
+                }
             }
 
             if (loading || loadingEps) {
@@ -1012,7 +1045,11 @@ fun PodcastsTabContent(
                     contentPadding = PaddingValues(bottom = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    items(results, key = { it.id }) { ShowRow(it) }
+                    val shown = if (kindFilter == "all") results else results.filter { it.kind == kindFilter }
+                    if (shown.isEmpty()) {
+                        item { Text("Немає шоу в цьому фільтрі", color = muted, style = MaterialTheme.typography.bodySmall) }
+                    }
+                    items(shown, key = { it.feedUrl.ifBlank { it.id.toString() } }) { ShowRow(it) }
                     if (canLoadMore && results.isNotEmpty()) {
                         item {
                             TextButton(
@@ -1049,30 +1086,63 @@ fun PodcastsTabContent(
 object ItunesPodcasts {
     fun searchUa(term: String, limit: Int = 50, offset: Int = 0): Result<List<PodcastShow>> = runCatching {
         val enc = URLEncoder.encode(term, StandardCharsets.UTF_8.name())
-        // iTunes: limit max 200; offset via callback-style not official — use limit+offset param where supported
-        val lim = (limit + offset).coerceIn(1, 200)
-        val url = "https://itunes.apple.com/search?term=$enc&media=podcast&entity=podcast&country=ua&limit=$lim"
-        val body = httpGet(url)
-        val arr = JSONObject(body).optJSONArray("results") ?: return@runCatching emptyList()
-        val out = ArrayList<PodcastShow>()
-        for (i in 0 until arr.length()) {
-            if (i < offset) continue
-            val o = arr.optJSONObject(i) ?: continue
-            val feed = o.optString("feedUrl").trim()
-            val title = o.optString("collectionName").ifBlank { o.optString("trackName") }.trim()
-            if (title.isBlank()) continue
-            out.add(
-                PodcastShow(
-                    id = o.optLong("collectionId", o.optLong("trackId")),
-                    title = title,
-                    author = o.optString("artistName").trim(),
-                    feedUrl = feed,
-                    artwork = o.optString("artworkUrl600").ifBlank { o.optString("artworkUrl100") },
-                    trackCount = o.optInt("trackCount", 0),
-                ),
-            )
+        val countries = listOf("us", "de", "gb", "nl", "gr", "ua")
+        val perCountry = ArrayList<List<PodcastShow>>()
+        for (country in countries) {
+            val url = "https://itunes.apple.com/search?term=$enc&media=podcast&entity=podcast&country=$country&limit=40"
+            val list = ArrayList<PodcastShow>()
+            try {
+                val arr = JSONObject(httpGet(url)).optJSONArray("results") ?: JSONArray()
+                for (i in 0 until arr.length()) {
+                    val o = arr.optJSONObject(i) ?: continue
+                    val feed = o.optString("feedUrl").trim()
+                    val title = o.optString("collectionName").ifBlank { o.optString("trackName") }.trim()
+                    if (title.isBlank()) continue
+                    val ids = o.optJSONArray("genreIds")
+                    var music = false
+                    var about = false
+                    if (ids != null) {
+                        for (g in 0 until ids.length()) {
+                            when (ids.optString(g)) {
+                                "1310" -> music = true
+                                "1523", "1524", "1525" -> about = true
+                            }
+                        }
+                    }
+                    val kind = when {
+                        about -> "about"
+                        music -> "music"
+                        else -> "other"
+                    }
+                    list.add(
+                        PodcastShow(
+                            id = o.optLong("collectionId", o.optLong("trackId")),
+                            title = title,
+                            author = o.optString("artistName").trim(),
+                            feedUrl = feed,
+                            artwork = o.optString("artworkUrl600").ifBlank { o.optString("artworkUrl100") },
+                            trackCount = o.optInt("trackCount", 0),
+                            store = country.uppercase(),
+                            kind = kind,
+                        ),
+                    )
+                }
+            } catch (_: Exception) {
+            }
+            perCountry.add(list)
         }
-        out
+        val seen = HashSet<String>()
+        val out = ArrayList<PodcastShow>()
+        val max = perCountry.maxOfOrNull { it.size } ?: 0
+        for (rank in 0 until max) {
+            for (list in perCountry) {
+                if (rank >= list.size) continue
+                val show = list[rank]
+                val key = show.feedUrl.ifBlank { show.id.toString() }
+                if (seen.add(key)) out.add(show)
+            }
+        }
+        out.drop(offset).take(limit)
     }
 
     @Volatile var lastBlurb: String = ""

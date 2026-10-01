@@ -51,10 +51,12 @@ object BackupStore {
             "podPosJson",
             "podcastRecentEps",
             "podcastPlayedUrls",
+            "podDurJson",
         ).forEach { k ->
             val v = p.getString(k, null)
             if (v != null) o.put(k, v)
         }
+        if (p.contains("podSpeed")) o.put("podSpeed", p.getFloat("podSpeed", 1f).toDouble())
         return o
     }
 
@@ -119,7 +121,8 @@ object BackupStore {
             val keys = pod.keys()
             while (keys.hasNext()) {
                 val k = keys.next()
-                e.putString(k, pod.optString(k))
+                if (k == "podSpeed") e.putFloat(k, pod.optDouble(k, 1.0).toFloat())
+                else e.putString(k, pod.optString(k))
             }
         }
         e.apply()

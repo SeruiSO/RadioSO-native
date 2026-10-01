@@ -152,6 +152,7 @@ fun PodcastsTabContent(
     var results by remember { mutableStateOf<List<PodcastShow>>(emptyList()) }
     var status by remember { mutableStateOf("") }
     var selected by remember { mutableStateOf<PodcastShow?>(null) }
+    var openedFeed by remember { mutableStateOf("") }
     var episodes by remember { mutableStateOf<List<PodcastEpisode>>(emptyList()) }
     var loadingEps by remember { mutableStateOf(false) }
 
@@ -476,6 +477,7 @@ fun PodcastsTabContent(
     }
 
     fun openShow(show: PodcastShow) {
+        openedFeed = show.feedUrl
         if (show.feedUrl.isBlank()) {
             error = ctx.getString(R.string.podcast_no_feed)
             return
@@ -578,7 +580,7 @@ fun PodcastsTabContent(
             Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(14.dp))
-                .background(card)
+                .background(if (show.feedUrl.isNotBlank() && show.feedUrl == openedFeed) acc.copy(alpha = 0.28f) else card)
                 .clickable { openShow(show) }
                 .padding(10.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -697,8 +699,16 @@ fun PodcastsTabContent(
                 )
             }
             if (busy) {
-                CircularProgressIndicator(color = acc, modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
-            } else {
+                CircularProgressIndicator(
+                    color = acc,
+                    modifier = Modifier.size(22.dp).clickable {
+                        PodcastStore.cancel(ep.audioUrl)
+                        tick++
+                    },
+                    strokeWidth = 2.dp,
+                )
+            }
+            run {
                 var menu by remember(ep.audioUrl) { mutableStateOf(false) }
                 Box {
                     Icon(
@@ -830,7 +840,7 @@ fun PodcastsTabContent(
                         }
                     },
                 )
-                if (results.isNotEmpty()) {
+                if (searchPool.isNotEmpty()) {
                     Row(
                         Modifier
                             .fillMaxWidth()
@@ -915,11 +925,11 @@ fun PodcastsTabContent(
                     val feed = selected?.feedUrl ?: return@LaunchedEffect
                     if (episodes.isEmpty()) return@LaunchedEffect
                     val p = ctx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, android.content.Context.MODE_PRIVATE)
-                    if (p.getString("podUiFeed", "") != feed && p.getString("podUiShow", "")?.contains(feed) != true) return@LaunchedEffect
+                    if (p.getString("podUiFeed", "") != feed) return@LaunchedEffect
                     val want = p.getString(BluetoothAutoPlayPlugin.KEY_URL, "") ?: ""
-                    var idx = episodes.indexOfFirst { it.audioUrl == want || (want.isNotBlank() && want.contains(it.audioUrl)) }
+                    var idx = shown.indexOfFirst { it.audioUrl == want || (want.isNotBlank() && want.contains(it.audioUrl)) }
                     if (idx < 0) idx = p.getInt("podUiEpIndex", 0)
-                    episodeListState.scrollToItem(idx.coerceIn(0, episodes.lastIndex))
+                    if (shown.isNotEmpty()) episodeListState.scrollToItem(idx.coerceIn(0, shown.lastIndex))
                 }
                 LaunchedEffect(episodeListState, selected?.feedUrl) {
                     val feed = selected?.feedUrl ?: return@LaunchedEffect
@@ -934,7 +944,7 @@ fun PodcastsTabContent(
                     contentPadding = PaddingValues(bottom = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    itemsIndexed(shown, key = { _, e -> e.audioUrl }) { _, ep ->
+                    itemsIndexed(shown, key = { i, e -> "e-$i-${e.audioUrl}" }) { _, ep ->
                         val watchPlayUrl = playUrl
                         val index = episodes.indexOfFirst { it.audioUrl == ep.audioUrl }
                         EpRow(ep, selected!!.title, art, episodes, index)
@@ -949,7 +959,7 @@ fun PodcastsTabContent(
                 ) {
                     if (continueEps.isNotEmpty()) {
                         item { Text("Продовжити", color = text, style = MaterialTheme.typography.titleSmall) }
-                        itemsIndexed(continueEps, key = { _, e -> "c-${e.audioUrl}" }) { i, ep ->
+                        itemsIndexed(continueEps, key = { i, e -> "c-$i-${e.audioUrl}" }) { i, ep ->
                             val list = continueEps.map {
                                 PodcastEpisode(it.title, it.audioUrl, "", it.duration, it.artwork)
                             }
@@ -982,7 +992,7 @@ fun PodcastsTabContent(
                                     style = MaterialTheme.typography.bodySmall)
                             }
                         } else {
-                            itemsIndexed(list, key = { _, e -> "f-${e.audioUrl}" }) { i, ep ->
+                            itemsIndexed(list, key = { i, e -> "f-$i-${e.audioUrl}" }) { i, ep ->
                                 EpRow(
                                     ep, favEps[i].showTitle, ep.image, list, i,
                                     showFav = true, showDl = true,
@@ -1006,7 +1016,7 @@ fun PodcastsTabContent(
                                     style = MaterialTheme.typography.bodySmall)
                             }
                         } else {
-                            itemsIndexed(list, key = { _, e -> "d-${e.audioUrl}" }) { i, ep ->
+                            itemsIndexed(list, key = { i, e -> "d-$i-${e.audioUrl}" }) { i, ep ->
                                 EpRow(ep, dlEps[i].showTitle, ep.image, list, i, showFav = true, showDl = true)
                             }
                         }
@@ -1050,7 +1060,7 @@ fun PodcastsTabContent(
                                         style = MaterialTheme.typography.bodySmall)
                                 }
                             } else {
-                                itemsIndexed(fresh, key = { _, e -> "n-${e.audioUrl}" }) { i, ep ->
+                                itemsIndexed(fresh, key = { i, e -> "n-$i-${e.audioUrl}" }) { i, ep ->
                                     EpRow(ep, ep.description, ep.image, fresh, i, showFav = true, showDl = true)
                                 }
                             }
@@ -1069,7 +1079,7 @@ fun PodcastsTabContent(
                     if (shown.isEmpty()) {
                         item { Text("Немає шоу в цьому фільтрі", color = muted, style = MaterialTheme.typography.bodySmall) }
                     }
-                    items(shown, key = { it.feedUrl.ifBlank { it.id.toString() } }) { ShowRow(it) }
+                    itemsIndexed(shown, key = { i, it -> "q-$i-${it.feedUrl.ifBlank { it.id.toString() }}" }) { _, it -> ShowRow(it) }
                     if (shown.size < filtered.size) {
                         item {
                             TextButton(
@@ -1106,7 +1116,7 @@ fun PodcastsTabContent(
 object ItunesPodcasts {
     fun searchUa(term: String, limit: Int = 50, offset: Int = 0): Result<List<PodcastShow>> = runCatching {
         val enc = URLEncoder.encode(term, StandardCharsets.UTF_8.name())
-        val countries = listOf("us", "de", "gb", "nl", "gr", "ua")
+        val countries = listOf("us", "de", "gb", "ua")
         val perCountry = ArrayList<List<PodcastShow>>()
         for (country in countries) {
             val url = "https://itunes.apple.com/search?term=$enc&media=podcast&entity=podcast&country=$country&limit=100"
@@ -1175,39 +1185,57 @@ object ItunesPodcasts {
         parseRss(xml)
     }
 
+    private fun openFollow(url: String, range: String? = null): HttpURLConnection {
+        var current = url
+        for (hop in 0 until 5) {
+            val conn = (URL(current).openConnection() as HttpURLConnection).apply {
+                connectTimeout = 12_000
+                readTimeout = 20_000
+                requestMethod = "GET"
+                instanceFollowRedirects = false
+                setRequestProperty("User-Agent", "RadioSO/1.0 (podcast)")
+                setRequestProperty("Accept", "application/rss+xml, application/xml, text/xml, */*")
+                if (range != null) setRequestProperty("Range", range)
+            }
+            val code = try { conn.responseCode } catch (e: Exception) { conn.disconnect(); throw e }
+            if (code in 300..399) {
+                val loc = conn.getHeaderField("Location")
+                conn.disconnect()
+                if (loc.isNullOrBlank()) error("redirect")
+                current = if (loc.startsWith("http")) loc else URL(URL(current), loc).toString()
+                continue
+            }
+            return conn
+        }
+        error("redirect")
+    }
+
     fun feedAlive(url: String): Boolean {
         if (!url.startsWith("http")) return false
-        val conn = (URL(url).openConnection() as HttpURLConnection).apply {
-            connectTimeout = 7_000
-            readTimeout = 8_000
-            requestMethod = "GET"
-            instanceFollowRedirects = true
-            setRequestProperty("User-Agent", "RadioSO/1.0 (podcast)")
-            setRequestProperty("Range", "bytes=0-8191")
-        }
         return try {
-            val code = conn.responseCode
-            if (code !in 200..299 && code != 206) return false
-            val body = conn.inputStream.bufferedReader(StandardCharsets.UTF_8).use { it.readText() }.lowercase()
-            "enclosure" in body || "<item" in body
+            val conn = openFollow(url, "bytes=0-8191")
+            try {
+                val code = conn.responseCode
+                if (code == 404 || code == 410) return false
+                if (code !in 200..299 && code != 206) return true
+                val buf = CharArray(8192)
+                val n = conn.inputStream.bufferedReader(StandardCharsets.UTF_8).read(buf)
+                if (n <= 0) return true
+                val body = String(buf, 0, n).lowercase()
+                if ("<html" in body && "enclosure" !in body && "<item" !in body && "<rss" !in body) return false
+                true
+            } finally {
+                conn.disconnect()
+            }
         } catch (_: Exception) {
-            false
-        } finally {
-            conn.disconnect()
+            true
         }
     }
 
     private fun httpGet(url: String): String {
-        val conn = (URL(url).openConnection() as HttpURLConnection).apply {
-            connectTimeout = 15_000
-            readTimeout = 20_000
-            requestMethod = "GET"
-            instanceFollowRedirects = true
-            setRequestProperty("User-Agent", "RadioSO/1.0 (podcast)")
-            setRequestProperty("Accept", "application/rss+xml, application/xml, text/xml, */*")
-        }
+        val conn = openFollow(url)
         try {
-            if (conn.responseCode !in 200..299) error("HTTP ${conn.responseCode}")
+            if (conn.responseCode !in 200..299 && conn.responseCode != 206) error("HTTP ${conn.responseCode}")
             return conn.inputStream.bufferedReader(StandardCharsets.UTF_8).use { it.readText() }
         } finally {
             conn.disconnect()
@@ -1216,6 +1244,7 @@ object ItunesPodcasts {
 
     private fun parseRss(xml: String): List<PodcastEpisode> {
         val out = ArrayList<PodcastEpisode>()
+        val seen = HashSet<String>()
         val itemRe = Regex("<item(\\s[^>]*)?>([\\s\\S]*?)</item>", RegexOption.IGNORE_CASE)
         val titleRe = Regex("<title[^>]*>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:]]>)?</title>", RegexOption.IGNORE_CASE)
         val encRe = Regex("""<enclosure[^>]*url\s*=\s*["']([^"']+)["'][^>]*>""", RegexOption.IGNORE_CASE)
@@ -1246,6 +1275,7 @@ object ItunesPodcasts {
             desc = desc.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
                 .replace("&quot;", "\"").replace("&#39;", "'")
                 .replace(Regex("<[^>]+>"), " ").replace(Regex("\\s+"), " ").trim().take(280)
+            if (!seen.add(audio)) continue
             out.add(PodcastEpisode(title, audio, pub, dur, img, desc))
             if (out.size >= 80) break
         }

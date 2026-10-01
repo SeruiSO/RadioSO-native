@@ -161,26 +161,45 @@ object PodcastStore {
         return f.isFile && f.length() > 1024
     }
 
+    private fun openDl(url: String): HttpURLConnection {
+        var current = url
+        for (hop in 0 until 5) {
+            val conn = (URL(current).openConnection() as HttpURLConnection).apply {
+                connectTimeout = 20_000
+                readTimeout = 60_000
+                requestMethod = "GET"
+                instanceFollowRedirects = false
+                setRequestProperty("User-Agent", "RadioSO/1.0 (podcast-dl)")
+            }
+            val code = try { conn.responseCode } catch (e: Exception) { conn.disconnect(); throw e }
+            if (code in 300..399) {
+                val loc = conn.getHeaderField("Location")
+                conn.disconnect()
+                if (loc.isNullOrBlank()) error("redirect")
+                current = if (loc.startsWith("http")) loc else URL(URL(current), loc).toString()
+                continue
+            }
+            return conn
+        }
+        error("redirect")
+    }
+
     fun download(ctx: Context, audioUrl: String): Result<File> = runCatching {
         val out = episodeFile(ctx, audioUrl)
         if (out.isFile && out.length() > 1024) return@runCatching out
         val tmp = File(out.absolutePath + ".part")
-        val conn = (URL(audioUrl).openConnection() as HttpURLConnection).apply {
-            connectTimeout = 20_000
-            readTimeout = 60_000
-            requestMethod = "GET"
-            instanceFollowRedirects = true
-            setRequestProperty("User-Agent", "RadioSO/1.0 (podcast-dl)")
-        }
+        if (cancelled.contains(audioUrl)) error("cancel")
+        val conn = openDl(audioUrl)
         try {
             val code = conn.responseCode
-            if (code !in 200..299) error("HTTP $code")
+            if (code !in 200..299 && code != 206) error("HTTP $code")
             val total = conn.contentLengthLong
+            var got = 0L
             conn.inputStream.use { input ->
                 tmp.outputStream().use { outS ->
                     val buf = ByteArray(16 * 1024)
-                    var got = 0L
                     while (true) {
+                        if (cancelled.contains(audioUrl)) error("cancel")
                         val n = input.read(buf)
                         if (n < 0) break
                         outS.write(buf, 0, n)
@@ -190,13 +209,18 @@ object PodcastStore {
                 }
             }
             fracs.remove(audioUrl)
+            if (total > 0 && got + 2048 < total) {
+                tmp.delete()
+                error("short")
+            }
             if (!tmp.renameTo(out)) {
                 tmp.copyTo(out, overwrite = true)
                 tmp.delete()
             }
-            // index meta for "Downloaded" section
-            rememberDownload(ctx, audioUrl)
             out
+        } catch (e: Exception) {
+            tmp.delete()
+            throw e
         } finally {
             conn.disconnect()
         }
@@ -259,10 +283,25 @@ object PodcastStore {
     )
     private val fracs = java.util.concurrent.ConcurrentHashMap<String, Float>()
     private val waiting = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+    private val cancelled = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
     private val dlq = java.util.concurrent.ConcurrentLinkedQueue<DlJob>()
     private val pumping = java.util.concurrent.atomic.AtomicBoolean(false)
 
     @Volatile var busyUrl: String = ""
+
+    fun cancel(url: String) {
+        val u = url.trim()
+        if (u.isBlank()) return
+        cancelled.add(u)
+        waiting.remove(u)
+        fracs.remove(u)
+        val left = ArrayList<DlJob>()
+        while (true) {
+            val j = dlq.poll() ?: break
+            if (j.url != u) left.add(j)
+        }
+        left.forEach { dlq.add(it) }
+    }
 
     fun isBusy(url: String) = url.isNotBlank() && (busyUrl == url || waiting.contains(url))
     fun anyBusy() = busyUrl.isNotBlank() || waiting.isNotEmpty()
@@ -279,6 +318,7 @@ object PodcastStore {
         done: (String?) -> Unit,
     ) {
         val u = audioUrl.trim()
+        cancelled.remove(u)
         if (u.isBlank() || isDownloaded(ctx, u) || !waiting.add(u)) return
         dlq.add(DlJob(ctx.applicationContext, u, title, showTitle, artwork, pubDate, duration, done))
         pump()
@@ -296,7 +336,7 @@ object PodcastStore {
                             rememberDownload(job.ctx, job.url, job.title, job.show, job.art, job.pub, job.dur)
                             null
                         },
-                        onFailure = { it.message ?: "download" },
+                        onFailure = { if (it.message == "cancel") null else it.message ?: "download" },
                     )
                     waiting.remove(job.url)
                     fracs.remove(job.url)

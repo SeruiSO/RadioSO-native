@@ -2932,6 +2932,17 @@ notifyForeground();
             // Радіо: трек ще не відомий (прийде з ICY/onMediaMetadataChanged) — чистимо.
             // Локальна музика: артист/назва вже відомі заздалегідь (playLocal/skip їх щойно
             // записали) — не затирати тим самим стартом відтворення.
+            try {
+                String modeNow = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                        .getString(LocalMusicPlugin.KEY_MODE, "");
+                float sp = 1f;
+                if ("podcast".equals(modeNow)) {
+                    sp = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE).getFloat("podSpeed", 1f);
+                    if (sp < 0.8f) sp = 0.8f;
+                    if (sp > 2f) sp = 2f;
+                }
+                if (player != null) player.setPlaybackSpeed(sp);
+            } catch (Exception ignored) {}
             if (!localMode) {
                 lastTrackTitle = "";
             }

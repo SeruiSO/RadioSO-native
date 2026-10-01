@@ -174,13 +174,18 @@ fun BottomNavBar(
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        NavIco("music", Icons.Filled.LibraryMusic, ctx.getString(R.string.nav_music))
-        NavIco("heart", Icons.Filled.Favorite, ctx.getString(R.string.favorites_plural))
+        // [♫|♥] · Дім · Подкасти · Пошук · [★|📻]
+        Capsule(true) {
+            NavIco("music", Icons.Filled.LibraryMusic, ctx.getString(R.string.nav_music))
+            NavIco("heart", Icons.Filled.Favorite, ctx.getString(R.string.favorites_plural))
+        }
         NavIco("home", Icons.Filled.Home, ctx.getString(R.string.nav_home))
         NavIco("podcasts", Icons.Filled.Podcasts, ctx.getString(R.string.nav_podcasts))
         NavIco("search", Icons.Filled.Search, ctx.getString(R.string.nav_search))
-        NavIco("stations", Icons.Filled.Star, ctx.getString(R.string.nav_stations))
-        NavIco("tabs", Icons.Filled.Radio, ctx.getString(R.string.tabs))
+        Capsule(true) {
+            NavIco("stations", Icons.Filled.Star, ctx.getString(R.string.nav_stations))
+            NavIco("tabs", Icons.Filled.Radio, ctx.getString(R.string.tabs))
+        }
     }
 }
 
@@ -233,13 +238,18 @@ fun BottomNavRail(
         verticalArrangement = Arrangement.SpaceEvenly,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        NavIco("music", Icons.Filled.LibraryMusic, ctx.getString(R.string.nav_music))
-        NavIco("heart", Icons.Filled.Favorite, ctx.getString(R.string.favorites_plural))
+        // [♫|♥] · Дім · Подкасти · Пошук · [★|📻]
+        Capsule(true) {
+            NavIco("music", Icons.Filled.LibraryMusic, ctx.getString(R.string.nav_music))
+            NavIco("heart", Icons.Filled.Favorite, ctx.getString(R.string.favorites_plural))
+        }
         NavIco("home", Icons.Filled.Home, ctx.getString(R.string.nav_home))
         NavIco("podcasts", Icons.Filled.Podcasts, ctx.getString(R.string.nav_podcasts))
         NavIco("search", Icons.Filled.Search, ctx.getString(R.string.nav_search))
-        NavIco("stations", Icons.Filled.Star, ctx.getString(R.string.nav_stations))
-        NavIco("tabs", Icons.Filled.Radio, ctx.getString(R.string.tabs))
+        Capsule(true) {
+            NavIco("stations", Icons.Filled.Star, ctx.getString(R.string.nav_stations))
+            NavIco("tabs", Icons.Filled.Radio, ctx.getString(R.string.tabs))
+        }
     }
 }
 

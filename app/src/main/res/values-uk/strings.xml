@@ -201,7 +201,7 @@
     <string name="sleep_left">Залишилось: %1$s</string>
     <string name="sleep_pick">Зупинити ефір через</string>
     <string name="nav_podcasts">Подкасти</string>
-    <string name="podcast_hint">Пошук українських подкастів (Apple, country=ua)</string>
+    <string name="podcast_hint">Пошук подкастів: США, Німеччина, Британія, Україна</string>
     <string name="podcast_search_hint">назва подкасту…</string>
     <string name="podcast_empty_query">Введіть запит</string>
     <string name="podcast_found">знайдено: %1$d</string>
@@ -210,7 +210,7 @@
     <string name="podcast_no_episodes">У стрічці немає епізодів для відтворення</string>
     <string name="podcast_playing">Грає: %1$s</string>
     <string name="podcast_my">Мої подкасти</string>
-    <string name="podcast_my_empty">Немає збережених. Знайдіть шоу й натисніть ★</string>
+    <string name="podcast_my_empty">Немає збережених шоу. Знайдіть і натисніть закладку.</string>
     <string name="podcast_search_results">Результати пошуку</string>
     <string name="podcast_pin">Закріпити подкаст</string>
     <string name="podcast_download">Завантажити епізод</string>
@@ -227,5 +227,27 @@
     <string name="podcast_tab_dl">Завантажені</string>
     <string name="podcast_tab_search">Пошук</string>
     <string name="podcast_more50">Ще 50</string>
+    <string name="podcast_no_working">Немає робочих шоу</string>
+    <string name="podcast_checking">Перевіряю %1$d/%2$d</string>
+    <string name="podcast_ep_short">%1$d еп.</string>
+    <string name="podcast_menu">Меню</string>
+    <string name="podcast_unfav">Прибрати з обраних</string>
+    <string name="podcast_delete_file">Видалити файл</string>
+    <string name="podcast_dl_action">Завантажити</string>
+    <string name="podcast_mark_played">Прослухано</string>
+    <string name="podcast_mark_unplayed">Не прослухано</string>
+    <string name="podcast_all">Усі</string>
+    <string name="podcast_music">Музика</string>
+    <string name="podcast_about">Про музику</string>
+    <string name="podcast_other">Інше</string>
+    <string name="podcast_most_eps">Більше епізодів</string>
+    <string name="podcast_unplayed">Непрослухані</string>
+    <string name="podcast_continue">Продовжити</string>
+    <string name="podcast_my_shows">Мої шоу</string>
+    <string name="podcast_refreshing">Оновлюю…</string>
+    <string name="podcast_refresh">Оновити підписки</string>
+    <string name="podcast_no_new">Немає нових епізодів у збережених шоу</string>
+    <string name="podcast_filter_empty">Немає шоу в цьому фільтрі</string>
+    <string name="podcast_tab_new">Нові</string>
 </resources>
 

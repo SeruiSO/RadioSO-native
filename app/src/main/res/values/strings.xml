@@ -180,7 +180,7 @@
     <string name="sleep_left">Left: %1$s</string>
     <string name="sleep_pick">Stop playback after</string>
     <string name="nav_podcasts">Podcasts</string>
-    <string name="podcast_hint">Search Ukrainian podcasts (Apple, country=UA)</string>
+    <string name="podcast_hint">Search podcasts in the US, Germany, the UK and Ukraine</string>
     <string name="podcast_search_hint">podcast name…</string>
     <string name="podcast_empty_query">Enter a search term</string>
     <string name="podcast_found">found: %1$d</string>
@@ -189,7 +189,7 @@
     <string name="podcast_no_episodes">No playable episodes in feed</string>
     <string name="podcast_playing">Playing: %1$s</string>
     <string name="podcast_my">My podcasts</string>
-    <string name="podcast_my_empty">No saved podcasts. Search and tap ★ to pin.</string>
+    <string name="podcast_my_empty">No saved shows. Search and tap the bookmark.</string>
     <string name="podcast_search_results">Search results</string>
     <string name="podcast_pin">Pin podcast</string>
     <string name="podcast_download">Download episode</string>
@@ -206,4 +206,26 @@
     <string name="podcast_tab_dl">Downloaded</string>
     <string name="podcast_tab_search">Search</string>
     <string name="podcast_more50">Load 50 more</string>
+    <string name="podcast_no_working">No working shows</string>
+    <string name="podcast_checking">Checking %1$d/%2$d</string>
+    <string name="podcast_ep_short">%1$d ep.</string>
+    <string name="podcast_menu">Menu</string>
+    <string name="podcast_unfav">Remove from favorites</string>
+    <string name="podcast_delete_file">Delete file</string>
+    <string name="podcast_dl_action">Download</string>
+    <string name="podcast_mark_played">Listened</string>
+    <string name="podcast_mark_unplayed">Not listened</string>
+    <string name="podcast_all">All</string>
+    <string name="podcast_music">Music</string>
+    <string name="podcast_about">About music</string>
+    <string name="podcast_other">Other</string>
+    <string name="podcast_most_eps">Most episodes</string>
+    <string name="podcast_unplayed">Unplayed</string>
+    <string name="podcast_continue">Continue</string>
+    <string name="podcast_my_shows">My shows</string>
+    <string name="podcast_refreshing">Refreshing…</string>
+    <string name="podcast_refresh">Refresh subscriptions</string>
+    <string name="podcast_no_new">No new episodes in saved shows</string>
+    <string name="podcast_filter_empty">No shows in this filter</string>
+    <string name="podcast_tab_new">New</string>
 </resources>

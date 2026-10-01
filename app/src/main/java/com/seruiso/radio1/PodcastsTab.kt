@@ -85,6 +85,9 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
+import java.text.DateFormat
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 data class PodcastShow(
     val id: Long,
@@ -107,6 +110,26 @@ data class PodcastEpisode(
 )
 
 private enum class PodSub { SHOWS, FAV_EPS, DOWNLOADED, SEARCH, NEW }
+
+private fun formatPodDate(raw: String): String {
+    val s = raw.trim()
+    if (s.isEmpty()) return ""
+    val patterns = listOf(
+        "EEE, dd MMM yyyy HH:mm:ss Z",
+        "EEE, dd MMM yyyy HH:mm:ss z",
+        "EEE, dd MMM yyyy",
+        "dd MMM yyyy",
+        "yyyy-MM-dd",
+    )
+    for (p in patterns) {
+        try {
+            val d = SimpleDateFormat(p, Locale.US).parse(s) ?: continue
+            return DateFormat.getDateInstance(DateFormat.MEDIUM, Locale.getDefault()).format(d)
+        } catch (_: Exception) {
+        }
+    }
+    return s.take(32)
+}
 
 private fun formatPodDuration(raw: String): String {
     val s = raw.trim()
@@ -275,9 +298,11 @@ fun PodcastsTabContent(
         if (audioUrl.isNotBlank()) urls.add(audioUrl)
         continueEps.firstOrNull { it.audioUrl == audioUrl }?.mediaUrl?.let { if (it.isNotBlank()) urls.add(it) }
         if (PodcastStore.isDownloaded(ctx, audioUrl)) {
-            val path = PodcastStore.episodeFile(ctx, audioUrl).absolutePath
-            urls.add(path)
-            urls.add("file://$path")
+            val path = PodcastStore.localPath(ctx, audioUrl)
+            if (path.isNotBlank()) {
+                urls.add(path)
+                if (path.startsWith("/")) urls.add("file://$path")
+            }
         }
         val best = urls.maxByOrNull { PodcastStore.pos(ctx, it) } ?: audioUrl
         return podFrac(best, duration)
@@ -311,8 +336,8 @@ fun PodcastsTabContent(
         val cur = playUrl
         if (urlsMatch(audioUrl, cur)) return true
         try {
-            val local = PodcastStore.episodeFile(ctx, audioUrl).absolutePath
-            if (urlsMatch(cur, local) || urlsMatch(cur, "file://$local")) return true
+            val local = PodcastStore.localPath(ctx, audioUrl)
+            if (local.isNotBlank() && (urlsMatch(cur, local) || urlsMatch(cur, "file://$local"))) return true
         } catch (_: Exception) {}
         return false
     }
@@ -337,8 +362,7 @@ fun PodcastsTabContent(
         val at = (index - from).coerceIn(0, window.lastIndex)
         window.forEach { e ->
             val art = e.image.ifBlank { artwork }
-            val path = if (PodcastStore.isDownloaded(ctx, e.audioUrl))
-                PodcastStore.episodeFile(ctx, e.audioUrl).absolutePath else e.audioUrl
+            val path = PodcastStore.localPath(ctx, e.audioUrl).ifBlank { e.audioUrl }
             val media = if (path.startsWith("/")) "file://$path" else path
             urls.put(media)
             names.put(e.title.ifBlank { showTitle })
@@ -350,8 +374,7 @@ fun PodcastsTabContent(
             localArtists.put(showTitle)
             localAlbums.put("0")
         }
-        val path0 = if (PodcastStore.isDownloaded(ctx, ep.audioUrl))
-            PodcastStore.episodeFile(ctx, ep.audioUrl).absolutePath else ep.audioUrl
+        val path0 = PodcastStore.localPath(ctx, ep.audioUrl).ifBlank { ep.audioUrl }
         val mediaUrl = if (path0.startsWith("/")) "file://$path0" else path0
         val art0 = ep.image.ifBlank { artwork }
         RadioSlot.remember(ctx)
@@ -450,12 +473,12 @@ fun PodcastsTabContent(
                 loading = false
                 if (cand.isEmpty()) {
                     status = ""
-                    error = "Немає робочих шоу"
+                    error = ctx.getString(R.string.podcast_no_working)
                     return@onSuccess
                 }
                 val alive = BooleanArray(cand.size)
                 var checked = 0
-                status = "Перевіряю 0/${cand.size}"
+                status = ctx.getString(R.string.podcast_checking, 0, cand.size)
                 coroutineScope {
                     cand.mapIndexed { i, show ->
                         async(Dispatchers.IO) {
@@ -463,7 +486,7 @@ fun PodcastsTabContent(
                             withContext(Dispatchers.Main) {
                                 alive[i] = ok
                                 checked++
-                                status = "Перевіряю $checked/${cand.size}"
+                                status = ctx.getString(R.string.podcast_checking, checked, cand.size)
                                 val kept = ArrayList<PodcastShow>()
                                 for (n in cand.indices) if (alive[n]) kept.add(cand[n])
                                 searchPool = kept
@@ -472,7 +495,7 @@ fun PodcastsTabContent(
                     }.awaitAll()
                 }
                 status = ""
-                if (searchPool.isEmpty()) error = "Немає робочих шоу"
+                if (searchPool.isEmpty()) error = ctx.getString(R.string.podcast_no_working)
             }.onFailure {
                 loading = false
                 searchPool = emptyList()
@@ -608,7 +631,7 @@ fun PodcastsTabContent(
                     style = MaterialTheme.typography.bodyMedium)
                 val meta = buildList {
                     if (show.author.isNotBlank()) add(show.author)
-                    if (show.trackCount > 0) add("${show.trackCount} еп.")
+                    if (show.trackCount > 0) add(ctx.getString(R.string.podcast_ep_short, show.trackCount))
                     if (show.store.isNotBlank()) add(show.store)
                 }.joinToString(" · ")
                 if (meta.isNotBlank()) {
@@ -670,7 +693,7 @@ fun PodcastsTabContent(
                     style = MaterialTheme.typography.bodyMedium)
                 val meta = buildList {
                     if (showTitle.isNotBlank()) add(showTitle)
-                    if (ep.pubDate.isNotBlank()) add(ep.pubDate)
+                    if (ep.pubDate.isNotBlank()) add(formatPodDate(ep.pubDate))
                     if (durTxt.isNotBlank()) add(durTxt)
                 }.joinToString(" · ")
                 if (meta.isNotBlank()) {
@@ -719,14 +742,14 @@ fun PodcastsTabContent(
                 Box {
                     Icon(
                         Icons.Filled.MoreVert,
-                        contentDescription = "меню",
+                        contentDescription = ctx.getString(R.string.podcast_menu),
                         tint = muted,
                         modifier = Modifier.size(40.dp).clickable { menu = true },
                     )
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                         if (showFav) {
                             DropdownMenuItem(
-                                text = { Text(if (fav) "Прибрати з обраних" else "Обране") },
+                                text = { Text(if (fav) ctx.getString(R.string.podcast_unfav) else ctx.getString(R.string.podcast_fav_ep)) },
                                 onClick = {
                                     menu = false
                                     favLocal = if (ep.audioUrl in favLocal) favLocal - ep.audioUrl else favLocal + ep.audioUrl
@@ -744,7 +767,7 @@ fun PodcastsTabContent(
                         }
                         if (showDl) {
                             DropdownMenuItem(
-                                text = { Text(if (downloaded) "Видалити файл" else "Завантажити") },
+                                text = { Text(if (downloaded) ctx.getString(R.string.podcast_delete_file) else ctx.getString(R.string.podcast_dl_action)) },
                                 onClick = {
                                     menu = false
                                     downloadEp(ep, showTitle, artwork)
@@ -752,7 +775,7 @@ fun PodcastsTabContent(
                             )
                         }
                         DropdownMenuItem(
-                            text = { Text(if (ep.audioUrl in playedSet) "Не прослухано" else "Прослухано") },
+                            text = { Text(if (ep.audioUrl in playedSet) ctx.getString(R.string.podcast_mark_unplayed) else ctx.getString(R.string.podcast_mark_played)) },
                             onClick = {
                                 menu = false
                                 PodcastStore.togglePlayed(ctx, ep.audioUrl)
@@ -855,10 +878,10 @@ fun PodcastsTabContent(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         listOf(
-                            "all" to "Усі",
-                            "music" to "Музика",
-                            "about" to "Про музику",
-                            "other" to "Інше",
+                            "all" to ctx.getString(R.string.podcast_all),
+                            "music" to ctx.getString(R.string.podcast_music),
+                            "about" to ctx.getString(R.string.podcast_about),
+                            "other" to ctx.getString(R.string.podcast_other),
                         ).forEach { (k, label) ->
                             Text(
                                 label,
@@ -869,7 +892,7 @@ fun PodcastsTabContent(
                             )
                         }
                         Text(
-                            "Більше епізодів",
+                            ctx.getString(R.string.podcast_most_eps),
                             color = if (epSort) acc else muted,
                             maxLines = 1,
                             style = MaterialTheme.typography.labelSmall,
@@ -918,7 +941,11 @@ fun PodcastsTabContent(
                         maxLines = 1,
                         style = MaterialTheme.typography.labelSmall,
                     )
-                    listOf("all" to "Усі", "new" to "Непрослухані", "dl" to "Завантажені").forEach { (k, label) ->
+                    listOf(
+                        "all" to ctx.getString(R.string.podcast_all),
+                        "new" to ctx.getString(R.string.podcast_unplayed),
+                        "dl" to ctx.getString(R.string.podcast_tab_dl),
+                    ).forEach { (k, label) ->
                         Text(
                             label,
                             color = if (epFilter == k) acc else muted,
@@ -962,7 +989,7 @@ fun PodcastsTabContent(
                                 onClick = { epVisible += 50 },
                                 modifier = Modifier.fillMaxWidth(),
                             ) {
-                                Text("Ще 50", color = acc)
+                                Text(ctx.getString(R.string.podcast_more50), color = acc)
                             }
                         }
                     }
@@ -975,7 +1002,7 @@ fun PodcastsTabContent(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     if (continueEps.isNotEmpty()) {
-                        item { Text("Продовжити", color = text, style = MaterialTheme.typography.titleSmall) }
+                        item { Text(ctx.getString(R.string.podcast_continue), color = text, style = MaterialTheme.typography.titleSmall) }
                         itemsIndexed(continueEps, key = { i, e -> "c-$i-${e.audioUrl}" }) { i, ep ->
                             val list = continueEps.map {
                                 PodcastEpisode(it.title, it.audioUrl, "", it.duration, it.artwork)
@@ -987,7 +1014,7 @@ fun PodcastsTabContent(
                             )
                         }
                     }
-                    item { Text("Мої шоу", color = text, style = MaterialTheme.typography.titleSmall) }
+                    item { Text(ctx.getString(R.string.podcast_my_shows), color = text, style = MaterialTheme.typography.titleSmall) }
                     if (subs.isEmpty()) {
                         item {
                             Text(ctx.getString(R.string.podcast_my_empty), color = muted,
@@ -1062,7 +1089,7 @@ fun PodcastsTabContent(
                             colors = ButtonDefaults.buttonColors(containerColor = acc, contentColor = Color.White),
                         ) {
                             Text(
-                                if (refreshing) "Оновлюю…" else "Оновити підписки",
+                                if (refreshing) ctx.getString(R.string.podcast_refreshing) else ctx.getString(R.string.podcast_refresh),
                                 style = MaterialTheme.typography.labelLarge,
                             )
                         }
@@ -1073,7 +1100,7 @@ fun PodcastsTabContent(
                         ) {
                             if (fresh.isEmpty()) {
                                 item {
-                                    Text("Немає нових епізодів у збережених шоу", color = muted,
+                                    Text(ctx.getString(R.string.podcast_no_new), color = muted,
                                         style = MaterialTheme.typography.bodySmall)
                                 }
                             } else {
@@ -1094,7 +1121,7 @@ fun PodcastsTabContent(
                     val filtered = if (kindFilter == "all") ordered else ordered.filter { it.kind == kindFilter }
                     val shown = filtered.take(visibleN)
                     if (shown.isEmpty()) {
-                        item { Text("Немає шоу в цьому фільтрі", color = muted, style = MaterialTheme.typography.bodySmall) }
+                        item { Text(ctx.getString(R.string.podcast_filter_empty), color = muted, style = MaterialTheme.typography.bodySmall) }
                     }
                     itemsIndexed(shown, key = { i, it -> "q-$i-${it.feedUrl.ifBlank { it.id.toString() }}" }) { _, it -> ShowRow(it) }
                     if (shown.size < filtered.size) {
@@ -1123,7 +1150,7 @@ fun PodcastsTabContent(
                 SubTab(Icons.Filled.Bookmark, PodSub.FAV_EPS, ctx.getString(R.string.podcast_tab_eps))
                 SubTab(Icons.Filled.Download, PodSub.DOWNLOADED, ctx.getString(R.string.podcast_tab_dl))
                 SubTab(Icons.Filled.Search, PodSub.SEARCH, ctx.getString(R.string.podcast_tab_search))
-                SubTab(Icons.Filled.Podcasts, PodSub.NEW, "Нові")
+                SubTab(Icons.Filled.Podcasts, PodSub.NEW, ctx.getString(R.string.podcast_tab_new))
             }
         }
 
@@ -1284,7 +1311,10 @@ object ItunesPodcasts {
                 .replace(Regex("<[^>]+>"), "").trim()
             if (title.isBlank()) title = audio.substringAfterLast('/').substringBefore('?')
             val pub = dateRe.find(block)?.groupValues?.get(1)?.trim().orEmpty()
-                .replace(Regex("\\s+\\d{2}:\\d{2}:\\d{2}.*"), "").take(32)
+                .replace(Regex("<[^>]+>"), "")
+                .replace(Regex("\\s+"), " ")
+                .trim()
+                .take(80)
             val dur = durRe.find(block)?.groupValues?.get(1)?.trim().orEmpty()
             val img = imgRe.find(block)?.groupValues?.get(1)?.trim().orEmpty()
             val descRe = Regex("<description[^>]*>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:]]>)?</description>", RegexOption.IGNORE_CASE)

@@ -1,6 +1,10 @@
 package com.seruiso.radio1
 
+import android.content.ContentValues
 import android.content.Context
+import android.net.Uri
+import android.os.Build
+import android.provider.MediaStore
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
@@ -156,9 +160,84 @@ object PodcastStore {
         return File(dir, "$hash.$ext")
     }
 
-    fun isDownloaded(ctx: Context, audioUrl: String): Boolean {
+    private val dlOk = java.util.concurrent.ConcurrentHashMap<String, String>()
+
+    private fun storedUri(ctx: Context, audioUrl: String): String {
+        val arr = JSONArray(prefs(ctx).getString(KEY_DL_META, "[]") ?: "[]")
+        for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i) ?: continue
+            if (o.optString("audioUrl") == audioUrl) return o.optString("localUri")
+        }
+        return ""
+    }
+
+    fun localPath(ctx: Context, audioUrl: String): String {
+        dlOk[audioUrl]?.let { if (it.isNotBlank()) return it }
+        val uri = storedUri(ctx, audioUrl)
+        if (uri.startsWith("content:")) {
+            val ok = try {
+                ctx.contentResolver.openFileDescriptor(Uri.parse(uri), "r")?.use { it.statSize > 1024L } == true
+            } catch (_: Exception) {
+                false
+            }
+            if (ok) {
+                dlOk[audioUrl] = uri
+                return uri
+            }
+        }
         val f = episodeFile(ctx, audioUrl)
-        return f.isFile && f.length() > 1024
+        if (f.isFile && f.length() > 1024) {
+            dlOk[audioUrl] = f.absolutePath
+            return f.absolutePath
+        }
+        return ""
+    }
+
+    fun isDownloaded(ctx: Context, audioUrl: String): Boolean = localPath(ctx, audioUrl).isNotBlank()
+
+    fun publishToMusic(ctx: Context, file: File, title: String, show: String): String {
+        return try {
+            val ext = file.extension.ifBlank { "mp3" }
+            val mime = when (ext) {
+                "m4a", "mp4" -> "audio/mp4"
+                "aac" -> "audio/aac"
+                "ogg" -> "audio/ogg"
+                else -> "audio/mpeg"
+            }
+            val base = listOf(show, title).filter { it.isNotBlank() }.joinToString(" - ")
+                .replace(Regex("[\\/:*?\"<>|]"), " ")
+                .replace(Regex("\\s+"), " ")
+                .trim()
+                .take(70)
+                .ifBlank { file.nameWithoutExtension }
+            val values = ContentValues().apply {
+                put(MediaStore.Audio.Media.DISPLAY_NAME, "$base.$ext")
+                put(MediaStore.Audio.Media.MIME_TYPE, mime)
+                put(MediaStore.Audio.Media.RELATIVE_PATH, "Music/RadioSO")
+                put(MediaStore.Audio.Media.IS_MUSIC, 1)
+                put(MediaStore.Audio.Media.TITLE, title.ifBlank { base })
+                put(MediaStore.Audio.Media.ARTIST, show.ifBlank { "RadioSO" })
+                put(MediaStore.Audio.Media.ALBUM, "RadioSO")
+                if (Build.VERSION.SDK_INT >= 29) put(MediaStore.Audio.Media.IS_PENDING, 1)
+            }
+            val collection = if (Build.VERSION.SDK_INT >= 29) {
+                MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+            } else {
+                MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+            }
+            val uri = ctx.contentResolver.insert(collection, values) ?: return ""
+            ctx.contentResolver.openOutputStream(uri)?.use { out ->
+                file.inputStream().use { it.copyTo(out) }
+            } ?: return ""
+            if (Build.VERSION.SDK_INT >= 29) {
+                val done = ContentValues()
+                done.put(MediaStore.Audio.Media.IS_PENDING, 0)
+                ctx.contentResolver.update(uri, done, null, null)
+            }
+            uri.toString()
+        } catch (_: Exception) {
+            ""
+        }
     }
 
     private fun openDl(url: String): HttpURLConnection {
@@ -236,7 +315,9 @@ object PodcastStore {
         artwork: String = "",
         pubDate: String = "",
         duration: String = "",
+        localUri: String = "",
     ) {
+        if (localUri.isNotBlank()) dlOk[audioUrl] = localUri
         val arr = JSONArray(prefs(ctx).getString(KEY_DL_META, "[]") ?: "[]")
         val out = JSONArray()
         // newest first
@@ -247,7 +328,8 @@ object PodcastStore {
                 .put("showTitle", showTitle)
                 .put("artwork", artwork)
                 .put("pubDate", pubDate)
-                .put("duration", duration),
+                .put("duration", duration)
+                .put("localUri", localUri),
         )
         for (i in 0 until arr.length()) {
             val o = arr.optJSONObject(i) ?: continue
@@ -332,8 +414,10 @@ object PodcastStore {
                     val job = dlq.poll() ?: break
                     busyUrl = job.url
                     val err = download(job.ctx, job.url).fold(
-                        onSuccess = {
-                            rememberDownload(job.ctx, job.url, job.title, job.show, job.art, job.pub, job.dur)
+                        onSuccess = { file ->
+                            val uri = publishToMusic(job.ctx, file, job.title, job.show)
+                            if (uri.startsWith("content:")) file.delete()
+                            rememberDownload(job.ctx, job.url, job.title, job.show, job.art, job.pub, job.dur, uri)
                             null
                         },
                         onFailure = { if (it.message == "cancel") null else it.message ?: "download" },
@@ -506,6 +590,11 @@ object PodcastStore {
     }
 
     fun deleteDownload(ctx: Context, audioUrl: String) {
+        val uri = storedUri(ctx, audioUrl)
+        if (uri.startsWith("content:")) {
+            try { ctx.contentResolver.delete(android.net.Uri.parse(uri), null, null) } catch (_: Exception) {}
+        }
+        dlOk.remove(audioUrl)
         try { episodeFile(ctx, audioUrl).delete() } catch (_: Exception) {}
         try { File(episodeFile(ctx, audioUrl).absolutePath + ".part").delete() } catch (_: Exception) {}
         val arr = JSONArray(prefs(ctx).getString(KEY_DL_META, "[]") ?: "[]")

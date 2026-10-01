@@ -140,6 +140,7 @@ fun PodcastsTabContent(
         )
     }
     var epFilter by remember { mutableStateOf("all") }
+    var epVisible by remember { mutableStateOf(50) }
     var kindFilter by remember { mutableStateOf("all") }
     var showQ by remember { mutableStateOf("") }
     var showSort by remember { mutableStateOf("new") }
@@ -330,7 +331,11 @@ fun PodcastsTabContent(
         val localTitles = JSONArray()
         val localArtists = JSONArray()
         val localAlbums = JSONArray()
-        list.forEach { e ->
+        val from = (index - 40).coerceAtLeast(0)
+        val to = (index + 60).coerceAtMost(list.size)
+        val window = if (from < to) list.subList(from, to) else listOf(ep)
+        val at = (index - from).coerceIn(0, window.lastIndex)
+        window.forEach { e ->
             val art = e.image.ifBlank { artwork }
             val path = if (PodcastStore.isDownloaded(ctx, e.audioUrl))
                 PodcastStore.episodeFile(ctx, e.audioUrl).absolutePath else e.audioUrl
@@ -375,18 +380,18 @@ fun PodcastsTabContent(
             .putString(BluetoothAutoPlayPlugin.KEY_QUEUE_FAVICONS, favs.toString())
             .putString(BluetoothAutoPlayPlugin.KEY_QUEUE_GENRES, genres.toString())
             .putString(BluetoothAutoPlayPlugin.KEY_QUEUE_COUNTRIES, countries.toString())
-            .putInt(BluetoothAutoPlayPlugin.KEY_QUEUE_INDEX, index)
+            .putInt(BluetoothAutoPlayPlugin.KEY_QUEUE_INDEX, at)
             .putString(BluetoothAutoPlayPlugin.KEY_TEMP_URLS, urls.toString())
             .putString(BluetoothAutoPlayPlugin.KEY_TEMP_NAMES, names.toString())
             .putString(BluetoothAutoPlayPlugin.KEY_TEMP_FAVICONS, favs.toString())
             .putString(BluetoothAutoPlayPlugin.KEY_TEMP_GENRES, genres.toString())
             .putString(BluetoothAutoPlayPlugin.KEY_TEMP_COUNTRIES, countries.toString())
-            .putInt(BluetoothAutoPlayPlugin.KEY_TEMP_INDEX, index)
+            .putInt(BluetoothAutoPlayPlugin.KEY_TEMP_INDEX, at)
             .putString(LocalMusicPlugin.KEY_LOCAL_URIS, localUris.toString())
             .putString(LocalMusicPlugin.KEY_LOCAL_TITLES, localTitles.toString())
             .putString(LocalMusicPlugin.KEY_LOCAL_ARTISTS, localArtists.toString())
             .putString(LocalMusicPlugin.KEY_LOCAL_ALBUM_IDS, localAlbums.toString())
-            .putInt(LocalMusicPlugin.KEY_LOCAL_INDEX, index)
+            .putInt(LocalMusicPlugin.KEY_LOCAL_INDEX, at)
             .putString(BluetoothAutoPlayPlugin.KEY_URL, mediaUrl)
             .putString(BluetoothAutoPlayPlugin.KEY_NAME, ep.title.ifBlank { showTitle })
             .putString(BluetoothAutoPlayPlugin.KEY_TRACK, showTitle)
@@ -478,6 +483,7 @@ fun PodcastsTabContent(
 
     fun openShow(show: PodcastShow) {
         openedFeed = show.feedUrl
+        epVisible = 50
         if (show.feedUrl.isBlank()) {
             error = ctx.getString(R.string.podcast_no_feed)
             return
@@ -889,7 +895,7 @@ fun PodcastsTabContent(
 
             if (selected != null) {
                 val art = selected!!.artwork
-                val shown = episodes.filter { ep ->
+                val filtered = episodes.filter { ep ->
                     val byTab = when (epFilter) {
                         "new" -> ep.audioUrl !in playedSet
                         "dl" -> PodcastStore.isDownloaded(ctx, ep.audioUrl)
@@ -897,6 +903,7 @@ fun PodcastsTabContent(
                     }
                     byTab
                 }
+                val shown = filtered.take(epVisible)
                 Row(
                     Modifier
                         .fillMaxWidth()
@@ -906,7 +913,7 @@ fun PodcastsTabContent(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        "${episodes.size} епізодів",
+                        "${shown.size} / ${filtered.size}",
                         color = muted,
                         maxLines = 1,
                         style = MaterialTheme.typography.labelSmall,
@@ -917,7 +924,7 @@ fun PodcastsTabContent(
                             color = if (epFilter == k) acc else muted,
                             maxLines = 1,
                             style = MaterialTheme.typography.labelSmall,
-                            modifier = Modifier.clickable { epFilter = k },
+                            modifier = Modifier.clickable { epFilter = k; epVisible = 50 },
                         )
                     }
                 }
@@ -948,6 +955,16 @@ fun PodcastsTabContent(
                         val watchPlayUrl = playUrl
                         val index = episodes.indexOfFirst { it.audioUrl == ep.audioUrl }
                         EpRow(ep, selected!!.title, art, episodes, index)
+                    }
+                    if (shown.size < filtered.size) {
+                        item {
+                            TextButton(
+                                onClick = { epVisible += 50 },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text("Ще 50", color = acc)
+                            }
+                        }
                     }
                 }
             } else when (sub) {
@@ -1277,7 +1294,6 @@ object ItunesPodcasts {
                 .replace(Regex("<[^>]+>"), " ").replace(Regex("\\s+"), " ").trim().take(280)
             if (!seen.add(audio)) continue
             out.add(PodcastEpisode(title, audio, pub, dur, img, desc))
-            if (out.size >= 80) break
         }
         return out
     }

@@ -41,7 +41,7 @@ public class BluetoothReceiver extends BroadcastReceiver {
             Log.w(TAG, "startSvc denied " + action + " " + e.getClass().getSimpleName());
             if (RadioWatchService.ACTION_BT.equals(action)) {
                 // AlarmManager має exemption — підніме сервіс через 4с (навушники без PLAY)
-                RadioWatchService.scheduleHeadphoneFallback(c, 4000L);
+                RadioWatchService.scheduleHeadphoneFallback(c, 1500L);
             }
         }
     }
@@ -150,7 +150,7 @@ public class BluetoothReceiver extends BroadcastReceiver {
             } catch (Exception ignored) {}
             startSvc(app, RadioWatchService.ACTION_BT);
             // Завжди дубль через Alarm: якщо процес/Handler помре у фоні — fallback все одно стартує.
-            RadioWatchService.scheduleHeadphoneFallback(app, 4000L);
+            RadioWatchService.scheduleHeadphoneFallback(app, 1500L);
             return;
         }
         if (state == BluetoothProfile.STATE_DISCONNECTED) {

@@ -156,7 +156,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
     private boolean awaitingHeadUnitPlay = false;
     private Runnable headUnitPlayWaitRunnable;
     private long playShieldUntilMs = 0L;
-    private static final long HEADUNIT_PLAY_WAIT_MS = 4000L;
+    private static final long HEADUNIT_PLAY_WAIT_MS = 1500L;
     private static final long PLAY_SHIELD_MS = 2500L;
     private static final int PI_HEADPHONE = 71;
     private android.os.PowerManager.WakeLock headUnitWake;
@@ -1904,6 +1904,11 @@ notifyForeground();
             setUserPausedWhileBt(false);
             PlaybackPrefs.setPauseReason(this, PlaybackPrefs.REASON_NONE);
             setIntendedPlaying(true);
+            pausedByFocusLoss = false;
+            permanentFocusLoss = false;
+            pausedByOtherMedia = false;
+            // Забрати фокус у інших плеєрів одразу на BT connect
+            try { requestFocus(); } catch (Exception ignored) {}
             ignoreNoisyUntilMs = System.currentTimeMillis() + 8000L;
             try { notifyUiStatus(lc().getString(R.string.connecting), 0); } catch (Exception ignored) {}
             try {

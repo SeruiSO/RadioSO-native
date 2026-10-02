@@ -998,11 +998,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         playbackCallback = null;
     }
 
-    /**
-     * Після classic BT: не грати в speaker.
-     * Чекаємо TYPE_BLUETOOTH_A2DP (до ~5 с), потім playLast.
-     * Навушники зазвичай уже мають A2DP → майже одразу.
-     */
+    /** Після classic BT граємо одразу. Коротка мить з динаміка телефона допустима. */
     private void playWhenBtRouteReady(String why) {
         if (PlaybackPrefs.REASON_USER.equals(PlaybackPrefs.getPauseReason(this))) {
             android.util.Log.i("RadioWatch", "playWhenBtRouteReady skip — user pause (" + why + ")");
@@ -1017,46 +1013,9 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             } catch (Exception ignored) {}
             return;
         }
-        // Вже є A2DP sink — одразу
-        if (BtAudio.hasA2dpOutput(this)) {
-            try { if (player != null) player.setVolume(1f); } catch (Exception ignored) {}
-            playLast();
-            return;
-        }
-        android.util.Log.i("RadioWatch", "playWhenBtRouteReady wait A2DP (" + why + ")");
-        try {
-            if (player != null) {
-                player.setVolume(0f);
-                player.setPlayWhenReady(false);
-            }
-        } catch (Exception ignored) {}
-        final int[] ticks = {0};
-        final int maxTicks = 17; // ~5.1 с @ 300 мс
-        final Runnable[] holder = new Runnable[1];
-        holder[0] = () -> {
-            try {
-                if (PlaybackPrefs.REASON_USER.equals(PlaybackPrefs.getPauseReason(this))) return;
-                if (isVoiceCallActive()) {
-                    pausedByFocusLoss = true;
-                    return;
-                }
-                ticks[0]++;
-                boolean a2dp = BtAudio.hasA2dpOutput(this);
-                if (a2dp || ticks[0] >= maxTicks) {
-                    android.util.Log.i("RadioWatch",
-                        "playWhenBtRouteReady go a2dp=" + a2dp + " ticks=" + ticks[0] + " (" + why + ")");
-                    try { if (player != null) player.setVolume(1f); } catch (Exception ignored) {}
-                    playLast();
-                    return;
-                }
-                mainHandler.postDelayed(holder[0], 300);
-            } catch (Exception e) {
-                android.util.Log.w("RadioWatch", "playWhenBtRouteReady", e);
-                try { if (player != null) player.setVolume(1f); } catch (Exception ignored) {}
-                playLast();
-            }
-        };
-        mainHandler.postDelayed(holder[0], 300);
+        android.util.Log.i("RadioWatch", "playWhenBtRouteReady now (" + why + ")");
+        try { if (player != null) player.setVolume(1f); } catch (Exception ignored) {}
+        playLast();
     }
 
     @Override
@@ -2593,33 +2552,9 @@ notifyForeground();
                     .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, true).apply();
             } catch (Exception ignored) {}
         }
-        awaitingHeadUnitPlay = true;
-        // Зупинити вивід на speaker тел, НЕ знімаючи intended (не USER pause)
-        try {
-            if (player != null && (player.isPlaying() || player.getPlayWhenReady())) {
-                player.setPlayWhenReady(false);
-                android.util.Log.i("RadioWatch", "headUnit wait — paused phone output, await PLAY 4s");
-            }
-        } catch (Exception ignored) {}
-        try { notifyUiStatus(lc().getString(R.string.connecting), 0); } catch (Exception ignored) {}
-        acquireHeadUnitWake();
-        scheduleHeadphoneFallback(this, HEADUNIT_PLAY_WAIT_MS);
-        headUnitPlayWaitRunnable = () -> {
-            headUnitPlayWaitRunnable = null;
-            if (!awaitingHeadUnitPlay) return;
-            awaitingHeadUnitPlay = false;
-            cancelHeadphoneFallback(this);
-            releaseHeadUnitWake();
-            if (PlaybackPrefs.REASON_USER.equals(PlaybackPrefs.getPauseReason(this))) {
-                android.util.Log.i("RadioWatch", "headUnit timeout skip — user pause");
-                return;
-            }
-            android.util.Log.i("RadioWatch", "headUnit wait timeout 4s — auto play (headphones)");
-            playShieldUntilMs = System.currentTimeMillis() + PLAY_SHIELD_MS;
-            playWhenBtRouteReady("headunit-timeout");
-        };
-        mainHandler.postDelayed(headUnitPlayWaitRunnable, HEADUNIT_PLAY_WAIT_MS);
-        android.util.Log.i("RadioWatch", "headUnit PLAY wait started 4s + alarm");
+        awaitingHeadUnitPlay = false;
+        playShieldUntilMs = System.currentTimeMillis() + PLAY_SHIELD_MS;
+        playWhenBtRouteReady("headunit-now");
     }
 
     public static void scheduleHeadphoneFallback(Context ctx, long delayMs) {

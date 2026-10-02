@@ -22,6 +22,10 @@ public class BootReceiver extends BroadcastReceiver {
         try {
             SharedPreferences p = context.getSharedPreferences(
                 BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE);
+            p.edit()
+                .putBoolean(BluetoothAutoPlayPlugin.KEY_AA_ACTIVE, false)
+                .putBoolean(BluetoothAutoPlayPlugin.KEY_PENDING_BT_AUTOSTART, false)
+                .apply();
             if (!p.getBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, true)) {
                 Log.i("BootReceiver", "boot — BT watch off, skip");
                 return;

@@ -71,6 +71,41 @@ public class BluetoothReceiver extends BroadcastReceiver {
         }
     }
 
+    private void doRouteLost(Context app) {
+        try {
+            app.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)
+                .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_USER_PAUSED_BT, false)
+                .putLong("userPausedWhileBtAt", 0L)
+                .apply();
+        } catch (Exception ignored) {}
+        startSvc(app, RadioWatchService.ACTION_ROUTE_LOST);
+    }
+
+    private boolean deferIfA2dpStillUp(final Context app, final String tag) {
+        boolean up = false;
+        try { up = BtAudio.hasA2dpOutput(app); } catch (Exception ignored) {}
+        if (!up) return false;
+        Log.i(TAG, tag + " — A2DP still listed, recheck 1.8s");
+        final PendingResult pr = goAsync();
+        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(new Runnable() {
+            @Override public void run() {
+                try {
+                    boolean still = false;
+                    try { still = BtAudio.hasA2dpOutput(app); } catch (Exception ignored) {}
+                    if (still) Log.i(TAG, tag + " skip — A2DP remains");
+                    else {
+                        Log.i(TAG, tag + " — A2DP gone, ROUTE_LOST");
+                        doRouteLost(app);
+                    }
+                } finally {
+                    if (pr != null) pr.finish();
+                }
+            }
+        }, 1800L);
+        return true;
+    }
+
+
     @Override
     public void onReceive(Context context, Intent intent) {
         if (intent == null || intent.getAction() == null) return;
@@ -126,6 +161,7 @@ public class BluetoothReceiver extends BroadcastReceiver {
                 Log.i(TAG, "ACL_DISCONNECTED skip — live AA");
                 return;
             }
+            if (deferIfA2dpStillUp(app, "ACL_DISCONNECTED")) return;
                         try {
                 app.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)
                     .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_USER_PAUSED_BT, false)
@@ -157,6 +193,7 @@ public class BluetoothReceiver extends BroadcastReceiver {
                 Log.i(TAG, "profile DISCONNECTED skip — live AA");
                 return;
             }
+            if (deferIfA2dpStillUp(app, "profile DISCONNECTED")) return;
             try { RadioWatchService.cancelHeadphoneFallback(app); } catch (Exception ignored) {}
             // A2DP disconnect = магнітола пішла (класичний режим)
             try {

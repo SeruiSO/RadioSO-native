@@ -23,6 +23,9 @@ public class BluetoothAutoPlayPlugin {
     public static final String KEY_BT_WATCH = "btWatchEnabled";
     /** після BOOT: не стартувати FGS, лише намір — старт з A2DP або відкриття додатка. */
     public static final String KEY_PENDING_BT_AFTER_BOOT = "pendingBtWatchAfterBoot";
+    /** 1.3: BT connect під дзвінком — автостарт після розмови. */
+    public static final String KEY_PENDING_BT_AUTOSTART = "pendingBtAutostart";
+    public static final String KEY_PENDING_BT_AUTOSTART_AT = "pendingBtAutostartAt";
     /** true, коли активна сесія Android Auto (RadioWatchService підключений браузером). */
     public static final String KEY_AA_ACTIVE = "androidAutoActive";
     /** Canonical reported playing for UI/reconnect. */

@@ -66,6 +66,13 @@
             </intent-filter>
         </service>
         <receiver
+            android:name=".RadioMediaButtonReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MEDIA_BUTTON" />
+            </intent-filter>
+        </receiver>
+        <receiver
             android:name=".BluetoothReceiver"
             android:exported="true">
             <intent-filter>

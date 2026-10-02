@@ -799,6 +799,104 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         }
     }
 
+    private static final long PENDING_BT_MAX_MS = 20 * 60_000L;
+    private static final long PENDING_BT_POLL_MS = 4_000L;
+    private Runnable pendingBtRunnable;
+
+    private void markPendingBtAutostart() {
+        try {
+            getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE).edit()
+                .putBoolean(BluetoothAutoPlayPlugin.KEY_PENDING_BT_AUTOSTART, true)
+                .putLong(BluetoothAutoPlayPlugin.KEY_PENDING_BT_AUTOSTART_AT, System.currentTimeMillis())
+                .apply();
+        } catch (Exception ignored) {}
+        schedulePendingBtPoll(PENDING_BT_POLL_MS);
+    }
+
+    private void clearPendingBtAutostart(String why) {
+        try {
+            if (pendingBtRunnable != null && mainHandler != null) {
+                mainHandler.removeCallbacks(pendingBtRunnable);
+            }
+            pendingBtRunnable = null;
+            SharedPreferences sp = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE);
+            if (sp.getBoolean(BluetoothAutoPlayPlugin.KEY_PENDING_BT_AUTOSTART, false)) {
+                sp.edit()
+                    .putBoolean(BluetoothAutoPlayPlugin.KEY_PENDING_BT_AUTOSTART, false)
+                    .putLong(BluetoothAutoPlayPlugin.KEY_PENDING_BT_AUTOSTART_AT, 0L)
+                    .apply();
+                android.util.Log.i("RadioWatch", "pendingBt cleared (" + why + ")");
+            }
+        } catch (Exception ignored) {}
+    }
+
+    private void schedulePendingBtPoll(long delayMs) {
+        if (mainHandler == null) return;
+        if (pendingBtRunnable != null) mainHandler.removeCallbacks(pendingBtRunnable);
+        pendingBtRunnable = new Runnable() {
+            @Override public void run() {
+                pendingBtRunnable = null;
+                tryPendingBtAutostart("poll");
+            }
+        };
+        mainHandler.postDelayed(pendingBtRunnable, delayMs);
+    }
+
+    private boolean tryPendingBtAutostart(String why) {
+        try {
+            SharedPreferences sp = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE);
+            if (!sp.getBoolean(BluetoothAutoPlayPlugin.KEY_PENDING_BT_AUTOSTART, false)) return false;
+            long at = sp.getLong(BluetoothAutoPlayPlugin.KEY_PENDING_BT_AUTOSTART_AT, 0L);
+            long age = System.currentTimeMillis() - at;
+            if (at <= 0L || age < 0L || age > PENDING_BT_MAX_MS) {
+                clearPendingBtAutostart("expired");
+                return false;
+            }
+            if (!sp.getBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, true) || isUserPaused()) {
+                clearPendingBtAutostart("watch off / user pause");
+                return false;
+            }
+            if (!BtAudio.hasRoute(this)) {
+                clearPendingBtAutostart("BT gone");
+                return false;
+            }
+            if (isVoiceCallActive()) {
+                schedulePendingBtPoll(PENDING_BT_POLL_MS);
+                return false;
+            }
+            if (sameStationOpening()) {
+                clearPendingBtAutostart("already playing");
+                return false;
+            }
+            clearPendingBtAutostart("go (" + why + ")");
+            android.util.Log.i("RadioWatch", "pendingBt autostart go (" + why + ")");
+            setUserPausedWhileBt(false);
+            PlaybackPrefs.setPauseReason(this, PlaybackPrefs.REASON_NONE);
+            setIntendedPlaying(true);
+            ignoreNoisyUntilMs = System.currentTimeMillis() + 8000L;
+            pausedByFocusLoss = false;
+            permanentFocusLoss = false;
+            sp.edit()
+                .putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, true)
+                .putLong(BluetoothAutoPlayPlugin.KEY_LAST_A2DP_MS, System.currentTimeMillis())
+                .apply();
+            try { notifyUiStatus(lc().getString(R.string.connecting), 0); } catch (Exception ignored) {}
+            if (BtAudio.isAndroidAutoActive(this)) {
+                if (player != null) BtAudio.clearPreferred(player);
+                playLast();
+            } else {
+                playShieldUntilMs = System.currentTimeMillis() + PLAY_SHIELD_MS;
+                playWhenBtRouteReady("pending-bt-" + why);
+                try { armA2dpRouteWatch(); } catch (Throwable ignored) {}
+            }
+            return true;
+        } catch (Exception e) {
+            android.util.Log.w("RadioWatch", "tryPendingBtAutostart", e);
+            return false;
+        }
+    }
+
+
     private boolean isUserPaused() {
         return PlaybackPrefs.REASON_USER.equals(PlaybackPrefs.getPauseReason(this));
     }
@@ -1804,6 +1902,7 @@ notifyForeground();
         }
 
         if (ACTION_STOP.equals(action)) {
+            clearPendingBtAutostart("ACTION_STOP");
             pausedByFocusLoss = false;
             clearPlaybackIntent();
             if (player != null) {
@@ -1847,7 +1946,10 @@ notifyForeground();
             // Захист від паузи при живому BT: cancelWatchProbes + KEY_PLAY=false +
             // короткий debounce лише якщо CONNECTED прийшов одразу після паузи (<3с).
             if (isVoiceCallActive()) {
-                android.util.Log.i("RadioWatch", "ACTION_BT ignored — voice call");
+                android.util.Log.i("RadioWatch", "ACTION_BT deferred — voice call (pending autostart)");
+                setUserPausedWhileBt(false);
+                PlaybackPrefs.setPauseReason(this, PlaybackPrefs.REASON_NONE);
+                markPendingBtAutostart();
                 notifyForeground();
                 return START_STICKY;
             }
@@ -1863,6 +1965,7 @@ notifyForeground();
             setUserPausedWhileBt(false);
             PlaybackPrefs.setPauseReason(this, PlaybackPrefs.REASON_NONE);
             setIntendedPlaying(true);
+            clearPendingBtAutostart("bt-start");
             pausedByFocusLoss = false;
             permanentFocusLoss = false;
             pausedByOtherMedia = false;
@@ -2331,6 +2434,7 @@ notifyForeground();
 
     private void forceStopPlayback(String reason) {
         android.util.Log.i("RadioWatch", "forceStopPlayback: " + reason);
+        clearPendingBtAutostart("forceStop " + reason);
         try { writeLocalPosition(); } catch (Exception ignored) {}
         // VoIP (WhatsApp/Viber) через BT: A2DP→SCO може дати pause.
         // Не затираємо intended при soft focus, інакше AUDIOFOCUS_GAIN не відновить ефір.

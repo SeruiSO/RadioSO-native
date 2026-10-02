@@ -233,6 +233,14 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
         INSTANCE = this;
         createChannel();
         audioManager = (AudioManager) getSystemService(AUDIO_SERVICE);
+        // [p1.1] sticky AA не переживає kill процесу
+        try {
+            SharedPreferences spInit = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE);
+            spInit.edit().putBoolean(BluetoothAutoPlayPlugin.KEY_AA_ACTIVE, false).apply();
+            if (spInit.getBoolean(BluetoothAutoPlayPlugin.KEY_PENDING_BT_AUTOSTART, false)) {
+                schedulePendingBtPoll(PENDING_BT_POLL_MS);
+            }
+        } catch (Exception ignored) {}
         registerPlaybackCallback();
         // Живий радіопотік: менший minBuffer — менше «затягувати» 320 kbps на старті.
         // bufferForPlaybackAfterRebufferMs=1000 — швидке повернення звуку після короткого збою.

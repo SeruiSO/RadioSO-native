@@ -47,14 +47,14 @@ fun NowPlayingPager(
     acc: Color,
     muted: Color,
 ) {
-    // Радіо більше (немає seek/progress); локал/подкаст — 300 під лінію прогресу
-    val npArt = if (nowLocal) 300.dp else 360.dp
-    val npPagerH = if (nowLocal) 318.dp else 380.dp
+    // Радіо 320 (немає seek); локал/подкаст 300 під прогрес
+    val npArt = if (nowLocal) 300.dp else 320.dp
+    val npPagerH = if (nowLocal) 318.dp else 338.dp
     HorizontalPager(
         state = pagerState,
         userScrollEnabled = userScrollEnabled,
-        contentPadding = PaddingValues(horizontal = if (nowLocal) 36.dp else 24.dp),
-        pageSpacing = if (nowLocal) 12.dp else 12.dp,
+        contentPadding = PaddingValues(horizontal = if (nowLocal) 36.dp else 32.dp),
+        pageSpacing = 12.dp,
         modifier = Modifier
             .fillMaxWidth()
             .height(npPagerH),

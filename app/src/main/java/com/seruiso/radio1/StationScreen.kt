@@ -3,13 +3,11 @@ package com.seruiso.radio1
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
-import androidx.compose.ui.graphics.PathFillType
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathOperation
 import androidx.compose.foundation.layout.offset
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.ui.Alignment
@@ -136,20 +134,8 @@ fun BottomNavBar(
     onPullEnd: () -> Unit = {},
 ) {
     val ctx = LocalContext.current
-    val density = LocalDensity.current
-    val playDp = 44.dp
-    val cutoutR = with(density) { 26.dp.toPx() }
-    val corner = with(density) { 20.dp.toPx() }
-    val cradle = remember(cutoutR, corner) {
-        GenericShape { size, _ ->
-            fillType = PathFillType.EvenOdd
-            addRoundRect(
-                RoundRect(0f, 0f, size.width, size.height, CornerRadius(corner, corner)),
-            )
-            val cx = size.width / 2f
-            addOval(Rect(cx - cutoutR, -cutoutR, cx + cutoutR, cutoutR))
-        }
-    }
+    val playDp = 52.dp
+    val cardCol = card
     @Composable
     fun NavIco(key: String, icon: androidx.compose.ui.graphics.vector.ImageVector, desc: String) {
         val selected = current == key
@@ -176,12 +162,50 @@ fun BottomNavBar(
             verticalAlignment = Alignment.CenterVertically
         ) { content() }
     }
-    Box(Modifier.fillMaxWidth()) {
+    Box(Modifier.fillMaxWidth().graphicsLayer { clip = false }) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(cradle)
-                .background(card)
+                .graphicsLayer { clip = false }
+                .drawBehind {
+                    val w = size.width
+                    val h = size.height
+                    val cx = w / 2f
+                    val play = 52.dp.toPx()
+                    val gap = 4.dp.toPx()
+                    val wrap = 4.dp.toPx()
+                    val ease = 18.dp.toPx()
+                    val corner = 20.dp.toPx()
+                    val playCr = 16.dp.toPx()
+                    val half = play / 2f
+                    val inner = half + gap
+                    val outer = inner + wrap
+                    val bar = Path().apply {
+                        addRoundRect(RoundRect(0f, 0f, w, h, CornerRadius(corner, corner)))
+                    }
+                    val lobe = Path().apply {
+                        val l = cx - outer - ease
+                        val r = cx + outer + ease
+                        val top = -outer
+                        addRoundRect(
+                            RoundRect(l, top, r, outer, CornerRadius(outer, outer)),
+                        )
+                    }
+                    val hole = Path().apply {
+                        addRoundRect(
+                            RoundRect(
+                                cx - inner,
+                                -inner,
+                                cx + inner,
+                                inner,
+                                CornerRadius(playCr + gap, playCr + gap),
+                            ),
+                        )
+                    }
+                    val uni = Path().apply { op(bar, lobe, PathOperation.Union) }
+                    val dock = Path().apply { op(uni, hole, PathOperation.Difference) }
+                    drawPath(dock, color = cardCol)
+                }
                 .pointerInput(Unit) {
                     detectVerticalDragGestures(
                         onDragEnd = { onPullEnd() },
@@ -189,7 +213,6 @@ fun BottomNavBar(
                     ) { _, drag -> onPull(drag) }
                 },
         ) {
-            Spacer(Modifier.height(20.dp))
             if (extraAbove != null) extraAbove()
             Row(
                 modifier = Modifier
@@ -214,9 +237,8 @@ fun BottomNavBar(
         Box(
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .offset(y = (-25).dp)
-                .size(50.dp)
-                .border(3.dp, card, RoundedCornerShape(16.dp)),
+                .offset(y = (-26).dp)
+                .zIndex(4f),
             contentAlignment = Alignment.Center,
         ) {
             PlayBtn(
@@ -225,7 +247,7 @@ fun BottomNavBar(
                 sizeDp = playDp,
                 onClick = onPlayPause,
                 accent = acc,
-                shape = RoundedCornerShape(14.dp),
+                shape = RoundedCornerShape(16.dp),
             )
         }
     }

@@ -138,8 +138,8 @@ fun BottomNavBar(
     val ctx = LocalContext.current
     val playDp = 52.dp
     val playLift = 52.dp
-    // Панель як раніше (card); обводка лише тон капсул пар
-    val wrapFill = muted.copy(alpha = 0.08f)
+    // Панель card; обводка — той самий тон капсул, але непрозора
+    val wrapFill = lerp(card, muted, 0.18f)
     @Composable
     fun NavIco(key: String, icon: androidx.compose.ui.graphics.vector.ImageVector, desc: String) {
         val selected = current == key
@@ -181,7 +181,7 @@ fun BottomNavBar(
                     val half = play / 2f
                     val outer = half + wrap
                     val cy = half - playLift.toPx()
-                    val shoulder = 22.dp.toPx()
+                    val shoulder = 34.dp.toPx()
                     // Основна панель — card, як раніше
                     val bar = Path().apply {
                         addRoundRect(RoundRect(0f, 0f, w, h, CornerRadius(corner, corner)))
@@ -189,18 +189,17 @@ fun BottomNavBar(
                     drawPath(bar, color = card)
                     // Обводка: плавний «горб» з заокругленням назовні в панель (не круг всередину)
                     val top = cy - outer
-                    val joinY = 6.dp.toPx()
+                    val joinY = 8.dp.toPx()
                     val left = cx - outer
                     val right = cx + outer
                     val lobe = Path().apply {
-                        // низ горба трохи в панелі, нижні кути назовні
+                        // ширший плавний вхід у панель, заокруглення назовні
                         moveTo(left - shoulder, joinY)
                         cubicTo(
-                            left - shoulder * 0.35f, joinY,
-                            left - 2.dp.toPx(), top + outer * 0.55f,
+                            left - shoulder * 0.55f, joinY,
+                            left - 4.dp.toPx(), top + outer * 0.45f,
                             left, cy,
                         )
-                        // ліва → верх → права дуга навколо кнопки
                         arcTo(
                             Rect(left, top, right, cy + outer),
                             180f,
@@ -208,8 +207,8 @@ fun BottomNavBar(
                             false,
                         )
                         cubicTo(
-                            right + 2.dp.toPx(), top + outer * 0.55f,
-                            right + shoulder * 0.35f, joinY,
+                            right + 4.dp.toPx(), top + outer * 0.45f,
+                            right + shoulder * 0.55f, joinY,
                             right + shoulder, joinY,
                         )
                         close()

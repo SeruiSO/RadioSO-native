@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.material.icons.Icons
@@ -46,8 +47,8 @@ fun NowPlayingPager(
     acc: Color,
     muted: Color,
 ) {
-    val npArt = if (nowLocal) 248.dp else 300.dp
-    val npPagerH = if (nowLocal) 262.dp else 318.dp
+    val npArt = if (nowLocal) 276.dp else 328.dp
+    val npPagerH = if (nowLocal) 290.dp else 346.dp
     HorizontalPager(
         state = pagerState,
         userScrollEnabled = userScrollEnabled,
@@ -126,6 +127,17 @@ fun NowPlayingPager(
                                 contentDescription = null,
                                 modifier = Modifier.size(npArt).clip(AppShapes.card),
                                 contentScale = ContentScale.Crop
+                            )
+                        }
+                        if (photo != null) {
+                            StationArt(
+                                url = fallbackArt,
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .padding(8.dp)
+                                    .size(44.dp)
+                                    .clip(AppShapes.card)
+                                    .background(Color.Black.copy(alpha = 0.40f)),
                             )
                         }
                     }

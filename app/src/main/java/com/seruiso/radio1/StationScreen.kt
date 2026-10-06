@@ -133,10 +133,10 @@ fun BottomNavBar(
                 .clip(RoundedCornerShape(16.dp))
                 .background(if (selected) acc.copy(alpha = 0.16f) else Color.Transparent)
                 .clickable { onSelect(key) }
-                .padding(horizontal = 10.dp, vertical = 8.dp),
+                .padding(horizontal = 6.dp, vertical = 10.dp),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(icon, contentDescription = desc, tint = if (selected) acc else muted, modifier = Modifier.size(28.dp))
+            Icon(icon, contentDescription = desc, tint = if (selected) acc else muted, modifier = Modifier.size(32.dp))
         }
     }
     @Composable
@@ -154,7 +154,7 @@ fun BottomNavBar(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 4.dp)
+            .padding(top = 0.dp)
             .background(card, RoundedCornerShape(20.dp))
             .pointerInput(Unit) {
                 detectVerticalDragGestures(
@@ -165,7 +165,7 @@ fun BottomNavBar(
                     else onPull(drag)
                 }
             }
-            .padding(horizontal = 2.dp, vertical = 4.dp),
+            .padding(horizontal = 2.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -566,7 +566,7 @@ fun StationScreen(
         } else artistFromTrackTitle(track)
         val infoPhoto by rememberArtistPhotoUrl(infoArtist, bust = if (localNow) infoArtist else currentUrl)
         val podcastNow = genre.equals("podcast", ignoreCase = true)
-        val infoH = 116.dp
+        val infoH = 88.dp
         val infoBusy = !playing && run {
             val stt = status.lowercase()
             run {
@@ -598,7 +598,7 @@ fun StationScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(120.dp)
+                        .height(148.dp)
                         .graphicsLayer {
                             val sc = if (playing || infoBusy) pulseState.value else 1f
                             scaleX = sc; scaleY = sc
@@ -606,24 +606,32 @@ fun StationScreen(
                         .clip(RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))
                         .background(Palette.panel2)
                         .clickable { onCloseMenu(); onNow() },
-                    contentAlignment = Alignment.Center,
                 ) {
-                    StationArt(
-                        url = artUrl(favicon),
-                        contentDescription = name,
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                }
-                if (!podcastNow && !infoPhoto.isNullOrBlank()) {
-                    AsyncImage(
-                        model = infoPhoto,
-                        contentDescription = infoArtist,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(72.dp)
-                            .background(Palette.panel2),
-                        contentScale = ContentScale.Crop,
-                    )
+                    val showArtistL = !podcastNow && !infoPhoto.isNullOrBlank()
+                    if (showArtistL) {
+                        AsyncImage(
+                            model = infoPhoto,
+                            contentDescription = infoArtist,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop,
+                        )
+                        StationArt(
+                            url = artUrl(favicon),
+                            contentDescription = name,
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(4.dp)
+                                .size(28.dp)
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(Palette.panel2),
+                        )
+                    } else {
+                        StationArt(
+                            url = artUrl(favicon),
+                            contentDescription = name,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
                 }
                 Column(
                     modifier = Modifier
@@ -888,13 +896,32 @@ fun StationScreen(
                         }
                         .clip(RoundedCornerShape(topStart = 14.dp, bottomStart = 14.dp))
                         .background(Palette.panel2),
-                    contentAlignment = Alignment.Center,
                 ) {
-                    StationArt(
-                        url = artUrl(favicon),
-                        contentDescription = name,
-                        modifier = Modifier.fillMaxSize(),
-                    )
+                    val showArtist = !podcastNow && !infoPhoto.isNullOrBlank()
+                    if (showArtist) {
+                        AsyncImage(
+                            model = infoPhoto,
+                            contentDescription = infoArtist,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop,
+                        )
+                        StationArt(
+                            url = artUrl(favicon),
+                            contentDescription = name,
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(3.dp)
+                                .size(22.dp)
+                                .clip(RoundedCornerShape(5.dp))
+                                .background(Palette.panel2),
+                        )
+                    } else {
+                        StationArt(
+                            url = artUrl(favicon),
+                            contentDescription = name,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
                 }
                 Column(
                     modifier = Modifier
@@ -950,17 +977,7 @@ fun StationScreen(
                         )
                     }
                 }
-                if (!podcastNow && !infoPhoto.isNullOrBlank()) {
-                    AsyncImage(
-                        model = infoPhoto,
-                        contentDescription = infoArtist,
-                        modifier = Modifier
-                            .size(infoH)
-                            .clip(RoundedCornerShape(topEnd = 14.dp, bottomEnd = 14.dp))
-                            .background(Palette.panel2),
-                        contentScale = ContentScale.Crop,
-                    )
-                }
+
             }
         }
 
@@ -1109,81 +1126,16 @@ fun StationScreen(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 6.dp, bottom = 4.dp)
-                .background(card, RoundedCornerShape(20.dp))
-                .clip(RoundedCornerShape(20.dp))
-                .pointerInput(Unit) {
-                detectVerticalDragGestures(
-                    onDragEnd = {
-                        if (!nowOpen) {
-                            sheetScope.launch {
-                                if (pullA.value < 300f) {
-                                    pullA.animateTo(0f, tween(280))
-                                    onNow()
-                                } else {
-                                    pullA.animateTo(560f, tween(280))
-                                    sheetShow = false
-                                }
-                            }
-                        }
-                    }
-                ) { _, drag ->
-                    if (drag < 0 || sheetShow) {
-                        sheetShow = true
-                        sheetScope.launch { pullA.snapTo((pullA.value + drag).coerceIn(0f, 560f)) }
-                    }
-                }
-            }
+                .height(60.dp),
+            contentAlignment = Alignment.Center,
         ) {
-        Row(
-            modifier = Modifier
-                .align(Alignment.Center)
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 4.dp)
-                .height(68.dp)
-                .background(card, RoundedCornerShape(20.dp)),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (canSkip) {
-            Box(
-                modifier = Modifier.fillMaxHeight().width(52.dp).background(card, RoundedCornerShape(20.dp)).clickable { skipUi(false) },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Filled.SkipPrevious,
-                    contentDescription = LocalContext.current.getString(R.string.prev_station),
-                    tint = text,
-                    modifier = Modifier.size(30.dp)
-                )
-            }
-            }
-            PlayBtn(playing = playing, status = status, sizeDp = 60.dp, onClick = onPlayPause, accent = acc, shape = RoundedCornerShape(14.dp))
-            if (canSkip) {
-            Box(
-                modifier = Modifier.fillMaxHeight().width(52.dp).background(card, RoundedCornerShape(20.dp)).clickable { skipUi(true) },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Filled.SkipNext,
-                    contentDescription = LocalContext.current.getString(R.string.next_station),
-                    tint = text,
-                    modifier = Modifier.size(30.dp)
-                )
-            }
-            }
-            if (bottomTab != "podcasts" && tabs.getOrNull(tabIndex) == "local") {
-                Box(
-                    modifier = Modifier.size(40.dp).background(Palette.panel.copy(alpha = 0.90f), RoundedCornerShape(12.dp)).clickable { onScan() },
-                    contentAlignment = Alignment.Center
-                ) { Text(LocalContext.current.getString(R.string.scan), color = acc, style = MaterialTheme.typography.labelSmall) }
-            }
-        }
-            Icon(
-                Icons.Filled.KeyboardArrowUp,
-                contentDescription = LocalContext.current.getString(R.string.open_now_playing),
-                tint = muted,
-                modifier = Modifier.align(Alignment.CenterEnd).clickable { onNow() }.padding(4.dp).size(28.dp)
+            PlayBtn(
+                playing = playing,
+                status = status,
+                sizeDp = 60.dp,
+                onClick = onPlayPause,
+                accent = acc,
+                shape = RoundedCornerShape(14.dp),
             )
         }
         BottomNavBar(

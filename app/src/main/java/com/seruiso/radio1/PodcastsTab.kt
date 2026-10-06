@@ -1247,7 +1247,11 @@ fun PodcastDockTabs(acc: Color, muted: Color) {
             modifier = Modifier
                 .clip(RoundedCornerShape(20.dp))
                 .background(if (on) acc.copy(alpha = 0.20f) else muted.copy(alpha = 0.12f))
-                .clickable { PodUiSession.pickSub(key.name) }
+                .clickable(
+                    onClick = {
+                        PodUiSession.pickSub(key.name)
+                    },
+                )
                 .padding(horizontal = 14.dp, vertical = 7.dp),
         )
     }

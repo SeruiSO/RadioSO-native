@@ -203,18 +203,8 @@ fun BottomNavBar(
                     ) { _, drag -> onPull(drag) }
                 },
         ) {
-            if (extraAbove != null) {
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .pointerInput(Unit) {
-                            detectVerticalDragGestures(
-                                onDragEnd = { onPullEnd() },
-                                onDragCancel = { onPullEnd() },
-                            ) { _, drag -> onPull(drag) }
-                        },
-                ) { extraAbove() }
-            }
+            // без pointerInput тут — інакше з’їдає кліки Шоу/Обране/Пошук
+            if (extraAbove != null) extraAbove()
             Row(
                 modifier = Modifier
                     .fillMaxWidth()

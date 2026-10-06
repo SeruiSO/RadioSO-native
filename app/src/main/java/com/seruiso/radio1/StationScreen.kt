@@ -181,7 +181,7 @@ fun BottomNavBar(
                     val half = play / 2f
                     val outer = half + wrap
                     val cy = half - playLift.toPx()
-                    val shoulder = 34.dp.toPx()
+                    val shoulder = 52.dp.toPx()
                     // Основна панель — card, як раніше
                     val bar = Path().apply {
                         addRoundRect(RoundRect(0f, 0f, w, h, CornerRadius(corner, corner)))
@@ -193,11 +193,16 @@ fun BottomNavBar(
                     val left = cx - outer
                     val right = cx + outer
                     val lobe = Path().apply {
-                        // ширший плавний вхід у панель, заокруглення назовні
+                        // вхід далеко від кнопки; різкий вигин лише біля кнопки (не трикутник)
                         moveTo(left - shoulder, joinY)
                         cubicTo(
-                            left - shoulder * 0.55f, joinY,
-                            left - 4.dp.toPx(), top + outer * 0.45f,
+                            left - shoulder * 0.75f, joinY,
+                            left - 6.dp.toPx(), joinY,
+                            left - 2.dp.toPx(), cy - outer * 0.15f,
+                        )
+                        cubicTo(
+                            left - 1.dp.toPx(), cy - outer * 0.05f,
+                            left, cy - outer * 0.02f,
                             left, cy,
                         )
                         arcTo(
@@ -207,8 +212,13 @@ fun BottomNavBar(
                             false,
                         )
                         cubicTo(
-                            right + 4.dp.toPx(), top + outer * 0.45f,
-                            right + shoulder * 0.55f, joinY,
+                            right, cy - outer * 0.02f,
+                            right + 1.dp.toPx(), cy - outer * 0.05f,
+                            right + 2.dp.toPx(), cy - outer * 0.15f,
+                        )
+                        cubicTo(
+                            right + 6.dp.toPx(), joinY,
+                            right + shoulder * 0.75f, joinY,
                             right + shoulder, joinY,
                         )
                         close()

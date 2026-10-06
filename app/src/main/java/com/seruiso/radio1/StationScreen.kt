@@ -138,7 +138,7 @@ fun BottomNavBar(
     val ctx = LocalContext.current
     val playDp = 52.dp
     // Та сама форма/розмір; на подкастах лише зсув угору, щоб низ горки не накривав Шоу/Обране
-    val playLift = if (extraAbove != null) 70.dp else 52.dp
+    val playLift = 52.dp
     // Панель card; обводка — той самий тон капсул, але непрозора
     val wrapFill = lerp(card, muted, 0.18f)
     @Composable
@@ -190,7 +190,7 @@ fun BottomNavBar(
                     drawPath(bar, color = card)
                     // Обводка: плавний «горб» з заокругленням назовні в панель (не круг всередину)
                     val top = cy - outer
-                    val joinY = 8.dp.toPx()
+                    val joinY = 0.dp.toPx()
                     val left = cx - outer
                     val right = cx + outer
                     val lobe = Path().apply {

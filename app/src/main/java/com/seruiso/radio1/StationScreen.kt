@@ -1185,6 +1185,24 @@ fun StationScreen(
     val showRightEdge = !nowOpen && !sheetShow && !rightFullyOpen && !leftBusy
     val showLeftEdge = !nowOpen && !sheetShow && !leftFullyOpen && !rightBusy
 
+    if (!isLandscape) {
+        Box(
+            modifier = Modifier
+                .zIndex(3f)
+                .align(Alignment.BottomCenter)
+                .padding(bottom = if (bottomTab == "podcasts") 116.dp else 76.dp),
+        ) {
+            PlayBtn(
+                playing = playing,
+                status = status,
+                sizeDp = 60.dp,
+                onClick = onPlayPause,
+                accent = acc,
+                shape = RoundedCornerShape(12.dp),
+            )
+        }
+    }
+
     LeftMusicPanel(
         leftA = leftA,
         leftShow = leftShow,

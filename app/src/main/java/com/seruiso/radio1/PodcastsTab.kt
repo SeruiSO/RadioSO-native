@@ -158,6 +158,32 @@ private fun hiResArt(url: String): String {
     }
 }
 
+
+/** UI-стан подкастів: переживає portrait↔landscape (різні місця в Compose-дереві). */
+private object PodUiSession {
+    var subName: String = ""
+    var query: String = ""
+    var searchTerm: String = ""
+    var results: List<PodcastShow> = emptyList()
+    var searchPool: List<PodcastShow> = emptyList()
+    var visibleN: Int = 50
+    var canLoadMore: Boolean = false
+    var searchOffset: Int = 0
+    var selected: PodcastShow? = null
+    var episodes: List<PodcastEpisode> = emptyList()
+    var openedFeed: String = ""
+    var blurb: String = ""
+    var status: String = ""
+    var error: String = ""
+    var epFilter: String = "all"
+    var epVisible: Int = 50
+    var kindFilter: String = "all"
+    var showQ: String = ""
+    var showSort: String = "new"
+    var epSort: Boolean = false
+    var descOpen: Boolean = false
+}
+
 @Composable
 fun PodcastsTabContent(
     acc: Color,
@@ -172,28 +198,29 @@ fun PodcastsTabContent(
 
     var sub by remember {
         mutableStateOf(
-            enumValues<PodSub>().firstOrNull {
-                it.name == ctx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, android.content.Context.MODE_PRIVATE)
-                    .getString("podUiSub", "SHOWS")
-            } ?: PodSub.SHOWS
+            enumValues<PodSub>().firstOrNull { it.name == PodUiSession.subName }
+                ?: enumValues<PodSub>().firstOrNull {
+                    it.name == ctx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, android.content.Context.MODE_PRIVATE)
+                        .getString("podUiSub", "SHOWS")
+                } ?: PodSub.SHOWS
         )
     }
-    var epFilter by remember { mutableStateOf("all") }
-    var epVisible by remember { mutableStateOf(50) }
-    var kindFilter by remember { mutableStateOf("all") }
-    var showQ by remember { mutableStateOf("") }
-    var showSort by remember { mutableStateOf("new") }
-    var blurb by remember { mutableStateOf("") }
-    var descOpen by remember { mutableStateOf(false) }
+    var epFilter by remember { mutableStateOf(PodUiSession.epFilter) }
+    var epVisible by remember { mutableStateOf(PodUiSession.epVisible) }
+    var kindFilter by remember { mutableStateOf(PodUiSession.kindFilter) }
+    var showQ by remember { mutableStateOf(PodUiSession.showQ) }
+    var showSort by remember { mutableStateOf(PodUiSession.showSort) }
+    var blurb by remember { mutableStateOf(PodUiSession.blurb) }
+    var descOpen by remember { mutableStateOf(PodUiSession.descOpen) }
     var refreshing by remember { mutableStateOf(false) }
-    var query by remember { mutableStateOf("") }
+    var query by remember { mutableStateOf(PodUiSession.query) }
     var loading by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf("") }
-    var results by remember { mutableStateOf<List<PodcastShow>>(emptyList()) }
-    var status by remember { mutableStateOf("") }
-    var selected by remember { mutableStateOf<PodcastShow?>(null) }
-    var openedFeed by remember { mutableStateOf("") }
-    var episodes by remember { mutableStateOf<List<PodcastEpisode>>(emptyList()) }
+    var error by remember { mutableStateOf(PodUiSession.error) }
+    var results by remember { mutableStateOf(PodUiSession.results) }
+    var status by remember { mutableStateOf(PodUiSession.status) }
+    var selected by remember { mutableStateOf(PodUiSession.selected) }
+    var openedFeed by remember { mutableStateOf(PodUiSession.openedFeed) }
+    var episodes by remember { mutableStateOf(PodUiSession.episodes) }
     var loadingEps by remember { mutableStateOf(false) }
 
     var livePos by remember { mutableStateOf(0L) }
@@ -237,15 +264,40 @@ fun PodcastsTabContent(
     var dlBusy by remember { mutableStateOf<String?>(null) }
     var pinnedLocal by remember { mutableStateOf<Set<String>>(emptySet()) }
     var favLocal by remember { mutableStateOf<Set<String>>(emptySet()) }
-    var searchOffset by remember { mutableStateOf(0) }
-    var searchTerm by remember { mutableStateOf("") }
-    var canLoadMore by remember { mutableStateOf(false) }
-    var searchPool by remember { mutableStateOf<List<PodcastShow>>(emptyList()) }
-    var visibleN by remember { mutableStateOf(50) }
-    var epSort by remember { mutableStateOf(false) }
+    var searchOffset by remember { mutableStateOf(PodUiSession.searchOffset) }
+    var searchTerm by remember { mutableStateOf(PodUiSession.searchTerm) }
+    var canLoadMore by remember { mutableStateOf(PodUiSession.canLoadMore) }
+    var searchPool by remember { mutableStateOf(PodUiSession.searchPool) }
+    var visibleN by remember { mutableStateOf(PodUiSession.visibleN) }
+    var epSort by remember { mutableStateOf(PodUiSession.epSort) }
     val showsState = rememberLazyListState()
     val episodeListState = rememberLazyListState()
     val searchState = rememberLazyListState()
+
+    // Зберегти UI між portrait/landscape (дві різні гілки в StationScreen)
+    androidx.compose.runtime.SideEffect {
+        PodUiSession.subName = sub.name
+        PodUiSession.query = query
+        PodUiSession.searchTerm = searchTerm
+        PodUiSession.results = results
+        PodUiSession.searchPool = searchPool
+        PodUiSession.visibleN = visibleN
+        PodUiSession.canLoadMore = canLoadMore
+        PodUiSession.searchOffset = searchOffset
+        PodUiSession.selected = selected
+        PodUiSession.episodes = episodes
+        PodUiSession.openedFeed = openedFeed
+        PodUiSession.blurb = blurb
+        PodUiSession.status = status
+        PodUiSession.error = error
+        PodUiSession.epFilter = epFilter
+        PodUiSession.epVisible = epVisible
+        PodUiSession.kindFilter = kindFilter
+        PodUiSession.showQ = showQ
+        PodUiSession.showSort = showSort
+        PodUiSession.epSort = epSort
+        PodUiSession.descOpen = descOpen
+    }
 
     DisposableEffect(Unit) {
         val prefs = ctx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, android.content.Context.MODE_PRIVATE)
@@ -523,6 +575,13 @@ fun PodcastsTabContent(
             error = ctx.getString(R.string.podcast_no_feed)
             return
         }
+        // Той самий feed уже завантажений (поворот / повторний open) — без мережі
+        if (selected?.feedUrl == show.feedUrl && episodes.isNotEmpty()) {
+            selected = show
+            loadingEps = false
+            error = ""
+            return
+        }
         selected = show
         loadingEps = true
         error = ""
@@ -545,6 +604,10 @@ fun PodcastsTabContent(
     }
 
     LaunchedEffect(Unit) {
+        // Уже відновлено з PodUiSession (поворот) — не перезавантажувати feed/search
+        if (selected != null && episodes.isNotEmpty()) return@LaunchedEffect
+        if (selected != null) return@LaunchedEffect
+        if (results.isNotEmpty() || searchTerm.isNotBlank()) return@LaunchedEffect
         val p = ctx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, android.content.Context.MODE_PRIVATE)
         val raw = p.getString("podUiShow", "") ?: ""
         if (raw.isBlank()) return@LaunchedEffect

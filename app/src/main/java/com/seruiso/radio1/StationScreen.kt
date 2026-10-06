@@ -1123,21 +1123,6 @@ fun StationScreen(
             )
         }
         }
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(60.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            PlayBtn(
-                playing = playing,
-                status = status,
-                sizeDp = 60.dp,
-                onClick = onPlayPause,
-                accent = acc,
-                shape = RoundedCornerShape(14.dp),
-            )
-        }
         BottomNavBar(
             current = bottomTab,
             onSelect = { key ->
@@ -1185,6 +1170,8 @@ fun StationScreen(
     val showRightEdge = !nowOpen && !sheetShow && !rightFullyOpen && !leftBusy
     val showLeftEdge = !nowOpen && !sheetShow && !leftFullyOpen && !rightBusy
 
+
+
     if (!isLandscape) {
         Box(
             modifier = Modifier
@@ -1202,7 +1189,6 @@ fun StationScreen(
             )
         }
     }
-
 
     LeftMusicPanel(
         leftA = leftA,

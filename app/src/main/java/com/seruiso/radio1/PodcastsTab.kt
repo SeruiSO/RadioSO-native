@@ -231,13 +231,23 @@ fun PodcastsTabContent(
     var openedFeed by remember { mutableStateOf(PodUiSession.openedFeed) }
     var episodes by remember { mutableStateOf(PodUiSession.episodes) }
     var loadingEps by remember { mutableStateOf(false) }
-    LaunchedEffect(PodUiSession.subStamp) {
+    LaunchedEffect(PodUiSession.subStamp, PodUiSession.subName) {
         val n = enumValues<PodSub>().firstOrNull { it.name == PodUiSession.subName } ?: return@LaunchedEffect
-        if (n == sub) return@LaunchedEffect
-        selected = null
-        episodes = emptyList()
-        error = ""
-        sub = n
+        if (n != sub) {
+            selected = null
+            episodes = emptyList()
+            error = ""
+            sub = n
+        } else {
+            // той самий sub, але pickSub міг скинути selected у сесії
+            if (PodUiSession.selected == null && selected != null) {
+                selected = null
+                episodes = emptyList()
+            }
+        }
+    }
+    LaunchedEffect(sub) {
+        if (PodUiSession.subName != sub.name) PodUiSession.subName = sub.name
     }
 
     var livePos by remember { mutableStateOf(0L) }
@@ -293,7 +303,8 @@ fun PodcastsTabContent(
 
     // Зберегти UI між portrait/landscape (дві різні гілки в StationScreen)
     androidx.compose.runtime.SideEffect {
-        PodUiSession.subName = sub.name
+        // subName пише лише pickSub / LaunchedEffect(sub) — інакше SideEffect
+        // затирає вибір з дока до того, як LaunchedEffect встигне змінити sub
         PodUiSession.query = query
         PodUiSession.searchTerm = searchTerm
         PodUiSession.results = results

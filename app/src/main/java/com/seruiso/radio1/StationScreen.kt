@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathOperation
@@ -136,9 +137,9 @@ fun BottomNavBar(
 ) {
     val ctx = LocalContext.current
     val playDp = 52.dp
-    val playLift = 36.dp
-    // Капсули як раніше; обводка — той самий тон, але непрозора (lerp card→muted)
-    val panelFill = lerp(card, muted, 0.14f)
+    val playLift = 52.dp
+    // Панель як раніше (card); обводка лише тон капсул пар
+    val wrapFill = muted.copy(alpha = 0.08f)
     @Composable
     fun NavIco(key: String, icon: androidx.compose.ui.graphics.vector.ImageVector, desc: String) {
         val selected = current == key
@@ -176,25 +177,44 @@ fun BottomNavBar(
                     val cx = w / 2f
                     val play = 52.dp.toPx()
                     val wrap = 3.dp.toPx()
-                    val ease = 16.dp.toPx()
                     val corner = 20.dp.toPx()
                     val half = play / 2f
                     val outer = half + wrap
-                    // Центр кнопки піднятий разом з offset(-playLift)
                     val cy = half - playLift.toPx()
+                    val shoulder = 22.dp.toPx()
+                    // Основна панель — card, як раніше
                     val bar = Path().apply {
                         addRoundRect(RoundRect(0f, 0f, w, h, CornerRadius(corner, corner)))
                     }
-                    // Обводка впритул, піднята разом з кнопкою
+                    drawPath(bar, color = card)
+                    // Обводка: плавний «горб» з заокругленням назовні в панель (не круг всередину)
+                    val top = cy - outer
+                    val joinY = 6.dp.toPx()
+                    val left = cx - outer
+                    val right = cx + outer
                     val lobe = Path().apply {
-                        val l = cx - outer - ease
-                        val r = cx + outer + ease
-                        addRoundRect(
-                            RoundRect(l, cy - outer, r, cy + outer, CornerRadius(outer, outer)),
+                        // низ горба трохи в панелі, нижні кути назовні
+                        moveTo(left - shoulder, joinY)
+                        cubicTo(
+                            left - shoulder * 0.35f, joinY,
+                            left - 2.dp.toPx(), top + outer * 0.55f,
+                            left, cy,
                         )
+                        // ліва → верх → права дуга навколо кнопки
+                        arcTo(
+                            Rect(left, top, right, cy + outer),
+                            180f,
+                            180f,
+                            false,
+                        )
+                        cubicTo(
+                            right + 2.dp.toPx(), top + outer * 0.55f,
+                            right + shoulder * 0.35f, joinY,
+                            right + shoulder, joinY,
+                        )
+                        close()
                     }
-                    val dock = Path().apply { op(bar, lobe, PathOperation.Union) }
-                    drawPath(dock, color = panelFill)
+                    drawPath(lobe, color = wrapFill)
                 }
                 .pointerInput(Unit) {
                     detectVerticalDragGestures(

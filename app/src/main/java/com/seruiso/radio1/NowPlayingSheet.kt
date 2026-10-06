@@ -325,11 +325,7 @@ fun NowPlayingSheet(
                 .fillMaxWidth()
                 .fillMaxHeight()
                 .statusBarsPadding()
-                .padding(top = 152.dp)
-                .statusBarsPadding()
-                .padding(top = 152.dp)
-                .statusBarsPadding()
-                // меню (~48) + інфо-панель (100) + зазор — картка не накриває інфо
+                // меню + інфо-панель — картка не накриває інфо
                 .padding(top = 152.dp)
                 .graphicsLayer {
                     translationY = pullA.value

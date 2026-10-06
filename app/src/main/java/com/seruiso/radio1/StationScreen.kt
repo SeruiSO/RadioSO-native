@@ -137,7 +137,8 @@ fun BottomNavBar(
 ) {
     val ctx = LocalContext.current
     val playDp = 52.dp
-    val playLift = 52.dp
+    // На подкастах вище — над Шоу/Обране; на радіо/інших без змін
+    val playLift = if (extraAbove != null) 90.dp else 52.dp
     // Панель card; обводка — той самий тон капсул, але непрозора
     val wrapFill = lerp(card, muted, 0.18f)
     @Composable
@@ -241,7 +242,7 @@ fun BottomNavBar(
                         start = 2.dp,
                         end = 2.dp,
                         // 1 dp між підвкладками подкастів і основним рядом
-                        top = if (extraAbove != null) 1.dp else 6.dp,
+                        top = if (extraAbove != null) 3.dp else 6.dp,
                         bottom = 6.dp,
                     ),
                 horizontalArrangement = Arrangement.SpaceEvenly,

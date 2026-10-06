@@ -37,7 +37,15 @@ fun displayFavicon(raw: String?): String {
     if ("google.com/s2/favicons" in low) return ""
     if (!(u.startsWith("http://") || u.startsWith("https://") || u.startsWith("content:"))) return ""
     if (low.endsWith(".svg")) return ""
-    return u
+    // iTunes / mzstatic: 60x60 / 100x100 → 600x600 для великої картки
+    return try {
+        Regex("""(\d+)x(\d+)([a-z]*)\.(jpg|png|webp)""", RegexOption.IGNORE_CASE)
+            .replace(u) { m ->
+                "600x600${m.groupValues[3]}.${m.groupValues[4]}"
+            }
+    } catch (_: Exception) {
+        u
+    }
 }
 
 private object StationArtLoader {
@@ -103,7 +111,7 @@ fun StationArt(
     val req = remember(normalized) {
         ImageRequest.Builder(context)
             .data(normalized)
-            .size(128)
+            .size(512)
             .allowHardware(false)
             .crossfade(false)
             .memoryCachePolicy(coil.request.CachePolicy.ENABLED)

@@ -32,7 +32,7 @@ import kotlin.math.abs
 
 /**
  * Велика карусель обкладинок now-playing.
- * Radio: 300dp; local: 248dp. Фото виконавця — лише на поточній сторінці.
+ * Radio: 360dp; local/podcast: 300dp. Фото виконавця — лише на поточній сторінці.
  */
 @Composable
 fun NowPlayingPager(
@@ -47,13 +47,14 @@ fun NowPlayingPager(
     acc: Color,
     muted: Color,
 ) {
-    val npArt = if (nowLocal) 228.dp else 268.dp
-    val npPagerH = if (nowLocal) 244.dp else 286.dp
+    // Радіо більше (немає seek/progress); локал/подкаст — 300 під лінію прогресу
+    val npArt = if (nowLocal) 300.dp else 360.dp
+    val npPagerH = if (nowLocal) 318.dp else 380.dp
     HorizontalPager(
         state = pagerState,
         userScrollEnabled = userScrollEnabled,
-        contentPadding = PaddingValues(horizontal = if (nowLocal) 48.dp else 40.dp),
-        pageSpacing = if (nowLocal) 10.dp else 12.dp,
+        contentPadding = PaddingValues(horizontal = if (nowLocal) 36.dp else 24.dp),
+        pageSpacing = if (nowLocal) 12.dp else 12.dp,
         modifier = Modifier
             .fillMaxWidth()
             .height(npPagerH),

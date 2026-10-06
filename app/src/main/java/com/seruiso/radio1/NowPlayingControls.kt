@@ -55,6 +55,8 @@ fun NowPlayingMeta(
     onAddToTab: () -> Unit = {},
     showStationActions: Boolean = true,
     titleMaxLines: Int = 1,
+    genre: String = "",
+    country: String = "",
 ) {
     Row(
         modifier = Modifier
@@ -153,6 +155,23 @@ fun NowPlayingMeta(
             maxLines = if (titleMaxLines > 1) 2 else 1,
             overflow = TextOverflow.Ellipsis,
             style = MaterialTheme.typography.bodySmall,
+        )
+    }
+    val ctxMeta = LocalContext.current
+    val gLab = if (showStationActions) DisplayNames.genreLabel(ctxMeta, genre) else ""
+    val cLab = if (showStationActions) DisplayNames.countryLabel(ctxMeta, country) else ""
+    val placeLine = listOf(gLab, cLab).filter { it.isNotBlank() }.joinToString(" · ")
+    if (placeLine.isNotBlank()) {
+        Text(
+            placeLine,
+            color = muted.copy(alpha = 0.85f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 1.dp, bottom = 2.dp)
+                .then(pagerDragModifier),
         )
     }
 }

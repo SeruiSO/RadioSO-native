@@ -322,7 +322,7 @@ fun NowPlayingSheet(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .fillMaxHeight(0.78f)
+                .fillMaxHeight(0.90f)
                 .graphicsLayer {
                     translationY = pullA.value
                     val sc = (1f - pullA.value / 900f).coerceIn(0.45f, 1f)
@@ -511,6 +511,8 @@ fun NowPlayingSheet(
                         },
                         showStationActions = !isPodcastNow && !currentUrl.startsWith("file:"),
                         titleMaxLines = if (isPodcastNow) 3 else 1,
+                        genre = genre,
+                        country = country,
                     )
                     }
                         if (ui.showTrackHistory || flipAngle > 0.5f) {

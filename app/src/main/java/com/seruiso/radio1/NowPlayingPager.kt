@@ -47,8 +47,8 @@ fun NowPlayingPager(
     acc: Color,
     muted: Color,
 ) {
-    val npArt = if (nowLocal) 276.dp else 328.dp
-    val npPagerH = if (nowLocal) 290.dp else 346.dp
+    val npArt = if (nowLocal) 248.dp else 300.dp
+    val npPagerH = if (nowLocal) 262.dp else 318.dp
     HorizontalPager(
         state = pagerState,
         userScrollEnabled = userScrollEnabled,

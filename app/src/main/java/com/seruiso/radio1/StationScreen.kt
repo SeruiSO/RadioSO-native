@@ -566,7 +566,7 @@ fun StationScreen(
         } else artistFromTrackTitle(track)
         val infoPhoto by rememberArtistPhotoUrl(infoArtist, bust = if (localNow) infoArtist else currentUrl)
         val podcastNow = genre.equals("podcast", ignoreCase = true)
-        val infoH = 88.dp
+        val infoH = 100.dp
         val infoBusy = !playing && run {
             val stt = status.lowercase()
             run {
@@ -1190,18 +1190,19 @@ fun StationScreen(
             modifier = Modifier
                 .zIndex(3f)
                 .align(Alignment.BottomCenter)
-                .padding(bottom = if (bottomTab == "podcasts") 116.dp else 76.dp),
+                .padding(bottom = if (bottomTab == "podcasts") 118.dp else 72.dp),
         ) {
             PlayBtn(
                 playing = playing,
                 status = status,
-                sizeDp = 60.dp,
+                sizeDp = 56.dp,
                 onClick = onPlayPause,
                 accent = acc,
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(14.dp),
             )
         }
     }
+
 
     LeftMusicPanel(
         leftA = leftA,

@@ -67,7 +67,7 @@ fun NowPlayingMeta(
             Text(
                 name,
                 color = text,
-                style = MaterialTheme.typography.titleLarge,
+                style = MaterialTheme.typography.titleMedium,
                 maxLines = titleMaxLines,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -152,7 +152,7 @@ fun NowPlayingMeta(
             color = muted,
             maxLines = if (titleMaxLines > 1) 2 else 1,
             overflow = TextOverflow.Ellipsis,
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.bodySmall,
         )
     }
 }

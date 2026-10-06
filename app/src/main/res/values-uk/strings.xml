@@ -226,6 +226,7 @@
     <string name="podcast_tab_eps">Обране</string>
     <string name="podcast_tab_dl">Завантажені</string>
     <string name="podcast_tab_search">Пошук</string>
+    <string name="podcast_discover_genres">Жанри — тап для пошуку</string>
     <string name="podcast_more50">Ще 50</string>
     <string name="podcast_no_working">Немає робочих шоу</string>
     <string name="podcast_checking">Перевіряю %1$d/%2$d</string>

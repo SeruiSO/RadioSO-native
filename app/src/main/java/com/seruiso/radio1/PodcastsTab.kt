@@ -1223,7 +1223,72 @@ fun PodcastsTabContent(
                     val ordered = if (epSort) searchPool.sortedByDescending { it.trackCount } else searchPool
                     val filtered = if (kindFilter == "all") ordered else ordered.filter { it.kind == kindFilter }
                     val shown = filtered.take(visibleN)
-                    if (shown.isEmpty()) {
+                    val showDiscover = shown.isEmpty() && searchTerm.isBlank() && query.isBlank() && !loading
+                    if (showDiscover) {
+                        item {
+                            Text(
+                                ctx.getString(R.string.podcast_discover_genres),
+                                color = muted,
+                                style = MaterialTheme.typography.labelLarge,
+                            )
+                        }
+                        item {
+                            Row(
+                                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                PodcastDiscover.genres.forEach { s ->
+                                    Text(
+                                        s.label,
+                                        color = acc,
+                                        style = MaterialTheme.typography.labelLarge,
+                                        maxLines = 1,
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(20.dp))
+                                            .background(acc.copy(alpha = 0.16f))
+                                            .clickable {
+                                                query = s.query
+                                                doSearch()
+                                            }
+                                            .padding(horizontal = 14.dp, vertical = 8.dp),
+                                    )
+                                }
+                            }
+                        }
+                        PodcastDiscover.sections.forEach { (title, list) ->
+                            item {
+                                Text(
+                                    title,
+                                    color = muted,
+                                    style = MaterialTheme.typography.labelLarge,
+                                    modifier = Modifier.padding(top = 6.dp),
+                                )
+                            }
+                            item {
+                                Row(
+                                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    list.forEach { s ->
+                                        Text(
+                                            s.label,
+                                            color = text,
+                                            style = MaterialTheme.typography.labelLarge,
+                                            maxLines = 1,
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(20.dp))
+                                                .background(muted.copy(alpha = 0.14f))
+                                                .clickable {
+                                                    query = s.query
+                                                    doSearch()
+                                                }
+                                                .padding(horizontal = 14.dp, vertical = 8.dp),
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    } else if (shown.isEmpty()) {
                         item { Text(ctx.getString(R.string.podcast_filter_empty), color = muted, style = MaterialTheme.typography.bodySmall) }
                     }
                     itemsIndexed(shown, key = { i, it -> "q-$i-${it.feedUrl.ifBlank { it.id.toString() }}" }) { _, it -> ShowRow(it) }
@@ -1280,6 +1345,75 @@ fun PodcastDockTabs(acc: Color, muted: Color) {
         Chip(PodSub.SEARCH, ctx.getString(R.string.podcast_tab_search))
         Chip(PodSub.NEW, ctx.getString(R.string.podcast_tab_new))
     }
+}
+
+
+/** Порожній пошук: жанри та підбірки. Тап → doSearch(query). */
+private data class PodSuggest(val label: String, val query: String)
+
+private object PodcastDiscover {
+    val genres = listOf(
+        PodSuggest("Техно", "techno"),
+        PodSuggest("Мінімал", "minimal techno"),
+        PodSuggest("House", "house music"),
+        PodSuggest("Deep House", "deep house"),
+        PodSuggest("DnB", "drum and bass"),
+        PodSuggest("Ambient", "ambient music"),
+        PodSuggest("Jazz", "jazz"),
+        PodSuggest("Hip-Hop", "hip hop"),
+        PodSuggest("Classical", "classical music"),
+        PodSuggest("Trance", "trance music"),
+        PodSuggest("Rock", "rock music"),
+        PodSuggest("Electronic", "electronic music"),
+    )
+    val sections = listOf(
+        "Музика · UA" to listOf(
+            PodSuggest("Українська музика", "українська музика"),
+            PodSuggest("DJ / сети", "dj set ukraine"),
+            PodSuggest("Техно UA", "techno ukraine"),
+            PodSuggest("Електроніка UA", "electronic ukraine podcast"),
+        ),
+        "Музика · світ" to listOf(
+            PodSuggest("Song Exploder", "Song Exploder"),
+            PodSuggest("Switched on Pop", "Switched on Pop"),
+            PodSuggest("Resident Advisor", "Resident Advisor podcast"),
+            PodSuggest("BBC Radio 1", "BBC Radio 1 podcast"),
+            PodSuggest("Boiler Room", "Boiler Room podcast"),
+        ),
+        "Новини · UA" to listOf(
+            PodSuggest("Радіо Свобода", "Радіо Свобода подкаст"),
+            PodSuggest("НВ", "НВ подкаст"),
+            PodSuggest("Слідство.Інфо", "Слідство Інфо"),
+            PodSuggest("Українська правда", "Українська правда подкаст"),
+            PodSuggest("Суспільне", "Суспільне подкаст"),
+        ),
+        "Новини · світ" to listOf(
+            PodSuggest("BBC Global News", "BBC Global News Podcast"),
+            PodSuggest("The Daily", "The Daily New York Times"),
+            PodSuggest("NPR News", "NPR News Now"),
+            PodSuggest("The Economist", "The Economist podcast"),
+        ),
+        "Казки / дітям" to listOf(
+            PodSuggest("Казки на ніч", "казки на ніч"),
+            PodSuggest("Українські казки", "українські казки"),
+            PodSuggest("Circle Round", "Circle Round podcast"),
+            PodSuggest("Storynory", "Storynory"),
+            PodSuggest("Good Night Stories", "Good Night Stories for Rebel Girls"),
+        ),
+        "Історія / наука" to listOf(
+            PodSuggest("Історія без міфів", "Історія без міфів"),
+            PodSuggest("Кляті питання", "Кляті питання"),
+            PodSuggest("Radiolab", "Radiolab"),
+            PodSuggest("Hardcore History", "Hardcore History"),
+            PodSuggest("TED Talks", "TED Talks Daily"),
+        ),
+        "Розмови / інше" to listOf(
+            PodSuggest("Lex Fridman", "Lex Fridman Podcast"),
+            PodSuggest("Серіал Serial", "Serial podcast"),
+            PodSuggest("Crime Junkie", "Crime Junkie"),
+            PodSuggest("Без брому", "Без брому"),
+        ),
+    )
 }
 
 object ItunesPodcasts {

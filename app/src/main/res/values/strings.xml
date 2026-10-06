@@ -205,6 +205,7 @@
     <string name="podcast_tab_eps">Favorites</string>
     <string name="podcast_tab_dl">Downloaded</string>
     <string name="podcast_tab_search">Search</string>
+    <string name="podcast_discover_genres">Genres — tap to search</string>
     <string name="podcast_more50">Load 50 more</string>
     <string name="podcast_no_working">No working shows</string>
     <string name="podcast_checking">Checking %1$d/%2$d</string>

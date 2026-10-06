@@ -325,8 +325,8 @@ fun NowPlayingSheet(
                 .fillMaxWidth()
                 .fillMaxHeight()
                 .statusBarsPadding()
-                // меню + інфо-панель — картка не накриває інфо
-                .padding(top = 152.dp)
+                // меню + інфо (~1 рядок назви ближче)
+                .padding(top = 130.dp)
                 .graphicsLayer {
                     translationY = pullA.value
                     val sc = (1f - pullA.value / 900f).coerceIn(0.45f, 1f)

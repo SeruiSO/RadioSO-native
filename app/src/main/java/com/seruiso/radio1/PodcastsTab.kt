@@ -56,6 +56,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -161,7 +162,15 @@ private fun hiResArt(url: String): String {
 
 /** UI-стан подкастів: переживає portrait↔landscape (різні місця в Compose-дереві). */
 private object PodUiSession {
-    var subName: String = ""
+    var subName by mutableStateOf("")
+    var subStamp by mutableIntStateOf(0)
+    fun pickSub(name: String) {
+        subName = name
+        selected = null
+        episodes = emptyList()
+        error = ""
+        subStamp++
+    }
     var query: String = ""
     var searchTerm: String = ""
     var results: List<PodcastShow> = emptyList()
@@ -222,6 +231,14 @@ fun PodcastsTabContent(
     var openedFeed by remember { mutableStateOf(PodUiSession.openedFeed) }
     var episodes by remember { mutableStateOf(PodUiSession.episodes) }
     var loadingEps by remember { mutableStateOf(false) }
+    LaunchedEffect(PodUiSession.subStamp) {
+        val n = enumValues<PodSub>().firstOrNull { it.name == PodUiSession.subName } ?: return@LaunchedEffect
+        if (n == sub) return@LaunchedEffect
+        selected = null
+        episodes = emptyList()
+        error = ""
+        sub = n
+    }
 
     var livePos by remember { mutableStateOf(0L) }
     var liveDur by remember { mutableStateOf(0L) }
@@ -1212,22 +1229,41 @@ fun PodcastsTabContent(
                 }
             }
         }
-        // завжди показуємо ШОУ/ОБРАНЕ/… навіть у списку епізодів шоу
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
-                .padding(top = 2.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            SubTab(Icons.AutoMirrored.Filled.LibraryBooks, PodSub.SHOWS, ctx.getString(R.string.podcast_tab_shows))
-            SubTab(Icons.Filled.Bookmark, PodSub.FAV_EPS, ctx.getString(R.string.podcast_tab_eps))
-            SubTab(Icons.Filled.Download, PodSub.DOWNLOADED, ctx.getString(R.string.podcast_tab_dl))
-            SubTab(Icons.Filled.Search, PodSub.SEARCH, ctx.getString(R.string.podcast_tab_search))
-            SubTab(Icons.Filled.Podcasts, PodSub.NEW, ctx.getString(R.string.podcast_tab_new))
-        }
+    }
+}
 
+@Composable
+fun PodcastDockTabs(acc: Color, muted: Color) {
+    val ctx = LocalContext.current
+    val cur = PodUiSession.subName.ifBlank { "SHOWS" }
+    @Composable
+    fun Chip(key: PodSub, label: String) {
+        val on = cur == key.name
+        Text(
+            label,
+            color = if (on) acc else muted,
+            style = MaterialTheme.typography.labelLarge,
+            maxLines = 1,
+            modifier = Modifier
+                .clip(RoundedCornerShape(20.dp))
+                .background(if (on) acc.copy(alpha = 0.20f) else muted.copy(alpha = 0.12f))
+                .clickable { PodUiSession.pickSub(key.name) }
+                .padding(horizontal = 14.dp, vertical = 7.dp),
+        )
+    }
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 6.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Chip(PodSub.SHOWS, ctx.getString(R.string.podcast_tab_shows))
+        Chip(PodSub.FAV_EPS, ctx.getString(R.string.podcast_tab_eps))
+        Chip(PodSub.DOWNLOADED, ctx.getString(R.string.podcast_tab_dl))
+        Chip(PodSub.SEARCH, ctx.getString(R.string.podcast_tab_search))
+        Chip(PodSub.NEW, ctx.getString(R.string.podcast_tab_new))
     }
 }
 

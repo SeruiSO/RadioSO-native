@@ -3,7 +3,14 @@ package com.seruiso.radio1
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.graphics.PathFillType
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.foundation.layout.offset
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.zIndex
@@ -120,11 +127,29 @@ fun BottomNavBar(
     acc: Color,
     muted: Color,
     card: Color,
+    playing: Boolean,
+    status: String,
+    onPlayPause: () -> Unit,
+    extraAbove: (@Composable () -> Unit)? = null,
     onSwipeUp: () -> Unit = {},
     onPull: (Float) -> Unit = {},
     onPullEnd: () -> Unit = {},
 ) {
     val ctx = LocalContext.current
+    val density = LocalDensity.current
+    val playDp = 44.dp
+    val cutoutR = with(density) { 26.dp.toPx() }
+    val corner = with(density) { 20.dp.toPx() }
+    val cradle = remember(cutoutR, corner) {
+        GenericShape { size, _ ->
+            fillType = PathFillType.EvenOdd
+            addRoundRect(
+                RoundRect(0f, 0f, size.width, size.height, CornerRadius(corner, corner)),
+            )
+            val cx = size.width / 2f
+            addOval(Rect(cx - cutoutR, -cutoutR, cx + cutoutR, cutoutR))
+        }
+    }
     @Composable
     fun NavIco(key: String, icon: androidx.compose.ui.graphics.vector.ImageVector, desc: String) {
         val selected = current == key
@@ -151,35 +176,57 @@ fun BottomNavBar(
             verticalAlignment = Alignment.CenterVertically
         ) { content() }
     }
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 0.dp)
-            .background(card, RoundedCornerShape(20.dp))
-            .pointerInput(Unit) {
-                detectVerticalDragGestures(
-                    onDragEnd = { onPullEnd() },
-                    onDragCancel = { onPullEnd() }
-                ) { _, drag ->
-                    if (drag < 0) onPull(drag)
-                    else onPull(drag)
+    Box(Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(cradle)
+                .background(card)
+                .pointerInput(Unit) {
+                    detectVerticalDragGestures(
+                        onDragEnd = { onPullEnd() },
+                        onDragCancel = { onPullEnd() },
+                    ) { _, drag -> onPull(drag) }
+                },
+        ) {
+            Spacer(Modifier.height(20.dp))
+            if (extraAbove != null) extraAbove()
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 2.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Capsule(true) {
+                    NavIco("music", Icons.Filled.LibraryMusic, ctx.getString(R.string.nav_music))
+                    NavIco("heart", Icons.Filled.Favorite, ctx.getString(R.string.favorites_plural))
+                }
+                NavIco("home", Icons.Filled.Home, ctx.getString(R.string.nav_home))
+                NavIco("podcasts", Icons.Filled.Podcasts, ctx.getString(R.string.nav_podcasts))
+                NavIco("search", Icons.Filled.Search, ctx.getString(R.string.nav_search))
+                Capsule(true) {
+                    NavIco("stations", Icons.Filled.Star, ctx.getString(R.string.nav_stations))
+                    NavIco("tabs", Icons.Filled.Radio, ctx.getString(R.string.tabs))
                 }
             }
-            .padding(horizontal = 2.dp, vertical = 6.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        // [♫|♥] · Дім · Подкасти · Пошук · [★|📻]
-        Capsule(true) {
-            NavIco("music", Icons.Filled.LibraryMusic, ctx.getString(R.string.nav_music))
-            NavIco("heart", Icons.Filled.Favorite, ctx.getString(R.string.favorites_plural))
         }
-        NavIco("home", Icons.Filled.Home, ctx.getString(R.string.nav_home))
-        NavIco("podcasts", Icons.Filled.Podcasts, ctx.getString(R.string.nav_podcasts))
-        NavIco("search", Icons.Filled.Search, ctx.getString(R.string.nav_search))
-        Capsule(true) {
-            NavIco("stations", Icons.Filled.Star, ctx.getString(R.string.nav_stations))
-            NavIco("tabs", Icons.Filled.Radio, ctx.getString(R.string.tabs))
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .offset(y = (-25).dp)
+                .size(50.dp)
+                .border(3.dp, card, RoundedCornerShape(16.dp)),
+            contentAlignment = Alignment.Center,
+        ) {
+            PlayBtn(
+                playing = playing,
+                status = status,
+                sizeDp = playDp,
+                onClick = onPlayPause,
+                accent = acc,
+                shape = RoundedCornerShape(14.dp),
+            )
         }
     }
 }
@@ -1138,6 +1185,12 @@ fun StationScreen(
             acc = acc,
             muted = muted,
             card = card,
+            playing = playing,
+            status = status,
+            onPlayPause = onPlayPause,
+            extraAbove = if (bottomTab == "podcasts") {
+                { PodcastDockTabs(acc = acc, muted = muted) }
+            } else null,
             onPull = { drag ->
                 if (drag < 0 || sheetShow) {
                     sheetShow = true
@@ -1171,25 +1224,6 @@ fun StationScreen(
     val showLeftEdge = !nowOpen && !sheetShow && !leftFullyOpen && !rightBusy
 
 
-
-    // Play ховаємо, коли відкрита ліва/права панель — інакше zIndex 3 перекриває вміст
-    if (!isLandscape && !leftBusy && !rightBusy) {
-        Box(
-            modifier = Modifier
-                .zIndex(3f)
-                .align(Alignment.BottomCenter)
-                .padding(bottom = if (bottomTab == "podcasts") 118.dp else 72.dp),
-        ) {
-            PlayBtn(
-                playing = playing,
-                status = status,
-                sizeDp = 56.dp,
-                onClick = onPlayPause,
-                accent = acc,
-                shape = RoundedCornerShape(14.dp),
-            )
-        }
-    }
 
     LeftMusicPanel(
         leftA = leftA,

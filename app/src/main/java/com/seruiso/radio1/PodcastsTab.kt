@@ -169,6 +169,15 @@ private object PodUiSession {
         selected = null
         episodes = emptyList()
         error = ""
+        if (name == "SEARCH") {
+            query = ""
+            searchTerm = ""
+            results = emptyList()
+            searchPool = emptyList()
+            status = ""
+            visibleN = 50
+            canLoadMore = false
+        }
         subStamp++
     }
     var query: String = ""
@@ -238,12 +247,9 @@ fun PodcastsTabContent(
             episodes = emptyList()
             error = ""
             sub = n
-        } else {
-            // той самий sub, але pickSub міг скинути selected у сесії
-            if (PodUiSession.selected == null && selected != null) {
-                selected = null
-                episodes = emptyList()
-            }
+        } else if (PodUiSession.selected == null && selected != null) {
+            selected = null
+            episodes = emptyList()
         }
     }
     LaunchedEffect(sub) {
@@ -297,6 +303,19 @@ fun PodcastsTabContent(
     var searchPool by remember { mutableStateOf(PodUiSession.searchPool) }
     var visibleN by remember { mutableStateOf(PodUiSession.visibleN) }
     var epSort by remember { mutableStateOf(PodUiSession.epSort) }
+
+    LaunchedEffect(PodUiSession.subStamp, PodUiSession.subName) {
+        if (PodUiSession.subName != "SEARCH") return@LaunchedEffect
+        query = PodUiSession.query
+        searchTerm = PodUiSession.searchTerm
+        results = PodUiSession.results
+        searchPool = PodUiSession.searchPool
+        status = PodUiSession.status
+        error = ""
+        visibleN = 50
+        kindFilter = "all"
+        epSort = false
+    }
     val showsState = rememberLazyListState()
     val episodeListState = rememberLazyListState()
     val searchState = rememberLazyListState()
@@ -1229,7 +1248,8 @@ fun PodcastsTabContent(
                             Text(
                                 ctx.getString(R.string.podcast_discover_genres),
                                 color = muted,
-                                style = MaterialTheme.typography.labelLarge,
+                                style = MaterialTheme.typography.titleSmall,
+                                modifier = Modifier.padding(top = 4.dp, bottom = 2.dp),
                             )
                         }
                         item {
@@ -1244,24 +1264,25 @@ fun PodcastsTabContent(
                                         style = MaterialTheme.typography.labelLarge,
                                         maxLines = 1,
                                         modifier = Modifier
-                                            .clip(RoundedCornerShape(20.dp))
-                                            .background(acc.copy(alpha = 0.16f))
+                                            .clip(RoundedCornerShape(22.dp))
+                                            .background(acc.copy(alpha = 0.18f))
+                                            .border(1.dp, acc.copy(alpha = 0.45f), RoundedCornerShape(22.dp))
                                             .clickable {
                                                 query = s.query
                                                 doSearch()
                                             }
-                                            .padding(horizontal = 14.dp, vertical = 8.dp),
+                                            .padding(horizontal = 14.dp, vertical = 9.dp),
                                     )
                                 }
                             }
                         }
-                        PodcastDiscover.sections.forEach { (title, list) ->
+                        PodcastDiscover.sections().forEach { (titleRes, list) ->
                             item {
                                 Text(
-                                    title,
-                                    color = muted,
-                                    style = MaterialTheme.typography.labelLarge,
-                                    modifier = Modifier.padding(top = 6.dp),
+                                    ctx.getString(titleRes),
+                                    color = text,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    modifier = Modifier.padding(top = 10.dp, bottom = 2.dp),
                                 )
                             }
                             item {
@@ -1276,13 +1297,14 @@ fun PodcastsTabContent(
                                             style = MaterialTheme.typography.labelLarge,
                                             maxLines = 1,
                                             modifier = Modifier
-                                                .clip(RoundedCornerShape(20.dp))
-                                                .background(muted.copy(alpha = 0.14f))
+                                                .clip(RoundedCornerShape(16.dp))
+                                                .background(card.copy(alpha = 0.92f))
+                                                .border(1.dp, muted.copy(alpha = 0.28f), RoundedCornerShape(16.dp))
                                                 .clickable {
                                                     query = s.query
                                                     doSearch()
                                                 }
-                                                .padding(horizontal = 14.dp, vertical = 8.dp),
+                                                .padding(horizontal = 14.dp, vertical = 10.dp),
                                         )
                                     }
                                 }
@@ -1348,70 +1370,138 @@ fun PodcastDockTabs(acc: Color, muted: Color) {
 }
 
 
-/** Порожній пошук: жанри та підбірки. Тап → doSearch(query). */
 private data class PodSuggest(val label: String, val query: String)
 
 private object PodcastDiscover {
     val genres = listOf(
-        PodSuggest("Техно", "techno"),
-        PodSuggest("Мінімал", "minimal techno"),
+        PodSuggest("Techno", "techno"),
+        PodSuggest("Minimal", "minimal techno"),
         PodSuggest("House", "house music"),
         PodSuggest("Deep House", "deep house"),
+        PodSuggest("Tech House", "tech house"),
         PodSuggest("DnB", "drum and bass"),
+        PodSuggest("Jungle", "jungle music"),
         PodSuggest("Ambient", "ambient music"),
-        PodSuggest("Jazz", "jazz"),
-        PodSuggest("Hip-Hop", "hip hop"),
-        PodSuggest("Classical", "classical music"),
+        PodSuggest("IDM", "idm electronic"),
         PodSuggest("Trance", "trance music"),
+        PodSuggest("Progressive", "progressive house"),
+        PodSuggest("Jazz", "jazz podcast"),
+        PodSuggest("Blues", "blues music"),
+        PodSuggest("Classical", "classical music"),
+        PodSuggest("Hip-Hop", "hip hop"),
+        PodSuggest("R&B", "r&b music"),
         PodSuggest("Rock", "rock music"),
+        PodSuggest("Metal", "metal music"),
+        PodSuggest("Indie", "indie music"),
+        PodSuggest("Pop", "pop music"),
+        PodSuggest("Reggae", "reggae"),
+        PodSuggest("Latin", "latin music"),
+        PodSuggest("Afrobeat", "afrobeat"),
         PodSuggest("Electronic", "electronic music"),
+        PodSuggest("Lo-fi", "lofi hip hop"),
+        PodSuggest("Synthwave", "synthwave"),
+        PodSuggest("Dubstep", "dubstep"),
+        PodSuggest("Breakbeat", "breakbeat"),
     )
-    val sections = listOf(
-        "Музика · UA" to listOf(
-            PodSuggest("Українська музика", "українська музика"),
-            PodSuggest("DJ / сети", "dj set ukraine"),
-            PodSuggest("Техно UA", "techno ukraine"),
-            PodSuggest("Електроніка UA", "electronic ukraine podcast"),
+    /** sectionTitleRes to suggestions (UA + EN queries) */
+    fun sections(): List<Pair<Int, List<PodSuggest>>> = listOf(
+        R.string.podcast_discover_music_ua to listOf(
+            PodSuggest("Ukrainian music", "українська музика"),
+            PodSuggest("UA electronic", "electronic ukraine"),
+            PodSuggest("UA techno", "techno ukraine"),
+            PodSuggest("UA house", "house ukraine"),
+            PodSuggest("DJ sets UA", "dj set ukraine"),
+            PodSuggest("Kyiv nightlife", "kyiv club music"),
+            PodSuggest("Ukrainian jazz", "український джаз"),
+            PodSuggest("Folk UA", "український фольклор"),
+            PodSuggest("Indie UA", "український інді"),
+            PodSuggest("Hip-hop UA", "український хіп-хоп"),
         ),
-        "Музика · світ" to listOf(
+        R.string.podcast_discover_music_world to listOf(
             PodSuggest("Song Exploder", "Song Exploder"),
             PodSuggest("Switched on Pop", "Switched on Pop"),
             PodSuggest("Resident Advisor", "Resident Advisor podcast"),
-            PodSuggest("BBC Radio 1", "BBC Radio 1 podcast"),
-            PodSuggest("Boiler Room", "Boiler Room podcast"),
+            PodSuggest("BBC Radio 1", "BBC Radio 1"),
+            PodSuggest("Boiler Room", "Boiler Room"),
+            PodSuggest("FACT Mix", "FACT mix"),
+            PodSuggest("DJ Mag", "DJ Mag podcast"),
+            PodSuggest("Groove Podcast", "Groove Podcast"),
+            PodSuggest("Solid Steel", "Solid Steel"),
+            PodSuggest("All Songs Considered", "All Songs Considered"),
+            PodSuggest("Broken Record", "Broken Record podcast"),
+            PodSuggest("Dissect", "Dissect podcast"),
         ),
-        "Новини · UA" to listOf(
-            PodSuggest("Радіо Свобода", "Радіо Свобода подкаст"),
-            PodSuggest("НВ", "НВ подкаст"),
-            PodSuggest("Слідство.Інфо", "Слідство Інфо"),
-            PodSuggest("Українська правда", "Українська правда подкаст"),
-            PodSuggest("Суспільне", "Суспільне подкаст"),
+        R.string.podcast_discover_news_ua to listOf(
+            PodSuggest("Radio Svoboda", "Радіо Свобода подкаст"),
+            PodSuggest("NV Podcasts", "НВ подкаст"),
+            PodSuggest("Slidstvo.Info", "Слідство Інфо"),
+            PodSuggest("Ukrainska Pravda", "Українська правда подкаст"),
+            PodSuggest("Suspilne", "Суспільне подкаст"),
+            PodSuggest("Hromadske", "Громадське подкаст"),
+            PodSuggest("Babel", "Babel подкаст"),
+            PodSuggest("LB.ua", "LB.ua подкаст"),
+            PodSuggest("Ukrainian Weekly", "українські новини подкаст"),
         ),
-        "Новини · світ" to listOf(
+        R.string.podcast_discover_news_world to listOf(
             PodSuggest("BBC Global News", "BBC Global News Podcast"),
             PodSuggest("The Daily", "The Daily New York Times"),
-            PodSuggest("NPR News", "NPR News Now"),
-            PodSuggest("The Economist", "The Economist podcast"),
+            PodSuggest("NPR News Now", "NPR News Now"),
+            PodSuggest("The Economist", "The Economist"),
+            PodSuggest("Up First", "Up First NPR"),
+            PodSuggest("Global News Podcast", "Global News Podcast"),
+            PodSuggest("World Affairs", "World Affairs podcast"),
+            PodSuggest("Reuters", "Reuters podcast"),
+            PodSuggest("Al Jazeera", "Al Jazeera podcast"),
         ),
-        "Казки / дітям" to listOf(
-            PodSuggest("Казки на ніч", "казки на ніч"),
-            PodSuggest("Українські казки", "українські казки"),
-            PodSuggest("Circle Round", "Circle Round podcast"),
+        R.string.podcast_discover_kids to listOf(
+            PodSuggest("Bedtime stories UA", "казки на ніч"),
+            PodSuggest("Ukrainian tales", "українські казки"),
+            PodSuggest("Circle Round", "Circle Round"),
             PodSuggest("Storynory", "Storynory"),
-            PodSuggest("Good Night Stories", "Good Night Stories for Rebel Girls"),
+            PodSuggest("Rebel Girls", "Good Night Stories for Rebel Girls"),
+            PodSuggest("Wow in the World", "Wow in the World"),
+            PodSuggest("Story Pirates", "Story Pirates"),
+            PodSuggest("Peace Out", "Peace Out podcast"),
+            PodSuggest("Kids Listen", "kids stories podcast"),
         ),
-        "Історія / наука" to listOf(
-            PodSuggest("Історія без міфів", "Історія без міфів"),
-            PodSuggest("Кляті питання", "Кляті питання"),
+        R.string.podcast_discover_history to listOf(
+            PodSuggest("History without myths", "Історія без міфів"),
+            PodSuggest("Damned questions", "Кляті питання"),
             PodSuggest("Radiolab", "Radiolab"),
             PodSuggest("Hardcore History", "Hardcore History"),
-            PodSuggest("TED Talks", "TED Talks Daily"),
+            PodSuggest("TED Talks Daily", "TED Talks Daily"),
+            PodSuggest("Throughline", "Throughline NPR"),
+            PodSuggest("Stuff You Should Know", "Stuff You Should Know"),
+            PodSuggest("Science Vs", "Science Vs"),
+            PodSuggest("In Our Time", "In Our Time BBC"),
+            PodSuggest("UA science", "наука українською"),
         ),
-        "Розмови / інше" to listOf(
+        R.string.podcast_discover_talk to listOf(
             PodSuggest("Lex Fridman", "Lex Fridman Podcast"),
-            PodSuggest("Серіал Serial", "Serial podcast"),
+            PodSuggest("Serial", "Serial podcast"),
             PodSuggest("Crime Junkie", "Crime Junkie"),
-            PodSuggest("Без брому", "Без брому"),
+            PodSuggest("Bez bromu", "Без брому"),
+            PodSuggest("This American Life", "This American Life"),
+            PodSuggest("The Joe Rogan", "Joe Rogan Experience"),
+            PodSuggest("Conan O'Brien", "Conan O Brien Needs a Friend"),
+            PodSuggest("SmartLess", "SmartLess"),
+            PodSuggest("Comedy Bang Bang", "Comedy Bang Bang"),
+            PodSuggest("UA interviews", "інтервю українською подкаст"),
+        ),
+        R.string.podcast_discover_sport to listOf(
+            PodSuggest("Football UA", "футбол українською"),
+            PodSuggest("The Athletic", "The Athletic Football"),
+            PodSuggest("ESPN", "ESPN podcast"),
+            PodSuggest("BBC Sport", "BBC Sport podcast"),
+            PodSuggest("Olympics", "Olympics podcast"),
+        ),
+        R.string.podcast_discover_business to listOf(
+            PodSuggest("UA business", "бізнес українською"),
+            PodSuggest("How I Built This", "How I Built This"),
+            PodSuggest("Planet Money", "Planet Money"),
+            PodSuggest("Freakonomics", "Freakonomics Radio"),
+            PodSuggest("Acquired", "Acquired podcast"),
+            PodSuggest("Masters of Scale", "Masters of Scale"),
         ),
     )
 }

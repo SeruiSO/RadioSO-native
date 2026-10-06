@@ -227,6 +227,16 @@
     <string name="podcast_tab_dl">Завантажені</string>
     <string name="podcast_tab_search">Пошук</string>
     <string name="podcast_discover_genres">Жанри — тап для пошуку</string>
+
+    <string name="podcast_discover_music_ua">Музика · Україна</string>
+    <string name="podcast_discover_music_world">Музика · світ</string>
+    <string name="podcast_discover_news_ua">Новини · Україна</string>
+    <string name="podcast_discover_news_world">Новини · світ</string>
+    <string name="podcast_discover_kids">Казки та дітям</string>
+    <string name="podcast_discover_history">Історія і наука</string>
+    <string name="podcast_discover_talk">Розмови та історії</string>
+    <string name="podcast_discover_sport">Спорт</string>
+    <string name="podcast_discover_business">Бізнес</string>
     <string name="podcast_more50">Ще 50</string>
     <string name="podcast_no_working">Немає робочих шоу</string>
     <string name="podcast_checking">Перевіряю %1$d/%2$d</string>

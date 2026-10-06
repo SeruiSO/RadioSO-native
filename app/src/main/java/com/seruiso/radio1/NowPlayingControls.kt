@@ -146,7 +146,7 @@ fun NowPlayingMeta(
         text = metaLine,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 0.dp, bottom = 2.dp)
+            .padding(top = 0.dp, bottom = 0.dp)
             .then(pagerDragModifier),
     ) {
         Text(
@@ -170,7 +170,7 @@ fun NowPlayingMeta(
             style = MaterialTheme.typography.labelSmall,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 1.dp, bottom = 2.dp)
+                .padding(top = 0.dp, bottom = 0.dp)
                 .then(pagerDragModifier),
         )
     }

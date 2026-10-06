@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -322,7 +323,14 @@ fun NowPlayingSheet(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .fillMaxHeight(0.90f)
+                .fillMaxHeight()
+                .statusBarsPadding()
+                .padding(top = 152.dp)
+                .statusBarsPadding()
+                .padding(top = 152.dp)
+                .statusBarsPadding()
+                // меню (~48) + інфо-панель (100) + зазор — картка не накриває інфо
+                .padding(top = 152.dp)
                 .graphicsLayer {
                     translationY = pullA.value
                     val sc = (1f - pullA.value / 900f).coerceIn(0.45f, 1f)

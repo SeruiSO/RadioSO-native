@@ -1578,19 +1578,27 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                     .getString(LocalMusicPlugin.KEY_MODE, "radio");
                 if ("podcast".equals(mode)) album = artist;
             } catch (Exception ignored) {}
+            // Classic BT / AVRCP: лише title+artist (без JPEG) — магнітола не «висить» на важких meta.
+            // Картинка лишається в notification largeIcon (шторка) і в UI Coil.
+            // Android Auto: маленька обкладинка ок (екран машини).
             MediaMetadata.Builder mdb = new MediaMetadata.Builder()
                 .setTitle(title)
                 .setArtist(artist)
                 .setDisplayTitle(title)
                 .setSubtitle(artist)
                 .setAlbumTitle(album);
-            if (stationArt != null && !stationArt.isRecycled()) {
+            boolean aaLive = false;
+            try {
+                aaLive = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                    .getBoolean(BluetoothAutoPlayPlugin.KEY_AA_ACTIVE, false);
+            } catch (Exception ignored) {}
+            if (aaLive && stationArt != null && !stationArt.isRecycled()) {
                 try {
-                    Bitmap small = shrinkArt(stationArt, 200);
+                    Bitmap small = shrinkArt(stationArt, 128);
                     ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                    int q = 70;
+                    int q = 55;
                     small.compress(Bitmap.CompressFormat.JPEG, q, baos);
-                    while (baos.size() > 32 * 1024 && q > 40) {
+                    while (baos.size() > 16 * 1024 && q > 35) {
                         q -= 10;
                         baos.reset();
                         small.compress(Bitmap.CompressFormat.JPEG, q, baos);
@@ -2158,6 +2166,8 @@ notifyForeground();
                     stationArt = null;
                     stationArtUrl = "";
                     artGen++;
+                    // одразу скинути session (старий radio JPEG не лишається на магнітолі/шторці meta)
+                    applySessionMetadata(currentName, lastTrackTitle);
                     if (fav != null && fav.startsWith("http")) loadStationArtAsync();
                     else notifyForeground();
                 } else {

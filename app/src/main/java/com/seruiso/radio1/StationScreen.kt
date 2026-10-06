@@ -135,7 +135,9 @@ fun BottomNavBar(
 ) {
     val ctx = LocalContext.current
     val playDp = 52.dp
-    val cardCol = card
+    // Панель як колишні капсули; капсули ще світліші
+    val panelFill = muted.copy(alpha = 0.10f)
+    val pairFill = muted.copy(alpha = 0.22f)
     @Composable
     fun NavIco(key: String, icon: androidx.compose.ui.graphics.vector.ImageVector, desc: String) {
         val selected = current == key
@@ -154,10 +156,7 @@ fun BottomNavBar(
     fun Capsule(active: Boolean, content: @Composable () -> Unit) {
         Row(
             modifier = Modifier
-                .background(
-                    muted.copy(alpha = 0.08f),
-                    RoundedCornerShape(16.dp)
-                )
+                .background(pairFill, RoundedCornerShape(16.dp))
                 .padding(horizontal = 0.dp),
             verticalAlignment = Alignment.CenterVertically
         ) { content() }
@@ -172,17 +171,15 @@ fun BottomNavBar(
                     val h = size.height
                     val cx = w / 2f
                     val play = 52.dp.toPx()
-                    val gap = 4.dp.toPx()
-                    val wrap = 4.dp.toPx()
-                    val ease = 18.dp.toPx()
+                    val wrap = 3.dp.toPx()
+                    val ease = 16.dp.toPx()
                     val corner = 20.dp.toPx()
-                    val playCr = 16.dp.toPx()
                     val half = play / 2f
-                    val inner = half + gap
-                    val outer = inner + wrap
+                    val outer = half + wrap
                     val bar = Path().apply {
                         addRoundRect(RoundRect(0f, 0f, w, h, CornerRadius(corner, corner)))
                     }
+                    // Обводка впритул до кнопки, без просвіту (без hole)
                     val lobe = Path().apply {
                         val l = cx - outer - ease
                         val r = cx + outer + ease
@@ -191,20 +188,8 @@ fun BottomNavBar(
                             RoundRect(l, top, r, outer, CornerRadius(outer, outer)),
                         )
                     }
-                    val hole = Path().apply {
-                        addRoundRect(
-                            RoundRect(
-                                cx - inner,
-                                -inner,
-                                cx + inner,
-                                inner,
-                                CornerRadius(playCr + gap, playCr + gap),
-                            ),
-                        )
-                    }
-                    val uni = Path().apply { op(bar, lobe, PathOperation.Union) }
-                    val dock = Path().apply { op(uni, hole, PathOperation.Difference) }
-                    drawPath(dock, color = cardCol)
+                    val dock = Path().apply { op(bar, lobe, PathOperation.Union) }
+                    drawPath(dock, color = panelFill)
                 }
                 .pointerInput(Unit) {
                     detectVerticalDragGestures(
@@ -213,7 +198,18 @@ fun BottomNavBar(
                     ) { _, drag -> onPull(drag) }
                 },
         ) {
-            if (extraAbove != null) extraAbove()
+            if (extraAbove != null) {
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .pointerInput(Unit) {
+                            detectVerticalDragGestures(
+                                onDragEnd = { onPullEnd() },
+                                onDragCancel = { onPullEnd() },
+                            ) { _, drag -> onPull(drag) }
+                        },
+                ) { extraAbove() }
+            }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -237,8 +233,14 @@ fun BottomNavBar(
         Box(
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .offset(y = (-26).dp)
-                .zIndex(4f),
+                .offset(y = (-36).dp)
+                .zIndex(4f)
+                .pointerInput(Unit) {
+                    detectVerticalDragGestures(
+                        onDragEnd = { onPullEnd() },
+                        onDragCancel = { onPullEnd() },
+                    ) { _, drag -> onPull(drag) }
+                },
             contentAlignment = Alignment.Center,
         ) {
             PlayBtn(

@@ -143,9 +143,11 @@ private fun formatPodDuration(raw: String): String {
 }
 
 
-/** iTunes часто дає 100x100 — підміняємо на 600x600 для UI / NP. */
+/** Apple mzstatic: 100x100 → 600x600. Інші URL — як є (не ламати радіо/RSS). */
 private fun hiResArt(url: String): String {
     if (url.isBlank()) return url
+    val low = url.lowercase()
+    if ("mzstatic.com" !in low) return url
     return try {
         Regex("""(\d+)x(\d+)([a-z]*)\.(jpg|png|webp)""", RegexOption.IGNORE_CASE)
             .replace(url) { m ->

@@ -37,15 +37,18 @@ fun displayFavicon(raw: String?): String {
     if ("google.com/s2/favicons" in low) return ""
     if (!(u.startsWith("http://") || u.startsWith("https://") || u.startsWith("content:"))) return ""
     if (low.endsWith(".svg")) return ""
-    // iTunes / mzstatic: 60x60 / 100x100 → 600x600 для великої картки
-    return try {
-        Regex("""(\d+)x(\d+)([a-z]*)\.(jpg|png|webp)""", RegexOption.IGNORE_CASE)
-            .replace(u) { m ->
-                "600x600${m.groupValues[3]}.${m.groupValues[4]}"
-            }
-    } catch (_: Exception) {
-        u
+    // Тільки Apple CDN: 60/100 → 600. Інші URL (радіо-favicon) не чіпаємо.
+    if ("mzstatic.com" in low) {
+        return try {
+            Regex("""(\d+)x(\d+)([a-z]*)\.(jpg|png|webp)""", RegexOption.IGNORE_CASE)
+                .replace(u) { mm ->
+                    "600x600${mm.groupValues[3]}.${mm.groupValues[4]}"
+                }
+        } catch (_: Exception) {
+            u
+        }
     }
+    return u
 }
 
 private object StationArtLoader {

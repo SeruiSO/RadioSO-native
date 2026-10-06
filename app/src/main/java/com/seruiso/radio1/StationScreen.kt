@@ -237,7 +237,13 @@ fun BottomNavBar(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 2.dp, vertical = 6.dp),
+                    .padding(
+                        start = 2.dp,
+                        end = 2.dp,
+                        // 1 dp між підвкладками подкастів і основним рядом
+                        top = if (extraAbove != null) 1.dp else 6.dp,
+                        bottom = 6.dp,
+                    ),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically,
             ) {

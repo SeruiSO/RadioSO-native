@@ -1270,7 +1270,7 @@ fun PodcastDockTabs(acc: Color, muted: Color) {
         Modifier
             .fillMaxWidth()
             .horizontalScroll(rememberScrollState())
-            .padding(horizontal = 6.dp, vertical = 4.dp),
+            .padding(start = 6.dp, end = 6.dp, top = 2.dp, bottom = 0.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

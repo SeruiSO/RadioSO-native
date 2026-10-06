@@ -142,6 +142,20 @@ private fun formatPodDuration(raw: String): String {
     return if (h > 0) "%d:%02d:%02d".format(h, m, r) else "%d:%02d".format(m, r)
 }
 
+
+/** iTunes часто дає 100x100 — підміняємо на 600x600 для UI / NP. */
+private fun hiResArt(url: String): String {
+    if (url.isBlank()) return url
+    return try {
+        Regex("""(\d+)x(\d+)([a-z]*)\.(jpg|png|webp)""", RegexOption.IGNORE_CASE)
+            .replace(url) { m ->
+                "600x600${m.groupValues[3]}.${m.groupValues[4]}"
+            }
+    } catch (_: Exception) {
+        url
+    }
+}
+
 @Composable
 fun PodcastsTabContent(
     acc: Color,
@@ -357,7 +371,7 @@ fun PodcastsTabContent(
         val localArtists = JSONArray()
         val localAlbums = JSONArray()
         list.forEach { e ->
-            val art = e.image.ifBlank { artwork }
+            val art = hiResArt(e.image.ifBlank { artwork })
             val path = PodcastStore.localPath(ctx, e.audioUrl).ifBlank { e.audioUrl }
             val media = if (path.startsWith("/")) "file://$path" else path
             urls.put(media)
@@ -372,7 +386,7 @@ fun PodcastsTabContent(
         }
         val path0 = PodcastStore.localPath(ctx, ep.audioUrl).ifBlank { ep.audioUrl }
         val mediaUrl = if (path0.startsWith("/")) "file://$path0" else path0
-        val art0 = ep.image.ifBlank { artwork }
+        val art0 = hiResArt(ep.image.ifBlank { artwork })
         RadioSlot.remember(ctx)
         PodcastStore.notePlay(
             ctx,
@@ -580,7 +594,7 @@ fun PodcastsTabContent(
 
     @Composable
     fun SubTab(icon: ImageVector, key: PodSub, label: String) {
-        val on = sub == key && selected == null
+        val on = sub == key
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
@@ -615,7 +629,7 @@ fun PodcastsTabContent(
                 contentAlignment = Alignment.Center,
             ) {
                 if (show.artwork.isNotBlank()) {
-                    AsyncImage(model = show.artwork, contentDescription = show.title,
+                    AsyncImage(model = hiResArt(show.artwork), contentDescription = show.title,
                         modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                 } else {
                     Icon(Icons.Filled.Podcasts, null, tint = muted, modifier = Modifier.size(28.dp))
@@ -676,7 +690,7 @@ fun PodcastsTabContent(
                 contentAlignment = Alignment.Center,
             ) {
                 if (img.isNotBlank()) {
-                    AsyncImage(model = img, contentDescription = null,
+                    AsyncImage(model = hiResArt(img), contentDescription = null,
                         modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                 } else {
                     Icon(Icons.Filled.Podcasts, null, tint = muted, modifier = Modifier.size(22.dp))
@@ -804,7 +818,7 @@ fun PodcastsTabContent(
                     Spacer(Modifier.width(8.dp))
                     if (selected!!.artwork.isNotBlank()) {
                         AsyncImage(
-                            model = selected!!.artwork, contentDescription = null,
+                            model = hiResArt(selected!!.artwork), contentDescription = null,
                             modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)),
                             contentScale = ContentScale.Crop,
                         )
@@ -1133,21 +1147,20 @@ fun PodcastsTabContent(
                 }
             }
         }
-        if (selected == null) {
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
-                    .padding(top = 2.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                SubTab(Icons.AutoMirrored.Filled.LibraryBooks, PodSub.SHOWS, ctx.getString(R.string.podcast_tab_shows))
-                SubTab(Icons.Filled.Bookmark, PodSub.FAV_EPS, ctx.getString(R.string.podcast_tab_eps))
-                SubTab(Icons.Filled.Download, PodSub.DOWNLOADED, ctx.getString(R.string.podcast_tab_dl))
-                SubTab(Icons.Filled.Search, PodSub.SEARCH, ctx.getString(R.string.podcast_tab_search))
-                SubTab(Icons.Filled.Podcasts, PodSub.NEW, ctx.getString(R.string.podcast_tab_new))
-            }
+        // завжди показуємо ШОУ/ОБРАНЕ/… навіть у списку епізодів шоу
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(top = 2.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            SubTab(Icons.AutoMirrored.Filled.LibraryBooks, PodSub.SHOWS, ctx.getString(R.string.podcast_tab_shows))
+            SubTab(Icons.Filled.Bookmark, PodSub.FAV_EPS, ctx.getString(R.string.podcast_tab_eps))
+            SubTab(Icons.Filled.Download, PodSub.DOWNLOADED, ctx.getString(R.string.podcast_tab_dl))
+            SubTab(Icons.Filled.Search, PodSub.SEARCH, ctx.getString(R.string.podcast_tab_search))
+            SubTab(Icons.Filled.Podcasts, PodSub.NEW, ctx.getString(R.string.podcast_tab_new))
         }
 
     }

@@ -1172,7 +1172,8 @@ fun StationScreen(
 
 
 
-    if (!isLandscape) {
+    // Play ховаємо, коли відкрита ліва/права панель — інакше zIndex 3 перекриває вміст
+    if (!isLandscape && !leftBusy && !rightBusy) {
         Box(
             modifier = Modifier
                 .zIndex(3f)

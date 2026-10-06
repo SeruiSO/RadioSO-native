@@ -13,6 +13,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.height
@@ -135,9 +136,9 @@ fun BottomNavBar(
 ) {
     val ctx = LocalContext.current
     val playDp = 52.dp
-    // Панель як колишні капсули; капсули ще світліші
-    val panelFill = muted.copy(alpha = 0.10f)
-    val pairFill = muted.copy(alpha = 0.22f)
+    val playLift = 36.dp
+    // Капсули як раніше; обводка — той самий тон, але непрозора (lerp card→muted)
+    val panelFill = lerp(card, muted, 0.14f)
     @Composable
     fun NavIco(key: String, icon: androidx.compose.ui.graphics.vector.ImageVector, desc: String) {
         val selected = current == key
@@ -156,7 +157,10 @@ fun BottomNavBar(
     fun Capsule(active: Boolean, content: @Composable () -> Unit) {
         Row(
             modifier = Modifier
-                .background(pairFill, RoundedCornerShape(16.dp))
+                .background(
+                    muted.copy(alpha = 0.08f),
+                    RoundedCornerShape(16.dp)
+                )
                 .padding(horizontal = 0.dp),
             verticalAlignment = Alignment.CenterVertically
         ) { content() }
@@ -176,16 +180,17 @@ fun BottomNavBar(
                     val corner = 20.dp.toPx()
                     val half = play / 2f
                     val outer = half + wrap
+                    // Центр кнопки піднятий разом з offset(-playLift)
+                    val cy = half - playLift.toPx()
                     val bar = Path().apply {
                         addRoundRect(RoundRect(0f, 0f, w, h, CornerRadius(corner, corner)))
                     }
-                    // Обводка впритул до кнопки, без просвіту (без hole)
+                    // Обводка впритул, піднята разом з кнопкою
                     val lobe = Path().apply {
                         val l = cx - outer - ease
                         val r = cx + outer + ease
-                        val top = -outer
                         addRoundRect(
-                            RoundRect(l, top, r, outer, CornerRadius(outer, outer)),
+                            RoundRect(l, cy - outer, r, cy + outer, CornerRadius(outer, outer)),
                         )
                     }
                     val dock = Path().apply { op(bar, lobe, PathOperation.Union) }
@@ -233,7 +238,7 @@ fun BottomNavBar(
         Box(
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .offset(y = (-36).dp)
+                .offset(y = (-playLift))
                 .zIndex(4f)
                 .pointerInput(Unit) {
                     detectVerticalDragGestures(

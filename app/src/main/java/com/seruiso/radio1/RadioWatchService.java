@@ -555,7 +555,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                     }
                     if (!pausedByFocusLoss) attemptReconnect("state-ended", false);
                 } else if (state == Player.STATE_IDLE) {
-                    if (isLocalMode()) return;
+                    if (isFilePlayback()) return;
                     if (!pausedByFocusLoss) attemptReconnect("state-idle", false);
                 }
             }
@@ -607,7 +607,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                             android.util.Log.i("RadioWatch", "onAvailable skip — user pause");
                             return;
                         }
-                        if (isLocalMode()) return;
+                        if (isFilePlayback()) return;
                         if (player != null && player.isPlaying()) {
                             reconnectAttempt = 0;
                             notifyUiStatus(lc().getString(R.string.playing), 0);
@@ -696,7 +696,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
      * якщо два тригери спрацюють майже одночасно.
      */
     private void attemptReconnect(String reason, boolean immediate) {
-        if (isLocalMode()) return;
+        if (isFilePlayback()) return;
         if (!PlaybackPrefs.isIntended(this)) {
             android.util.Log.i("RadioWatch", "attemptReconnect(" + reason + ") skip — not intended");
             return;
@@ -1219,7 +1219,15 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                             || stGain == Player.STATE_ENDED
                             || player.getCurrentMediaItem() == null;
                     if (stale) {
-                        attemptReconnect("focus-gain-stale", true);
+                        // HTTP-подкаст/радіо — reconnect; файл — перезапуск URL
+                        if (isFilePlayback()) {
+                            String u = resolveReconnectUrl();
+                            if (u != null && !u.isEmpty() && requestFocus()) {
+                                playUrl(u);
+                            }
+                        } else {
+                            attemptReconnect("focus-gain-stale", true);
+                        }
                     } else {
                         requestFocus();
                         player.setPlayWhenReady(true);
@@ -2246,6 +2254,29 @@ notifyForeground();
         }
     }
 
+    /**
+     * Справжній локальний файл (трек / скачаний подкаст) — без network reconnect.
+     * HTTP/HTTPS подкаст стрім — як радіо: reconnect після мережі/помилки/дзвінка.
+     */
+    private boolean isFilePlayback() {
+        try {
+            android.content.SharedPreferences p =
+                    getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE);
+            String mode = p.getString(LocalMusicPlugin.KEY_MODE, "radio");
+            if ("local".equals(mode)) return true;
+            String url = lastPlayedUrl;
+            if (url == null || url.isEmpty()) {
+                url = p.getString(BluetoothAutoPlayPlugin.KEY_URL, "");
+            }
+            if (url == null) url = "";
+            if (url.startsWith("content:") || url.startsWith("file:")) return true;
+            if ("podcast".equals(mode) && !url.startsWith("http")) return true;
+            return false;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     private void armPositionTicker() {
         if (positionHandler == null) positionHandler = new android.os.Handler(android.os.Looper.getMainLooper());
         if (positionTicker != null) positionHandler.removeCallbacks(positionTicker);
@@ -3228,7 +3259,7 @@ notifyForeground();
     }
 
     private void scheduleReconnect() {
-        if (isLocalMode()) return;
+        if (isFilePlayback()) return;
         if (!PlaybackPrefs.isIntended(this)) return;
         if (player != null && player.isPlaying()) {
             reconnectAttempt = 0;
@@ -3249,7 +3280,7 @@ notifyForeground();
             final int attemptHb = reconnectAttempt;
             reconnectHandler.postDelayed(() -> {
                 if (player == null) return;
-                if (isLocalMode()) return;
+                if (isFilePlayback()) return;
                 if (!PlaybackPrefs.isIntended(RadioWatchService.this)) return;
                 if (player.isPlaying()) {
                     reconnectAttempt = 0;

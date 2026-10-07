@@ -164,12 +164,15 @@ private fun hiResArt(url: String): String {
 private object PodUiSession {
     var subName by mutableStateOf("")
     var subStamp by mutableIntStateOf(0)
+    /** true = SideEffect не повертає старий query/searchTerm після тапу «Пошук» */
+    var suppressSearchSync: Boolean = false
     fun pickSub(name: String) {
         subName = name
         selected = null
         episodes = emptyList()
         error = ""
         if (name == "SEARCH") {
+            suppressSearchSync = true
             query = ""
             searchTerm = ""
             results = emptyList()
@@ -306,15 +309,22 @@ fun PodcastsTabContent(
 
     LaunchedEffect(PodUiSession.subStamp, PodUiSession.subName) {
         if (PodUiSession.subName != "SEARCH") return@LaunchedEffect
-        query = PodUiSession.query
-        searchTerm = PodUiSession.searchTerm
-        results = PodUiSession.results
-        searchPool = PodUiSession.searchPool
-        status = PodUiSession.status
+        // Завжди чисті пропозиції при тапі «Пошук»
+        query = ""
+        searchTerm = ""
+        results = emptyList()
+        searchPool = emptyList()
+        status = ""
         error = ""
         visibleN = 50
         kindFilter = "all"
         epSort = false
+        PodUiSession.query = ""
+        PodUiSession.searchTerm = ""
+        PodUiSession.results = emptyList()
+        PodUiSession.searchPool = emptyList()
+        PodUiSession.status = ""
+        PodUiSession.suppressSearchSync = false
     }
     val showsState = rememberLazyListState()
     val episodeListState = rememberLazyListState()
@@ -322,12 +332,13 @@ fun PodcastsTabContent(
 
     // Зберегти UI між portrait/landscape (дві різні гілки в StationScreen)
     androidx.compose.runtime.SideEffect {
-        // subName пише лише pickSub / LaunchedEffect(sub) — інакше SideEffect
-        // затирає вибір з дока до того, як LaunchedEffect встигне змінити sub
-        PodUiSession.query = query
-        PodUiSession.searchTerm = searchTerm
-        PodUiSession.results = results
-        PodUiSession.searchPool = searchPool
+        // subName пише лише pickSub / LaunchedEffect(sub)
+        if (!PodUiSession.suppressSearchSync) {
+            PodUiSession.query = query
+            PodUiSession.searchTerm = searchTerm
+            PodUiSession.results = results
+            PodUiSession.searchPool = searchPool
+        }
         PodUiSession.visibleN = visibleN
         PodUiSession.canLoadMore = canLoadMore
         PodUiSession.searchOffset = searchOffset

@@ -722,9 +722,9 @@ fun StationScreen(
                             contentDescription = name,
                             modifier = Modifier
                                 .align(Alignment.BottomEnd)
-                                .padding(4.dp)
-                                .size(28.dp)
-                                .clip(RoundedCornerShape(6.dp))
+                                .padding(0.dp)
+                                .size(48.dp)
+                                .clip(RoundedCornerShape(8.dp))
                                 .background(Palette.panel2),
                         )
                     } else {
@@ -1012,9 +1012,9 @@ fun StationScreen(
                             contentDescription = name,
                             modifier = Modifier
                                 .align(Alignment.BottomEnd)
-                                .padding(3.dp)
-                                .size(22.dp)
-                                .clip(RoundedCornerShape(5.dp))
+                                .padding(0.dp)
+                                .size(44.dp)
+                                .clip(RoundedCornerShape(8.dp))
                                 .background(Palette.panel2),
                         )
                     } else {

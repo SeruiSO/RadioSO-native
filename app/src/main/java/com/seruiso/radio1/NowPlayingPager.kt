@@ -135,8 +135,8 @@ fun NowPlayingPager(
                                 url = fallbackArt,
                                 modifier = Modifier
                                     .align(Alignment.BottomEnd)
-                                    .padding(8.dp)
-                                    .size(44.dp)
+                                    .padding(0.dp)
+                                    .size(64.dp)
                                     .clip(AppShapes.card)
                                     .background(Color.Black.copy(alpha = 0.40f)),
                             )

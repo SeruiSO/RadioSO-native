@@ -47,9 +47,10 @@ fun NowPlayingPager(
     acc: Color,
     muted: Color,
 ) {
-    // Радіо 300 — місце під рядок виконавця; локал/подкаст 300 під прогрес
-    val npArt = if (nowLocal) 300.dp else 300.dp
-    val npPagerH = if (nowLocal) 318.dp else 318.dp
+    // Розмір обкладинки від висоти екрана
+    val metrics = rememberUiMetrics()
+    val npArt = metrics.npArt
+    val npPagerH = metrics.npPagerH
     HorizontalPager(
         state = pagerState,
         userScrollEnabled = userScrollEnabled,

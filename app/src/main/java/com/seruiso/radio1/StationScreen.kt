@@ -668,7 +668,8 @@ fun StationScreen(
         } else artistFromTrackTitle(track)
         val infoPhoto by rememberArtistPhotoUrl(infoArtist, bust = if (localNow) infoArtist else currentUrl)
         val podcastNow = genre.equals("podcast", ignoreCase = true)
-        val infoH = 100.dp
+        val metrics = rememberUiMetrics()
+        val infoH = metrics.infoH
         val infoBusy = !playing && run {
             val stt = status.lowercase()
             run {
@@ -692,7 +693,7 @@ fun StationScreen(
         fun InfoLand() {
             Column(
                 modifier = Modifier
-                    .width(196.dp)
+                    .width(metrics.infoLandW)
                     .fillMaxHeight()
                     .clip(RoundedCornerShape(14.dp))
                     .background(card)
@@ -700,7 +701,7 @@ fun StationScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(148.dp)
+                        .height(metrics.infoLandArtH)
                         .graphicsLayer {
                             val sc = if (playing || infoBusy) pulseState.value else 1f
                             scaleX = sc; scaleY = sc

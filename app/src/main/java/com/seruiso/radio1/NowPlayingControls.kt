@@ -235,7 +235,7 @@ fun NowPlayingTransport(
         PlayBtn(
             playing = playing,
             status = status,
-            sizeDp = 80.dp,
+            sizeDp = rememberUiMetrics().playBtn,
             onClick = onPlayPause,
             accent = acc
         )

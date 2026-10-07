@@ -130,6 +130,7 @@ fun NowPlayingSheet(
     actions: NowPlayingActions,
     ui: NowPlayingUi,
 ) {
+    val metrics = rememberUiMetrics()
     val isLocalNow = ui.isLocalNow
     val currentUrl = ui.currentUrl
     val showLocal = ui.showLocal
@@ -326,7 +327,7 @@ fun NowPlayingSheet(
                 .fillMaxHeight()
                 .statusBarsPadding()
                 // меню + інфо (~1 рядок назви ближче)
-                .padding(top = 130.dp)
+                .padding(top = metrics.sheetTop)
                 .graphicsLayer {
                     translationY = pullA.value
                     val sc = (1f - pullA.value / 900f).coerceIn(0.45f, 1f)
@@ -647,7 +648,7 @@ private fun TrackHistoryBack(
             }
             // місце під списком — тап проходить на Box → закриття
             item(key = "tail") {
-                Box(Modifier.fillMaxWidth().height(320.dp))
+                Box(Modifier.fillMaxWidth().height(rememberUiMetrics().npFallbackArtH))
             }
         }
     }

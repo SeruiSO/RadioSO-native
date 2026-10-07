@@ -1399,10 +1399,11 @@ class MainActivity : ComponentActivity() {
     private fun playRadio(list: List<Station>, index: Int, asQueue: Boolean = true) {
         if (index !in list.indices) return
         val s = list[index]
+        val sameStation = s.url == currentUrl
         RadioSlot.remember(this)
         pushRecentStation(s)
         stationName = s.name
-        trackTitle = ""
+        if (!sameStation) trackTitle = ""
         currentFavicon = s.favicon
         currentUrl = s.url
         currentGenre = s.genre
@@ -1422,11 +1423,13 @@ class MainActivity : ComponentActivity() {
             .putString(BluetoothAutoPlayPlugin.KEY_SKIP_MODE, skipMode)
             .putString(BluetoothAutoPlayPlugin.KEY_URL, s.url)
             .putString(BluetoothAutoPlayPlugin.KEY_NAME, s.name)
-            .putString(BluetoothAutoPlayPlugin.KEY_TRACK, "")
-            .putString(BluetoothAutoPlayPlugin.KEY_FAVICON, s.favicon)
+                        .putString(BluetoothAutoPlayPlugin.KEY_FAVICON, s.favicon)
             .putString(BluetoothAutoPlayPlugin.KEY_GENRE, s.genre)
             .putString(BluetoothAutoPlayPlugin.KEY_COUNTRY, s.country)
             .putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, true)
+        if (!sameStation) {
+            ed.putString(BluetoothAutoPlayPlugin.KEY_TRACK, "")
+        }
         val urls = JSONArray(); val names = JSONArray(); val favs = JSONArray()
         val genres = JSONArray(); val countries = JSONArray()
         list.forEach {

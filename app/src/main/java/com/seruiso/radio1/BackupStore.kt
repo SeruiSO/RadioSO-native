@@ -128,12 +128,27 @@ object BackupStore {
         }
         val pod = o.optJSONObject("podcast")
         if (pod != null) {
-            val keys = pod.keys()
-            while (keys.hasNext()) {
-                val k = keys.next()
-                if (!k.startsWith("pod_") && k !in setOf("subs", "fav", "dl", "recent", "played", "pos", "dur", "speed")) continue
-                if (k == "podSpeed") e.putFloat(k, pod.optDouble(k, 1.0).toFloat())
-                else e.putString(k, pod.optString(k))
+            // Ті самі ключі, що в podcastSection / PodcastStore (без фільтра short-names).
+            listOf(
+                "podcastSubsJson",
+                "podcastFavEpsJson",
+                "podcastDlMetaJson",
+                "podcastFeedCache",
+                "podPosJson",
+                "podcastRecentEps",
+                "podcastPlayedUrls",
+                "podDurJson",
+            ).forEach { k ->
+                if (pod.has(k)) {
+                    val v = pod.opt(k)
+                    e.putString(k, when (v) {
+                        is String -> v
+                        else -> v?.toString() ?: return@forEach
+                    })
+                }
+            }
+            if (pod.has("podSpeed")) {
+                e.putFloat("podSpeed", pod.optDouble("podSpeed", 1.0).toFloat())
             }
         }
         e.apply()

@@ -3125,6 +3125,7 @@ notifyForeground();
                     getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
                         .edit().putString(BluetoothAutoPlayPlugin.KEY_URL, url).apply();
                 } catch (Exception ignored) {}
+                try { notifyUiStatus(lc().getString(R.string.playing), 0); } catch (Exception ignored) {}
                 notifyForeground();
                 return;
             }

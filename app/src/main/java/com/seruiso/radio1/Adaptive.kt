@@ -44,15 +44,9 @@ data class UiMetrics(
         else -> 148.dp
     }
     val sheetTop: Dp get() {
-        // нижче інфо-панелі (шапка 40 + infoH), і ще трохи якщо великий шрифт
-        val base = when {
-            tight -> 88.dp
-            compact -> 104.dp
-            screenH < 800 -> 116.dp
-            else -> 124.dp
-        }
-        val bump = ((fontScale - 1f).coerceIn(0f, 0.5f) * 16f).dp
-        return base + bump
+        // Портрет: рівно під інфо (кнопки 40 + infoH). Альбом: лише під рядок кнопок.
+        val header = 40.dp
+        return if (screenW > screenH) header else header + infoH
     }
     /** Велика обкладинка: не ширша за екран мінус поля пейджера. */
     val npArt: Dp get() {

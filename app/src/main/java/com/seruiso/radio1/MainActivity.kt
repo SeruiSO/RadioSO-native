@@ -538,7 +538,7 @@ class MainActivity : ComponentActivity() {
                         tempRows = tempStations,
 
                         onToggleBest = { toggleBest(it.uri) },
-                        onScan = { reloadLocal() },
+                        onScan = { ensureAudioPermission() },
                         menuOpen = menuOpen,
                         onMenu = { menuOpen = !menuOpen },
                         onCloseMenu = { menuOpen = false; sleepMenu = false },
@@ -1024,6 +1024,7 @@ class MainActivity : ComponentActivity() {
         }
         if (t == "search") autoSearchByGeo()
         if (t == "home") refreshHomeRails(wantSimilar = true)
+        if (t == "music" || t == "heart") ensureAudioPermission()
         persistVisibleQueue()
     }
 
@@ -1177,10 +1178,25 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun audioReadPermission(): String =
+        if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_AUDIO
+        else Manifest.permission.READ_EXTERNAL_STORAGE
+
+    /** Файли музики — тільки коли користувач відкриває локальні вкладки. */
+    private fun ensureAudioPermission() {
+        if (hasAudioPermission()) {
+            reloadLocal()
+            return
+        }
+        permissionsLauncher.launch(arrayOf(audioReadPermission()))
+    }
+
     private fun reloadLocal() {
         if (!hasAudioPermission()) {
             localTracks = emptyList()
-            holdStatus(getString(R.string.no_audio_permission))
+            val localUi = currentTab() == "local" || currentTab() == "best"
+                || bottomTab == "music" || bottomTab == "heart"
+            if (localUi) holdStatus(getString(R.string.no_audio_permission))
             return
         }
         localTracks = try {
@@ -1277,13 +1293,6 @@ class MainActivity : ComponentActivity() {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
                 != PackageManager.PERMISSION_GRANTED
             ) need.add(Manifest.permission.POST_NOTIFICATIONS)
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_AUDIO)
-                != PackageManager.PERMISSION_GRANTED
-            ) need.add(Manifest.permission.READ_MEDIA_AUDIO)
-        } else {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
-                != PackageManager.PERMISSION_GRANTED
-            ) need.add(Manifest.permission.READ_EXTERNAL_STORAGE)
         }
         if (need.isNotEmpty()) permissionsLauncher.launch(need.toTypedArray())
     }

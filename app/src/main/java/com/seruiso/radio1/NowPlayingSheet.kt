@@ -327,11 +327,9 @@ fun NowPlayingSheet(
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
                 .fillMaxHeight()
-                // той самий tight top, що й шапка (−4dp від status)
-                .padding(
-                    top = (WindowInsets.statusBars.asPaddingValues().calculateTopPadding() - 4.dp)
-                        .coerceAtLeast(0.dp) + metrics.sheetTop
-                )
+                .statusBarsPadding()
+                // −4dp як у шапці — картка лишається під інфо
+                .padding(top = metrics.sheetTop - 4.dp)
                 .graphicsLayer {
                     translationY = pullA.value
                     val sc = (1f - pullA.value / 900f).coerceIn(0.45f, 1f)

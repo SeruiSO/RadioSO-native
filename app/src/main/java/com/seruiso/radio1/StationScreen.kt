@@ -630,13 +630,12 @@ fun StationScreen(
         }
     }
     Box(modifier = Modifier.fillMaxSize().background(bg).navigationBarsPadding()) {
-    val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    val headerTop = (statusTop - 4.dp).coerceAtLeast(0.dp)
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .statusBarsPadding()
             .padding(
-                top = headerTop,
+                top = (-4).dp,
                 start = if (LocalConfiguration.current.screenWidthDp < 360) 8.dp else 12.dp,
                 end = if (LocalConfiguration.current.screenWidthDp < 360) 8.dp else 12.dp,
                 bottom = if (isLandscape) 4.dp else 8.dp,

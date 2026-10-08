@@ -631,6 +631,7 @@ fun StationScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .statusBarsPadding()
             .padding(
                 top = 0.dp,
                 start = if (LocalConfiguration.current.screenWidthDp < 360) 8.dp else 12.dp,

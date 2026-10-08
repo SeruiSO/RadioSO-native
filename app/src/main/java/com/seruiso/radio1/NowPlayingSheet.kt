@@ -325,6 +325,7 @@ fun NowPlayingSheet(
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
                 .fillMaxHeight()
+                .statusBarsPadding()
                 // рівно під інфо: sheetTop = 40 + infoH, без другого status inset
                 .padding(top = metrics.sheetTop)
                 .graphicsLayer {

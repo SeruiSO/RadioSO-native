@@ -19,6 +19,6 @@ class ExampleInstrumentedTest {
     fun useAppContext() {
         // Context of the app under test.
         val appContext = InstrumentationRegistry.getInstrumentation().targetContext
-        assertEquals("com.seruiso.radio1", appContext.packageName)
+        assertEquals("com.seruiso.radioso.nativeapp", appContext.packageName)
     }
 }

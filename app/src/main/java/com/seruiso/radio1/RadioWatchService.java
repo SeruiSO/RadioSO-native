@@ -2288,7 +2288,37 @@ notifyForeground();
             return START_STICKY;
         }
 
+        // START_STICKY після kill процесу: intent == null, плеєр порожній.
+        // Якщо користувач хотів грати — підняти той самий URL. Пауза / дзвінок — ні.
+        if (action == null) {
+            restoreAfterProcessDeath();
+        }
         return START_STICKY;
+    }
+
+    private void restoreAfterProcessDeath() {
+        try {
+            if (!PlaybackPrefs.isIntended(this)) return;
+            if (PlaybackPrefs.REASON_USER.equals(PlaybackPrefs.getPauseReason(this))) return;
+            if (isVoiceCallActive()) return;
+            if (isUserPaused()) return;
+            android.util.Log.i("RadioWatch", "process death — schedule restore");
+            mainHandler.postDelayed(() -> {
+                try {
+                    if (!PlaybackPrefs.isIntended(RadioWatchService.this)) return;
+                    if (PlaybackPrefs.REASON_USER.equals(
+                            PlaybackPrefs.getPauseReason(RadioWatchService.this))) return;
+                    if (isVoiceCallActive() || isUserPaused()) return;
+                    if (player != null && (player.isPlaying()
+                            || player.getPlaybackState() == Player.STATE_BUFFERING
+                            || player.getPlaybackState() == Player.STATE_READY)) {
+                        return;
+                    }
+                    android.util.Log.i("RadioWatch", "process death — playLast");
+                    playLast();
+                } catch (Exception ignored) {}
+            }, 400L);
+        } catch (Exception ignored) {}
     }
 
     private boolean isLocalMode() {

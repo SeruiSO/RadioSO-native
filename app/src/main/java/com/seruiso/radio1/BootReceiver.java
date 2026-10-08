@@ -15,8 +15,10 @@ public class BootReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
         if (intent == null || intent.getAction() == null) return;
-        if (!Intent.ACTION_BOOT_COMPLETED.equals(intent.getAction())
-                && !"android.intent.action.LOCKED_BOOT_COMPLETED".equals(intent.getAction())) {
+        String act = intent.getAction();
+        if (!Intent.ACTION_BOOT_COMPLETED.equals(act)
+                && !"android.intent.action.LOCKED_BOOT_COMPLETED".equals(act)
+                && !Intent.ACTION_MY_PACKAGE_REPLACED.equals(act)) {
             return;
         }
         try {
@@ -26,12 +28,17 @@ public class BootReceiver extends BroadcastReceiver {
                 .putBoolean(BluetoothAutoPlayPlugin.KEY_AA_ACTIVE, false)
                 .putBoolean(BluetoothAutoPlayPlugin.KEY_PENDING_BT_AUTOSTART, false)
                 .apply();
+            // Будильник завжди (навіть якщо BT watch вимкнено)
+            try {
+                RadioAlarm.INSTANCE.rescheduleIfEnabled(context);
+            } catch (Exception e) {
+                Log.e("BootReceiver", "reschedule alarm", e);
+            }
             if (!p.getBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, true)) {
-                Log.i("BootReceiver", "boot — BT watch off, skip");
+                Log.i("BootReceiver", "boot — BT watch off, skip BT pending");
                 return;
             }
             p.edit().putBoolean(BluetoothAutoPlayPlugin.KEY_PENDING_BT_AFTER_BOOT, true).apply();
-            RadioAlarm.INSTANCE.rescheduleIfEnabled(context);
             Log.i("BootReceiver", "boot — pendingBtWatchAfterBoot=true (no FGS)");
         } catch (Exception e) {
             Log.e("BootReceiver", "boot flag failed", e);

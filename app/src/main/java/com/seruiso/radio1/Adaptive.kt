@@ -43,10 +43,11 @@ data class UiMetrics(
         compact -> 124.dp
         else -> 148.dp
     }
+    /** Висота рядка назви/меню — росте з fontScale. */
+    val headerH: Dp get() = grow(if (tight) 36.dp else 40.dp, 10f)
     val sheetTop: Dp get() {
-        // Портрет: рівно під інфо (кнопки 40 + infoH). Альбом: лише під рядок кнопок.
-        val header = 40.dp
-        return if (screenW > screenH) header else header + infoH
+        // Портрет: рівно під інфо (headerH + infoH). Альбом: лише під рядок кнопок.
+        return if (screenW > screenH) headerH else headerH + infoH
     }
     /** Велика обкладинка: не ширша за екран мінус поля пейджера. */
     val npArt: Dp get() {

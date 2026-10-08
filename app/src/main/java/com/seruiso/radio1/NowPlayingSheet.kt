@@ -33,6 +33,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.core.view.WindowInsetsCompat
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -326,10 +328,21 @@ fun NowPlayingSheet(
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
                 .fillMaxHeight()
-                .statusBarsPadding()
-                .offset(y = (-12).dp)
-                // рівно під інфо (той самий −4dp, що й шапка)
-                .padding(top = metrics.sheetTop)
+                .padding(
+                    top = run {
+                        val density = LocalDensity.current
+                        val view = LocalView.current
+                        val statusTopDp = with(density) {
+                            val px = view.rootWindowInsets?.let { ri ->
+                                WindowInsetsCompat.toWindowInsetsCompat(ri)
+                                    .getInsets(WindowInsetsCompat.Type.statusBars()).top
+                            } ?: 0
+                            px.toDp()
+                        }
+                        val tighten = (statusTopDp * 0.22f).coerceIn(0.dp, 16.dp)
+                        (statusTopDp - tighten).coerceAtLeast(0.dp) + metrics.sheetTop
+                    }
+                )
                 .graphicsLayer {
                     translationY = pullA.value
                     val sc = (1f - pullA.value / 900f).coerceIn(0.45f, 1f)

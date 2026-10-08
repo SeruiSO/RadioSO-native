@@ -37,6 +37,9 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.core.view.WindowInsetsCompat
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -628,20 +631,31 @@ fun StationScreen(
         }
     }
     Box(modifier = Modifier.fillMaxSize().background(bg).navigationBarsPadding()) {
+    val density = LocalDensity.current
+    val view = LocalView.current
+    val statusTopDp = with(density) {
+        val px = view.rootWindowInsets?.let { ri ->
+            WindowInsetsCompat.toWindowInsetsCompat(ri)
+                .getInsets(WindowInsetsCompat.Type.statusBars()).top
+        } ?: 0
+        px.toDp()
+    }
+    // адаптивна підтяжка: частка реальної висоти status bar (не фіксовані 12dp)
+    val statusTighten = (statusTopDp * 0.22f).coerceIn(0.dp, 16.dp)
+    val headerTop = (statusTopDp - statusTighten).coerceAtLeast(0.dp)
+    val metricsTop = rememberUiMetrics()
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .statusBarsPadding()
-            .offset(y = (-12).dp)
             .padding(
-                top = 0.dp,
+                top = headerTop,
                 start = if (LocalConfiguration.current.screenWidthDp < 360) 8.dp else 12.dp,
                 end = if (LocalConfiguration.current.screenWidthDp < 360) 8.dp else 12.dp,
                 bottom = if (isLandscape) 4.dp else 8.dp,
             )
     ) {
 
-        Box(modifier = Modifier.fillMaxWidth().padding(bottom = 0.dp).height(40.dp)) {
+        Box(modifier = Modifier.fillMaxWidth().padding(bottom = 0.dp).height(metricsTop.headerH)) {
             Row(
                 modifier = Modifier.align(Alignment.CenterStart),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),

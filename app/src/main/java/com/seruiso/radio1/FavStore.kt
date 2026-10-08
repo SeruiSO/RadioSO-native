@@ -8,7 +8,15 @@ object FavStore {
     fun urls(context: Context, key: String): MutableSet<String> {
         val raw = context.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)
             .getString(key, "[]") ?: "[]"
-        val arr = JSONArray(raw)
+        val arr = try {
+            JSONArray(raw)
+        } catch (_: Exception) {
+            try {
+                context.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)
+                    .edit().putString(key, "[]").apply()
+            } catch (_: Exception) {}
+            return linkedSetOf()
+        }
         val set = linkedSetOf<String>()
         for (i in 0 until arr.length()) {
             val item = arr.opt(i)
@@ -26,7 +34,15 @@ object FavStore {
     fun stations(context: Context): List<Station> {
         val raw = context.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)
             .getString(BluetoothAutoPlayPlugin.KEY_FAVORITES, "[]") ?: "[]"
-        val arr = JSONArray(raw)
+        val arr = try {
+            JSONArray(raw)
+        } catch (_: Exception) {
+            try {
+                context.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)
+                    .edit().putString(BluetoothAutoPlayPlugin.KEY_FAVORITES, "[]").apply()
+            } catch (_: Exception) {}
+            return emptyList()
+        }
         val out = mutableListOf<Station>()
         for (i in 0 until arr.length()) {
             val o = arr.optJSONObject(i) ?: continue

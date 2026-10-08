@@ -23,7 +23,16 @@ public final class PlaybackPrefs {
     }
 
     public static boolean isIntended(Context ctx) {
-        return p(ctx).getBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, false);
+        try {
+            return p(ctx).getBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, false);
+        } catch (ClassCastException e) {
+            try {
+                p(ctx).edit().putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, false).apply();
+            } catch (Exception ignored) {}
+            return false;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     public static void setIntended(Context ctx, boolean intended) {
@@ -41,7 +50,16 @@ public final class PlaybackPrefs {
     }
 
     public static boolean isReportedPlaying(Context ctx) {
-        return p(ctx).getBoolean(BluetoothAutoPlayPlugin.KEY_IS_PLAYING, false);
+        try {
+            return p(ctx).getBoolean(BluetoothAutoPlayPlugin.KEY_IS_PLAYING, false);
+        } catch (ClassCastException e) {
+            try {
+                p(ctx).edit().putBoolean(BluetoothAutoPlayPlugin.KEY_IS_PLAYING, false).apply();
+            } catch (Exception ignored) {}
+            return false;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     public static void setPauseReason(Context ctx, String reason) {

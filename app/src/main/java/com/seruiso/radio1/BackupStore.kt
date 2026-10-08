@@ -60,6 +60,16 @@ object BackupStore {
         return o
     }
 
+
+    private fun jsonArrayString(o: JSONObject, key: String): String? {
+        if (!o.has(key)) return null
+        return when (val v = o.opt(key)) {
+            is JSONArray -> v.toString()
+            is String -> try { JSONArray(v).toString() } catch (_: Exception) { null }
+            else -> null
+        }
+    }
+
     fun importJson(ctx: Context, rawIn: String): String {
         var raw = rawIn.replace("\uFEFF", "").trim()
         val start = raw.indexOf('{')
@@ -73,17 +83,11 @@ object BackupStore {
             val u = o.opt(BluetoothAutoPlayPlugin.KEY_USER_ADDED)
             e.putString(BluetoothAutoPlayPlugin.KEY_USER_ADDED, u.toString())
         }
-        val fav = when {
-            o.has("favoriteUrls") -> o.get("favoriteUrls").toString()
-            o.has("favoriteStations") -> o.get("favoriteStations").toString()
-            else -> null
-        }
+        val fav = jsonArrayString(o, "favoriteUrls")
+            ?: jsonArrayString(o, "favoriteStations")
         if (fav != null) e.putString(BluetoothAutoPlayPlugin.KEY_FAVORITES, fav)
-        val best = when {
-            o.has("localBestUrls") -> o.get("localBestUrls").toString()
-            o.has("localFavorites") -> o.get("localFavorites").toString()
-            else -> null
-        }
+        val best = jsonArrayString(o, "localBestUrls")
+            ?: jsonArrayString(o, "localFavorites")
         if (best != null) e.putString(BluetoothAutoPlayPlugin.KEY_LOCAL_BEST, best)
         if (o.has(BluetoothAutoPlayPlugin.KEY_PAST_SEARCHES)) e.putString(BluetoothAutoPlayPlugin.KEY_PAST_SEARCHES, o.get(BluetoothAutoPlayPlugin.KEY_PAST_SEARCHES).toString())
         if (o.has(BluetoothAutoPlayPlugin.KEY_DELETED_STATIONS)) e.putString(BluetoothAutoPlayPlugin.KEY_DELETED_STATIONS, o.get(BluetoothAutoPlayPlugin.KEY_DELETED_STATIONS).toString())
@@ -95,9 +99,15 @@ object BackupStore {
             val keys = so.keys()
             while (keys.hasNext()) {
                 val k = keys.next()
-                val v = so.opt(k)
+                if (k.isNullOrBlank()) continue
                 val name = if (k.startsWith("order_")) k else "order_$k"
-                e.putString(name, v.toString())
+                val v = so.opt(k)
+                val arrStr = when (v) {
+                    is JSONArray -> v.toString()
+                    is String -> try { JSONArray(v).toString() } catch (_: Exception) { null }
+                    else -> null
+                }
+                if (arrStr != null) e.putString(name, arrStr)
             }
         }
         if (o.has("tabCatalogKeys")) {
@@ -121,6 +131,7 @@ object BackupStore {
             val keys = pod.keys()
             while (keys.hasNext()) {
                 val k = keys.next()
+                if (!k.startsWith("pod_") && k !in setOf("subs", "fav", "dl", "recent", "played", "pos", "dur", "speed")) continue
                 if (k == "podSpeed") e.putFloat(k, pod.optDouble(k, 1.0).toFloat())
                 else e.putString(k, pod.optString(k))
             }

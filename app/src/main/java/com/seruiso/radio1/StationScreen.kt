@@ -631,7 +631,13 @@ fun StationScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(top = if (isLandscape) 8.dp else 28.dp, start = 12.dp, end = 12.dp, bottom = if (isLandscape) 8.dp else 16.dp)
+            .statusBarsPadding()
+            .padding(
+                top = if (isLandscape) 4.dp else 4.dp,
+                start = if (LocalConfiguration.current.screenWidthDp < 360) 8.dp else 12.dp,
+                end = if (LocalConfiguration.current.screenWidthDp < 360) 8.dp else 12.dp,
+                bottom = if (isLandscape) 4.dp else 8.dp,
+            )
     ) {
 
         Box(modifier = Modifier.fillMaxWidth().padding(bottom = 0.dp).height(40.dp)) {
@@ -646,8 +652,12 @@ fun StationScreen(
                 ) { Icon(Icons.Filled.Palette, contentDescription = LocalContext.current.getString(R.string.theme_title), tint = text) }
             }
             Row(modifier = Modifier.align(Alignment.Center), verticalAlignment = Alignment.CenterVertically) {
-                Text("Radio ", color = text, style = MaterialTheme.typography.headlineSmall.copy(fontFamily = logoFont, fontWeight = FontWeight.Bold))
-                Text("S O", color = acc, style = MaterialTheme.typography.headlineSmall.copy(fontFamily = logoFont, fontWeight = FontWeight.Bold))
+                val logoStyle = if (LocalConfiguration.current.screenWidthDp < 360)
+                    MaterialTheme.typography.titleMedium
+                else
+                    MaterialTheme.typography.headlineSmall
+                Text("Radio ", color = text, style = logoStyle.copy(fontFamily = logoFont, fontWeight = FontWeight.Bold), maxLines = 1)
+                Text("S O", color = acc, style = logoStyle.copy(fontFamily = logoFont, fontWeight = FontWeight.Bold), maxLines = 1)
             }
             Row(
                 modifier = Modifier.align(Alignment.CenterEnd),

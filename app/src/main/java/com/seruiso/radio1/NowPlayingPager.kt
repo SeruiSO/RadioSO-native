@@ -54,7 +54,7 @@ fun NowPlayingPager(
     HorizontalPager(
         state = pagerState,
         userScrollEnabled = userScrollEnabled,
-        contentPadding = PaddingValues(horizontal = 36.dp),
+        contentPadding = PaddingValues(horizontal = metrics.pagerPad),
         pageSpacing = 12.dp,
         modifier = Modifier
             .fillMaxWidth()

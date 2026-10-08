@@ -6,50 +6,75 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
-/** Розміри від висоти екрана — NP не наїжджає на інфо на малих телефонах. */
-data class UiMetrics(val screenW: Int, val screenH: Int) {
+/**
+ * Розміри від доступного вікна (не від моделі телефону).
+ * compact / tight — мала висота або вузька ширина.
+ * Обкладинка NP обмежена і висотою, і шириною, щоб не вилазила за екран.
+ */
+data class UiMetrics(
+    val screenW: Int,
+    val screenH: Int,
+    val fontScale: Float = 1f,
+) {
+    val narrow: Boolean get() = screenW < 360
     val compact: Boolean get() = screenH < 700 || screenW < 360
-    val tight: Boolean get() = screenH < 640
+    val tight: Boolean get() = screenH < 640 || screenW < 340
 
-    val infoH: Dp get() = when {
-        tight -> 80.dp
-        compact -> 90.dp
-        else -> 100.dp
+    private fun grow(base: Dp, extraPerScale: Float): Dp {
+        val bump = ((fontScale - 1f).coerceIn(0f, 0.6f) * extraPerScale).dp
+        return base + bump
     }
-    val infoLandW: Dp get() = if (screenW < 600) 168.dp else 196.dp
+
+    val infoH: Dp get() = grow(
+        when {
+            tight -> 76.dp
+            compact -> 88.dp
+            else -> 100.dp
+        },
+        28f,
+    )
+    val infoLandW: Dp get() = when {
+        screenW < 500 -> 148.dp
+        screenW < 600 -> 168.dp
+        else -> 196.dp
+    }
     val infoLandArtH: Dp get() = when {
-        tight -> 120.dp
-        compact -> 132.dp
+        tight -> 108.dp
+        compact -> 124.dp
         else -> 148.dp
     }
-    /** Відступ картки NP зверху (під меню+інфо). */
     val sheetTop: Dp get() = when {
-        tight -> 96.dp
-        compact -> 112.dp
-        screenH < 800 -> 124.dp
+        tight -> 88.dp
+        compact -> 104.dp
+        screenH < 800 -> 120.dp
         else -> 130.dp
     }
-    /** Висота великої обкладинки в NP. */
-    val npArt: Dp get() = when {
-        tight -> 220.dp
-        compact -> 260.dp
-        screenH < 800 -> 280.dp
-        else -> 300.dp
+    /** Велика обкладинка: не ширша за екран мінус поля пейджера. */
+    val npArt: Dp get() {
+        val byH = when {
+            tight -> 200.dp
+            compact -> 240.dp
+            screenH < 800 -> 280.dp
+            else -> 300.dp
+        }
+        val maxW = (screenW - 96).coerceAtLeast(148).dp
+        return if (byH < maxW) byH else maxW
     }
-    val npPagerH: Dp get() = npArt + 18.dp
-    /** Запасний блок під історію треків у NP. */
+    val npPagerH: Dp get() = npArt + 16.dp
     val npFallbackArtH: Dp get() = when {
-        tight -> 200.dp
-        compact -> 248.dp
-        else -> 320.dp
+        tight -> 180.dp
+        compact -> 220.dp
+        else -> npArt
     }
-    val playBtn: Dp get() = if (compact) 72.dp else 80.dp
+    val playBtn: Dp get() = if (tight) 68.dp else if (compact) 72.dp else 80.dp
+    /** Горизонтальні поля каруселі обкладинок. */
+    val pagerPad: Dp get() = if (narrow) 16.dp else 36.dp
 }
 
 @Composable
 fun rememberUiMetrics(): UiMetrics {
     val c = LocalConfiguration.current
-    return remember(c.screenWidthDp, c.screenHeightDp) {
-        UiMetrics(c.screenWidthDp, c.screenHeightDp)
+    return remember(c.screenWidthDp, c.screenHeightDp, c.fontScale) {
+        UiMetrics(c.screenWidthDp, c.screenHeightDp, c.fontScale)
     }
 }

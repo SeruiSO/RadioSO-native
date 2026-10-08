@@ -33,6 +33,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -326,7 +327,8 @@ fun NowPlayingSheet(
                 .fillMaxWidth()
                 .fillMaxHeight()
                 .statusBarsPadding()
-                // рівно під інфо: sheetTop = 40 + infoH, без другого status inset
+                .offset(y = (-4).dp)
+                // рівно під інфо (той самий −4dp, що й шапка)
                 .padding(top = metrics.sheetTop)
                 .graphicsLayer {
                     translationY = pullA.value

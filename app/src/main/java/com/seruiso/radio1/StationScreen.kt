@@ -37,6 +37,8 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -628,12 +630,13 @@ fun StationScreen(
         }
     }
     Box(modifier = Modifier.fillMaxSize().background(bg).navigationBarsPadding()) {
+    val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val headerTop = (statusTop - 4.dp).coerceAtLeast(0.dp)
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .statusBarsPadding()
             .padding(
-                top = 0.dp,
+                top = headerTop,
                 start = if (LocalConfiguration.current.screenWidthDp < 360) 8.dp else 12.dp,
                 end = if (LocalConfiguration.current.screenWidthDp < 360) 8.dp else 12.dp,
                 bottom = if (isLandscape) 4.dp else 8.dp,

@@ -695,7 +695,48 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
      * вотчдог тиші/буферизації). Дебаунс запобігає подвійному playUrl(),
      * якщо два тригери спрацюють майже одночасно.
      */
-    private void attemptReconnect(String reason, boolean immediate) {
+    /** Мертвий потік: зняти intended, зупинити watchdog/retry, показати статус. */
+    private void giveUpDeadStream(String reason) {
+        try {
+            if (pausedByFocusLoss || isVoiceCallActive()) {
+                android.util.Log.i("RadioWatch", "giveUpDeadStream skip — call/focus: " + reason);
+                return;
+            }
+        } catch (Exception ignored) {}
+        android.util.Log.w("RadioWatch", "giveUpDeadStream: " + reason
+                + " attempts=" + reconnectAttempt);
+        try {
+            PlaybackPrefs.setIntended(this, false);
+            PlaybackPrefs.setPauseReason(this, PlaybackPrefs.REASON_NETWORK);
+            PlaybackPrefs.reportPlaying(this, false);
+        } catch (Exception ignored) {}
+        reconnectAttempt = 0;
+        reconnectWindowStart = 0L;
+        try { disarmSilenceWatch(); } catch (Exception ignored) {}
+        if (reconnectHandler != null) {
+            try { reconnectHandler.removeCallbacksAndMessages(null); } catch (Exception ignored) {}
+        }
+        try {
+            if (player != null) {
+                player.setPlayWhenReady(false);
+            }
+        } catch (Exception ignored) {}
+        try {
+            notifyUiStatus(lc().getString(R.string.status_stream_unavailable), 0);
+        } catch (Exception ignored) {}
+    }
+
+    private boolean shouldGiveUpReconnect(long elapsedMs) {
+        // Під час дзвінка / transient focus — не здаємось (після розмови resume)
+        try {
+            if (pausedByFocusLoss || isVoiceCallActive()) return false;
+        } catch (Exception ignored) {}
+        if (reconnectAttempt >= MAX_RECONNECT_ATTEMPTS) return true;
+        if (reconnectWindowStart > 0L && elapsedMs >= RECONNECT_GIVE_UP_MS) return true;
+        return false;
+    }
+
+private void attemptReconnect(String reason, boolean immediate) {
         if (isFilePlayback()) return;
         if (!PlaybackPrefs.isIntended(this)) {
             android.util.Log.i("RadioWatch", "attemptReconnect(" + reason + ") skip — not intended");
@@ -730,6 +771,12 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
             return;
         }
         lastReconnectTriggerMs = now;
+        long elapsedGive = reconnectWindowStart > 0L
+                ? (now - reconnectWindowStart) : 0L;
+        if (shouldGiveUpReconnect(elapsedGive)) {
+            giveUpDeadStream(reason);
+            return;
+        }
         android.util.Log.i("RadioWatch", "attemptReconnect: " + reason + " immediate=" + immediate);
         try {
             notifyUiStatus(lc().getString(R.string.status_reconnect), reconnectAttempt + 1);
@@ -3204,6 +3251,9 @@ notifyForeground();
     private android.os.Handler reconnectHandler;
     private int reconnectAttempt = 0;
     private long reconnectWindowStart = 0L;
+    /** Після стількох спроб / часу — здаємось (мертвий URL). */
+    private static final int MAX_RECONNECT_ATTEMPTS = 30;
+    private static final long RECONNECT_GIVE_UP_MS = 12 * 60_000L;
     private long lastReconnectTriggerMs = 0L;
     /** Дебаунс подвійного ACTION_BT (ACL + A2DP STATE_CONNECTED). */
     private long lastBtActionMs = 0L;
@@ -3274,9 +3324,12 @@ notifyForeground();
         if (reconnectWindowStart == 0L) reconnectWindowStart = now;
         long elapsed = now - reconnectWindowStart;
         if (ReconnectPolicy.windowExpired(elapsed)) {
+            if (shouldGiveUpReconnect(elapsed)) {
+                giveUpDeadStream("window-expired");
+                return;
+            }
             notifyUiStatus(lc().getString(R.string.status_no_network), reconnectAttempt);
-            // Повільний heartbeat після 5хв вікна: мережа може «бути», але не працювати
-            // (onAvailable тоді не прийде). Не чіпаємо ReconnectPolicy — лише retry тут.
+            // Обмежений heartbeat після 5хв: далі giveUp за MAX / 12хв
             final int attemptHb = reconnectAttempt;
             reconnectHandler.postDelayed(() -> {
                 if (player == null) return;
@@ -3286,6 +3339,12 @@ notifyForeground();
                     reconnectAttempt = 0;
                     reconnectWindowStart = 0L;
                     notifyUiStatus(lc().getString(R.string.playing), 0);
+                    return;
+                }
+                long el = reconnectWindowStart > 0L
+                        ? (System.currentTimeMillis() - reconnectWindowStart) : 0L;
+                if (shouldGiveUpReconnect(el)) {
+                    giveUpDeadStream("heartbeat-limit");
                     return;
                 }
                 if (!hasInternet()) {

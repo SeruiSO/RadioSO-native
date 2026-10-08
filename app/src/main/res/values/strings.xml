@@ -239,4 +239,5 @@
     <string name="podcast_no_new">No new episodes in saved shows</string>
     <string name="podcast_filter_empty">No shows in this filter</string>
     <string name="podcast_tab_new">New</string>
+    <string name="status_stream_unavailable">Stream unavailable</string>
 </resources>

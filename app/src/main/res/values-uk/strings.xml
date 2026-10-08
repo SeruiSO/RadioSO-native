@@ -260,5 +260,6 @@
     <string name="podcast_no_new">Немає нових епізодів у збережених шоу</string>
     <string name="podcast_filter_empty">Немає шоу в цьому фільтрі</string>
     <string name="podcast_tab_new">Нові</string>
+    <string name="status_stream_unavailable">Потік недоступний</string>
 </resources>
 

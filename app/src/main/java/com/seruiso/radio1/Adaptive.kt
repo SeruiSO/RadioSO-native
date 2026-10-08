@@ -46,10 +46,10 @@ data class UiMetrics(
     val sheetTop: Dp get() {
         // нижче інфо-панелі (шапка 40 + infoH), і ще трохи якщо великий шрифт
         val base = when {
-            tight -> 104.dp
-            compact -> 120.dp
-            screenH < 800 -> 136.dp
-            else -> 148.dp
+            tight -> 88.dp
+            compact -> 104.dp
+            screenH < 800 -> 116.dp
+            else -> 124.dp
         }
         val bump = ((fontScale - 1f).coerceIn(0f, 0.5f) * 16f).dp
         return base + bump

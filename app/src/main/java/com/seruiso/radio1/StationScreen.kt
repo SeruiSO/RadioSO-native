@@ -631,8 +631,9 @@ fun StationScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .statusBarsPadding()
             .padding(
-                top = if (isLandscape) 4.dp else 8.dp,
+                top = if (isLandscape) 2.dp else 4.dp,
                 start = if (LocalConfiguration.current.screenWidthDp < 360) 8.dp else 12.dp,
                 end = if (LocalConfiguration.current.screenWidthDp < 360) 8.dp else 12.dp,
                 bottom = if (isLandscape) 4.dp else 8.dp,

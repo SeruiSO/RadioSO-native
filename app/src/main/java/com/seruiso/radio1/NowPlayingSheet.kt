@@ -327,7 +327,7 @@ fun NowPlayingSheet(
                 .fillMaxWidth()
                 .fillMaxHeight()
                 .statusBarsPadding()
-                .offset(y = (-4).dp)
+                .offset(y = (-12).dp)
                 // рівно під інфо (той самий −4dp, що й шапка)
                 .padding(top = metrics.sheetTop)
                 .graphicsLayer {

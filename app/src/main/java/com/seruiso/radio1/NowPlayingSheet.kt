@@ -440,10 +440,12 @@ fun NowPlayingSheet(
                     }
                     Box(
                         modifier = Modifier
+                            .weight(1f, fill = true)
                             .fillMaxWidth()
                             .clickable(enabled = !showBack && !isPodcastNow) { ui.onToggleTrackHistory() },
                     ) {
                     NowPlayingPager(
+                        modifier = Modifier.fillMaxSize(),
                         pagerState = pagerState,
                         userScrollEnabled = !blockPagerSwipe,
                         nowLocal = nowLocal,

@@ -2,6 +2,10 @@ package com.seruiso.radio1
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.unit.min
+import androidx.compose.ui.unit.Dp
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -46,11 +50,17 @@ fun NowPlayingPager(
     pageArtistFor: (page: Int) -> String,
     acc: Color,
     muted: Color,
+    modifier: Modifier = Modifier,
 ) {
-    // Розмір обкладинки від висоти екрана
+    // Обкладинка = увесь вільний простір (підписи/кнопки знизу вже з’їли своє).
     val metrics = rememberUiMetrics()
-    val npArt = metrics.npArt
-    val npPagerH = metrics.npPagerH
+    BoxWithConstraints(
+        modifier = modifier.fillMaxWidth(),
+        contentAlignment = Alignment.Center,
+    ) {
+        val maxSide = min(maxWidth - metrics.pagerPad * 2, maxHeight)
+        val npArt = maxSide.coerceIn(140.dp, 480.dp)
+        val badge = (npArt * 0.18f).coerceIn(40.dp, 72.dp)
     HorizontalPager(
         state = pagerState,
         userScrollEnabled = userScrollEnabled,
@@ -58,7 +68,7 @@ fun NowPlayingPager(
         pageSpacing = 12.dp,
         modifier = Modifier
             .fillMaxWidth()
-            .height(npPagerH),
+            .fillMaxHeight(),
         key = { page -> pageKeys.getOrNull(page) ?: "p$page" },
     ) { page ->
         val dist = (pagerState.currentPage - page) + pagerState.currentPageOffsetFraction
@@ -137,7 +147,7 @@ fun NowPlayingPager(
                                 modifier = Modifier
                                     .align(Alignment.BottomEnd)
                                     .padding(0.dp)
-                                    .size(64.dp)
+                                    .size(badge)
                                     .clip(AppShapes.card)
                                     .background(Color.Black.copy(alpha = 0.40f)),
                             )
@@ -147,4 +157,5 @@ fun NowPlayingPager(
             }
         }
     }
+    } // BoxWithConstraints
 }

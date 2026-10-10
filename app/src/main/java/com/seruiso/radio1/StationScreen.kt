@@ -237,44 +237,65 @@ fun BottomNavBar(
                             left, cy - outer * 0.02f,
                             left, cy,
                         )
+                        // западина між вершинами — майже до рівня кнопок
+                        val valley = btnTop - 2.dp.toPx()
                         if (wing > 0.35f) {
-                            // три вершини: ліва → середня (найвища) → права
+                            // три вершини з провалами між кнопками; верхівка вузька й рвана
                             val lx = cx - dist
                             val rx = cx + dist
-                            // підйом до лівої вершини
+                            // до лівої вершини
                             cubicTo(
-                                left + outer * 0.4f, btnTop - 2.dp.toPx(),
-                                lx - outer * 0.3f, sidePeak + 3.dp.toPx(),
-                                lx, sidePeak,
+                                left + outer * 0.35f, btnTop - 1.dp.toPx(),
+                                lx - outer * 0.55f, sidePeak + 6.dp.toPx(),
+                                lx - 3.dp.toPx(), sidePeak + 2.dp.toPx(),
                             )
-                            // спуск + підйом до центральної (гострої)
+                            // рвана вузька верхівка лівої
+                            lineTo(lx - 1.dp.toPx(), sidePeak - 1.dp.toPx())
+                            lineTo(lx, sidePeak)
+                            lineTo(lx + 1.dp.toPx(), sidePeak - 1.dp.toPx())
+                            lineTo(lx + 3.dp.toPx(), sidePeak + 2.dp.toPx())
+                            // провал між лівою і середньою
                             cubicTo(
-                                lx + outer * 0.35f, sidePeak + 4.dp.toPx(),
-                                cx - outer * 0.25f, mainPeak + 6.dp.toPx(),
-                                cx, mainPeak,
+                                lx + outer * 0.45f, valley,
+                                cx - outer * 0.45f, valley,
+                                cx - 4.dp.toPx(), mainPeak + 5.dp.toPx(),
                             )
-                            // спуск + підйом до правої
+                            // рвана вузька верхівка середньої (найвища)
+                            lineTo(cx - 1.5.dp.toPx(), mainPeak + 1.dp.toPx())
+                            lineTo(cx, mainPeak)
+                            lineTo(cx + 1.5.dp.toPx(), mainPeak + 1.dp.toPx())
+                            lineTo(cx + 4.dp.toPx(), mainPeak + 5.dp.toPx())
+                            // провал між середньою і правою
                             cubicTo(
-                                cx + outer * 0.25f, mainPeak + 6.dp.toPx(),
-                                rx - outer * 0.35f, sidePeak + 4.dp.toPx(),
-                                rx, sidePeak,
+                                cx + outer * 0.45f, valley,
+                                rx - outer * 0.45f, valley,
+                                rx - 3.dp.toPx(), sidePeak + 2.dp.toPx(),
                             )
-                            // спуск до правого краю кнопки
+                            // рвана вузька верхівка правої
+                            lineTo(rx - 1.dp.toPx(), sidePeak - 1.dp.toPx())
+                            lineTo(rx, sidePeak)
+                            lineTo(rx + 1.dp.toPx(), sidePeak - 1.dp.toPx())
+                            lineTo(rx + 3.dp.toPx(), sidePeak + 2.dp.toPx())
+                            // спуск до правого краю
                             cubicTo(
-                                rx + outer * 0.3f, sidePeak + 3.dp.toPx(),
-                                right - outer * 0.4f, btnTop - 2.dp.toPx(),
+                                rx + outer * 0.55f, sidePeak + 6.dp.toPx(),
+                                right - outer * 0.35f, btnTop - 1.dp.toPx(),
                                 right, cy,
                             )
                         } else {
-                            // одна гостра вершина над Play
+                            // одна гостра рвана вершина над Play
                             cubicTo(
-                                left + outer * 0.35f, btnTop - 2.dp.toPx(),
-                                cx - outer * 0.2f, mainPeak + 5.dp.toPx(),
-                                cx, mainPeak,
+                                left + outer * 0.35f, btnTop - 1.dp.toPx(),
+                                cx - outer * 0.35f, mainPeak + 6.dp.toPx(),
+                                cx - 3.dp.toPx(), mainPeak + 3.dp.toPx(),
                             )
+                            lineTo(cx - 1.dp.toPx(), mainPeak + 0.5.dp.toPx())
+                            lineTo(cx, mainPeak)
+                            lineTo(cx + 1.dp.toPx(), mainPeak + 0.5.dp.toPx())
+                            lineTo(cx + 3.dp.toPx(), mainPeak + 3.dp.toPx())
                             cubicTo(
-                                cx + outer * 0.2f, mainPeak + 5.dp.toPx(),
-                                right - outer * 0.35f, btnTop - 2.dp.toPx(),
+                                cx + outer * 0.35f, mainPeak + 6.dp.toPx(),
+                                right - outer * 0.35f, btnTop - 1.dp.toPx(),
                                 right, cy,
                             )
                         }

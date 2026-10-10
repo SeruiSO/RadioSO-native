@@ -151,7 +151,7 @@ fun BottomNavBar(
     onNext: () -> Unit = {},
 ) {
     val ctx = LocalContext.current
-    val playDp = 52.dp
+    val playDp = 58.dp
     val wingDp = playDp
     val wing by animateFloatAsState(
         targetValue = if (wingsOpen && canSkip) 1f else 0f,
@@ -159,7 +159,7 @@ fun BottomNavBar(
         label = "skipWings",
     )
     // Та сама форма/розмір; на подкастах лише зсув угору, щоб низ горки не накривав Шоу/Обране
-    val playLift = 52.dp
+    val playLift = 58.dp
     // Панель card; обводка — той самий тон капсул, але непрозора
     val wrapFill = lerp(card, muted, 0.18f)
     @Composable
@@ -197,28 +197,29 @@ fun BottomNavBar(
                     val w = size.width
                     val h = size.height
                     val cx = w / 2f
-                    val play = 52.dp.toPx()
+                    val play = playDp.toPx()
                     val wrap = 3.dp.toPx()
                     val corner = 20.dp.toPx()
                     val half = play / 2f
                     val outer = half + wrap
                     val cy = half - playLift.toPx()
-                    val shoulder = 52.dp.toPx()
-                    // Основна панель — card, як раніше
+                    val gap = 28.dp.toPx()
+                    val dist = if (wing > 0.02f) (play + gap) * wing else 0f
+                    val shoulder = 40.dp.toPx()
+                    // Основна панель
                     val bar = Path().apply {
                         addRoundRect(RoundRect(0f, 0f, w, h, CornerRadius(corner, corner)))
                     }
                     drawPath(bar, color = card)
-                    // Обводка: плавний «горб» з заокругленням назовні в панель (не круг всередину)
-                    val top = cy - outer
+                    // Одна горка: лише Play або всі три кнопки
                     val joinY = 0.dp.toPx()
-                    val left = cx - outer
-                    val right = cx + outer
+                    val left = cx - dist - outer
+                    val right = cx + dist + outer
+                    val top = cy - outer
                     val lobe = Path().apply {
-                        // вхід далеко від кнопки; різкий вигин лише біля кнопки (не трикутник)
                         moveTo(left - shoulder, joinY)
                         cubicTo(
-                            left - shoulder * 0.75f, joinY,
+                            left - shoulder * 0.72f, joinY,
                             left - 6.dp.toPx(), joinY,
                             left - 2.dp.toPx(), cy - outer * 0.15f,
                         )
@@ -227,12 +228,12 @@ fun BottomNavBar(
                             left, cy - outer * 0.02f,
                             left, cy,
                         )
-                        arcTo(
-                            Rect(left, top, right, cy + outer),
-                            180f,
-                            180f,
-                            false,
-                        )
+                        // лівий напівкруг
+                        arcTo(Rect(left, top, left + outer * 2f, cy + outer), 180f, 90f, false)
+                        // плоска верхня лінія між крайніми кнопками
+                        lineTo(right - outer * 2f, top)
+                        // правий напівкруг
+                        arcTo(Rect(right - outer * 2f, top, right, cy + outer), 270f, 90f, false)
                         cubicTo(
                             right, cy - outer * 0.02f,
                             right + 1.dp.toPx(), cy - outer * 0.05f,
@@ -240,49 +241,12 @@ fun BottomNavBar(
                         )
                         cubicTo(
                             right + 6.dp.toPx(), joinY,
-                            right + shoulder * 0.75f, joinY,
+                            right + shoulder * 0.72f, joinY,
                             right + shoulder, joinY,
                         )
                         close()
                     }
                     drawPath(lobe, color = wrapFill)
-                    if (wing > 0.02f) {
-                        val dist = (play + 22.dp.toPx()) * wing
-                        val wOuter = half + wrap
-                        val shoulderW = 36.dp.toPx()
-                        for (sign in floatArrayOf(-1f, 1f)) {
-                            val scx = cx + sign * dist
-                            val wl = scx - wOuter
-                            val wr = scx + wOuter
-                            val wTop = cy - wOuter
-                            val side = Path().apply {
-                                moveTo(wl - shoulderW, joinY)
-                                cubicTo(
-                                    wl - shoulderW * 0.72f, joinY,
-                                    wl - 6.dp.toPx(), joinY,
-                                    wl - 2.dp.toPx(), cy - wOuter * 0.15f,
-                                )
-                                cubicTo(
-                                    wl - 1.dp.toPx(), cy - wOuter * 0.05f,
-                                    wl, cy - wOuter * 0.02f,
-                                    wl, cy,
-                                )
-                                arcTo(Rect(wl, wTop, wr, cy + wOuter), 180f, 180f, false)
-                                cubicTo(
-                                    wr, cy - wOuter * 0.02f,
-                                    wr + 1.dp.toPx(), cy - wOuter * 0.05f,
-                                    wr + 2.dp.toPx(), cy - wOuter * 0.15f,
-                                )
-                                cubicTo(
-                                    wr + 6.dp.toPx(), joinY,
-                                    wr + shoulderW * 0.72f, joinY,
-                                    wr + shoulderW, joinY,
-                                )
-                                close()
-                            }
-                            drawPath(side, color = wrapFill.copy(alpha = wing))
-                        }
-                    }
                 }
                 .pointerInput(Unit) {
                     detectVerticalDragGestures(
@@ -342,7 +306,7 @@ fun BottomNavBar(
             )
         }
         if (wing > 0.02f && canSkip) {
-            val spread = playDp / 2 + wingDp / 2 + 22.dp
+            val spread = playDp / 2 + wingDp / 2 + 28.dp
             @Composable
             fun Wing(dx: Dp, icon: androidx.compose.ui.graphics.vector.ImageVector, desc: String, go: () -> Unit) {
                 Box(
@@ -357,7 +321,7 @@ fun BottomNavBar(
                         .clickable(enabled = wing > 0.6f) { go() },
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(icon, contentDescription = desc, tint = Palette.text, modifier = Modifier.size(26.dp))
+                    Icon(icon, contentDescription = desc, tint = Palette.text, modifier = Modifier.size(28.dp))
                 }
             }
             Wing(-spread * wing, Icons.Filled.SkipPrevious, ctx.getString(R.string.prev_station), onPrev)

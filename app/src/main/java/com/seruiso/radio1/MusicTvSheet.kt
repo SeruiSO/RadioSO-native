@@ -36,6 +36,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import kotlinx.coroutines.delay
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -82,6 +86,16 @@ fun MusicTvSheet(
     val ctx = LocalContext.current
     val view = LocalView.current
     var current by remember { mutableStateOf<MusicTvChannel?>(null) }
+    var searchQ by remember { mutableStateOf("") }
+    var showErrorRetry by remember { mutableStateOf(false) }
+
+    LaunchedEffect(open) {
+        if (!open) return@LaunchedEffect
+        if (current != null) return@LaunchedEffect
+        val last = MusicTvLastStore.load(ctx) ?: return@LaunchedEffect
+        val ch = MusicTvChannels.all.firstOrNull { it.url == last }
+        if (ch != null) current = ch
+    }
 
     DisposableEffect(open, current?.url) {
         val keep = open && current != null
@@ -120,20 +134,25 @@ fun MusicTvSheet(
             }
     }
 
-    var retryLeft by remember { mutableStateOf(3) }
+    var retryLeft by remember { mutableStateOf(5) }
+    var retryToken by remember { mutableStateOf(0) }
 
     DisposableEffect(player) {
         val listener = object : Player.Listener {
             override fun onPlaybackStateChanged(playbackState: Int) {
                 when (playbackState) {
                     Player.STATE_BUFFERING -> {
-                        if (current != null) status = "…"
+                        if (current != null) {
+                            showErrorRetry = false
+                            status = "…"
+                        }
                     }
                     Player.STATE_READY -> {
-                        retryLeft = 3
+                        retryLeft = 5
+                        showErrorRetry = false
                         status = current?.name.orEmpty()
                     }
-                    Player.STATE_ENDED -> { /* live rarely ends */ }
+                    Player.STATE_ENDED -> { }
                     else -> Unit
                 }
             }
@@ -141,12 +160,11 @@ fun MusicTvSheet(
                 if (current == null) return
                 if (retryLeft > 0) {
                     retryLeft -= 1
+                    showErrorRetry = false
                     status = "…"
-                    try {
-                        player.prepare()
-                        player.play()
-                    } catch (_: Exception) {}
+                    retryToken += 1
                 } else {
+                    showErrorRetry = true
                     status = error.localizedMessage ?: "Error"
                 }
             }
@@ -159,21 +177,28 @@ fun MusicTvSheet(
         }
     }
 
-    LaunchedEffect(current?.url) {
+    LaunchedEffect(current?.url, retryToken) {
         val u = current?.url
         if (u.isNullOrBlank()) {
             try { player.stop() } catch (_: Exception) {}
+            showErrorRetry = false
             return@LaunchedEffect
         }
         try {
             onPauseRadio()
-            retryLeft = 3
+            MusicTvLastStore.save(ctx, u)
+            if (retryToken == 0) retryLeft = 5
+            showErrorRetry = false
             status = "…"
+            if (retryToken > 0) delay(800L * minOf(retryToken, 4))
+            player.stop()
+            player.clearMediaItems()
             player.setMediaItem(MediaItem.fromUri(u))
             player.prepare()
             player.playWhenReady = true
             player.play()
         } catch (e: Exception) {
+            showErrorRetry = true
             status = e.message ?: "Error"
         }
     }
@@ -263,6 +288,26 @@ fun MusicTvSheet(
                 )
             }
 
+            OutlinedTextField(
+                value = searchQ,
+                onValueChange = { searchQ = it },
+                singleLine = true,
+                placeholder = { Text("Пошук каналу…", color = muted) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = text,
+                    unfocusedTextColor = text,
+                    focusedBorderColor = acc,
+                    unfocusedBorderColor = muted.copy(alpha = 0.4f),
+                    cursorColor = acc,
+                    focusedContainerColor = muted.copy(alpha = 0.06f),
+                    unfocusedContainerColor = muted.copy(alpha = 0.06f),
+                ),
+                shape = RoundedCornerShape(12.dp),
+            )
+
             // player strip
             if (current != null) {
                 Box(
@@ -295,21 +340,86 @@ fun MusicTvSheet(
                         modifier = Modifier.align(Alignment.BottomEnd).padding(10.dp).size(26.dp),
                     )
                 }
-                Text(
-                    status,
-                    color = muted,
-                    style = MaterialTheme.typography.labelMedium,
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
-                )
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        status,
+                        color = muted,
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.weight(1f),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    if (showErrorRetry && current != null) {
+                        TextButton(onClick = {
+                            retryLeft = 5
+                            showErrorRetry = false
+                            retryToken += 1
+                        }) {
+                            Text("Повторити", color = acc, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
             }
 
+            val q = searchQ.trim().lowercase()
             val list: List<MusicTvChannel> = when {
+                q.isNotEmpty() -> MusicTvChannels.all.filter { it.name.lowercase().contains(q) }
                 country == "FAV" -> MusicTvChannels.all.filter { it.url in favs }
                 country != null -> MusicTvChannels.bySection(country!!)
                 else -> emptyList()
             }
 
-            if (country == null) {
+            if (q.isNotEmpty()) {
+                if (list.isEmpty()) {
+                    Text("Нічого не знайдено", color = muted, modifier = Modifier.padding(24.dp))
+                } else {
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(minSize = 112.dp),
+                        modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        gridItems(list, key = { it.url }) { ch ->
+                            val selected = ch.url == current?.url
+                            val isFav = ch.url in favs
+                            Column(
+                                Modifier
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(if (selected) acc.copy(alpha = 0.18f) else muted.copy(alpha = 0.08f))
+                                    .clickable { current = ch }
+                                    .padding(10.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                Box {
+                                    ChannelLogo(ch, 56.dp, acc, muted, card)
+                                    Icon(
+                                        if (isFav) Icons.Filled.Star else Icons.Outlined.StarOutline,
+                                        contentDescription = "Fav",
+                                        tint = if (isFav) acc else muted.copy(alpha = 0.7f),
+                                        modifier = Modifier.align(Alignment.TopEnd).size(18.dp).clickable {
+                                            favs = MusicTvFavStore.toggle(ctx, ch.url)
+                                        },
+                                    )
+                                }
+                                Spacer(Modifier.height(8.dp))
+                                Text(
+                                    ch.name,
+                                    color = if (selected) acc else text,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
+                    }
+                }
+            } else if (country == null) {
                 // Favorites row
                 val favList = MusicTvChannels.all.filter { it.url in favs }
                 if (favList.isNotEmpty()) {
@@ -497,5 +607,17 @@ private fun ChannelLogo(
                 fontWeight = FontWeight.Bold,
             )
         }
+    }
+}
+
+object MusicTvLastStore {
+    private const val PREFS = "music_tv_prefs"
+    private const val KEY_URL = "last_channel_url"
+    fun load(ctx: android.content.Context): String? =
+        ctx.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE)
+            .getString(KEY_URL, null)?.takeIf { !it.isNullOrBlank() }
+    fun save(ctx: android.content.Context, url: String) {
+        ctx.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE)
+            .edit().putString(KEY_URL, url).apply()
     }
 }

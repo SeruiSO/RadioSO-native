@@ -22,6 +22,8 @@ import coil.compose.AsyncImage
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.MarqueeAnimationMode
 import androidx.compose.foundation.basicMarquee
@@ -76,6 +78,8 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -211,33 +215,59 @@ fun BottomNavBar(
                         addRoundRect(RoundRect(0f, 0f, w, h, CornerRadius(corner, corner)))
                     }
                     drawPath(bar, color = card)
-                    // Одна горка: лише Play або всі три кнопки
+                    // Одна «гора»: обводить кнопки, рваний хребет вище за них
                     val joinY = 0.dp.toPx()
                     val left = cx - dist - outer
                     val right = cx + dist + outer
-                    val top = cy - outer
+                    val btnTop = cy - outer
+                    // вершина гори вище кнопок (12–18 dp)
+                    val peakBase = btnTop - 14.dp.toPx()
                     val lobe = Path().apply {
                         moveTo(left - shoulder, joinY)
                         cubicTo(
                             left - shoulder * 0.72f, joinY,
                             left - 6.dp.toPx(), joinY,
-                            left - 2.dp.toPx(), cy - outer * 0.15f,
+                            left - 2.dp.toPx(), cy - outer * 0.12f,
                         )
                         cubicTo(
-                            left - 1.dp.toPx(), cy - outer * 0.05f,
+                            left - 1.dp.toPx(), cy - outer * 0.04f,
                             left, cy - outer * 0.02f,
                             left, cy,
                         )
-                        // лівий напівкруг
-                        arcTo(Rect(left, top, left + outer * 2f, cy + outer), 180f, 90f, false)
-                        // плоска верхня лінія між крайніми кнопками
-                        lineTo(right - outer * 2f, top)
-                        // правий напівкруг
-                        arcTo(Rect(right - outer * 2f, top, right, cy + outer), 270f, 90f, false)
+                        // підйом по лівому краю до хребта
+                        cubicTo(
+                            left, cy - outer * 0.35f,
+                            left + outer * 0.15f, btnTop - 4.dp.toPx(),
+                            left + outer * 0.55f, peakBase + 2.dp.toPx(),
+                        )
+                        // рваний хребет (хаотичні піки)
+                        val span = (right - left).coerceAtLeast(1f)
+                        val peaks = arrayOf(
+                            0.12f to 0.dp.toPx(),
+                            0.22f to -5.dp.toPx(),
+                            0.32f to 1.dp.toPx(),
+                            0.42f to -7.dp.toPx(),
+                            0.52f to -2.dp.toPx(),
+                            0.62f to -8.dp.toPx(),
+                            0.72f to 0.dp.toPx(),
+                            0.82f to -4.dp.toPx(),
+                            0.90f to 1.dp.toPx(),
+                        )
+                        for ((frac, dy) in peaks) {
+                            val px = left + span * frac
+                            val py = peakBase + dy
+                            lineTo(px, py)
+                        }
+                        // спуск правим краєм
+                        cubicTo(
+                            right - outer * 0.55f, peakBase + 2.dp.toPx(),
+                            right - outer * 0.15f, btnTop - 4.dp.toPx(),
+                            right, cy,
+                        )
                         cubicTo(
                             right, cy - outer * 0.02f,
-                            right + 1.dp.toPx(), cy - outer * 0.05f,
-                            right + 2.dp.toPx(), cy - outer * 0.15f,
+                            right + 1.dp.toPx(), cy - outer * 0.04f,
+                            right + 2.dp.toPx(), cy - outer * 0.12f,
                         )
                         cubicTo(
                             right + 6.dp.toPx(), joinY,
@@ -309,16 +339,31 @@ fun BottomNavBar(
             val spread = playDp / 2 + wingDp / 2 + 28.dp
             @Composable
             fun Wing(dx: Dp, icon: androidx.compose.ui.graphics.vector.ImageVector, desc: String, go: () -> Unit) {
+                val interaction = remember { MutableInteractionSource() }
+                val pressed by interaction.collectIsPressedAsState()
+                val pressSc by animateFloatAsState(
+                    if (pressed) 0.88f else 1f,
+                    animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+                    label = "wingPress",
+                )
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .offset(x = dx, y = -playLift)
                         .zIndex(3f)
-                        .graphicsLayer { alpha = wing }
+                        .graphicsLayer {
+                            alpha = wing
+                            scaleX = pressSc
+                            scaleY = pressSc
+                        }
                         .size(wingDp)
                         .clip(RoundedCornerShape(16.dp))
                         .background(Palette.panel)
-                        .clickable(enabled = wing > 0.6f) { go() },
+                        .clickable(
+                            enabled = wing > 0.6f,
+                            interactionSource = interaction,
+                            indication = null,
+                        ) { go() },
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(icon, contentDescription = desc, tint = Palette.text, modifier = Modifier.size(28.dp))

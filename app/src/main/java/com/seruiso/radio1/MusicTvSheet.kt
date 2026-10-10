@@ -31,6 +31,8 @@ import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -87,6 +89,12 @@ fun MusicTvSheet(
     val view = LocalView.current
     var current by remember { mutableStateOf<MusicTvChannel?>(null) }
     var searchQ by remember { mutableStateOf("") }
+    var gridMode by remember {
+        mutableStateOf(
+            ctx.getSharedPreferences("music_tv_prefs", android.content.Context.MODE_PRIVATE)
+                .getBoolean("grid_mode", true)
+        )
+    }
     var showErrorRetry by remember { mutableStateOf(false) }
 
     LaunchedEffect(open) {
@@ -286,6 +294,17 @@ fun MusicTvSheet(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
+                IconButton(onClick = {
+                    gridMode = !gridMode
+                    ctx.getSharedPreferences("music_tv_prefs", android.content.Context.MODE_PRIVATE)
+                        .edit().putBoolean("grid_mode", gridMode).apply()
+                }) {
+                    Icon(
+                        if (gridMode) Icons.Filled.ViewList else Icons.Filled.GridView,
+                        contentDescription = "View",
+                        tint = text,
+                    )
+                }
             }
 
             OutlinedTextField(
@@ -377,7 +396,7 @@ fun MusicTvSheet(
             if (q.isNotEmpty()) {
                 if (list.isEmpty()) {
                     Text("Нічого не знайдено", color = muted, modifier = Modifier.padding(24.dp))
-                } else {
+                } else if (gridMode) {
                     LazyVerticalGrid(
                         columns = GridCells.Adaptive(minSize = 112.dp),
                         modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 4.dp),
@@ -418,6 +437,54 @@ fun MusicTvSheet(
                             }
                         }
                     }
+                } else {
+
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 8.dp, vertical = 4.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            items(list, key = { it.url }) { ch ->
+                                val selected = ch.url == current?.url
+                                val isFav = ch.url in favs
+                                Row(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(
+                                            if (selected) acc.copy(alpha = 0.18f)
+                                            else muted.copy(alpha = 0.06f)
+                                        )
+                                        .clickable { current = ch }
+                                        .padding(horizontal = 10.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    ChannelLogo(ch, 44.dp, acc, muted, card)
+                                    Spacer(Modifier.width(12.dp))
+                                    Text(
+                                        ch.name,
+                                        color = if (selected) acc else text,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    Icon(
+                                        if (isFav) Icons.Filled.Star else Icons.Outlined.StarOutline,
+                                        contentDescription = "Fav",
+                                        tint = if (isFav) acc else muted.copy(alpha = 0.7f),
+                                        modifier = Modifier
+                                            .size(22.dp)
+                                            .clickable {
+                                                favs = MusicTvFavStore.toggle(ctx, ch.url)
+                                            },
+                                    )
+                                }
+                            }
+                        }
+
                 }
             } else if (country == null) {
                 // Favorites row
@@ -486,7 +553,7 @@ fun MusicTvSheet(
                         color = muted,
                         modifier = Modifier.padding(24.dp),
                     )
-                } else {
+                } else if (gridMode) {
                     LazyVerticalGrid(
                         columns = GridCells.Adaptive(minSize = 112.dp),
                         modifier = Modifier
@@ -535,6 +602,54 @@ fun MusicTvSheet(
                             }
                         }
                     }
+                } else {
+
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 8.dp, vertical = 4.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            items(list, key = { it.url }) { ch ->
+                                val selected = ch.url == current?.url
+                                val isFav = ch.url in favs
+                                Row(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(
+                                            if (selected) acc.copy(alpha = 0.18f)
+                                            else muted.copy(alpha = 0.06f)
+                                        )
+                                        .clickable { current = ch }
+                                        .padding(horizontal = 10.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    ChannelLogo(ch, 44.dp, acc, muted, card)
+                                    Spacer(Modifier.width(12.dp))
+                                    Text(
+                                        ch.name,
+                                        color = if (selected) acc else text,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    Icon(
+                                        if (isFav) Icons.Filled.Star else Icons.Outlined.StarOutline,
+                                        contentDescription = "Fav",
+                                        tint = if (isFav) acc else muted.copy(alpha = 0.7f),
+                                        modifier = Modifier
+                                            .size(22.dp)
+                                            .clickable {
+                                                favs = MusicTvFavStore.toggle(ctx, ch.url)
+                                            },
+                                    )
+                                }
+                            }
+                        }
+
                 }
             }
         }

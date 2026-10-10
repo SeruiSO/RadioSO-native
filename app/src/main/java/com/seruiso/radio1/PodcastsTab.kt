@@ -15,6 +15,11 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -212,6 +217,7 @@ fun PodcastsTabContent(
     text: Color,
     card: Color,
     blockBack: Boolean = false,
+    onScrollDir: (Int) -> Unit = {},
 ) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -921,7 +927,18 @@ fun PodcastsTabContent(
         }
     }
 
-    Column(Modifier.fillMaxSize()) {
+    val podScroll = rememberUpdatedState(onScrollDir)
+    val podNest = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                val y = available.y
+                if (y < -6f) podScroll.value(1)
+                else if (y > 6f) podScroll.value(-1)
+                return Offset.Zero
+            }
+        }
+    }
+    Column(Modifier.fillMaxSize().nestedScroll(podNest)) {
         Column(
             Modifier
                 .weight(1f)

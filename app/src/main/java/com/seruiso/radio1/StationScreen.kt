@@ -152,10 +152,10 @@ fun BottomNavBar(
 ) {
     val ctx = LocalContext.current
     val playDp = 52.dp
-    val wingDp = 44.dp
+    val wingDp = playDp
     val wing by animateFloatAsState(
         targetValue = if (wingsOpen && canSkip) 1f else 0f,
-        animationSpec = tween(durationMillis = if (wingsOpen && canSkip) 200 else 140, easing = FastOutSlowInEasing),
+        animationSpec = tween(durationMillis = if (wingsOpen && canSkip) 360 else 200, easing = FastOutSlowInEasing),
         label = "skipWings",
     )
     // Та сама форма/розмір; на подкастах лише зсув угору, щоб низ горки не накривав Шоу/Обране
@@ -247,16 +247,28 @@ fun BottomNavBar(
                     }
                     drawPath(lobe, color = wrapFill)
                     if (wing > 0.02f) {
-                        val s = 25.dp.toPx()
-                        val dx = (play / 2f + wingDp.toPx() / 2f + 10.dp.toPx())
-                        val rad = 16.dp.toPx()
-                        for (sign in floatArrayOf(-1f, 1f)) {
-                            val scx = cx + sign * dx
+                        val reach = (play + 22.dp.toPx()) * wing
+                        val inner = play / 2f
+                        val armH = 12.dp.toPx()
+                        val top = cy - armH / 2f
+                        val leftA = cx - reach + inner
+                        val leftB = cx - inner
+                        val rightA = cx + inner
+                        val rightB = cx + reach - inner
+                        if (leftB - leftA > 2f) {
                             drawRoundRect(
                                 color = wrapFill.copy(alpha = wing),
-                                topLeft = Offset(scx - s, cy - s),
-                                size = Size(s * 2f, s * 2f),
-                                cornerRadius = CornerRadius(rad, rad),
+                                topLeft = Offset(leftA, top),
+                                size = Size(leftB - leftA, armH),
+                                cornerRadius = CornerRadius(armH / 2f, armH / 2f),
+                            )
+                        }
+                        if (rightB - rightA > 2f) {
+                            drawRoundRect(
+                                color = wrapFill.copy(alpha = wing),
+                                topLeft = Offset(rightA, top),
+                                size = Size(rightB - rightA, armH),
+                                cornerRadius = CornerRadius(armH / 2f, armH / 2f),
                             )
                         }
                     }
@@ -319,22 +331,23 @@ fun BottomNavBar(
             )
         }
         if (wing > 0.02f && canSkip) {
-            val spread = playDp / 2 + wingDp / 2 + 10.dp
+            val spread = playDp / 2 + wingDp / 2 + 22.dp
             @Composable
             fun Wing(dx: Dp, icon: androidx.compose.ui.graphics.vector.ImageVector, desc: String, go: () -> Unit) {
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
-                        .offset(x = dx, y = -playLift + 4.dp)
+                        .offset(x = dx, y = -playLift)
                         .zIndex(3f)
                         .graphicsLayer { alpha = wing }
                         .size(wingDp)
                         .clip(RoundedCornerShape(16.dp))
-                        .background(acc)
+                        .background(Color.Transparent)
+                        .border(1.5.dp, acc.copy(alpha = 0.9f), RoundedCornerShape(16.dp))
                         .clickable(enabled = wing > 0.6f) { go() },
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(icon, contentDescription = desc, tint = Color(0xFF0A0A0C), modifier = Modifier.size(22.dp))
+                    Icon(icon, contentDescription = desc, tint = acc, modifier = Modifier.size(24.dp))
                 }
             }
             Wing(-spread * wing, Icons.Filled.SkipPrevious, ctx.getString(R.string.prev_station), onPrev)
@@ -924,7 +937,11 @@ fun StationScreen(
                     .fillMaxSize()
                     .nestedScroll(wingNest),
             ) {
-                PodcastsTabContent(acc = acc, muted = muted, text = text, card = card, blockBack = nowOpen || sheetShow)
+                PodcastsTabContent(
+                    acc = acc, muted = muted, text = text, card = card,
+                    blockBack = nowOpen || sheetShow,
+                    onScrollDir = { dir -> if (dir > 0) wingsOpen = false else wingsOpen = true },
+                )
             }
         } else if (bottomTab == "home") {
             // weight + fillMaxSize: список сам скролить, без боротьби з parent drag
@@ -1209,9 +1226,14 @@ fun StationScreen(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .fillMaxSize(),
+                    .fillMaxSize()
+                    .nestedScroll(wingNest),
             ) {
-                PodcastsTabContent(acc = acc, muted = muted, text = text, card = card, blockBack = nowOpen || sheetShow)
+                PodcastsTabContent(
+                    acc = acc, muted = muted, text = text, card = card,
+                    blockBack = nowOpen || sheetShow,
+                    onScrollDir = { dir -> if (dir > 0) wingsOpen = false else wingsOpen = true },
+                )
             }
         } else if (bottomTab == "home") {
             // weight + fillMaxSize: список сам скролить, без боротьби з parent drag

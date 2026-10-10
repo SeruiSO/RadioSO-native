@@ -224,38 +224,38 @@ fun BottomNavBar(
 
                     fun hillPath(
                         centerX: Float,
-                        peakH: Float,          // наскільки вище btnTop
-                        halfW: Float,          // півширина біля основи
+                        peakH: Float,
+                        halfW: Float,
                         shoulderLocal: Float,
                     ): Path {
                         val peakY = btnTop - peakH
                         val baseL = centerX - halfW
                         val baseR = centerX + halfW
                         return Path().apply {
+                            // вузький вхід у панель
                             moveTo(baseL - shoulderLocal, joinY)
                             cubicTo(
-                                baseL - shoulderLocal * 0.6f, joinY,
-                                baseL - 4.dp.toPx(), joinY + 2.dp.toPx(),
-                                baseL, cy - outer * 0.15f,
+                                baseL - shoulderLocal * 0.5f, joinY,
+                                baseL - 2.dp.toPx(), joinY,
+                                baseL, cy - outer * 0.08f,
                             )
-                            // лівий схил до вершини
+                            // крутий лівий схил майже до точки
                             cubicTo(
-                                baseL + halfW * 0.25f, btnTop - peakH * 0.25f,
-                                centerX - halfW * 0.18f, peakY + peakH * 0.22f,
-                                centerX - 2.dp.toPx(), peakY + 1.5.dp.toPx(),
+                                baseL + halfW * 0.15f, btnTop - peakH * 0.15f,
+                                centerX - 3.dp.toPx(), peakY + peakH * 0.12f,
+                                centerX - 1.dp.toPx(), peakY + 1.dp.toPx(),
                             )
-                            // вузька «гостра» верхівка
                             lineTo(centerX, peakY)
-                            lineTo(centerX + 2.dp.toPx(), peakY + 1.5.dp.toPx())
-                            // правий схил
+                            lineTo(centerX + 1.dp.toPx(), peakY + 1.dp.toPx())
+                            // крутий правий схил
                             cubicTo(
-                                centerX + halfW * 0.18f, peakY + peakH * 0.22f,
-                                baseR - halfW * 0.25f, btnTop - peakH * 0.25f,
-                                baseR, cy - outer * 0.15f,
+                                centerX + 3.dp.toPx(), peakY + peakH * 0.12f,
+                                baseR - halfW * 0.15f, btnTop - peakH * 0.15f,
+                                baseR, cy - outer * 0.08f,
                             )
                             cubicTo(
-                                baseR + 4.dp.toPx(), joinY + 2.dp.toPx(),
-                                baseR + shoulderLocal * 0.6f, joinY,
+                                baseR + 2.dp.toPx(), joinY,
+                                baseR + shoulderLocal * 0.5f, joinY,
                                 baseR + shoulderLocal, joinY,
                             )
                             close()
@@ -264,30 +264,28 @@ fun BottomNavBar(
 
                     fun drawHill(centerX: Float, peakH: Float, halfW: Float, shoulderLocal: Float) {
                         val body = hillPath(centerX, peakH, halfW, shoulderLocal)
-                        // тінь трохи нижче/ширше
-                        val shadow = hillPath(centerX, peakH * 0.92f, halfW * 1.06f, shoulderLocal * 1.05f)
+                        val shadow = hillPath(centerX, peakH * 0.95f, halfW * 1.04f, shoulderLocal)
                         drawPath(shadow, color = shadeCol)
                         drawPath(body, color = baseCol)
-                        // тонкий світліший хребет по верхівці
                         val ridge = Path().apply {
                             val peakY = btnTop - peakH
-                            moveTo(centerX - halfW * 0.55f, btnTop - peakH * 0.35f)
+                            moveTo(centerX - halfW * 0.35f, btnTop - peakH * 0.28f)
                             cubicTo(
-                                centerX - halfW * 0.2f, peakY + peakH * 0.2f,
-                                centerX - 1.dp.toPx(), peakY + 2.dp.toPx(),
+                                centerX - halfW * 0.12f, peakY + peakH * 0.15f,
+                                centerX - 0.5.dp.toPx(), peakY + 1.dp.toPx(),
                                 centerX, peakY,
                             )
                             cubicTo(
-                                centerX + 1.dp.toPx(), peakY + 2.dp.toPx(),
-                                centerX + halfW * 0.2f, peakY + peakH * 0.2f,
-                                centerX + halfW * 0.55f, btnTop - peakH * 0.35f,
+                                centerX + 0.5.dp.toPx(), peakY + 1.dp.toPx(),
+                                centerX + halfW * 0.12f, peakY + peakH * 0.15f,
+                                centerX + halfW * 0.35f, btnTop - peakH * 0.28f,
                             )
                         }
                         drawPath(
                             ridge,
                             color = ridgeCol,
                             style = androidx.compose.ui.graphics.drawscope.Stroke(
-                                width = 2.dp.toPx(),
+                                width = 1.5.dp.toPx(),
                                 cap = androidx.compose.ui.graphics.StrokeCap.Round,
                             ),
                         )
@@ -296,18 +294,17 @@ fun BottomNavBar(
                     if (wing > 0.08f) {
                         val lx = cx - dist
                         val rx = cx + dist
-                        // бічні нижчі й вужчі; малюємо першими
-                        val sideH = 11.dp.toPx() * wing.coerceIn(0f, 1f)
-                        val sideW = outer + 10.dp.toPx()
-                        drawHill(lx, sideH, sideW, 22.dp.toPx())
-                        drawHill(rx, sideH, sideW, 22.dp.toPx())
-                        // центральна вища і ширша — трохи наїжджає на бічні
-                        val midH = 18.dp.toPx()
-                        val midW = outer + 16.dp.toPx() + 6.dp.toPx() * wing
-                        drawHill(cx, midH, midW, 28.dp.toPx())
+                        // тонкі бічні гори
+                        val sideH = 14.dp.toPx() * wing.coerceIn(0f, 1f)
+                        val sideW = outer * 0.72f
+                        drawHill(lx, sideH, sideW, 10.dp.toPx())
+                        drawHill(rx, sideH, sideW, 10.dp.toPx())
+                        // центральна гостріша й трохи вища, легке перекриття
+                        val midH = 20.dp.toPx()
+                        val midW = outer * 0.85f
+                        drawHill(cx, midH, midW, 12.dp.toPx())
                     } else {
-                        // лише Play
-                        drawHill(cx, 18.dp.toPx(), outer + 14.dp.toPx(), 32.dp.toPx())
+                        drawHill(cx, 20.dp.toPx(), outer * 0.85f, 14.dp.toPx())
                     }
                 }
                 .pointerInput(Unit) {

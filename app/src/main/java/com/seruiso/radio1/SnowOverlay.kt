@@ -33,7 +33,7 @@ private data class Flake(
 
 /**
  * Сніг поверх UI. Не чіпає playback.
- * active=true → 10–12 с падає; тап → onDismiss.
+ * active=true → 30 с падає; тап → onDismiss.
  * settleY — верх панелі вкладок; playCenterY/playR — зона Play; wing half-width якщо крила відкриті.
  */
 @Composable
@@ -56,8 +56,8 @@ fun SnowOverlay(
         if (!active) return@LaunchedEffect
         started = false
         flakes = emptyList()
-        // авто-стоп ~11 с
-        delay(11_000)
+        // авто-стоп ~30 с
+        delay(30_000)
         onDismiss()
     }
 

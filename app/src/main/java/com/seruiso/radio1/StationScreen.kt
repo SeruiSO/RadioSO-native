@@ -85,12 +85,20 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.style.TextOverflow
@@ -137,9 +145,19 @@ fun BottomNavBar(
     onSwipeUp: () -> Unit = {},
     onPull: (Float) -> Unit = {},
     onPullEnd: () -> Unit = {},
+    canSkip: Boolean = true,
+    wingsOpen: Boolean = true,
+    onPrev: () -> Unit = {},
+    onNext: () -> Unit = {},
 ) {
     val ctx = LocalContext.current
     val playDp = 52.dp
+    val wingDp = 44.dp
+    val wing by animateFloatAsState(
+        targetValue = if (wingsOpen && canSkip) 1f else 0f,
+        animationSpec = tween(durationMillis = if (wingsOpen && canSkip) 200 else 140, easing = FastOutSlowInEasing),
+        label = "skipWings",
+    )
     // Та сама форма/розмір; на подкастах лише зсув угору, щоб низ горки не накривав Шоу/Обране
     val playLift = 52.dp
     // Панель card; обводка — той самий тон капсул, але непрозора
@@ -228,6 +246,20 @@ fun BottomNavBar(
                         close()
                     }
                     drawPath(lobe, color = wrapFill)
+                    if (wing > 0.02f) {
+                        val s = 25.dp.toPx()
+                        val dx = (play / 2f + wingDp.toPx() / 2f + 10.dp.toPx())
+                        val rad = 16.dp.toPx()
+                        for (sign in floatArrayOf(-1f, 1f)) {
+                            val scx = cx + sign * dx
+                            drawRoundRect(
+                                color = wrapFill.copy(alpha = wing),
+                                topLeft = Offset(scx - s, cy - s),
+                                size = Size(s * 2f, s * 2f),
+                                cornerRadius = CornerRadius(rad, rad),
+                            )
+                        }
+                    }
                 }
                 .pointerInput(Unit) {
                     detectVerticalDragGestures(
@@ -285,6 +317,28 @@ fun BottomNavBar(
                 accent = acc,
                 shape = RoundedCornerShape(16.dp),
             )
+        }
+        if (wing > 0.02f && canSkip) {
+            val spread = playDp / 2 + wingDp / 2 + 10.dp
+            @Composable
+            fun Wing(dx: Dp, icon: androidx.compose.ui.graphics.vector.ImageVector, desc: String, go: () -> Unit) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .offset(x = dx, y = -playLift + 4.dp)
+                        .zIndex(3f)
+                        .graphicsLayer { alpha = wing }
+                        .size(wingDp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(acc)
+                        .clickable(enabled = wing > 0.6f) { go() },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(icon, contentDescription = desc, tint = Color(0xFF0A0A0C), modifier = Modifier.size(22.dp))
+                }
+            }
+            Wing(-spread * wing, Icons.Filled.SkipPrevious, ctx.getString(R.string.prev_station), onPrev)
+            Wing(spread * wing, Icons.Filled.SkipNext, ctx.getString(R.string.next_station), onNext)
         }
     }
 }
@@ -478,6 +532,31 @@ fun StationScreen(
     var dropAt by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(-1) }
     var dragging by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     val listState = rememberLazyListState()
+    var wingsOpen by remember { mutableStateOf(true) }
+    LaunchedEffect(listState) {
+        var prev = -1
+        snapshotFlow {
+            listState.firstVisibleItemIndex * 100_000 + listState.firstVisibleItemScrollOffset
+        }.collect { now ->
+            if (prev < 0) {
+                prev = now
+                return@collect
+            }
+            val d = now - prev
+            prev = now
+            if (d > 16) wingsOpen = false
+            else if (d < -16) wingsOpen = true
+        }
+    }
+    val wingNest = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (available.y < -6f) wingsOpen = false
+                else if (available.y > 6f) wingsOpen = true
+                return Offset.Zero
+            }
+        }
+    }
     val nowLocalUi = isLocalNow || currentUrl.startsWith("content:")
     val nowLocalRowsUi = when {
         showLocal -> localRows
@@ -842,7 +921,8 @@ fun StationScreen(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .fillMaxSize(),
+                    .fillMaxSize()
+                    .nestedScroll(wingNest),
             ) {
                 PodcastsTabContent(acc = acc, muted = muted, text = text, card = card, blockBack = nowOpen || sheetShow)
             }
@@ -1283,6 +1363,10 @@ fun StationScreen(
             playing = playing,
             status = status,
             onPlayPause = onPlayPause,
+            canSkip = canSkip,
+            wingsOpen = wingsOpen,
+            onPrev = onPrev,
+            onNext = onNext,
             extraAbove = if (bottomTab == "podcasts") {
                 { PodcastDockTabs(acc = acc, muted = muted) }
             } else null,

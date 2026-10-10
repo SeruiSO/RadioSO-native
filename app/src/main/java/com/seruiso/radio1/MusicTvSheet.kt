@@ -58,6 +58,13 @@ import androidx.compose.ui.zIndex
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.DefaultLoadControl
+import androidx.media3.common.PlaybackException
+import androidx.media3.common.C
+import androidx.media3.common.AudioAttributes
+import androidx.compose.foundation.lazy.grid.items as gridItems
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.media3.ui.PlayerView
 import coil.compose.AsyncImage
 
@@ -86,28 +93,86 @@ fun MusicTvSheet(
     var country by remember { mutableStateOf<String?>(null) } // null = home (countries + favs)
     var favs by remember { mutableStateOf(MusicTvFavStore.load(ctx)) }
 
+    // Окремий плеєр ТВ (не RadioWatchService). При lock екрана — грає далі;
+    // stop/release лише коли закрили sheet або скинули канал.
     val player = remember {
-        ExoPlayer.Builder(ctx).build().apply {
-            playWhenReady = true
-            repeatMode = Player.REPEAT_MODE_OFF
-        }
+        val load = DefaultLoadControl.Builder()
+            .setBufferDurationsMs(
+                /* minBufferMs */ 15_000,
+                /* maxBufferMs */ 50_000,
+                /* bufferForPlaybackMs */ 2_500,
+                /* bufferForPlaybackAfterRebufferMs */ 5_000,
+            )
+            .build()
+        ExoPlayer.Builder(ctx)
+            .setLoadControl(load)
+            .build()
+            .apply {
+                playWhenReady = true
+                repeatMode = Player.REPEAT_MODE_OFF
+                setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(C.USAGE_MEDIA)
+                        .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
+                        .build(),
+                    /* handleAudioFocus= */ true,
+                )
+            }
     }
 
-    DisposableEffect(Unit) {
+    var retryLeft by remember { mutableStateOf(3) }
+
+    DisposableEffect(player) {
+        val listener = object : Player.Listener {
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                when (playbackState) {
+                    Player.STATE_BUFFERING -> {
+                        if (current != null) status = "…"
+                    }
+                    Player.STATE_READY -> {
+                        retryLeft = 3
+                        status = current?.name.orEmpty()
+                    }
+                    Player.STATE_ENDED -> { /* live rarely ends */ }
+                    else -> Unit
+                }
+            }
+            override fun onPlayerError(error: PlaybackException) {
+                if (current == null) return
+                if (retryLeft > 0) {
+                    retryLeft -= 1
+                    status = "…"
+                    try {
+                        player.prepare()
+                        player.play()
+                    } catch (_: Exception) {}
+                } else {
+                    status = error.localizedMessage ?: "Error"
+                }
+            }
+        }
+        player.addListener(listener)
         onDispose {
+            player.removeListener(listener)
+            try { player.stop() } catch (_: Exception) {}
             try { player.release() } catch (_: Exception) {}
         }
     }
 
     LaunchedEffect(current?.url) {
-        val u = current?.url ?: return@LaunchedEffect
+        val u = current?.url
+        if (u.isNullOrBlank()) {
+            try { player.stop() } catch (_: Exception) {}
+            return@LaunchedEffect
+        }
         try {
             onPauseRadio()
+            retryLeft = 3
             status = "…"
             player.setMediaItem(MediaItem.fromUri(u))
             player.prepare()
+            player.playWhenReady = true
             player.play()
-            status = current?.name.orEmpty()
         } catch (e: Exception) {
             status = e.message ?: "Error"
         }
@@ -305,63 +370,59 @@ fun MusicTvSheet(
                     }
                 }
             } else {
-                LazyColumn(Modifier.fillMaxSize().padding(bottom = 12.dp)) {
-                    if (list.isEmpty()) {
-                        item {
-                            Text(
-                                "Порожньо",
-                                color = muted,
-                                modifier = Modifier.padding(24.dp),
-                            )
-                        }
-                    }
-                    items(list, key = { it.url }) { ch ->
-                        val selected = ch.url == current?.url
-                        val isFav = ch.url in favs
-                        Row(
-                            Modifier
-                                .fillMaxWidth()
-                                .clickable { current = ch }
-                                .background(
-                                    if (selected) acc.copy(alpha = 0.18f)
-                                    else Color.Transparent
-                                )
-                                .padding(horizontal = 12.dp, vertical = 11.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            ChannelLogo(ch, 44.dp, acc, muted, card)
-                            Spacer(Modifier.width(12.dp))
-                            Column(Modifier.weight(1f)) {
+                if (list.isEmpty()) {
+                    Text(
+                        "Порожньо",
+                        color = muted,
+                        modifier = Modifier.padding(24.dp),
+                    )
+                } else {
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(minSize = 112.dp),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 10.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        gridItems(list, key = { it.url }) { ch ->
+                            val selected = ch.url == current?.url
+                            val isFav = ch.url in favs
+                            Column(
+                                Modifier
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(
+                                        if (selected) acc.copy(alpha = 0.18f)
+                                        else muted.copy(alpha = 0.08f)
+                                    )
+                                    .clickable { current = ch }
+                                    .padding(10.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                Box {
+                                    ChannelLogo(ch, 56.dp, acc, muted, card)
+                                    Icon(
+                                        if (isFav) Icons.Filled.Star else Icons.Outlined.StarOutline,
+                                        contentDescription = "Fav",
+                                        tint = if (isFav) acc else muted.copy(alpha = 0.7f),
+                                        modifier = Modifier
+                                            .align(Alignment.TopEnd)
+                                            .size(18.dp)
+                                            .clickable {
+                                                favs = MusicTvFavStore.toggle(ctx, ch.url)
+                                            },
+                                    )
+                                }
+                                Spacer(Modifier.height(8.dp))
                                 Text(
                                     ch.name,
                                     color = if (selected) acc else text,
-                                    style = MaterialTheme.typography.bodyLarge,
+                                    style = MaterialTheme.typography.labelMedium,
                                     fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                                    maxLines = 1,
+                                    maxLines = 2,
                                     overflow = TextOverflow.Ellipsis,
                                 )
-                                Text(
-                                    ch.countryLabel,
-                                    color = muted,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    maxLines = 1,
-                                )
                             }
-                            IconButton(onClick = {
-                                favs = MusicTvFavStore.toggle(ctx, ch.url)
-                            }) {
-                                Icon(
-                                    if (isFav) Icons.Filled.Star else Icons.Outlined.StarOutline,
-                                    contentDescription = "Fav",
-                                    tint = if (isFav) acc else muted,
-                                )
-                            }
-                            Icon(
-                                Icons.Filled.PlayArrow,
-                                null,
-                                tint = if (selected) acc else muted,
-                                modifier = Modifier.size(22.dp),
-                            )
                         }
                     }
                 }

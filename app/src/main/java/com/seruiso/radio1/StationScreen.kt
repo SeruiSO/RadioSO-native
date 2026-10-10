@@ -1621,7 +1621,7 @@ fun StationScreen(
         muted = muted,
         text = text,
         card = card,
-        onPauseRadio = { if (playing) onPlayPause() },
+        onPauseRadio = { if (playing) onPlayPause() }, // only pause radio; TV uses own ExoPlayer
     )
     NowPlayingSheet(
         nowOpen = nowOpen,

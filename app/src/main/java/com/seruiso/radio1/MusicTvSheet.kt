@@ -49,6 +49,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -72,7 +73,14 @@ fun MusicTvSheet(
 ) {
     if (!open) return
     val ctx = LocalContext.current
+    val view = LocalView.current
     var current by remember { mutableStateOf<MusicTvChannel?>(null) }
+
+    DisposableEffect(open, current?.url) {
+        val keep = open && current != null
+        view.keepScreenOn = keep
+        onDispose { view.keepScreenOn = false }
+    }
     var fullscreen by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf("") }
     var country by remember { mutableStateOf<String?>(null) } // null = home (countries + favs)

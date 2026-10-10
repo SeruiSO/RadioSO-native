@@ -289,10 +289,18 @@ fun BottomNavBar(
                 .offset(y = (-playLift))
                 .zIndex(4f)
                 .pointerInput(Unit) {
+                    var upAcc = 0f
                     detectVerticalDragGestures(
-                        onDragEnd = { onPullEnd() },
-                        onDragCancel = { onPullEnd() },
-                    ) { _, drag -> onPull(drag) }
+                        onDragEnd = {
+                            if (upAcc < -60f) onSwipeUp()
+                            else onPullEnd()
+                            upAcc = 0f
+                        },
+                        onDragCancel = { upAcc = 0f; onPullEnd() },
+                    ) { _, drag ->
+                        upAcc += drag
+                        onPull(drag)
+                    }
                 },
             contentAlignment = Alignment.Center,
         ) {
@@ -318,6 +326,17 @@ fun BottomNavBar(
                         .size(wingDp)
                         .clip(RoundedCornerShape(16.dp))
                         .background(Palette.panel)
+                        .pointerInput(wing > 0.6f) {
+                            if (wing <= 0.6f) return@pointerInput
+                            var upAcc = 0f
+                            detectVerticalDragGestures(
+                                onDragEnd = {
+                                    if (upAcc < -60f) onSwipeUp()
+                                    upAcc = 0f
+                                },
+                                onDragCancel = { upAcc = 0f },
+                            ) { _, drag -> upAcc += drag }
+                        }
                         .clickable(enabled = wing > 0.6f) { go() },
                     contentAlignment = Alignment.Center,
                 ) {
@@ -520,6 +539,7 @@ fun StationScreen(
     var dragging by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     val listState = rememberLazyListState()
     var wingsOpen by remember { mutableStateOf(true) }
+    var snowOn by remember { mutableStateOf(false) }
     LaunchedEffect(listState) {
         var prev = -1
         snapshotFlow {
@@ -1087,6 +1107,18 @@ fun StationScreen(
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(14.dp))
                 .background(card)
+                .pointerInput(Unit) {
+                    var accY = 0f
+                    detectVerticalDragGestures(
+                        onDragEnd = {
+                            if (accY > 80f) snowOn = true
+                            accY = 0f
+                        },
+                        onDragCancel = { accY = 0f },
+                    ) { _, drag ->
+                        accY += drag
+                    }
+                }
                 .clickable(onClick = { onCloseMenu(); onNow() })
         ) {
             Row(
@@ -1363,6 +1395,7 @@ fun StationScreen(
             wingsOpen = wingsOpen,
             onPrev = onPrev,
             onNext = onNext,
+            onSwipeUp = { if (!nowOpen) onNow() },
             extraAbove = if (bottomTab == "podcasts") {
                 { PodcastDockTabs(acc = acc, muted = muted) }
             } else null,
@@ -1386,6 +1419,16 @@ fun StationScreen(
                 }
             }
         )
+        if (snowOn) {
+            SnowOverlay(
+                active = true,
+                onDismiss = { snowOn = false },
+                wingsOpen = wingsOpen && canSkip,
+                playDp = 58f,
+                playLiftDp = 58f,
+                wingGapDp = 28f,
+            )
+        }
         }
     }
     // ===== Права картка: жанрові та кастомні вкладки =====

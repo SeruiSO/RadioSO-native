@@ -1419,16 +1419,6 @@ fun StationScreen(
                 }
             }
         )
-        if (snowOn) {
-            SnowOverlay(
-                active = true,
-                onDismiss = { snowOn = false },
-                wingsOpen = wingsOpen && canSkip,
-                playDp = 58f,
-                playLiftDp = 58f,
-                wingGapDp = 28f,
-            )
-        }
         }
     }
     // ===== Права картка: жанрові та кастомні вкладки =====
@@ -1609,6 +1599,16 @@ fun StationScreen(
         text = text,
         card = card,
     )
+    if (snowOn) {
+        SnowOverlay(
+            active = true,
+            onDismiss = { snowOn = false },
+            wingsOpen = wingsOpen && canSkip,
+            playDp = 58f,
+            playLiftDp = 58f,
+            wingGapDp = 28f,
+        )
+    }
     NowPlayingSheet(
         nowOpen = nowOpen,
         sheetShow = sheetShow,

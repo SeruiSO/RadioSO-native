@@ -22,8 +22,6 @@ import coil.compose.AsyncImage
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.MarqueeAnimationMode
 import androidx.compose.foundation.basicMarquee
@@ -78,8 +76,6 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -215,97 +211,42 @@ fun BottomNavBar(
                         addRoundRect(RoundRect(0f, 0f, w, h, CornerRadius(corner, corner)))
                     }
                     drawPath(bar, color = card)
-                    // Три гори: бічні + центральна зверху (трохи наїжджає). Шари тінь/основа/хребет.
+                    // Одна горка: лише Play або всі три кнопки
                     val joinY = 0.dp.toPx()
-                    val btnTop = cy - outer
-                    val baseCol = wrapFill
-                    val shadeCol = androidx.compose.ui.graphics.lerp(wrapFill, androidx.compose.ui.graphics.Color.Black, 0.14f)
-                    val ridgeCol = androidx.compose.ui.graphics.lerp(wrapFill, androidx.compose.ui.graphics.Color.White, 0.10f)
-
-                    fun hillPath(
-                        centerX: Float,
-                        peakH: Float,
-                        halfW: Float,
-                        shoulderLocal: Float,
-                    ): Path {
-                        val peakY = btnTop - peakH
-                        val baseL = centerX - halfW
-                        val baseR = centerX + halfW
-                        return Path().apply {
-                            // вузький вхід у панель
-                            moveTo(baseL - shoulderLocal, joinY)
-                            cubicTo(
-                                baseL - shoulderLocal * 0.5f, joinY,
-                                baseL - 2.dp.toPx(), joinY,
-                                baseL, cy - outer * 0.08f,
-                            )
-                            // крутий лівий схил майже до точки
-                            cubicTo(
-                                baseL + halfW * 0.15f, btnTop - peakH * 0.15f,
-                                centerX - 3.dp.toPx(), peakY + peakH * 0.12f,
-                                centerX - 1.dp.toPx(), peakY + 1.dp.toPx(),
-                            )
-                            lineTo(centerX, peakY)
-                            lineTo(centerX + 1.dp.toPx(), peakY + 1.dp.toPx())
-                            // крутий правий схил
-                            cubicTo(
-                                centerX + 3.dp.toPx(), peakY + peakH * 0.12f,
-                                baseR - halfW * 0.15f, btnTop - peakH * 0.15f,
-                                baseR, cy - outer * 0.08f,
-                            )
-                            cubicTo(
-                                baseR + 2.dp.toPx(), joinY,
-                                baseR + shoulderLocal * 0.5f, joinY,
-                                baseR + shoulderLocal, joinY,
-                            )
-                            close()
-                        }
-                    }
-
-                    fun drawHill(centerX: Float, peakH: Float, halfW: Float, shoulderLocal: Float) {
-                        val body = hillPath(centerX, peakH, halfW, shoulderLocal)
-                        val shadow = hillPath(centerX, peakH * 0.95f, halfW * 1.04f, shoulderLocal)
-                        drawPath(shadow, color = shadeCol)
-                        drawPath(body, color = baseCol)
-                        val ridge = Path().apply {
-                            val peakY = btnTop - peakH
-                            moveTo(centerX - halfW * 0.35f, btnTop - peakH * 0.28f)
-                            cubicTo(
-                                centerX - halfW * 0.12f, peakY + peakH * 0.15f,
-                                centerX - 0.5.dp.toPx(), peakY + 1.dp.toPx(),
-                                centerX, peakY,
-                            )
-                            cubicTo(
-                                centerX + 0.5.dp.toPx(), peakY + 1.dp.toPx(),
-                                centerX + halfW * 0.12f, peakY + peakH * 0.15f,
-                                centerX + halfW * 0.35f, btnTop - peakH * 0.28f,
-                            )
-                        }
-                        drawPath(
-                            ridge,
-                            color = ridgeCol,
-                            style = androidx.compose.ui.graphics.drawscope.Stroke(
-                                width = 1.5.dp.toPx(),
-                                cap = androidx.compose.ui.graphics.StrokeCap.Round,
-                            ),
+                    val left = cx - dist - outer
+                    val right = cx + dist + outer
+                    val top = cy - outer
+                    val lobe = Path().apply {
+                        moveTo(left - shoulder, joinY)
+                        cubicTo(
+                            left - shoulder * 0.72f, joinY,
+                            left - 6.dp.toPx(), joinY,
+                            left - 2.dp.toPx(), cy - outer * 0.15f,
                         )
+                        cubicTo(
+                            left - 1.dp.toPx(), cy - outer * 0.05f,
+                            left, cy - outer * 0.02f,
+                            left, cy,
+                        )
+                        // лівий напівкруг
+                        arcTo(Rect(left, top, left + outer * 2f, cy + outer), 180f, 90f, false)
+                        // плоска верхня лінія між крайніми кнопками
+                        lineTo(right - outer * 2f, top)
+                        // правий напівкруг
+                        arcTo(Rect(right - outer * 2f, top, right, cy + outer), 270f, 90f, false)
+                        cubicTo(
+                            right, cy - outer * 0.02f,
+                            right + 1.dp.toPx(), cy - outer * 0.05f,
+                            right + 2.dp.toPx(), cy - outer * 0.15f,
+                        )
+                        cubicTo(
+                            right + 6.dp.toPx(), joinY,
+                            right + shoulder * 0.72f, joinY,
+                            right + shoulder, joinY,
+                        )
+                        close()
                     }
-
-                    if (wing > 0.08f) {
-                        val lx = cx - dist
-                        val rx = cx + dist
-                        // тонкі бічні гори
-                        val sideH = 14.dp.toPx() * wing.coerceIn(0f, 1f)
-                        val sideW = outer * 0.72f
-                        drawHill(lx, sideH, sideW, 10.dp.toPx())
-                        drawHill(rx, sideH, sideW, 10.dp.toPx())
-                        // центральна гостріша й трохи вища, легке перекриття
-                        val midH = 20.dp.toPx()
-                        val midW = outer * 0.85f
-                        drawHill(cx, midH, midW, 12.dp.toPx())
-                    } else {
-                        drawHill(cx, 20.dp.toPx(), outer * 0.85f, 14.dp.toPx())
-                    }
+                    drawPath(lobe, color = wrapFill)
                 }
                 .pointerInput(Unit) {
                     detectVerticalDragGestures(
@@ -368,31 +309,16 @@ fun BottomNavBar(
             val spread = playDp / 2 + wingDp / 2 + 28.dp
             @Composable
             fun Wing(dx: Dp, icon: androidx.compose.ui.graphics.vector.ImageVector, desc: String, go: () -> Unit) {
-                val interaction = remember { MutableInteractionSource() }
-                val pressed by interaction.collectIsPressedAsState()
-                val pressSc by animateFloatAsState(
-                    if (pressed) 0.88f else 1f,
-                    animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
-                    label = "wingPress",
-                )
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .offset(x = dx, y = -playLift)
                         .zIndex(3f)
-                        .graphicsLayer {
-                            alpha = wing
-                            scaleX = pressSc
-                            scaleY = pressSc
-                        }
+                        .graphicsLayer { alpha = wing }
                         .size(wingDp)
                         .clip(RoundedCornerShape(16.dp))
                         .background(Palette.panel)
-                        .clickable(
-                            enabled = wing > 0.6f,
-                            interactionSource = interaction,
-                            indication = null,
-                        ) { go() },
+                        .clickable(enabled = wing > 0.6f) { go() },
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(icon, contentDescription = desc, tint = Palette.text, modifier = Modifier.size(28.dp))

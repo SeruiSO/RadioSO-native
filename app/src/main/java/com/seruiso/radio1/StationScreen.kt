@@ -215,104 +215,100 @@ fun BottomNavBar(
                         addRoundRect(RoundRect(0f, 0f, w, h, CornerRadius(corner, corner)))
                     }
                     drawPath(bar, color = card)
-                    // Одна «гора»: 1 вершина на Play, 3 вершини при скіпах (середня вища)
+                    // Три гори: бічні + центральна зверху (трохи наїжджає). Шари тінь/основа/хребет.
                     val joinY = 0.dp.toPx()
-                    val left = cx - dist - outer
-                    val right = cx + dist + outer
                     val btnTop = cy - outer
-                    // головна вершина над Play
-                    val mainPeak = btnTop - 18.dp.toPx()
-                    // бічні нижчі
-                    val sidePeak = btnTop - 10.dp.toPx()
-                    val lobe = Path().apply {
-                        moveTo(left - shoulder, joinY)
-                        // плавний вхід у панель → лівий край
-                        cubicTo(
-                            left - shoulder * 0.72f, joinY,
-                            left - 6.dp.toPx(), joinY,
-                            left - 2.dp.toPx(), cy - outer * 0.12f,
-                        )
-                        cubicTo(
-                            left - 1.dp.toPx(), cy - outer * 0.04f,
-                            left, cy - outer * 0.02f,
-                            left, cy,
-                        )
-                        // западина між вершинами — майже до рівня кнопок
-                        val valley = btnTop - 2.dp.toPx()
-                        if (wing > 0.35f) {
-                            // три вершини з провалами між кнопками; верхівка вузька й рвана
-                            val lx = cx - dist
-                            val rx = cx + dist
-                            // до лівої вершини
+                    val baseCol = wrapFill
+                    val shadeCol = androidx.compose.ui.graphics.lerp(wrapFill, androidx.compose.ui.graphics.Color.Black, 0.14f)
+                    val ridgeCol = androidx.compose.ui.graphics.lerp(wrapFill, androidx.compose.ui.graphics.Color.White, 0.10f)
+
+                    fun hillPath(
+                        centerX: Float,
+                        peakH: Float,          // наскільки вище btnTop
+                        halfW: Float,          // півширина біля основи
+                        shoulderLocal: Float,
+                    ): Path {
+                        val peakY = btnTop - peakH
+                        val baseL = centerX - halfW
+                        val baseR = centerX + halfW
+                        return Path().apply {
+                            moveTo(baseL - shoulderLocal, joinY)
                             cubicTo(
-                                left + outer * 0.35f, btnTop - 1.dp.toPx(),
-                                lx - outer * 0.55f, sidePeak + 6.dp.toPx(),
-                                lx - 3.dp.toPx(), sidePeak + 2.dp.toPx(),
+                                baseL - shoulderLocal * 0.6f, joinY,
+                                baseL - 4.dp.toPx(), joinY + 2.dp.toPx(),
+                                baseL, cy - outer * 0.15f,
                             )
-                            // рвана вузька верхівка лівої
-                            lineTo(lx - 1.dp.toPx(), sidePeak - 1.dp.toPx())
-                            lineTo(lx, sidePeak)
-                            lineTo(lx + 1.dp.toPx(), sidePeak - 1.dp.toPx())
-                            lineTo(lx + 3.dp.toPx(), sidePeak + 2.dp.toPx())
-                            // провал між лівою і середньою
+                            // лівий схил до вершини
                             cubicTo(
-                                lx + outer * 0.45f, valley,
-                                cx - outer * 0.45f, valley,
-                                cx - 4.dp.toPx(), mainPeak + 5.dp.toPx(),
+                                baseL + halfW * 0.25f, btnTop - peakH * 0.25f,
+                                centerX - halfW * 0.18f, peakY + peakH * 0.22f,
+                                centerX - 2.dp.toPx(), peakY + 1.5.dp.toPx(),
                             )
-                            // рвана вузька верхівка середньої (найвища)
-                            lineTo(cx - 1.5.dp.toPx(), mainPeak + 1.dp.toPx())
-                            lineTo(cx, mainPeak)
-                            lineTo(cx + 1.5.dp.toPx(), mainPeak + 1.dp.toPx())
-                            lineTo(cx + 4.dp.toPx(), mainPeak + 5.dp.toPx())
-                            // провал між середньою і правою
+                            // вузька «гостра» верхівка
+                            lineTo(centerX, peakY)
+                            lineTo(centerX + 2.dp.toPx(), peakY + 1.5.dp.toPx())
+                            // правий схил
                             cubicTo(
-                                cx + outer * 0.45f, valley,
-                                rx - outer * 0.45f, valley,
-                                rx - 3.dp.toPx(), sidePeak + 2.dp.toPx(),
+                                centerX + halfW * 0.18f, peakY + peakH * 0.22f,
+                                baseR - halfW * 0.25f, btnTop - peakH * 0.25f,
+                                baseR, cy - outer * 0.15f,
                             )
-                            // рвана вузька верхівка правої
-                            lineTo(rx - 1.dp.toPx(), sidePeak - 1.dp.toPx())
-                            lineTo(rx, sidePeak)
-                            lineTo(rx + 1.dp.toPx(), sidePeak - 1.dp.toPx())
-                            lineTo(rx + 3.dp.toPx(), sidePeak + 2.dp.toPx())
-                            // спуск до правого краю
                             cubicTo(
-                                rx + outer * 0.55f, sidePeak + 6.dp.toPx(),
-                                right - outer * 0.35f, btnTop - 1.dp.toPx(),
-                                right, cy,
+                                baseR + 4.dp.toPx(), joinY + 2.dp.toPx(),
+                                baseR + shoulderLocal * 0.6f, joinY,
+                                baseR + shoulderLocal, joinY,
                             )
-                        } else {
-                            // одна гостра рвана вершина над Play
+                            close()
+                        }
+                    }
+
+                    fun drawHill(centerX: Float, peakH: Float, halfW: Float, shoulderLocal: Float) {
+                        val body = hillPath(centerX, peakH, halfW, shoulderLocal)
+                        // тінь трохи нижче/ширше
+                        val shadow = hillPath(centerX, peakH * 0.92f, halfW * 1.06f, shoulderLocal * 1.05f)
+                        drawPath(shadow, color = shadeCol)
+                        drawPath(body, color = baseCol)
+                        // тонкий світліший хребет по верхівці
+                        val ridge = Path().apply {
+                            val peakY = btnTop - peakH
+                            moveTo(centerX - halfW * 0.55f, btnTop - peakH * 0.35f)
                             cubicTo(
-                                left + outer * 0.35f, btnTop - 1.dp.toPx(),
-                                cx - outer * 0.35f, mainPeak + 6.dp.toPx(),
-                                cx - 3.dp.toPx(), mainPeak + 3.dp.toPx(),
+                                centerX - halfW * 0.2f, peakY + peakH * 0.2f,
+                                centerX - 1.dp.toPx(), peakY + 2.dp.toPx(),
+                                centerX, peakY,
                             )
-                            lineTo(cx - 1.dp.toPx(), mainPeak + 0.5.dp.toPx())
-                            lineTo(cx, mainPeak)
-                            lineTo(cx + 1.dp.toPx(), mainPeak + 0.5.dp.toPx())
-                            lineTo(cx + 3.dp.toPx(), mainPeak + 3.dp.toPx())
                             cubicTo(
-                                cx + outer * 0.35f, mainPeak + 6.dp.toPx(),
-                                right - outer * 0.35f, btnTop - 1.dp.toPx(),
-                                right, cy,
+                                centerX + 1.dp.toPx(), peakY + 2.dp.toPx(),
+                                centerX + halfW * 0.2f, peakY + peakH * 0.2f,
+                                centerX + halfW * 0.55f, btnTop - peakH * 0.35f,
                             )
                         }
-                        // вихід у панель справа
-                        cubicTo(
-                            right, cy - outer * 0.02f,
-                            right + 1.dp.toPx(), cy - outer * 0.04f,
-                            right + 2.dp.toPx(), cy - outer * 0.12f,
+                        drawPath(
+                            ridge,
+                            color = ridgeCol,
+                            style = androidx.compose.ui.graphics.drawscope.Stroke(
+                                width = 2.dp.toPx(),
+                                cap = androidx.compose.ui.graphics.StrokeCap.Round,
+                            ),
                         )
-                        cubicTo(
-                            right + 6.dp.toPx(), joinY,
-                            right + shoulder * 0.72f, joinY,
-                            right + shoulder, joinY,
-                        )
-                        close()
                     }
-                    drawPath(lobe, color = wrapFill)
+
+                    if (wing > 0.08f) {
+                        val lx = cx - dist
+                        val rx = cx + dist
+                        // бічні нижчі й вужчі; малюємо першими
+                        val sideH = 11.dp.toPx() * wing.coerceIn(0f, 1f)
+                        val sideW = outer + 10.dp.toPx()
+                        drawHill(lx, sideH, sideW, 22.dp.toPx())
+                        drawHill(rx, sideH, sideW, 22.dp.toPx())
+                        // центральна вища і ширша — трохи наїжджає на бічні
+                        val midH = 18.dp.toPx()
+                        val midW = outer + 16.dp.toPx() + 6.dp.toPx() * wing
+                        drawHill(cx, midH, midW, 28.dp.toPx())
+                    } else {
+                        // лише Play
+                        drawHill(cx, 18.dp.toPx(), outer + 14.dp.toPx(), 32.dp.toPx())
+                    }
                 }
                 .pointerInput(Unit) {
                     detectVerticalDragGestures(

@@ -178,7 +178,7 @@ fun MusicTvSheet(
                 Text(
                     when {
                         current != null -> current!!.name
-                        country != null -> MusicTvChannels.countries.firstOrNull { it.first == country }?.second ?: country!!
+                        country != null -> MusicTvChannels.sections.firstOrNull { it.first == country }?.second ?: country!!
                         else -> "Music TV"
                     },
                     color = text,
@@ -232,7 +232,7 @@ fun MusicTvSheet(
 
             val list: List<MusicTvChannel> = when {
                 country == "FAV" -> MusicTvChannels.all.filter { it.url in favs }
-                country != null -> MusicTvChannels.byCountry(country!!)
+                country != null -> MusicTvChannels.bySection(country!!)
                 else -> emptyList()
             }
 
@@ -289,7 +289,7 @@ fun MusicTvSheet(
                             country = "FAV"
                         }
                     }
-                    items(MusicTvChannels.countries, key = { it.first }) { (code, label) ->
+                    items(MusicTvChannels.sections, key = { it.first }) { (code, label) ->
                         val n = MusicTvChannels.byCountry(code).size
                         CountryRow(code, "$label · $n", acc, muted, text, card) {
                             country = code
@@ -314,8 +314,11 @@ fun MusicTvSheet(
                             Modifier
                                 .fillMaxWidth()
                                 .clickable { current = ch }
-                                .background(if (selected) acc.copy(alpha = 0.12f) else Color.Transparent)
-                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                                .background(
+                                    if (selected) acc.copy(alpha = 0.18f)
+                                    else Color.Transparent
+                                )
+                                .padding(horizontal = 12.dp, vertical = 11.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             ChannelLogo(ch, 44.dp, acc, muted, card)
@@ -333,6 +336,7 @@ fun MusicTvSheet(
                                     ch.countryLabel,
                                     color = muted,
                                     style = MaterialTheme.typography.labelSmall,
+                                    maxLines = 1,
                                 )
                             }
                             IconButton(onClick = {
@@ -344,7 +348,12 @@ fun MusicTvSheet(
                                     tint = if (isFav) acc else muted,
                                 )
                             }
-                            Icon(Icons.Filled.PlayArrow, null, tint = if (selected) acc else muted, modifier = Modifier.size(22.dp))
+                            Icon(
+                                Icons.Filled.PlayArrow,
+                                null,
+                                tint = if (selected) acc else muted,
+                                modifier = Modifier.size(22.dp),
+                            )
                         }
                     }
                 }

@@ -215,15 +215,18 @@ fun BottomNavBar(
                         addRoundRect(RoundRect(0f, 0f, w, h, CornerRadius(corner, corner)))
                     }
                     drawPath(bar, color = card)
-                    // Одна «гора»: обводить кнопки, рваний хребет вище за них
+                    // Одна «гора»: 1 вершина на Play, 3 вершини при скіпах (середня вища)
                     val joinY = 0.dp.toPx()
                     val left = cx - dist - outer
                     val right = cx + dist + outer
                     val btnTop = cy - outer
-                    // вершина гори вище кнопок (12–18 dp)
-                    val peakBase = btnTop - 14.dp.toPx()
+                    // головна вершина над Play
+                    val mainPeak = btnTop - 18.dp.toPx()
+                    // бічні нижчі
+                    val sidePeak = btnTop - 10.dp.toPx()
                     val lobe = Path().apply {
                         moveTo(left - shoulder, joinY)
+                        // плавний вхід у панель → лівий край
                         cubicTo(
                             left - shoulder * 0.72f, joinY,
                             left - 6.dp.toPx(), joinY,
@@ -234,36 +237,48 @@ fun BottomNavBar(
                             left, cy - outer * 0.02f,
                             left, cy,
                         )
-                        // підйом по лівому краю до хребта
-                        cubicTo(
-                            left, cy - outer * 0.35f,
-                            left + outer * 0.15f, btnTop - 4.dp.toPx(),
-                            left + outer * 0.55f, peakBase + 2.dp.toPx(),
-                        )
-                        // рваний хребет (хаотичні піки)
-                        val span = (right - left).coerceAtLeast(1f)
-                        val peaks = arrayOf(
-                            0.12f to 0.dp.toPx(),
-                            0.22f to -5.dp.toPx(),
-                            0.32f to 1.dp.toPx(),
-                            0.42f to -7.dp.toPx(),
-                            0.52f to -2.dp.toPx(),
-                            0.62f to -8.dp.toPx(),
-                            0.72f to 0.dp.toPx(),
-                            0.82f to -4.dp.toPx(),
-                            0.90f to 1.dp.toPx(),
-                        )
-                        for ((frac, dy) in peaks) {
-                            val px = left + span * frac
-                            val py = peakBase + dy
-                            lineTo(px, py)
+                        if (wing > 0.35f) {
+                            // три вершини: ліва → середня (найвища) → права
+                            val lx = cx - dist
+                            val rx = cx + dist
+                            // підйом до лівої вершини
+                            cubicTo(
+                                left + outer * 0.4f, btnTop - 2.dp.toPx(),
+                                lx - outer * 0.3f, sidePeak + 3.dp.toPx(),
+                                lx, sidePeak,
+                            )
+                            // спуск + підйом до центральної (гострої)
+                            cubicTo(
+                                lx + outer * 0.35f, sidePeak + 4.dp.toPx(),
+                                cx - outer * 0.25f, mainPeak + 6.dp.toPx(),
+                                cx, mainPeak,
+                            )
+                            // спуск + підйом до правої
+                            cubicTo(
+                                cx + outer * 0.25f, mainPeak + 6.dp.toPx(),
+                                rx - outer * 0.35f, sidePeak + 4.dp.toPx(),
+                                rx, sidePeak,
+                            )
+                            // спуск до правого краю кнопки
+                            cubicTo(
+                                rx + outer * 0.3f, sidePeak + 3.dp.toPx(),
+                                right - outer * 0.4f, btnTop - 2.dp.toPx(),
+                                right, cy,
+                            )
+                        } else {
+                            // одна гостра вершина над Play
+                            cubicTo(
+                                left + outer * 0.35f, btnTop - 2.dp.toPx(),
+                                cx - outer * 0.2f, mainPeak + 5.dp.toPx(),
+                                cx, mainPeak,
+                            )
+                            cubicTo(
+                                cx + outer * 0.2f, mainPeak + 5.dp.toPx(),
+                                right - outer * 0.35f, btnTop - 2.dp.toPx(),
+                                right, cy,
+                            )
                         }
-                        // спуск правим краєм
-                        cubicTo(
-                            right - outer * 0.55f, peakBase + 2.dp.toPx(),
-                            right - outer * 0.15f, btnTop - 4.dp.toPx(),
-                            right, cy,
-                        )
+                        // вихід у панель справа
                         cubicTo(
                             right, cy - outer * 0.02f,
                             right + 1.dp.toPx(), cy - outer * 0.04f,

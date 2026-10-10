@@ -247,29 +247,40 @@ fun BottomNavBar(
                     }
                     drawPath(lobe, color = wrapFill)
                     if (wing > 0.02f) {
-                        val reach = (play + 22.dp.toPx()) * wing
-                        val inner = play / 2f
-                        val armH = 12.dp.toPx()
-                        val top = cy - armH / 2f
-                        val leftA = cx - reach + inner
-                        val leftB = cx - inner
-                        val rightA = cx + inner
-                        val rightB = cx + reach - inner
-                        if (leftB - leftA > 2f) {
-                            drawRoundRect(
-                                color = wrapFill.copy(alpha = wing),
-                                topLeft = Offset(leftA, top),
-                                size = Size(leftB - leftA, armH),
-                                cornerRadius = CornerRadius(armH / 2f, armH / 2f),
-                            )
-                        }
-                        if (rightB - rightA > 2f) {
-                            drawRoundRect(
-                                color = wrapFill.copy(alpha = wing),
-                                topLeft = Offset(rightA, top),
-                                size = Size(rightB - rightA, armH),
-                                cornerRadius = CornerRadius(armH / 2f, armH / 2f),
-                            )
+                        val dist = (play + 22.dp.toPx()) * wing
+                        val wOuter = half + wrap
+                        val shoulderW = 36.dp.toPx()
+                        for (sign in floatArrayOf(-1f, 1f)) {
+                            val scx = cx + sign * dist
+                            val wl = scx - wOuter
+                            val wr = scx + wOuter
+                            val wTop = cy - wOuter
+                            val side = Path().apply {
+                                moveTo(wl - shoulderW, joinY)
+                                cubicTo(
+                                    wl - shoulderW * 0.72f, joinY,
+                                    wl - 6.dp.toPx(), joinY,
+                                    wl - 2.dp.toPx(), cy - wOuter * 0.15f,
+                                )
+                                cubicTo(
+                                    wl - 1.dp.toPx(), cy - wOuter * 0.05f,
+                                    wl, cy - wOuter * 0.02f,
+                                    wl, cy,
+                                )
+                                arcTo(Rect(wl, wTop, wr, cy + wOuter), 180f, 180f, false)
+                                cubicTo(
+                                    wr, cy - wOuter * 0.02f,
+                                    wr + 1.dp.toPx(), cy - wOuter * 0.05f,
+                                    wr + 2.dp.toPx(), cy - wOuter * 0.15f,
+                                )
+                                cubicTo(
+                                    wr + 6.dp.toPx(), joinY,
+                                    wr + shoulderW * 0.72f, joinY,
+                                    wr + shoulderW, joinY,
+                                )
+                                close()
+                            }
+                            drawPath(side, color = wrapFill.copy(alpha = wing))
                         }
                     }
                 }
@@ -342,12 +353,11 @@ fun BottomNavBar(
                         .graphicsLayer { alpha = wing }
                         .size(wingDp)
                         .clip(RoundedCornerShape(16.dp))
-                        .background(Color.Transparent)
-                        .border(1.5.dp, acc.copy(alpha = 0.9f), RoundedCornerShape(16.dp))
+                        .background(Palette.panel)
                         .clickable(enabled = wing > 0.6f) { go() },
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(icon, contentDescription = desc, tint = acc, modifier = Modifier.size(24.dp))
+                    Icon(icon, contentDescription = desc, tint = Palette.text, modifier = Modifier.size(26.dp))
                 }
             }
             Wing(-spread * wing, Icons.Filled.SkipPrevious, ctx.getString(R.string.prev_station), onPrev)

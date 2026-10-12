@@ -172,7 +172,7 @@
 
 
     <string name="privacy_policy">Політика конфіденційності</string>
-    <string name="menu_exit">Закрити</string>
+    <string name="menu_exit">Вихід</string>
     <string name="privacy_url" translatable="false">https://github.com/SeruiSO/RadioSO-native/blob/main/PRIVACY.md</string>
 
 
@@ -268,5 +268,6 @@
     <string name="menu_show_tv">Показувати кнопку ТВ</string>
     <string name="menu_version">Версія %1$s</string>
     <string name="menu_settings_title">Налаштування</string>
+    <string name="menu_close_app">Закрити додаток</string>
 </resources>
 

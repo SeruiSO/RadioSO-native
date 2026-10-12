@@ -21,8 +21,8 @@ android {
         applicationId = "com.seruiso.radioso.nativeapp"
         minSdk = 26
         targetSdk = 37
-        versionCode = 570
-        versionName = "0.13.266.127"
+        versionCode = 571
+        versionName = "0.13.266.128"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

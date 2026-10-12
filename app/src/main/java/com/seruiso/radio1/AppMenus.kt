@@ -70,6 +70,7 @@ import androidx.compose.ui.unit.sp
 
 
 
+
 @Composable
 fun AppOverflowMenu(
     menuOpen: Boolean,
@@ -129,15 +130,26 @@ fun AppOverflowMenu(
                     .fillMaxSize()
                     .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
-                // Заголовок без кнопки закрити
-                Text(
-                    ctx.getString(R.string.menu_settings_title),
-                    color = text,
-                    style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 8.dp, start = 4.dp),
-                )
+                // Заголовок + «Вихід» зверху справа (лише закрити меню)
+                Row(
+                    Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        ctx.getString(R.string.menu_settings_title),
+                        color = text,
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Text(
+                        ctx.getString(R.string.menu_exit),
+                        color = acc,
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier
+                            .clickable { onCloseMenu() }
+                            .padding(horizontal = 8.dp, vertical = 8.dp),
+                    )
+                }
                 Column(
                     Modifier
                         .weight(1f)
@@ -233,31 +245,15 @@ fun AppOverflowMenu(
                             modifier = Modifier.padding(top = 16.dp, start = 12.dp, bottom = 4.dp),
                         )
                     }
-                    // Повний вихід з додатка (стоп + finish)
+                    // Повний вихід з додатка — окремий рядок списку
                     MenuRow(
                         icon = Icons.Filled.Logout,
-                        label = ctx.getString(R.string.menu_exit),
+                        label = ctx.getString(R.string.menu_close_app),
                         selected = false, acc = acc, text = text,
                         onClick = { onExit() },
                     )
                 }
-                // Внизу справа — лише закрити меню (підпис «Вихід»)
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp, bottom = 4.dp),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        ctx.getString(R.string.menu_exit),
-                        color = acc,
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier
-                            .clickable { onCloseMenu() }
-                            .padding(horizontal = 12.dp, vertical = 10.dp),
-                    )
-                }
+                // без окремого нижнього блоку «Вихід»
             }
         }
     }

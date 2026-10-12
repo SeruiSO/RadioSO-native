@@ -290,34 +290,32 @@ private fun MenuSwitchRow(
     text: Color,
     onToggle: (Boolean) -> Unit,
 ) {
-    val shape = RoundedCornerShape(12.dp)
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .height(52.dp)
-            .background(
-                if (checked) acc.copy(alpha = 0.14f) else Color.Transparent,
-                shape,
-            )
-            .then(
-                if (checked) Modifier.border(1.dp, acc.copy(alpha = 0.35f), shape)
-                else Modifier
-            )
+            .heightIn(min = 52.dp)
             .clickable { onToggle(!checked) }
-            .padding(horizontal = 12.dp),
+            .padding(horizontal = 12.dp, vertical = 6.dp),
     ) {
-        Icon(icon, contentDescription = null, tint = if (checked) acc else text, modifier = Modifier.size(24.dp))
+        Icon(icon, contentDescription = null, tint = text, modifier = Modifier.size(24.dp))
         Text(
             label,
-            color = if (checked) acc else text,
+            color = text,
             modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.titleSmall.copy(fontSize = 15.sp),
+            style = MaterialTheme.typography.titleSmall.copy(
+                fontSize = 15.sp,
+                // ~1dp між рядками при переносі (15sp + 1dp ≈ 16–17sp lineHeight)
+                lineHeight = 17.sp,
+            ),
+            maxLines = 3,
+            softWrap = true,
         )
         Switch(checked = checked, onCheckedChange = onToggle)
     }
 }
+
 
 @Composable
 private fun MenuRow(

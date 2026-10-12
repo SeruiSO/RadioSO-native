@@ -987,6 +987,19 @@ private void attemptReconnect(String reason, boolean immediate) {
             android.util.Log.i("RadioWatch", "explicitPlay block voice (" + why + ")");
             return false;
         }
+        // Play з BT/MediaSession/MediaButton — лише якщо в меню увімкнено «старт з Play»
+        // notif-play / play-url / app UI — не чіпаємо
+        if ("session-play".equals(why) || "media-button".equals(why) || "action-play".equals(why)) {
+            boolean allow = true;
+            try {
+                allow = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                    .getBoolean(BluetoothAutoPlayPlugin.KEY_BT_PLAY_CMD, true);
+            } catch (Exception ignored) {}
+            if (!allow) {
+                android.util.Log.i("RadioWatch", "explicitPlay block — play cmd off (" + why + ")");
+                return false;
+            }
+        }
         permanentFocusLoss = false;
         pausedByOtherMedia = false;
         duckedByFocus = false;
@@ -2129,8 +2142,22 @@ notifyForeground();
             return START_STICKY;
         }
 
-        if (ACTION_PLAY.equals(action) || ACTION_NOTIF_PLAY.equals(action)) {
-            if (!canExplicitPlay("action-play")) {
+        if (ACTION_PLAY.equals(action)) {
+            // MediaButton / зовнішній PLAY
+            if (!canExplicitPlay("media-button")) {
+                return START_STICKY;
+            }
+            cancelHeadUnitPlayWait();
+            setUserPausedWhileBt(false);
+            PlaybackPrefs.setPauseReason(this, PlaybackPrefs.REASON_NONE);
+            setIntendedPlaying(true);
+            playShieldUntilMs = System.currentTimeMillis() + PLAY_SHIELD_MS;
+            playLast();
+            return START_STICKY;
+        }
+        if (ACTION_NOTIF_PLAY.equals(action)) {
+            // Кнопка в шторці додатка — завжди можна
+            if (!canExplicitPlay("notif-play")) {
                 return START_STICKY;
             }
             cancelHeadUnitPlayWait();

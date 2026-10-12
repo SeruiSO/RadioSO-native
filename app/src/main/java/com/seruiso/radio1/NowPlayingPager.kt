@@ -58,14 +58,15 @@ fun NowPlayingPager(
         modifier = modifier.fillMaxWidth(),
         contentAlignment = Alignment.Center,
     ) {
+        // Майже весь вільний бокс; підписи/кнопки знизу вже з’їли своє через weight.
         val maxSide = min(maxWidth - metrics.pagerPad * 2, maxHeight)
-        val npArt = maxSide.coerceIn(140.dp, 480.dp)
-        val badge = (npArt * 0.18f).coerceIn(40.dp, 72.dp)
+        val npArt = maxSide.coerceIn(160.dp, 560.dp)
+        val badge = (npArt * 0.16f).coerceIn(44.dp, 80.dp)
     HorizontalPager(
         state = pagerState,
         userScrollEnabled = userScrollEnabled,
         contentPadding = PaddingValues(horizontal = metrics.pagerPad),
-        pageSpacing = 12.dp,
+        pageSpacing = 8.dp,
         modifier = Modifier
             .fillMaxWidth()
             .fillMaxHeight(),

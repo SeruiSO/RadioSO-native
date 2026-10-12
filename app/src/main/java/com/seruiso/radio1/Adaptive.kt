@@ -52,23 +52,23 @@ data class UiMetrics(
     /** Велика обкладинка: не ширша за екран мінус поля пейджера. */
     val npArt: Dp get() {
         val byH = when {
-            tight -> 200.dp
-            compact -> 240.dp
-            screenH < 800 -> 280.dp
-            else -> 300.dp
+            tight -> 220.dp
+            compact -> 268.dp
+            screenH < 800 -> 310.dp
+            else -> 340.dp
         }
-        val maxW = (screenW - 96).coerceAtLeast(148).dp
+        val maxW = (screenW - 64).coerceAtLeast(160).dp
         return if (byH < maxW) byH else maxW
     }
-    val npPagerH: Dp get() = npArt + 16.dp
+    val npPagerH: Dp get() = npArt + 12.dp
     val npFallbackArtH: Dp get() = when {
-        tight -> 180.dp
-        compact -> 220.dp
+        tight -> 200.dp
+        compact -> 244.dp
         else -> npArt
     }
     val playBtn: Dp get() = if (tight) 68.dp else if (compact) 72.dp else 80.dp
-    /** Горизонтальні поля каруселі обкладинок. */
-    val pagerPad: Dp get() = if (narrow) 16.dp else 36.dp
+    /** Горизонтальні поля каруселі (менші = більша обкладинка, сусіди все одно видно). */
+    val pagerPad: Dp get() = if (narrow) 10.dp else 20.dp
 }
 
 @Composable

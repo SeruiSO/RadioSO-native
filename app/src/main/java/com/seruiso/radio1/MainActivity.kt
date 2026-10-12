@@ -554,7 +554,17 @@ class MainActivity : ComponentActivity() {
                             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(getString(R.string.privacy_url))))
                             menuOpen = false
                         },
-                        onExit = { menuOpen = false; finishAffinity() },
+                        onExit = {
+                            menuOpen = false
+                            try {
+                                startService(Intent(this, RadioWatchService::class.java).setAction(RadioWatchService.ACTION_PAUSE))
+                            } catch (_: Exception) {}
+                            try {
+                                getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                                    .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, false).apply()
+                            } catch (_: Exception) {}
+                            finishAffinity()
+                        },
 
                     )
                 }

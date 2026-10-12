@@ -69,8 +69,8 @@
     <string name="sleep_pause">таймер сну: пауза</string>
     <string name="sleep_mins">Сон: %1$d хв</string>
     <string name="mins_short">%1$d хв</string>
-    <string name="export">Експорт</string>
-    <string name="import_label">Імпорт</string>
+    <string name="export">Експорт налаштувань</string>
+    <string name="import_label">Імпорт налаштувань</string>
     <string name="export_settings">Експорт налаштувань</string>
     <string name="import_settings">Імпорт налаштувань</string>
     <string name="export_radioso">Експорт RadioSO</string>
@@ -261,5 +261,12 @@
     <string name="podcast_filter_empty">Немає шоу в цьому фільтрі</string>
     <string name="podcast_tab_new">Нові</string>
     <string name="status_stream_unavailable">Потік недоступний</string>
+    <string name="bt_connection">Налаштування підключення</string>
+    <string name="bt_autostart_connect">Автостарт при підключенні Bluetooth</string>
+    <string name="bt_play_command">Старт з команди PLAY пристрою</string>
+    <string name="menu_theme">Тема</string>
+    <string name="menu_show_tv">Показувати кнопку ТВ</string>
+    <string name="menu_version">Версія %1$s</string>
+    <string name="menu_settings_title">Налаштування</string>
 </resources>
 

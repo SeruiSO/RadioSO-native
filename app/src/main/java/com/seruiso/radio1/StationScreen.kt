@@ -785,10 +785,15 @@ fun StationScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(
-                    modifier = Modifier.size(40.dp).background(card, AppShapes.chip).springPress(0.9f) { musicTvOpen = true },
-                    contentAlignment = Alignment.Center
-                ) { Icon(Icons.Filled.PlayArrow, contentDescription = "Music TV", tint = text) }
+                val showTvBtn = LocalContext.current
+                    .getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, android.content.Context.MODE_PRIVATE)
+                    .getBoolean(BluetoothAutoPlayPlugin.KEY_SHOW_TV, true)
+                if (showTvBtn) {
+                    Box(
+                        modifier = Modifier.size(40.dp).background(card, AppShapes.chip).springPress(0.9f) { musicTvOpen = true },
+                        contentAlignment = Alignment.Center
+                    ) { Icon(Icons.Filled.PlayArrow, contentDescription = "Music TV", tint = text) }
+                }
                 Box(
                     modifier = Modifier.size(40.dp).background(card, AppShapes.chip).springPress(0.9f) { onMenu() },
                     contentAlignment = Alignment.Center
@@ -1541,7 +1546,18 @@ fun StationScreen(
         card = card,
     )
     // Хедер 🌙 теж відкриває вибір теми
-    AppOverflowMenu(
+    val menuCtx = LocalContext.current
+    val menuAppVer = remember(menuCtx) {
+        runCatching {
+            @Suppress("DEPRECATION")
+            menuCtx.packageManager.getPackageInfo(menuCtx.packageName, 0).versionName ?: ""
+        }.getOrDefault("")
+    }
+    val showTvBtn = remember {
+        menuCtx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, android.content.Context.MODE_PRIVATE)
+            .getBoolean(BluetoothAutoPlayPlugin.KEY_SHOW_TV, true)
+    }
+AppOverflowMenu(
         menuOpen = menuOpen,
         onCloseMenu = onCloseMenu,
         btWatch = btWatch,
@@ -1554,6 +1570,8 @@ fun StationScreen(
         onImport = onImport,
         onPrivacy = onPrivacy,
         onExit = onExit,
+        onTheme = { topThemeOpen = true },
+        appVersion = menuAppVer,
         onAlarm = { alarmOpen = true },
         lang = appLang,
         onLang = onToggleLanguage,

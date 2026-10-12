@@ -1,4 +1,7 @@
 package com.seruiso.radio1
+import androidx.compose.material.icons.filled.Tv
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -19,6 +22,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.BluetoothDisabled
 import androidx.compose.material.icons.filled.DarkMode
@@ -62,6 +67,7 @@ import androidx.compose.ui.unit.sp
 /**
  * Overflow меню (гамбургер) + діалоги сну/теми з хедера.
  */
+
 @Composable
 fun AppOverflowMenu(
     menuOpen: Boolean,
@@ -79,101 +85,197 @@ fun AppOverflowMenu(
     onAlarm: () -> Unit = {},
     lang: String = "uk",
     onLang: () -> Unit = {},
+    onTheme: () -> Unit = {},
+    appVersion: String = "",
     acc: Color,
     text: Color,
 ) {
+    val ctx = LocalContext.current
+    val prefs = remember {
+        ctx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, android.content.Context.MODE_PRIVATE)
+    }
+    var btAuto by remember(menuOpen) {
+        mutableStateOf(prefs.getBoolean(BluetoothAutoPlayPlugin.KEY_BT_AUTOSTART, true))
+    }
+    var btPlayCmd by remember(menuOpen) {
+        mutableStateOf(prefs.getBoolean(BluetoothAutoPlayPlugin.KEY_BT_PLAY_CMD, true))
+    }
+    var showTv by remember(menuOpen) {
+        mutableStateOf(prefs.getBoolean(BluetoothAutoPlayPlugin.KEY_SHOW_TV, true))
+    }
+
     AnimatedVisibility(
         visible = menuOpen,
         modifier = Modifier.fillMaxSize(),
-        enter = fadeIn() + scaleIn(initialScale = 0.92f),
-        exit = fadeOut()
+        enter = fadeIn(),
+        exit = fadeOut(),
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            Box(modifier = Modifier.fillMaxSize().clickable { onCloseMenu() })
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(Palette.bg.copy(alpha = 0.92f))
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .clickable(enabled = false) { /* block through */ }
+        ) {
             Column(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = 56.dp, end = 8.dp)
-                    .width(220.dp)
-                    .background(Palette.panel2, RoundedCornerShape(16.dp))
-                    .border(1.dp, text.copy(alpha = 0.08f), RoundedCornerShape(16.dp))
-                    .padding(10.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
-                MenuRow(
-                    icon = if (btWatch) Icons.Filled.Bluetooth else Icons.Filled.BluetoothDisabled,
-                    label = if (btWatch) LocalContext.current.getString(R.string.bt_on)
-                    else LocalContext.current.getString(R.string.bt_off),
-                    selected = btWatch,
-                    acc = acc,
-                    text = text,
-                    onClick = { onBt(); onCloseMenu() },
-                )
-                MenuRow(
-                    icon = Icons.Filled.Timer,
-                    label = sleepLabel,
-                    selected = false,
-                    acc = acc,
-                    text = text,
-                    onClick = { onSleepMenu() },
-                )
-
-
-                MenuRow(
-                    icon = Icons.Filled.Language,
-                    label = LocalContext.current.getString(
-                        R.string.menu_language,
-                        if (lang == "en") LocalContext.current.getString(R.string.lang_en_short)
-                        else LocalContext.current.getString(R.string.lang_uk_short),
-                    ),
-                    selected = false,
-                    acc = acc,
-                    text = text,
-                    onClick = { onLang(); onCloseMenu() },
-                )
-                MenuRow(
-                    icon = Icons.Filled.Alarm,
-                    label = LocalContext.current.getString(R.string.alarm_title),
-                    selected = false,
-                    acc = acc,
-                    text = text,
-                    onClick = { onAlarm(); onCloseMenu() },
-                )
-
-                MenuRow(
-                    icon = Icons.Filled.FileUpload,
-                    label = LocalContext.current.getString(R.string.export),
-                    selected = false,
-                    acc = acc,
-                    text = text,
-                    onClick = { onExport() },
-                )
-                MenuRow(
-                    icon = Icons.Filled.FileDownload,
-                    label = LocalContext.current.getString(R.string.import_label),
-                    selected = false,
-                    acc = acc,
-                    text = text,
-                    onClick = { onImport() },
-                )
-                MenuRow(
-                    icon = Icons.Filled.Policy,
-                    label = LocalContext.current.getString(R.string.privacy_policy),
-                    selected = false,
-                    acc = acc,
-                    text = text,
-                    onClick = { onPrivacy(); onCloseMenu() },
-                )
-                MenuRow(
-                    icon = Icons.Filled.Logout,
-                    label = LocalContext.current.getString(R.string.menu_exit),
-                    selected = false,
-                    acc = acc,
-                    text = text,
-                    onClick = { onExit() },
-                )
+                Row(
+                    Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        ctx.getString(R.string.menu_settings_title),
+                        color = text,
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Text(
+                        ctx.getString(R.string.close),
+                        color = acc,
+                        modifier = Modifier
+                            .clickable { onCloseMenu() }
+                            .padding(8.dp),
+                    )
+                }
+                Column(
+                    Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    MenuRow(
+                        icon = Icons.Filled.Palette,
+                        label = ctx.getString(R.string.menu_theme),
+                        selected = false, acc = acc, text = text,
+                        onClick = { onTheme(); onCloseMenu() },
+                    )
+                    Text(
+                        ctx.getString(R.string.bt_connection),
+                        color = text.copy(alpha = 0.55f),
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.padding(top = 12.dp, bottom = 4.dp, start = 4.dp),
+                    )
+                    MenuSwitchRow(
+                        icon = if (btWatch) Icons.Filled.Bluetooth else Icons.Filled.BluetoothDisabled,
+                        label = if (btWatch) ctx.getString(R.string.bt_on) else ctx.getString(R.string.bt_off),
+                        checked = btWatch, acc = acc, text = text,
+                        onToggle = { onBt() },
+                    )
+                    MenuSwitchRow(
+                        icon = Icons.Filled.Bluetooth,
+                        label = ctx.getString(R.string.bt_autostart_connect),
+                        checked = btAuto, acc = acc, text = text,
+                        onToggle = {
+                            btAuto = it
+                            prefs.edit().putBoolean(BluetoothAutoPlayPlugin.KEY_BT_AUTOSTART, it).apply()
+                        },
+                    )
+                    MenuSwitchRow(
+                        icon = Icons.Filled.Bluetooth,
+                        label = ctx.getString(R.string.bt_play_command),
+                        checked = btPlayCmd, acc = acc, text = text,
+                        onToggle = {
+                            btPlayCmd = it
+                            prefs.edit().putBoolean(BluetoothAutoPlayPlugin.KEY_BT_PLAY_CMD, it).apply()
+                        },
+                    )
+                    MenuSwitchRow(
+                        icon = Icons.Filled.Tv,
+                        label = ctx.getString(R.string.menu_show_tv),
+                        checked = showTv, acc = acc, text = text,
+                        onToggle = {
+                            showTv = it
+                            prefs.edit().putBoolean(BluetoothAutoPlayPlugin.KEY_SHOW_TV, it).apply()
+                        },
+                    )
+                    MenuRow(
+                        icon = Icons.Filled.Timer,
+                        label = sleepLabel,
+                        selected = false, acc = acc, text = text,
+                        onClick = { onSleepMenu() },
+                    )
+                    MenuRow(
+                        icon = Icons.Filled.Language,
+                        label = ctx.getString(
+                            R.string.menu_language,
+                            if (lang == "en") ctx.getString(R.string.lang_en_short)
+                            else ctx.getString(R.string.lang_uk_short),
+                        ),
+                        selected = false, acc = acc, text = text,
+                        onClick = { onLang() },
+                    )
+                    MenuRow(
+                        icon = Icons.Filled.Alarm,
+                        label = ctx.getString(R.string.alarm_title),
+                        selected = false, acc = acc, text = text,
+                        onClick = { onAlarm(); onCloseMenu() },
+                    )
+                    MenuRow(
+                        icon = Icons.Filled.FileUpload,
+                        label = ctx.getString(R.string.export_settings),
+                        selected = false, acc = acc, text = text,
+                        onClick = { onExport() },
+                    )
+                    MenuRow(
+                        icon = Icons.Filled.FileDownload,
+                        label = ctx.getString(R.string.import_settings),
+                        selected = false, acc = acc, text = text,
+                        onClick = { onImport() },
+                    )
+                    MenuRow(
+                        icon = Icons.Filled.Policy,
+                        label = ctx.getString(R.string.privacy_policy),
+                        selected = false, acc = acc, text = text,
+                        onClick = { onPrivacy(); onCloseMenu() },
+                    )
+                    if (appVersion.isNotBlank()) {
+                        Text(
+                            ctx.getString(R.string.menu_version, appVersion),
+                            color = text.copy(alpha = 0.45f),
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(top = 16.dp, start = 12.dp, bottom = 4.dp),
+                        )
+                    }
+                    MenuRow(
+                        icon = Icons.Filled.Logout,
+                        label = ctx.getString(R.string.menu_exit),
+                        selected = false, acc = acc, text = text,
+                        onClick = { onExit() },
+                    )
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun MenuSwitchRow(
+    icon: ImageVector,
+    label: String,
+    checked: Boolean,
+    acc: Color,
+    text: Color,
+    onToggle: (Boolean) -> Unit,
+) {
+    val shape = RoundedCornerShape(12.dp)
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(52.dp)
+            .background(if (checked) acc.copy(alpha = 0.12f) else Color.Transparent, shape)
+            .clickable { onToggle(!checked) }
+            .padding(horizontal = 12.dp),
+    ) {
+        Icon(icon, contentDescription = null, tint = if (checked) acc else text, modifier = Modifier.size(24.dp))
+        Text(label, color = if (checked) acc else text, modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.titleSmall.copy(fontSize = 15.sp))
+        Switch(checked = checked, onCheckedChange = onToggle)
     }
 }
 

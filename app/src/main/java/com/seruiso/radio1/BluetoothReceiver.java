@@ -184,7 +184,13 @@ public class BluetoothReceiver extends BroadcastReceiver {
                 app.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)
                     .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_PENDING_BT_AFTER_BOOT, false).apply();
             } catch (Exception ignored) {}
-            startSvc(app, RadioWatchService.ACTION_BT);
+            boolean auto = true;
+            try {
+                auto = app.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)
+                    .getBoolean(BluetoothAutoPlayPlugin.KEY_BT_AUTOSTART, true);
+            } catch (Exception ignored) {}
+            if (auto) startSvc(app, RadioWatchService.ACTION_BT);
+            else Log.i(TAG, "BT connected, autostart off");
             return;
         }
         if (state == BluetoothProfile.STATE_DISCONNECTED) {

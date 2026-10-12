@@ -80,13 +80,13 @@ fun SnowOverlay(
             x = rnd.nextFloat() * w,
             y = if (fromTop) -rnd.nextFloat() * h * 0.12f else -rnd.nextFloat() * h * 0.4f,
             r = with(density) { (1.6f + rnd.nextFloat() * 2.6f).dp.toPx() },
-            speed = with(density) { (24f + rnd.nextFloat() * 48f).dp.toPx() / 60f },
+            speed = with(density) { (42f + rnd.nextFloat() * 70f).dp.toPx() / 60f },
             drift = (rnd.nextFloat() - 0.5f) * 0.5f,
             phase = rnd.nextFloat() * 6.28f,
         )
 
         if (!started) {
-            flakes = List(40) { newFlake(fromTop = false) }
+            flakes = List(70) { newFlake(fromTop = false) }
             started = true
         }
 
@@ -98,11 +98,11 @@ fun SnowOverlay(
             val settled = flakes.filter { it.settled }
             var flying = flakes.filter { !it.settled }
 
-            if (spawnAcc >= 0.14f) {
+            if (spawnAcc >= 0.09f) {
                 spawnAcc = 0f
                 // не більше ~35 літаючих — щоб не «збивали» купу
-                if (flying.size < 35) {
-                    repeat(1 + rnd.nextInt(2)) { flying = flying + newFlake(fromTop = true) }
+                if (flying.size < 55) {
+                    repeat(2 + rnd.nextInt(3)) { flying = flying + newFlake(fromTop = true) }
                 }
             }
 
@@ -143,7 +143,7 @@ fun SnowOverlay(
             }
 
             // осілий сніг ніколи не чіпаємо; ліміт лише на flying
-            val settledCap = if (settled.size > 120) settled.takeLast(120) else settled
+            val settledCap = if (settled.size > 160) settled.takeLast(160) else settled
             flakes = settledCap + moved
             delay(16)
         }

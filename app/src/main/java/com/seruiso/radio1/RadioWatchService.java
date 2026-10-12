@@ -987,17 +987,21 @@ private void attemptReconnect(String reason, boolean immediate) {
             android.util.Log.i("RadioWatch", "explicitPlay block voice (" + why + ")");
             return false;
         }
-        // Play з BT/MediaSession/MediaButton — лише якщо в меню увімкнено «старт з Play»
-        // notif-play / play-url / app UI — не чіпаємо
-        if ("session-play".equals(why) || "media-button".equals(why) || "action-play".equals(why)) {
-            boolean allow = true;
+        // Блок лише зовнішній Play (MediaButton / AVRCP MediaSession).
+        // notif-play / play-url / інші — не чіпаємо.
+        if ("session-play".equals(why) || "media-button".equals(why)) {
+            boolean allowCmd = true;
             try {
-                allow = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                allowCmd = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
                     .getBoolean(BluetoothAutoPlayPlugin.KEY_BT_PLAY_CMD, true);
             } catch (Exception ignored) {}
-            if (!allow) {
-                android.util.Log.i("RadioWatch", "explicitPlay block — play cmd off (" + why + ")");
-                return false;
+            if (!allowCmd) {
+                long now = System.currentTimeMillis();
+                if (now > allowUiPlayUntilMs) {
+                    android.util.Log.i("RadioWatch", "explicitPlay block device (" + why + ")");
+                    return false;
+                }
+                android.util.Log.i("RadioWatch", "explicitPlay allow UI window (" + why + ")");
             }
         }
         permanentFocusLoss = false;
@@ -1006,6 +1010,10 @@ private void attemptReconnect(String reason, boolean immediate) {
         lastFocusLossAtMs = 0L;
         try { if (player != null) player.setVolume(1f); } catch (Exception ignored) {}
         return true;
+    }
+
+    void markUiPlayIntent() {
+        allowUiPlayUntilMs = System.currentTimeMillis() + 2500L;
     }
 
     /** Чи атрибути схожі на media/відео/голос (не системний клік). */
@@ -2143,8 +2151,9 @@ notifyForeground();
         }
 
         if (ACTION_PLAY.equals(action)) {
-            // MediaButton / зовнішній PLAY
-            if (!canExplicitPlay("media-button")) {
+            boolean fromUi = intent != null && intent.getBooleanExtra("from_ui", false);
+            if (fromUi) markUiPlayIntent();
+            if (!canExplicitPlay(fromUi ? "ui-play" : "media-button")) {
                 return START_STICKY;
             }
             cancelHeadUnitPlayWait();
@@ -2156,7 +2165,7 @@ notifyForeground();
             return START_STICKY;
         }
         if (ACTION_NOTIF_PLAY.equals(action)) {
-            // Кнопка в шторці додатка — завжди можна
+            markUiPlayIntent();
             if (!canExplicitPlay("notif-play")) {
                 return START_STICKY;
             }
@@ -3322,6 +3331,8 @@ notifyForeground();
     private long lastReconnectTriggerMs = 0L;
     /** Дебаунс подвійного ACTION_BT (ACL + A2DP STATE_CONNECTED). */
     private long lastBtActionMs = 0L;
+    /** UI/шторка — не ріжемо session-play через KEY_BT_PLAY_CMD. */
+    private long allowUiPlayUntilMs = 0L;
     private static final long RECONNECT_DEBOUNCE_MS = 1500L;
     /** Скільки часу після BT-конекту вважаємо, що ще триває апаратний handoff
      *  (магнітола/колонка можуть на мить забрати audio focus чи знімати маршрут) —

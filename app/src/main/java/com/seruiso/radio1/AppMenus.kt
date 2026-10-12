@@ -1,4 +1,10 @@
 package com.seruiso.radio1
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.material.icons.filled.Tv
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -71,6 +77,7 @@ import androidx.compose.ui.unit.sp
 
 
 
+
 @Composable
 fun AppOverflowMenu(
     menuOpen: Boolean,
@@ -118,29 +125,42 @@ fun AppOverflowMenu(
         enter = fadeIn(),
         exit = fadeOut(),
     ) {
-        Box(
-            Modifier
-                .fillMaxSize()
-                .background(Palette.bg.copy(alpha = 0.96f))
-                .statusBarsPadding()
-                .navigationBarsPadding()
-        ) {
+        Box(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+            // ~30% зліва — тап закриває меню
+            Box(
+                Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth(0.30f)
+                    .align(Alignment.CenterStart)
+                    .clickable { onCloseMenu() }
+            )
+            // ~70% справа
             Column(
                 Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .fillMaxHeight()
+                    .fillMaxWidth(0.70f)
+                    .align(Alignment.CenterEnd)
+                    .background(Palette.panel2)
+                    .pointerInput(menuOpen) {
+                        var accX = 0f
+                        detectHorizontalDragGestures(
+                            onDragEnd = {
+                                if (accX > 80f) onCloseMenu()
+                                accX = 0f
+                            },
+                            onDragCancel = { accX = 0f },
+                        ) { _, dragAmount ->
+                            if (dragAmount > 0) accX += dragAmount
+                            else accX = 0f
+                        }
+                    }
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
             ) {
-                // Заголовок + «Вихід» зверху справа (лише закрити меню)
                 Row(
                     Modifier.fillMaxWidth().padding(bottom = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(
-                        ctx.getString(R.string.menu_settings_title),
-                        color = text,
-                        style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.weight(1f),
-                    )
+                    Spacer(Modifier.weight(1f))
                     Text(
                         ctx.getString(R.string.menu_exit),
                         color = acc,
@@ -156,18 +176,7 @@ fun AppOverflowMenu(
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
-                    MenuRow(
-                        icon = Icons.Filled.Palette,
-                        label = ctx.getString(R.string.menu_theme),
-                        selected = false, acc = acc, text = text,
-                        onClick = { onTheme() },
-                    )
-                    Text(
-                        ctx.getString(R.string.bt_connection),
-                        color = text.copy(alpha = 0.55f),
-                        style = MaterialTheme.typography.labelMedium,
-                        modifier = Modifier.padding(top = 12.dp, bottom = 4.dp, start = 4.dp),
-                    )
+                    // 1–2 BT
                     MenuSwitchRow(
                         icon = Icons.Filled.Bluetooth,
                         label = ctx.getString(R.string.bt_autostart_connect),
@@ -188,6 +197,7 @@ fun AppOverflowMenu(
                             syncWatch(btAuto, it)
                         },
                     )
+                    // 3 TV
                     MenuSwitchRow(
                         icon = Icons.Filled.Tv,
                         label = ctx.getString(R.string.menu_show_tv),
@@ -197,12 +207,28 @@ fun AppOverflowMenu(
                             prefs.edit().putBoolean(BluetoothAutoPlayPlugin.KEY_SHOW_TV, it).apply()
                         },
                     )
+                    // 4 Тема — одразу під ТВ
+                    MenuRow(
+                        icon = Icons.Filled.Palette,
+                        label = ctx.getString(R.string.menu_theme),
+                        selected = false, acc = acc, text = text,
+                        onClick = { onTheme() },
+                    )
+                    // 5 сон
                     MenuRow(
                         icon = Icons.Filled.Timer,
                         label = sleepLabel,
                         selected = false, acc = acc, text = text,
                         onClick = { onSleepMenu() },
                     )
+                    // 6 будильник
+                    MenuRow(
+                        icon = Icons.Filled.Alarm,
+                        label = ctx.getString(R.string.alarm_title),
+                        selected = false, acc = acc, text = text,
+                        onClick = { onAlarm() },
+                    )
+                    // 7 мова
                     MenuRow(
                         icon = Icons.Filled.Language,
                         label = ctx.getString(
@@ -213,12 +239,7 @@ fun AppOverflowMenu(
                         selected = false, acc = acc, text = text,
                         onClick = { onLang() },
                     )
-                    MenuRow(
-                        icon = Icons.Filled.Alarm,
-                        label = ctx.getString(R.string.alarm_title),
-                        selected = false, acc = acc, text = text,
-                        onClick = { onAlarm() },
-                    )
+                    // 8–9 експорт / імпорт
                     MenuRow(
                         icon = Icons.Filled.FileUpload,
                         label = ctx.getString(R.string.export_settings),
@@ -231,29 +252,30 @@ fun AppOverflowMenu(
                         selected = false, acc = acc, text = text,
                         onClick = { onImport() },
                     )
+                    // 10 політика
                     MenuRow(
                         icon = Icons.Filled.Policy,
                         label = ctx.getString(R.string.privacy_policy),
                         selected = false, acc = acc, text = text,
                         onClick = { onPrivacy() },
                     )
-                    if (appVersion.isNotBlank()) {
-                        Text(
-                            ctx.getString(R.string.menu_version, appVersion),
-                            color = text.copy(alpha = 0.45f),
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.padding(top = 16.dp, start = 12.dp, bottom = 4.dp),
-                        )
-                    }
-                    // Повний вихід з додатка — окремий рядок списку
+                    // 11 закрити додаток
                     MenuRow(
                         icon = Icons.Filled.Logout,
                         label = ctx.getString(R.string.menu_close_app),
                         selected = false, acc = acc, text = text,
                         onClick = { onExit() },
                     )
+                    // 12 версія
+                    if (appVersion.isNotBlank()) {
+                        Text(
+                            ctx.getString(R.string.menu_version, appVersion),
+                            color = text.copy(alpha = 0.45f),
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(top = 12.dp, start = 12.dp, bottom = 8.dp),
+                        )
+                    }
                 }
-                // без окремого нижнього блоку «Вихід»
             }
         }
     }

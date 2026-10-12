@@ -43,8 +43,8 @@
     <string name="track_unknown">Unknown track</string>
     <string name="track_unknown2">Track: unknown</string>
     <string name="no_cover">No cover</string>
-    <string name="bt_on">BT on</string>
-    <string name="bt_off">BT off</string>
+    <string name="bt_on">BT autostart</string>
+    <string name="bt_off">No BT autostart</string>
     <string name="bt_watch_on">BT watch on</string>
     <string name="bt_watch_off">BT watch off</string>
     <string name="bt_watch_on_long">BT watch enabled</string>

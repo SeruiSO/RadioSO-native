@@ -146,7 +146,8 @@ public class BluetoothReceiver extends BroadcastReceiver {
         if (BluetoothAdapter.ACTION_STATE_CHANGED.equals(action)) {
             int st = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.STATE_ON);
             if ((st == BluetoothAdapter.STATE_OFF || st == BluetoothAdapter.STATE_TURNING_OFF)
-                    && watchOn(app)) {
+                    ) {
+                BluetoothAutoPlayPlugin.ensureWatchOn(app);
                 // Вимкнули BT повністю — класичний стоп завжди
                             try {
                 app.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)
@@ -184,7 +185,7 @@ public class BluetoothReceiver extends BroadcastReceiver {
                 Log.i(TAG, "ACL_DISCONNECTED skip — non-audio device");
                 return;
             }
-            if (!watchOn(app)) return;
+            BluetoothAutoPlayPlugin.ensureWatchOn(app);
             // Класичний BT: стоп. Skip лише жива AA + BT ще on.
             if (aa && btOn()) {
                 Log.i(TAG, "ACL_DISCONNECTED skip — live AA");
@@ -208,25 +209,24 @@ public class BluetoothReceiver extends BroadcastReceiver {
 
         if (state == BluetoothProfile.STATE_CONNECTED) {
             markA2dp(app);
+            BluetoothAutoPlayPlugin.ensureWatchOn(app);
             try {
                 app.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)
-                    .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_PENDING_BT_AFTER_BOOT, false).apply();
+                    .edit()
+                    .putBoolean(BluetoothAutoPlayPlugin.KEY_PENDING_BT_AFTER_BOOT, false)
+                    .putBoolean(BluetoothAutoPlayPlugin.KEY_USER_PAUSED_BT, false)
+                    .putLong("userPausedWhileBtAt", 0L)
+                    .apply();
             } catch (Exception ignored) {}
-            // Автостарт лише з меню; KEY_BT_WATCH більше не блокує цей шлях
-            if (!btAutostartOn(app)) {
-                Log.i(TAG, "BT connected, autostart off — no ACTION_BT");
+            if (!BluetoothAutoPlayPlugin.isBtAutostart(app)) {
+                Log.i(TAG, "CONNECTED — autostart off, wait Play");
                 return;
             }
-            // Синхронізуємо watch у prefs (щоб disconnect/ROUTE_LOST працювали)
-            try {
-                app.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)
-                    .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, true).apply();
-            } catch (Exception ignored) {}
             startSvc(app, RadioWatchService.ACTION_BT);
             return;
         }
         if (state == BluetoothProfile.STATE_DISCONNECTED) {
-            if (!watchOn(app)) return;
+            BluetoothAutoPlayPlugin.ensureWatchOn(app);
             if (aa && btOn()) {
                 Log.i(TAG, "profile DISCONNECTED skip — live AA");
                 return;

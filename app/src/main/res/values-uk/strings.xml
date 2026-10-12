@@ -51,8 +51,8 @@
     <string name="no_cover">Немає обкладинки</string>
 
     <!-- BT -->
-    <string name="bt_on">BT увімк</string>
-    <string name="bt_off">BT вимк</string>
+    <string name="bt_on">Автостарт BT</string>
+    <string name="bt_off">Без автостарту BT</string>
     <string name="bt_watch_on">BT стеження увімк</string>
     <string name="bt_watch_off">BT стеження вимк</string>
     <string name="bt_watch_on_long">BT відстеження увімкнено</string>

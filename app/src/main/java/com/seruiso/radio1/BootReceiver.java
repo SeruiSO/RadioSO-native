@@ -25,7 +25,8 @@ public class BootReceiver extends BroadcastReceiver {
             SharedPreferences p = context.getSharedPreferences(
                 BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE);
             p.edit()
-                .putBoolean(BluetoothAutoPlayPlugin.KEY_AA_ACTIVE, false)
+                .putBoolean(BluetoothAutoPlayPlugin.KEY_AA_ACTIVE, false);
+            BluetoothAutoPlayPlugin.ensureWatchOn(context)
                 .putBoolean(BluetoothAutoPlayPlugin.KEY_PENDING_BT_AUTOSTART, false)
                 .apply();
             // Будильник завжди (навіть якщо BT watch вимкнено)

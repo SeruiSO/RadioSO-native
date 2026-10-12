@@ -55,7 +55,8 @@ class MainActivity : ComponentActivity() {
             favUrls = FavStore.urls(this, BluetoothAutoPlayPlugin.KEY_FAVORITES)
             bestUris = FavStore.urls(this, BluetoothAutoPlayPlugin.KEY_LOCAL_BEST)
             btWatch = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-                .getBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, true)
+                .getBoolean(BluetoothAutoPlayPlugin.KEY_BT_AUTOSTART, true)
+            BluetoothAutoPlayPlugin.ensureWatchOn(this)
             addedRev++
         } catch (e: Exception) {
             holdStatus(getString(R.string.import_error))
@@ -652,8 +653,11 @@ class MainActivity : ComponentActivity() {
         if (btWatch == on) return
         btWatch = on
         getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-            .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, on).commit()
-        statusText = if (on) getString(R.string.bt_watch_on) else getString(R.string.bt_watch_off)
+            .edit()
+            .putBoolean(BluetoothAutoPlayPlugin.KEY_BT_AUTOSTART, on)
+            .putBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, true)
+            .apply()
+        statusText = if (on) getString(R.string.bt_on) else getString(R.string.bt_off)
     }
 
     private fun armSleep(mins: Int) {
@@ -1290,7 +1294,7 @@ class MainActivity : ComponentActivity() {
 
     private fun maybeStartBtIfConnected() {
         val sp = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-        if (!sp.getBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, true)) return
+        if (!sp.getBoolean(BluetoothAutoPlayPlugin.KEY_BT_AUTOSTART, true)) return
         sp.edit().putBoolean(BluetoothAutoPlayPlugin.KEY_PENDING_BT_AFTER_BOOT, false).apply()
         val i = Intent(this, RadioWatchService::class.java)
         i.action = RadioWatchService.ACTION_START

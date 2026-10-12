@@ -907,8 +907,8 @@ private void attemptReconnect(String reason, boolean immediate) {
                 clearPendingBtAutostart("expired");
                 return false;
             }
-            if (!sp.getBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, true) || isUserPaused()) {
-                clearPendingBtAutostart("watch off / user pause");
+            if (!sp.getBoolean(BluetoothAutoPlayPlugin.KEY_BT_AUTOSTART, true) || isUserPaused()) {
+                clearPendingBtAutostart("autostart off / user pause");
                 return false;
             }
             if (!BtAudio.hasRoute(this)) {
@@ -987,33 +987,7 @@ private void attemptReconnect(String reason, boolean immediate) {
             android.util.Log.i("RadioWatch", "explicitPlay block voice (" + why + ")");
             return false;
         }
-        // Блок лише зовнішній Play (MediaButton / AVRCP MediaSession).
-        // notif-play / play-url / інші — не чіпаємо.
-        if ("session-play".equals(why) || "media-button".equals(why)) {
-            boolean allowCmd = true;
-            try {
-                allowCmd = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-                    .getBoolean(BluetoothAutoPlayPlugin.KEY_BT_PLAY_CMD, true);
-            } catch (Exception ignored) {}
-            if (!allowCmd) {
-                long now = System.currentTimeMillis();
-                if (now > allowUiPlayUntilMs) {
-                    android.util.Log.i("RadioWatch", "explicitPlay block device (" + why + ")");
-                    return false;
-                }
-                android.util.Log.i("RadioWatch", "explicitPlay allow UI window (" + why + ")");
-            }
-        }
-        permanentFocusLoss = false;
-        pausedByOtherMedia = false;
-        duckedByFocus = false;
-        lastFocusLossAtMs = 0L;
-        try { if (player != null) player.setVolume(1f); } catch (Exception ignored) {}
         return true;
-    }
-
-    void markUiPlayIntent() {
-        allowUiPlayUntilMs = System.currentTimeMillis() + 2500L;
     }
 
     /** Чи атрибути схожі на media/відео/голос (не системний клік). */
@@ -1993,6 +1967,8 @@ notifyForeground();
             return START_STICKY;
         }
 
+        BluetoothAutoPlayPlugin.ensureWatchOn(this);
+
         if (ACTION_STOP.equals(action)) {
             clearPendingBtAutostart("ACTION_STOP");
             pausedByFocusLoss = false;
@@ -2117,7 +2093,8 @@ notifyForeground();
                 return START_STICKY;
             }
             SharedPreferences spFb = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE);
-            if (!spFb.getBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, true)) {
+            if (!spFb.getBoolean(BluetoothAutoPlayPlugin.KEY_BT_AUTOSTART, true)) {
+                android.util.Log.i("RadioWatch", "HEADPHONE_FALLBACK skip — autostart off");
                 return START_STICKY;
             }
             if (sameStationOpening()
@@ -2151,9 +2128,7 @@ notifyForeground();
         }
 
         if (ACTION_PLAY.equals(action)) {
-            boolean fromUi = intent != null && intent.getBooleanExtra("from_ui", false);
-            if (fromUi) markUiPlayIntent();
-            if (!canExplicitPlay(fromUi ? "ui-play" : "media-button")) {
+            if (!canExplicitPlay("action-play")) {
                 return START_STICKY;
             }
             cancelHeadUnitPlayWait();
@@ -2165,8 +2140,7 @@ notifyForeground();
             return START_STICKY;
         }
         if (ACTION_NOTIF_PLAY.equals(action)) {
-            markUiPlayIntent();
-            if (!canExplicitPlay("notif-play")) {
+                        if (!canExplicitPlay("notif-play")) {
                 return START_STICKY;
             }
             cancelHeadUnitPlayWait();
@@ -2950,7 +2924,8 @@ notifyForeground();
                     try {
                         SharedPreferences sp = getSharedPreferences(
                             BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE);
-                        if (!sp.getBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, true)) return;
+                        if (!sp.getBoolean(BluetoothAutoPlayPlugin.KEY_BT_AUTOSTART, true)) return;
+                        BluetoothAutoPlayPlugin.ensureWatchOn(RadioWatchService.this);
                         if (sp.getBoolean(BluetoothAutoPlayPlugin.KEY_USER_PAUSED_BT, false)) {
                             android.util.Log.i("RadioWatch",
                                 "watch probe #" + attempt + " skip — userPausedWhileBt");
@@ -3331,8 +3306,7 @@ notifyForeground();
     private long lastReconnectTriggerMs = 0L;
     /** Дебаунс подвійного ACTION_BT (ACL + A2DP STATE_CONNECTED). */
     private long lastBtActionMs = 0L;
-    /** UI/шторка — не ріжемо session-play через KEY_BT_PLAY_CMD. */
-    private long allowUiPlayUntilMs = 0L;
+
     private static final long RECONNECT_DEBOUNCE_MS = 1500L;
     /** Скільки часу після BT-конекту вважаємо, що ще триває апаратний handoff
      *  (магнітола/колонка можуть на мить забрати audio focus чи знімати маршрут) —

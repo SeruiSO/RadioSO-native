@@ -24,15 +24,6 @@ public class RadioMediaButtonReceiver extends BroadcastReceiver {
         int code = ke.getKeyCode();
         if (code != KeyEvent.KEYCODE_MEDIA_PLAY && code != KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE) return;
         try {
-            boolean playCmd = context.getSharedPreferences(
-                    BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)
-                .getBoolean(BluetoothAutoPlayPlugin.KEY_BT_PLAY_CMD, true);
-            if (!playCmd) {
-                Log.i(TAG, "MediaButton ignored — play command off in settings");
-                return;
-            }
-        } catch (Exception ignored) {}
-        try {
             AudioManager am = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
             if (am != null) {
                 int mode = am.getMode();

@@ -24,7 +24,6 @@ public class BluetoothAutoPlayPlugin {
     /** Автостарт при підключенні BT (навушники тощо). */
     public static final String KEY_BT_AUTOSTART = "btAutostartOnConnect";
     /** Реагувати на PLAY від пристрою (магнітола/навушники). */
-    public static final String KEY_BT_PLAY_CMD = "btPlayCommand";
     /** Показувати кнопку Music TV біля меню. */
     public static final String KEY_SHOW_TV = "showMusicTv";
     /** після BOOT: не стартувати FGS, лише намір — старт з A2DP або відкриття додатка. */
@@ -71,4 +70,20 @@ public class BluetoothAutoPlayPlugin {
     public static final String KEY_PAST_SEARCHES = "pastSearches";
     public static final String KEY_HOME_NEARBY_JSON = "homeNearbyJson";
     public static final String KEY_HOME_NEARBY_AT = "homeNearbyAt";
+
+    public static void ensureWatchOn(android.content.Context ctx) {
+        try {
+            ctx.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE)
+                .edit().putBoolean(KEY_BT_WATCH, true).apply();
+        } catch (Exception ignored) {}
+    }
+
+    public static boolean isBtAutostart(android.content.Context ctx) {
+        try {
+            return ctx.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE)
+                .getBoolean(KEY_BT_AUTOSTART, true);
+        } catch (Exception e) {
+            return true;
+        }
+    }
 }

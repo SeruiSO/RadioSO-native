@@ -54,6 +54,8 @@ import androidx.compose.material.icons.filled.Radio
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.ViewList
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.ui.platform.LocalContext
@@ -595,6 +597,10 @@ fun StationScreen(
     var topSleepOpen by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     var alarmOpen by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     var topThemeOpen by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    val listGridPrefs = LocalContext.current.getSharedPreferences("ui_layout", android.content.Context.MODE_PRIVATE)
+    var listGridMode by androidx.compose.runtime.remember {
+        androidx.compose.runtime.mutableStateOf(listGridPrefs.getBoolean("station_grid", false))
+    }
     // Права картка пошуку (свайп з правого краю / 🔍)
     val rightA = androidx.compose.runtime.remember { Animatable(1f) } // 1=закрито, 0=відкрито
     var rightShow by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
@@ -750,9 +756,21 @@ fun StationScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
-                    modifier = Modifier.size(40.dp).background(card, AppShapes.chip).springPress(0.9f) { topThemeOpen = true },
+                    modifier = Modifier.size(40.dp).background(
+                        if (listGridMode) acc.copy(alpha = 0.22f) else card,
+                        AppShapes.chip
+                    ).springPress(0.9f) {
+                        listGridMode = !listGridMode
+                        listGridPrefs.edit().putBoolean("station_grid", listGridMode).apply()
+                    },
                     contentAlignment = Alignment.Center
-                ) { Icon(Icons.Filled.Palette, contentDescription = LocalContext.current.getString(R.string.theme_title), tint = text) }
+                ) {
+                    Icon(
+                        if (listGridMode) Icons.Filled.ViewList else Icons.Filled.GridView,
+                        contentDescription = if (listGridMode) "List" else "Grid",
+                        tint = if (listGridMode) acc else text,
+                    )
+                }
             }
             Row(modifier = Modifier.align(Alignment.Center), verticalAlignment = Alignment.CenterVertically) {
                 val logoStyle = if (LocalConfiguration.current.screenWidthDp < 360)
@@ -1024,6 +1042,7 @@ fun StationScreen(
             text = text,
             card = card,
             showAllMusic = musicAll,
+            gridMode = listGridMode,
         )
         if (showLocal) {
             val libraryActions = LibraryActions(
@@ -1130,6 +1149,7 @@ fun StationScreen(
                 modifier = Modifier.fillMaxWidth().height(infoH),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                // зліва — завжди іконка станції
                 Box(
                     modifier = Modifier
                         .size(infoH)
@@ -1140,39 +1160,13 @@ fun StationScreen(
                         .clip(RoundedCornerShape(topStart = 14.dp, bottomStart = 14.dp))
                         .background(Palette.panel2),
                 ) {
-                    val showArtist = !podcastNow && !infoPhoto.isNullOrBlank()
-                    if (showArtist) {
-                        AsyncImage(
-                            model = infoPhoto,
-                            contentDescription = infoArtist,
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop,
-                        )
-                        StationArt(
-                            url = artUrl(favicon),
-                            contentDescription = name,
-                            modifier = Modifier
-                                .align(Alignment.BottomEnd)
-                                .padding(0.dp)
-                                .size(36.dp)
-                                .clip(
-                                    RoundedCornerShape(
-                                        topStart = 8.dp,
-                                        topEnd = 8.dp,
-                                        bottomStart = 8.dp,
-                                        bottomEnd = 0.dp,
-                                    )
-                                )
-                                .background(Palette.panel2),
-                        )
-                    } else {
-                        StationArt(
-                            url = artUrl(favicon),
-                            contentDescription = name,
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                    }
+                    StationArt(
+                        url = artUrl(favicon),
+                        contentDescription = name,
+                        modifier = Modifier.fillMaxSize(),
+                    )
                 }
+                val showArtist = !podcastNow && !infoPhoto.isNullOrBlank()
                 Column(
                     modifier = Modifier
                         .weight(1f)
@@ -1224,6 +1218,26 @@ fun StationScreen(
                             overflow = TextOverflow.Ellipsis,
                             style = MaterialTheme.typography.labelSmall,
                             modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                }
+                // справа — фото виконавця, якщо є
+                if (showArtist) {
+                    Box(
+                        modifier = Modifier
+                            .size(infoH)
+                            .graphicsLayer {
+                                val sc = if (playing || infoBusy) pulseState.value else 1f
+                                scaleX = sc; scaleY = sc
+                            }
+                            .clip(RoundedCornerShape(topEnd = 14.dp, bottomEnd = 14.dp))
+                            .background(Palette.panel2),
+                    ) {
+                        AsyncImage(
+                            model = infoPhoto,
+                            contentDescription = infoArtist,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop,
                         )
                     }
                 }
@@ -1328,6 +1342,7 @@ fun StationScreen(
             text = text,
             card = card,
             showAllMusic = musicAll,
+            gridMode = listGridMode,
         )
         if (showLocal) {
             val libraryActions = LibraryActions(

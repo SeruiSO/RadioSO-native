@@ -33,8 +33,8 @@ private data class Flake(
 
 /**
  * Сніг поверх UI. Не чіпає playback.
- * active=true → 30 с падає; тап → onDismiss.
- * settleY — верх панелі вкладок; playCenterY/playR — зона Play; wing half-width якщо крила відкриті.
+ * active=true → постійно падає ~30 с; тап → onDismiss.
+ * settleY піднято під «горку» play/skip.
  */
 @Composable
 fun SnowOverlay(
@@ -56,7 +56,6 @@ fun SnowOverlay(
         if (!active) return@LaunchedEffect
         started = false
         flakes = emptyList()
-        // авто-стоп ~30 с
         delay(30_000)
         onDismiss()
     }
@@ -67,47 +66,64 @@ fun SnowOverlay(
         val playPx = with(density) { playDp.dp.toPx() }
         val liftPx = with(density) { playLiftDp.dp.toPx() }
         val gapPx = with(density) { wingGapDp.dp.toPx() }
-        val dockTop = h - with(density) { 56.dp.toPx() }
-        val playCy = dockTop - liftPx + playPx / 2f
+        // панель ~56dp + місце під горку кнопок (~lift)
+        val dockTop = h - with(density) { 56.dp.toPx() } - liftPx * 0.35f
+        val playCy = h - with(density) { 56.dp.toPx() } - liftPx + playPx / 2f
         val playCx = w / 2f
-        val playR = playPx / 2f + with(density) { 4.dp.toPx() }
+        val playR = playPx / 2f + with(density) { 6.dp.toPx() }
         val wingR = playR
         val wingOff = playPx / 2f + playPx / 2f + gapPx
 
+        fun newFlake(fromTop: Boolean): Flake {
+            return Flake(
+                x = rnd.nextFloat() * w,
+                y = if (fromTop) -rnd.nextFloat() * h * 0.15f else -rnd.nextFloat() * h * 0.5f,
+                r = with(density) { (1.5f + rnd.nextFloat() * 2.8f).dp.toPx() },
+                speed = with(density) { (28f + rnd.nextFloat() * 55f).dp.toPx() / 60f },
+                drift = (rnd.nextFloat() - 0.5f) * 0.6f,
+                phase = rnd.nextFloat() * 6.28f,
+            )
+        }
+
         if (!started) {
-            flakes = List(70) {
-                Flake(
-                    x = rnd.nextFloat() * w,
-                    y = -rnd.nextFloat() * h * 0.4f,
-                    r = with(density) { (1.5f + rnd.nextFloat() * 2.8f).dp.toPx() },
-                    speed = with(density) { (28f + rnd.nextFloat() * 55f).dp.toPx() / 60f },
-                    drift = (rnd.nextFloat() - 0.5f) * 0.6f,
-                    phase = rnd.nextFloat() * 6.28f,
-                )
-            }
+            flakes = List(55) { newFlake(fromTop = false) }
             started = true
         }
 
         var t = 0f
+        var spawnAcc = 0f
         while (isActive && active) {
             t += 0.016f
-            flakes = flakes.map { f ->
+            spawnAcc += 0.016f
+            // постійний досип нових сніжинок
+            val toAdd = mutableListOf<Flake>()
+            if (spawnAcc >= 0.12f) {
+                spawnAcc = 0f
+                val n = 1 + rnd.nextInt(2)
+                repeat(n) { toAdd += newFlake(fromTop = true) }
+            }
+            val base = if (toAdd.isEmpty()) flakes else flakes + toAdd
+            // не тримати більше ~140 (живі + осілі)
+            val capped = if (base.size > 140) {
+                val settled = base.filter { it.settled }
+                val flying = base.filter { !it.settled }
+                (settled.takeLast(60) + flying.takeLast(80))
+            } else base
+
+            flakes = capped.map { f ->
                 if (f.settled) return@map f
                 var nx = f.x + f.drift + sin(t * 1.7f + f.phase) * 0.35f
                 var ny = f.y + f.speed
                 if (nx < -10f) nx = w + 10f
                 if (nx > w + 10f) nx = -10f
 
-                // купа на панелі вкладок
                 if (ny >= dockTop - f.r) {
                     return@map f.copy(y = dockTop - f.r, settled = true, alpha = 0.7f)
                 }
-                // купа на Play
                 val dPlay = kotlin.math.hypot(nx - playCx, ny - playCy)
                 if (dPlay <= playR) {
                     return@map f.copy(settled = true, alpha = 0.75f)
                 }
-                // купа на Skip, якщо крила відкриті
                 if (wingsOpen) {
                     for (sign in floatArrayOf(-1f, 1f)) {
                         val wx = playCx + sign * wingOff

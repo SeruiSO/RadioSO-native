@@ -8,12 +8,15 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -92,6 +95,7 @@ data class LibraryUi(
     val text: Color,
     val card: Color,
     val showAllMusic: Boolean = false,
+    val gridMode: Boolean = false,
 )
 
 
@@ -117,6 +121,7 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
     val muted = ui.muted
     val text = ui.text
     val card = ui.card
+    val gridMode = ui.gridMode
     // Reorder: жест на рівні списку (не на рядку) — скрол не скасовує drag
     val dragFrom = remember { intArrayOf(-1) }
     val dropHold = remember { intArrayOf(-1) }
@@ -276,6 +281,75 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
                 )
             }
         }
+        if (gridMode) {
+            // плитки 3 в ряд (рядки LazyColumn — drag reorder лишається на рівні списку)
+            val rows = radioRows.chunked(3)
+            itemsIndexed(rows, key = { i, _ -> "grow-$i" }) { rowIndex, row ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 6.dp, vertical = 3.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    row.forEachIndexed { col, s ->
+                        val index = rowIndex * 3 + col
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(118.dp)
+                                .background(
+                                    when {
+                                        dropAt == index -> acc.copy(alpha = 0.40f)
+                                        s.url == currentUrl -> acc.copy(alpha = 0.18f)
+                                        else -> card
+                                    },
+                                    RoundedCornerShape(12.dp),
+                                )
+                                .clickable {
+                                    buzz(false)
+                                    actions.onPickRadio(radioRows, index)
+                                }
+                                .padding(6.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            Box(modifier = Modifier.fillMaxWidth()) {
+                                StationArt(
+                                    url = s.favicon,
+                                    modifier = Modifier
+                                        .size(56.dp)
+                                        .align(Alignment.Center)
+                                        .clip(RoundedCornerShape(10.dp)),
+                                )
+                                Icon(
+                                    if (favUrls.contains(s.url)) Icons.Filled.Star else Icons.Filled.StarBorder,
+                                    contentDescription = null,
+                                    tint = acc,
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .size(22.dp)
+                                        .clickable {
+                                            buzz(true)
+                                            actions.onToggleFav(s)
+                                        },
+                                )
+                            }
+                            Text(
+                                s.name,
+                                color = text,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                style = MaterialTheme.typography.labelMedium,
+                                modifier = Modifier.padding(top = 4.dp),
+                            )
+                        }
+                    }
+                    // добивка порожніми комірками якщо в останньому ряді < 3
+                    repeat(3 - row.size) {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
+                }
+            }
+        } else {
         itemsIndexed(radioRows, key = { i, s -> s.tab + s.url + i }) { index, s ->
             Row(
                 modifier = Modifier
@@ -289,7 +363,6 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
                     .padding(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // іконка → play + відкрити картку (свій тап, не рядок)
                 Box(
                     modifier = Modifier
                         .size(48.dp)
@@ -305,7 +378,6 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
                         modifier = Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)),
                     )
                 }
-                // назва — частина рядка (тап ловить Row)
                 Column(
                     modifier = Modifier
                         .padding(start = 8.dp)
@@ -315,7 +387,6 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
                     Text("${DisplayNames.genreLabel(LocalContext.current, s.genre)} · ${DisplayNames.countryLabel(LocalContext.current, s.country)}", color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
                 }
                 if (tabs.getOrNull(tabIndex) == "search") {
-                    // ★ і + в одному ряду, однакова висота, притиснуті вправо
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.padding(start = 2.dp, end = 0.dp)
@@ -383,6 +454,7 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
                     }
                 }
             }
+        }
         }
         if (canMore) {
             item { Button(onClick = actions.onMore, modifier = Modifier.fillMaxWidth().padding(8.dp)) { Text(LocalContext.current.getString(R.string.more_100)) } }

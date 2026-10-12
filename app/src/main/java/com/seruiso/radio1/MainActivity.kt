@@ -1567,6 +1567,7 @@ class MainActivity : ComponentActivity() {
     private fun sendAction(action: String) {
         val i = Intent(this, RadioWatchService::class.java)
         i.action = action
+        if (action == RadioWatchService.ACTION_PLAY) i.putExtra("from_ui", true)
         startFg(i)
     }
 }

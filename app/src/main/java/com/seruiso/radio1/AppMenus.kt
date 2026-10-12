@@ -69,6 +69,7 @@ import androidx.compose.ui.unit.sp
  */
 
 
+
 @Composable
 fun AppOverflowMenu(
     menuOpen: Boolean,
@@ -105,7 +106,6 @@ fun AppOverflowMenu(
         mutableStateOf(prefs.getBoolean(BluetoothAutoPlayPlugin.KEY_SHOW_TV, true))
     }
 
-    /** Стеження BT = увімкнене, якщо хоч один з двох пунктів активний. */
     fun syncWatch(auto: Boolean, play: Boolean) {
         val need = auto || play
         if (need != btWatch) onBt()
@@ -129,31 +129,21 @@ fun AppOverflowMenu(
                     .fillMaxSize()
                     .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
-                Row(
-                    Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        ctx.getString(R.string.menu_settings_title),
-                        color = text,
-                        style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.weight(1f),
-                    )
-                    Text(
-                        ctx.getString(R.string.close),
-                        color = acc,
-                        modifier = Modifier
-                            .clickable { onCloseMenu() }
-                            .padding(8.dp),
-                    )
-                }
+                // Заголовок без кнопки закрити
+                Text(
+                    ctx.getString(R.string.menu_settings_title),
+                    color = text,
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp, start = 4.dp),
+                )
                 Column(
                     Modifier
                         .weight(1f)
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
-                    // Тема — меню лишається відкритим під діалогом
                     MenuRow(
                         icon = Icons.Filled.Palette,
                         label = ctx.getString(R.string.menu_theme),
@@ -166,7 +156,6 @@ fun AppOverflowMenu(
                         style = MaterialTheme.typography.labelMedium,
                         modifier = Modifier.padding(top = 12.dp, bottom = 4.dp, start = 4.dp),
                     )
-                    // Лише 2 пункти; окремого «BT on» немає
                     MenuSwitchRow(
                         icon = Icons.Filled.Bluetooth,
                         label = ctx.getString(R.string.bt_autostart_connect),
@@ -244,11 +233,29 @@ fun AppOverflowMenu(
                             modifier = Modifier.padding(top = 16.dp, start = 12.dp, bottom = 4.dp),
                         )
                     }
+                    // Повний вихід з додатка (стоп + finish)
                     MenuRow(
                         icon = Icons.Filled.Logout,
                         label = ctx.getString(R.string.menu_exit),
                         selected = false, acc = acc, text = text,
                         onClick = { onExit() },
+                    )
+                }
+                // Внизу справа — лише закрити меню (підпис «Вихід»)
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp, bottom = 4.dp),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        ctx.getString(R.string.menu_exit),
+                        color = acc,
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier
+                            .clickable { onCloseMenu() }
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
                     )
                 }
             }
@@ -272,14 +279,21 @@ private fun MenuSwitchRow(
         modifier = Modifier
             .fillMaxWidth()
             .height(52.dp)
-            // без акцентної заливки — як звичайні рядки меню
+            .background(
+                if (checked) acc.copy(alpha = 0.14f) else Color.Transparent,
+                shape,
+            )
+            .then(
+                if (checked) Modifier.border(1.dp, acc.copy(alpha = 0.35f), shape)
+                else Modifier
+            )
             .clickable { onToggle(!checked) }
             .padding(horizontal = 12.dp),
     ) {
-        Icon(icon, contentDescription = null, tint = text, modifier = Modifier.size(24.dp))
+        Icon(icon, contentDescription = null, tint = if (checked) acc else text, modifier = Modifier.size(24.dp))
         Text(
             label,
-            color = text,
+            color = if (checked) acc else text,
             modifier = Modifier.weight(1f),
             style = MaterialTheme.typography.titleSmall.copy(fontSize = 15.sp),
         )
@@ -322,6 +336,7 @@ private fun MenuRow(
         )
     }
 }
+
 
 @Composable
 fun AppSleepDialog(

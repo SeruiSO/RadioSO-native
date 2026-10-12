@@ -32,9 +32,7 @@ private data class Flake(
 )
 
 /**
- * Сніг поверх UI. Не чіпає playback.
- * active=true → постійно падає ~30 с; тап → onDismiss.
- * settleY піднято під «горку» play/skip.
+ * Сніг 30 с. Осідає на верх панелі вкладок і на play/skip (горка).
  */
 @Composable
 fun SnowOverlay(
@@ -66,27 +64,30 @@ fun SnowOverlay(
         val playPx = with(density) { playDp.dp.toPx() }
         val liftPx = with(density) { playLiftDp.dp.toPx() }
         val gapPx = with(density) { wingGapDp.dp.toPx() }
-        // панель ~56dp + місце під горку кнопок (~lift)
-        val dockTop = h - with(density) { 56.dp.toPx() } - liftPx * 0.35f
-        val playCy = h - with(density) { 56.dp.toPx() } - liftPx + playPx / 2f
+        val barH = with(density) { 56.dp.toPx() }
+        // верх панелі вкладок (лінія осідання по всій ширині)
+        val panelTop = h - barH
+        // кнопки зсунуті вгору на playLift — верх горки
+        val hillTop = panelTop - liftPx
+        // основна лінія купи = верх панелі; над кнопками — вище
+        val dockTop = panelTop
         val playCx = w / 2f
-        val playR = playPx / 2f + with(density) { 6.dp.toPx() }
+        val playCy = panelTop - liftPx + playPx / 2f
+        val playR = playPx / 2f + with(density) { 8.dp.toPx() }
         val wingR = playR
-        val wingOff = playPx / 2f + playPx / 2f + gapPx
+        val wingOff = playPx + gapPx
 
-        fun newFlake(fromTop: Boolean): Flake {
-            return Flake(
-                x = rnd.nextFloat() * w,
-                y = if (fromTop) -rnd.nextFloat() * h * 0.15f else -rnd.nextFloat() * h * 0.5f,
-                r = with(density) { (1.5f + rnd.nextFloat() * 2.8f).dp.toPx() },
-                speed = with(density) { (28f + rnd.nextFloat() * 55f).dp.toPx() / 60f },
-                drift = (rnd.nextFloat() - 0.5f) * 0.6f,
-                phase = rnd.nextFloat() * 6.28f,
-            )
-        }
+        fun newFlake(fromTop: Boolean): Flake = Flake(
+            x = rnd.nextFloat() * w,
+            y = if (fromTop) -rnd.nextFloat() * h * 0.12f else -rnd.nextFloat() * h * 0.45f,
+            r = with(density) { (1.6f + rnd.nextFloat() * 2.6f).dp.toPx() },
+            speed = with(density) { (26f + rnd.nextFloat() * 50f).dp.toPx() / 60f },
+            drift = (rnd.nextFloat() - 0.5f) * 0.55f,
+            phase = rnd.nextFloat() * 6.28f,
+        )
 
         if (!started) {
-            flakes = List(55) { newFlake(fromTop = false) }
+            flakes = List(50) { newFlake(fromTop = false) }
             started = true
         }
 
@@ -95,19 +96,17 @@ fun SnowOverlay(
         while (isActive && active) {
             t += 0.016f
             spawnAcc += 0.016f
-            // постійний досип нових сніжинок
             val toAdd = mutableListOf<Flake>()
-            if (spawnAcc >= 0.12f) {
+            if (spawnAcc >= 0.11f) {
                 spawnAcc = 0f
-                val n = 1 + rnd.nextInt(2)
-                repeat(n) { toAdd += newFlake(fromTop = true) }
+                repeat(1 + rnd.nextInt(2)) { toAdd += newFlake(fromTop = true) }
             }
             val base = if (toAdd.isEmpty()) flakes else flakes + toAdd
-            // не тримати більше ~140 (живі + осілі)
-            val capped = if (base.size > 140) {
+            // кап: не викидати осілий сніг з низу — лише старі літаючі
+            val capped = if (base.size > 160) {
                 val settled = base.filter { it.settled }
                 val flying = base.filter { !it.settled }
-                (settled.takeLast(60) + flying.takeLast(80))
+                settled.takeLast(90) + flying.takeLast(70)
             } else base
 
             flakes = capped.map { f ->
@@ -117,20 +116,25 @@ fun SnowOverlay(
                 if (nx < -10f) nx = w + 10f
                 if (nx > w + 10f) nx = -10f
 
-                if (ny >= dockTop - f.r) {
-                    return@map f.copy(y = dockTop - f.r, settled = true, alpha = 0.7f)
-                }
+                // спочатку кнопки (вище панелі)
                 val dPlay = kotlin.math.hypot(nx - playCx, ny - playCy)
-                if (dPlay <= playR) {
-                    return@map f.copy(settled = true, alpha = 0.75f)
+                if (dPlay <= playR && ny >= playCy - playR) {
+                    // лягає на «дах» кнопки
+                    val sy = (playCy - playR + f.r).coerceAtMost(dockTop - f.r)
+                    return@map f.copy(x = nx, y = sy, settled = true, alpha = 0.8f)
                 }
                 if (wingsOpen) {
                     for (sign in floatArrayOf(-1f, 1f)) {
                         val wx = playCx + sign * wingOff
-                        if (kotlin.math.hypot(nx - wx, ny - playCy) <= wingR) {
-                            return@map f.copy(settled = true, alpha = 0.75f)
+                        if (kotlin.math.hypot(nx - wx, ny - playCy) <= wingR && ny >= playCy - wingR) {
+                            val sy = (playCy - wingR + f.r).coerceAtMost(dockTop - f.r)
+                            return@map f.copy(x = nx, y = sy, settled = true, alpha = 0.8f)
                         }
                     }
+                }
+                // панель вкладок — завжди осісти, ніколи не зникнути під низом
+                if (ny >= dockTop - f.r) {
+                    return@map f.copy(y = dockTop - f.r, settled = true, alpha = 0.72f)
                 }
                 f.copy(x = nx, y = ny)
             }

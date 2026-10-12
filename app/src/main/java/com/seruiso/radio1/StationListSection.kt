@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Spacer
@@ -126,8 +127,9 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
     val dragFrom = remember { intArrayOf(-1) }
     val dropHold = remember { intArrayOf(-1) }
     val fingerY = remember { floatArrayOf(-1f) }
+    val fingerX = remember { floatArrayOf(-1f) }
 
-    fun radioIndexUnderY(y: Float): Int {
+    fun radioIndexUnder(x: Float, y: Float): Int {
         if (radioRows.isEmpty()) return -1
         val info = listState.layoutInfo
         val yi = y.toInt()
@@ -136,9 +138,19 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
                 val c = it.offset + it.size / 2
                 kotlin.math.abs(c - yi)
             }
-        val idx = hit?.index ?: return -1
-        // лише радіо-рядки (не empty/more/best appendix)
-        return if (idx in radioRows.indices) idx else -1
+        val rowIdx = hit?.index ?: return -1
+        if (gridMode) {
+            // кожен item LazyColumn = рядок з 3 плиток
+            val rowCount = (radioRows.size + 2) / 3
+            if (rowIdx !in 0 until rowCount) return -1
+            val cellW = (info.viewportEndOffset - info.viewportStartOffset).toFloat()
+                .let { info.viewportSize.width.toFloat() }
+                .coerceAtLeast(1f)
+            val col = ((x / cellW) * 3f).toInt().coerceIn(0, 2)
+            val idx = rowIdx * 3 + col
+            return if (idx in radioRows.indices) idx else -1
+        }
+        return if (rowIdx in radioRows.indices) rowIdx else -1
     }
 
     // автоскрол краю, поки палець утримується (ключ лише dragging — без рестарту на dropAt)
@@ -155,7 +167,7 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
                     y < edge && listState.canScrollBackward -> listState.dispatchRawDelta(-speed)
                     y > h - edge && listState.canScrollForward -> listState.dispatchRawDelta(speed)
                 }
-                val under = radioIndexUnderY(y)
+                val under = radioIndexUnder(fingerX[0], y)
                 if (under >= 0 && under != dropHold[0]) {
                     dropHold[0] = under
                     actions.onDropAt(under)
@@ -176,8 +188,8 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
         }
         val radioIdx = radioRows.indexOfFirst { it.url == currentUrl }
         if (radioIdx >= 0) {
-            // empty placeholder займає item 0 лише коли список порожній
-            scrollIfNeeded(radioIdx)
+            val scrollIdx = if (gridMode) radioIdx / 3 else radioIdx
+            scrollIfNeeded(scrollIdx)
             return@LaunchedEffect
         }
         if (bottomTab == "heart" || bottomTab == "library") {
@@ -219,14 +231,15 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
                     onDragCancel = { edgeSwipeAcc[0] = 0f },
                 ) { _, drag -> edgeSwipeAcc[0] += drag }
             }
-            .pointerInput(radioRows.size) {
+            .pointerInput(radioRows.size, gridMode) {
                 detectDragGesturesAfterLongPress(
                     onDragStart = { offset ->
-                        val idx = radioIndexUnderY(offset.y)
+                        val idx = radioIndexUnder(offset.x, offset.y)
                         if (idx < 0) return@detectDragGesturesAfterLongPress
                         dragFrom[0] = idx
                         dropHold[0] = idx
                         fingerY[0] = offset.y
+                        fingerX[0] = offset.x
                         actions.onDropAt(idx)
                         actions.onDragging(true)
                         actions.onDragStart()
@@ -250,7 +263,8 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
                     },
                 ) { change, _ ->
                     fingerY[0] = change.position.y
-                    val under = radioIndexUnderY(change.position.y)
+                    fingerX[0] = change.position.x
+                    val under = radioIndexUnder(change.position.x, change.position.y)
                     if (under >= 0) {
                         dropHold[0] = under
                         actions.onDropAt(under)
@@ -296,10 +310,11 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
                         Column(
                             modifier = Modifier
                                 .weight(1f)
-                                .height(118.dp)
+                                .height(128.dp)
                                 .background(
                                     when {
                                         dropAt == index -> acc.copy(alpha = 0.40f)
+                                        dragFrom[0] == index -> acc.copy(alpha = 0.28f)
                                         s.url == currentUrl -> acc.copy(alpha = 0.18f)
                                         else -> card
                                     },
@@ -309,15 +324,19 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
                                     buzz(false)
                                     actions.onPickRadio(radioRows, index)
                                 }
-                                .padding(6.dp),
+                                .padding(4.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
-                            Box(modifier = Modifier.fillMaxWidth()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f),
+                            ) {
                                 StationArt(
                                     url = s.favicon,
                                     modifier = Modifier
-                                        .size(56.dp)
-                                        .align(Alignment.Center)
+                                        .fillMaxWidth()
+                                        .fillMaxHeight()
                                         .clip(RoundedCornerShape(10.dp)),
                                 )
                                 Icon(
@@ -326,7 +345,8 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
                                     tint = acc,
                                     modifier = Modifier
                                         .align(Alignment.TopEnd)
-                                        .size(22.dp)
+                                        .padding(2.dp)
+                                        .size(20.dp)
                                         .clickable {
                                             buzz(true)
                                             actions.onToggleFav(s)
@@ -336,10 +356,12 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
                             Text(
                                 s.name,
                                 color = text,
-                                maxLines = 2,
+                                maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
-                                style = MaterialTheme.typography.labelMedium,
-                                modifier = Modifier.padding(top = 4.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 4.dp, start = 2.dp, end = 2.dp),
                             )
                         }
                     }

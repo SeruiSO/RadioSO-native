@@ -1564,7 +1564,7 @@ AppOverflowMenu(
         onBt = onBt,
         sleepLabel = sleepLabel,
         sleepMenu = sleepMenu,
-        onSleepMenu = { onCloseMenu(); topSleepOpen = true },
+        onSleepMenu = { topSleepOpen = true },
         onSleep = onSleep,
         onExport = onExport,
         onImport = onImport,

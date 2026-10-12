@@ -68,6 +68,7 @@ import androidx.compose.ui.unit.sp
  * Overflow меню (гамбургер) + діалоги сну/теми з хедера.
  */
 
+
 @Composable
 fun AppOverflowMenu(
     menuOpen: Boolean,
@@ -104,6 +105,12 @@ fun AppOverflowMenu(
         mutableStateOf(prefs.getBoolean(BluetoothAutoPlayPlugin.KEY_SHOW_TV, true))
     }
 
+    /** Стеження BT = увімкнене, якщо хоч один з двох пунктів активний. */
+    fun syncWatch(auto: Boolean, play: Boolean) {
+        val need = auto || play
+        if (need != btWatch) onBt()
+    }
+
     AnimatedVisibility(
         visible = menuOpen,
         modifier = Modifier.fillMaxSize(),
@@ -113,10 +120,9 @@ fun AppOverflowMenu(
         Box(
             Modifier
                 .fillMaxSize()
-                .background(Palette.bg.copy(alpha = 0.92f))
+                .background(Palette.bg.copy(alpha = 0.96f))
                 .statusBarsPadding()
                 .navigationBarsPadding()
-                .clickable(enabled = false) { /* block through */ }
         ) {
             Column(
                 Modifier
@@ -147,11 +153,12 @@ fun AppOverflowMenu(
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
+                    // Тема — меню лишається відкритим під діалогом
                     MenuRow(
                         icon = Icons.Filled.Palette,
                         label = ctx.getString(R.string.menu_theme),
                         selected = false, acc = acc, text = text,
-                        onClick = { onTheme(); onCloseMenu() },
+                        onClick = { onTheme() },
                     )
                     Text(
                         ctx.getString(R.string.bt_connection),
@@ -159,12 +166,7 @@ fun AppOverflowMenu(
                         style = MaterialTheme.typography.labelMedium,
                         modifier = Modifier.padding(top = 12.dp, bottom = 4.dp, start = 4.dp),
                     )
-                    MenuSwitchRow(
-                        icon = if (btWatch) Icons.Filled.Bluetooth else Icons.Filled.BluetoothDisabled,
-                        label = if (btWatch) ctx.getString(R.string.bt_on) else ctx.getString(R.string.bt_off),
-                        checked = btWatch, acc = acc, text = text,
-                        onToggle = { onBt() },
-                    )
+                    // Лише 2 пункти; окремого «BT on» немає
                     MenuSwitchRow(
                         icon = Icons.Filled.Bluetooth,
                         label = ctx.getString(R.string.bt_autostart_connect),
@@ -172,6 +174,7 @@ fun AppOverflowMenu(
                         onToggle = {
                             btAuto = it
                             prefs.edit().putBoolean(BluetoothAutoPlayPlugin.KEY_BT_AUTOSTART, it).apply()
+                            syncWatch(it, btPlayCmd)
                         },
                     )
                     MenuSwitchRow(
@@ -181,6 +184,7 @@ fun AppOverflowMenu(
                         onToggle = {
                             btPlayCmd = it
                             prefs.edit().putBoolean(BluetoothAutoPlayPlugin.KEY_BT_PLAY_CMD, it).apply()
+                            syncWatch(btAuto, it)
                         },
                     )
                     MenuSwitchRow(
@@ -212,7 +216,7 @@ fun AppOverflowMenu(
                         icon = Icons.Filled.Alarm,
                         label = ctx.getString(R.string.alarm_title),
                         selected = false, acc = acc, text = text,
-                        onClick = { onAlarm(); onCloseMenu() },
+                        onClick = { onAlarm() },
                     )
                     MenuRow(
                         icon = Icons.Filled.FileUpload,
@@ -230,7 +234,7 @@ fun AppOverflowMenu(
                         icon = Icons.Filled.Policy,
                         label = ctx.getString(R.string.privacy_policy),
                         selected = false, acc = acc, text = text,
-                        onClick = { onPrivacy(); onCloseMenu() },
+                        onClick = { onPrivacy() },
                     )
                     if (appVersion.isNotBlank()) {
                         Text(
@@ -268,13 +272,17 @@ private fun MenuSwitchRow(
         modifier = Modifier
             .fillMaxWidth()
             .height(52.dp)
-            .background(if (checked) acc.copy(alpha = 0.12f) else Color.Transparent, shape)
+            // без акцентної заливки — як звичайні рядки меню
             .clickable { onToggle(!checked) }
             .padding(horizontal = 12.dp),
     ) {
-        Icon(icon, contentDescription = null, tint = if (checked) acc else text, modifier = Modifier.size(24.dp))
-        Text(label, color = if (checked) acc else text, modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.titleSmall.copy(fontSize = 15.sp))
+        Icon(icon, contentDescription = null, tint = text, modifier = Modifier.size(24.dp))
+        Text(
+            label,
+            color = text,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.titleSmall.copy(fontSize = 15.sp),
+        )
         Switch(checked = checked, onCheckedChange = onToggle)
     }
 }

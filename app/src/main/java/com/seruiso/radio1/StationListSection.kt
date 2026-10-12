@@ -310,7 +310,7 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
                         Column(
                             modifier = Modifier
                                 .weight(1f)
-                                .height(128.dp)
+                                .height(138.dp)
                                 .background(
                                     when {
                                         dropAt == index -> acc.copy(alpha = 0.40f)
@@ -356,7 +356,8 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
                             Text(
                                 s.name,
                                 color = text,
-                                maxLines = 1,
+                                maxLines = 2,
+                                minLines = 2,
                                 overflow = TextOverflow.Ellipsis,
                                 style = MaterialTheme.typography.labelSmall,
                                 modifier = Modifier

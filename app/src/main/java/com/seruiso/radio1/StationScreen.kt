@@ -1226,10 +1226,6 @@ fun StationScreen(
                     Box(
                         modifier = Modifier
                             .size(infoH)
-                            .graphicsLayer {
-                                val sc = if (playing || infoBusy) pulseState.value else 1f
-                                scaleX = sc; scaleY = sc
-                            }
                             .clip(RoundedCornerShape(topEnd = 14.dp, bottomEnd = 14.dp))
                             .background(Palette.panel2),
                     ) {

@@ -108,7 +108,6 @@ fun AppOverflowMenu(
         mutableStateOf(prefs.getBoolean(BluetoothAutoPlayPlugin.KEY_BT_AUTOSTART, true))
     }
     var btPlayCmd by remember(menuOpen) {
-        mutableStateOf(prefs.getBoolean(BluetoothAutoPlayPlugin.KEY_BT_PLAY_CMD, true))
     }
     var showTv by remember(menuOpen) {
         mutableStateOf(prefs.getBoolean(BluetoothAutoPlayPlugin.KEY_SHOW_TV, true))
@@ -204,7 +203,6 @@ fun AppOverflowMenu(
                         checked = btPlayCmd, acc = acc, text = text,
                         onToggle = {
                             btPlayCmd = it
-                            prefs.edit().putBoolean(BluetoothAutoPlayPlugin.KEY_BT_PLAY_CMD, it).apply()
                             syncWatch(btAuto, it)
                         },
                     )

@@ -25,8 +25,7 @@ public class BluetoothReceiver extends BroadcastReceiver {
             android.content.SharedPreferences p = c.getSharedPreferences(
                 BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE);
             boolean auto = p.getBoolean(BluetoothAutoPlayPlugin.KEY_BT_AUTOSTART, true);
-            boolean play = p.getBoolean(BluetoothAutoPlayPlugin.KEY_BT_PLAY_CMD, true);
-            return auto || play;
+            return auto;
         } catch (Exception e) {
             return true;
         }

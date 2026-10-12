@@ -645,10 +645,15 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun toggleBt() {
-        btWatch = !btWatch
+        applyBtWatchEnabled(!btWatch)
+    }
+    /** Без конфлікту з setter властивості btWatch. */
+    fun applyBtWatchEnabled(on: Boolean) {
+        if (btWatch == on) return
+        btWatch = on
         getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-            .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, btWatch).commit()
-        statusText = if (btWatch) getString(R.string.bt_watch_on) else getString(R.string.bt_watch_off)
+            .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, on).commit()
+        statusText = if (on) getString(R.string.bt_watch_on) else getString(R.string.bt_watch_off)
     }
 
     private fun armSleep(mins: Int) {

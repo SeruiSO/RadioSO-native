@@ -19,9 +19,38 @@ import android.util.Log;
 public class BluetoothReceiver extends BroadcastReceiver {
     private static final String TAG = "RadioWatch";
 
+    /** Хоч одна BT-функція з меню увімкнена. */
+    private boolean btFeatureOn(Context c) {
+        try {
+            android.content.SharedPreferences p = c.getSharedPreferences(
+                BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE);
+            boolean auto = p.getBoolean(BluetoothAutoPlayPlugin.KEY_BT_AUTOSTART, true);
+            boolean play = p.getBoolean(BluetoothAutoPlayPlugin.KEY_BT_PLAY_CMD, true);
+            return auto || play;
+        } catch (Exception e) {
+            return true;
+        }
+    }
+
+    private boolean btAutostartOn(Context c) {
+        try {
+            return c.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)
+                .getBoolean(BluetoothAutoPlayPlugin.KEY_BT_AUTOSTART, true);
+        } catch (Exception e) {
+            return true;
+        }
+    }
+
+    /** Сумісність: стеження = є хоч одна функція (або старий KEY_BT_WATCH). */
     private boolean watchOn(Context c) {
-        return c.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)
-            .getBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, true);
+        try {
+            android.content.SharedPreferences p = c.getSharedPreferences(
+                BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE);
+            if (btFeatureOn(c)) return true;
+            return p.getBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, false);
+        } catch (Exception e) {
+            return true;
+        }
     }
 
     private void markA2dp(Context c) {
@@ -112,7 +141,7 @@ public class BluetoothReceiver extends BroadcastReceiver {
         String action = intent.getAction();
         Context app = context.getApplicationContext();
         boolean aa = BtAudio.isAndroidAutoActive(app);
-        Log.i(TAG, "BT recv " + action + " watch=" + watchOn(app) + " aa=" + aa + " btOn=" + btOn());
+        Log.i(TAG, "BT recv " + action + " watch=" + watchOn(app) + " auto=" + btAutostartOn(app) + " aa=" + aa + " btOn=" + btOn());
 
         if (BluetoothAdapter.ACTION_STATE_CHANGED.equals(action)) {
             int st = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.STATE_ON);
@@ -179,18 +208,21 @@ public class BluetoothReceiver extends BroadcastReceiver {
 
         if (state == BluetoothProfile.STATE_CONNECTED) {
             markA2dp(app);
-            if (!watchOn(app)) return;
             try {
                 app.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)
                     .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_PENDING_BT_AFTER_BOOT, false).apply();
             } catch (Exception ignored) {}
-            boolean auto = true;
+            // Автостарт лише з меню; KEY_BT_WATCH більше не блокує цей шлях
+            if (!btAutostartOn(app)) {
+                Log.i(TAG, "BT connected, autostart off — no ACTION_BT");
+                return;
+            }
+            // Синхронізуємо watch у prefs (щоб disconnect/ROUTE_LOST працювали)
             try {
-                auto = app.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)
-                    .getBoolean(BluetoothAutoPlayPlugin.KEY_BT_AUTOSTART, true);
+                app.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)
+                    .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, true).apply();
             } catch (Exception ignored) {}
-            if (auto) startSvc(app, RadioWatchService.ACTION_BT);
-            else Log.i(TAG, "BT connected, autostart off");
+            startSvc(app, RadioWatchService.ACTION_BT);
             return;
         }
         if (state == BluetoothProfile.STATE_DISCONNECTED) {

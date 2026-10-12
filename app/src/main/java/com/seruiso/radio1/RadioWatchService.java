@@ -2006,11 +2006,18 @@ notifyForeground();
             }
             lastBtActionMs = nowBt;
             SharedPreferences spBt = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE);
-            if (!spBt.getBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, true)) {
-                android.util.Log.i("RadioWatch", "ACTION_BT ignored — BT watch off");
+            // Автостарт з конекту — лише якщо увімкнено в меню
+            if (!spBt.getBoolean(BluetoothAutoPlayPlugin.KEY_BT_AUTOSTART, true)) {
+                android.util.Log.i("RadioWatch", "ACTION_BT ignored — autostart off");
                 notifyForeground();
                 return START_STICKY;
             }
+            // Стеження тримаємо увімкненим, поки працює автостарт
+            try {
+                if (!spBt.getBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, false)) {
+                    spBt.edit().putBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, true).apply();
+                }
+            } catch (Exception ignored) {}
             // 0.13.78: CONNECTED від системи = нове/повторне підключення профілю.
             // Завжди автостарт; userPaused більше НЕ блокує ACTION_BT назавжди
             // (інакше після паузи без «чистого» DISCONNECT автостарт мертвий).

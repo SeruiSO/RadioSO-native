@@ -113,9 +113,20 @@ fun AppOverflowMenu(
     var showTv by remember(menuOpen) {
         mutableStateOf(prefs.getBoolean(BluetoothAutoPlayPlugin.KEY_SHOW_TV, true))
     }
+    // При відкритті меню — вирівняти KEY_BT_WATCH під два пункти
+    androidx.compose.runtime.LaunchedEffect(menuOpen) {
+        if (!menuOpen) return@LaunchedEffect
+        val need = btAuto || btPlayCmd
+        prefs.edit().putBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, need).apply()
+        if (need != btWatch) onBt()
+    }
 
     fun syncWatch(auto: Boolean, play: Boolean) {
         val need = auto || play
+        prefs.edit()
+            .putBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, need)
+            .apply()
+        // оновити UI-стан батька лише якщо розійшлися
         if (need != btWatch) onBt()
     }
 

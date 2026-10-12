@@ -107,27 +107,20 @@ fun AppOverflowMenu(
     var btAuto by remember(menuOpen) {
         mutableStateOf(prefs.getBoolean(BluetoothAutoPlayPlugin.KEY_BT_AUTOSTART, true))
     }
-    var btPlayCmd by remember(menuOpen) {
-        mutableStateOf(prefs.getBoolean(BluetoothAutoPlayPlugin.KEY_BT_PLAY_CMD, true))
-    }
     var showTv by remember(menuOpen) {
         mutableStateOf(prefs.getBoolean(BluetoothAutoPlayPlugin.KEY_SHOW_TV, true))
     }
     // При відкритті меню — вирівняти KEY_BT_WATCH під два пункти
     androidx.compose.runtime.LaunchedEffect(menuOpen) {
         if (!menuOpen) return@LaunchedEffect
-        val need = btAuto || btPlayCmd
-        prefs.edit().putBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, need).apply()
-        if (need != btWatch) onBt()
+        BluetoothAutoPlayPlugin.ensureWatchOn(ctx)
+        if (!btWatch) onBt()
     }
 
-    fun syncWatch(auto: Boolean, play: Boolean) {
-        val need = auto || play
-        prefs.edit()
-            .putBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, need)
-            .apply()
-        // оновити UI-стан батька лише якщо розійшлися
-        if (need != btWatch) onBt()
+    fun syncWatch(auto: Boolean) {
+        prefs.edit().putBoolean(BluetoothAutoPlayPlugin.KEY_BT_AUTOSTART, auto).apply()
+        BluetoothAutoPlayPlugin.ensureWatchOn(ctx)
+        if (!btWatch) onBt()
     }
 
     AnimatedVisibility(
@@ -194,18 +187,7 @@ fun AppOverflowMenu(
                         checked = btAuto, acc = acc, text = text,
                         onToggle = {
                             btAuto = it
-                            prefs.edit().putBoolean(BluetoothAutoPlayPlugin.KEY_BT_AUTOSTART, it).apply()
-                            syncWatch(it, btPlayCmd)
-                        },
-                    )
-                    MenuSwitchRow(
-                        icon = Icons.Filled.Bluetooth,
-                        label = ctx.getString(R.string.bt_play_command),
-                        checked = btPlayCmd, acc = acc, text = text,
-                        onToggle = {
-                            btPlayCmd = it
-                            prefs.edit().putBoolean(BluetoothAutoPlayPlugin.KEY_BT_PLAY_CMD, it).apply()
-                            syncWatch(btAuto, it)
+                            syncWatch(it)
                         },
                     )
                     // 3 TV

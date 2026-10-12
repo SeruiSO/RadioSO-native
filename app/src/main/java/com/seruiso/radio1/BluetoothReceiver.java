@@ -22,11 +22,7 @@ public class BluetoothReceiver extends BroadcastReceiver {
     /** Хоч одна BT-функція з меню увімкнена. */
     private boolean btFeatureOn(Context c) {
         try {
-            android.content.SharedPreferences p = c.getSharedPreferences(
-                BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE);
-            boolean auto = p.getBoolean(BluetoothAutoPlayPlugin.KEY_BT_AUTOSTART, true);
-            boolean play = p.getBoolean(BluetoothAutoPlayPlugin.KEY_BT_PLAY_CMD, true);
-            return auto || play;
+            return BluetoothAutoPlayPlugin.isBtAutostart(c);
         } catch (Exception e) {
             return true;
         }
@@ -208,20 +204,19 @@ public class BluetoothReceiver extends BroadcastReceiver {
 
         if (state == BluetoothProfile.STATE_CONNECTED) {
             markA2dp(app);
+            BluetoothAutoPlayPlugin.ensureWatchOn(app);
             try {
                 app.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)
-                    .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_PENDING_BT_AFTER_BOOT, false).apply();
+                    .edit()
+                    .putBoolean(BluetoothAutoPlayPlugin.KEY_PENDING_BT_AFTER_BOOT, false)
+                    .putBoolean(BluetoothAutoPlayPlugin.KEY_USER_PAUSED_BT, false)
+                    .putLong("userPausedWhileBtAt", 0L)
+                    .apply();
             } catch (Exception ignored) {}
-            // Автостарт лише з меню; KEY_BT_WATCH більше не блокує цей шлях
-            if (!btAutostartOn(app)) {
-                Log.i(TAG, "BT connected, autostart off — no ACTION_BT");
+            if (!BluetoothAutoPlayPlugin.isBtAutostart(app)) {
+                Log.i(TAG, "CONNECTED — autostart off, wait Play");
                 return;
             }
-            // Синхронізуємо watch у prefs (щоб disconnect/ROUTE_LOST працювали)
-            try {
-                app.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)
-                    .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, true).apply();
-            } catch (Exception ignored) {}
             startSvc(app, RadioWatchService.ACTION_BT);
             return;
         }

@@ -984,31 +984,9 @@ private void attemptReconnect(String reason, boolean immediate) {
     /** Кнопка / session / notif PLAY — після USER ок, під дзвінком ні. */
     private boolean canExplicitPlay(String why) {
         if (isVoiceCallActive()) {
-            android.util.Log.i("RadioWatch", "explicitPlay block voice (" + why + ")");
+            android.util.Log.i("RadioWatch", "canExplicitPlay skip — voice (" + why + ")");
             return false;
         }
-        // Блок лише зовнішній Play (MediaButton / AVRCP MediaSession).
-        // notif-play / play-url / інші — не чіпаємо.
-        if ("session-play".equals(why) || "media-button".equals(why)) {
-            boolean allowCmd = true;
-            try {
-                allowCmd = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-                    .getBoolean(BluetoothAutoPlayPlugin.KEY_BT_PLAY_CMD, true);
-            } catch (Exception ignored) {}
-            if (!allowCmd) {
-                long now = System.currentTimeMillis();
-                if (now > allowUiPlayUntilMs) {
-                    android.util.Log.i("RadioWatch", "explicitPlay block device (" + why + ")");
-                    return false;
-                }
-                android.util.Log.i("RadioWatch", "explicitPlay allow UI window (" + why + ")");
-            }
-        }
-        permanentFocusLoss = false;
-        pausedByOtherMedia = false;
-        duckedByFocus = false;
-        lastFocusLossAtMs = 0L;
-        try { if (player != null) player.setVolume(1f); } catch (Exception ignored) {}
         return true;
     }
 
@@ -3331,7 +3309,6 @@ notifyForeground();
     private long lastReconnectTriggerMs = 0L;
     /** Дебаунс подвійного ACTION_BT (ACL + A2DP STATE_CONNECTED). */
     private long lastBtActionMs = 0L;
-    /** UI/шторка — не ріжемо session-play через KEY_BT_PLAY_CMD. */
     private long allowUiPlayUntilMs = 0L;
     private static final long RECONNECT_DEBOUNCE_MS = 1500L;
     /** Скільки часу після BT-конекту вважаємо, що ще триває апаратний handoff

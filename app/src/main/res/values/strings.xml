@@ -261,4 +261,5 @@
     <string name="eq_deepbass">Deep bass</string>
     <string name="eq_superbass">Super bass</string>
     <string name="search_one">Name, genre or country</string>
+    <string name="podcast_from_show">Show</string>
 </resources>

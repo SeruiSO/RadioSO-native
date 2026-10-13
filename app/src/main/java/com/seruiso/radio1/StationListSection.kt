@@ -480,7 +480,20 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
         }
         }
         if (canMore) {
-            item { Button(onClick = actions.onMore, modifier = Modifier.fillMaxWidth().padding(8.dp)) { Text(LocalContext.current.getString(R.string.more_100)) } }
+            item {
+                Button(
+                    onClick = actions.onMore,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 8.dp, end = 88.dp, top = 8.dp, bottom = 8.dp),
+                ) {
+                    Text(
+                        LocalContext.current.getString(R.string.more_100),
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Start,
+                    )
+                }
+            }
         }
         // ===== heart/library: далі йдуть обрані локальні треки =====
         // Серце (heart): лише обрані локальні (best). Станції — на зірці (stations).

@@ -118,11 +118,12 @@ private fun InfoMarquee(
     color: Color,
     style: androidx.compose.ui.text.TextStyle,
     modifier: Modifier = Modifier,
+    maxLines: Int = 2,
 ) {
     Text(
         text = text,
         color = color,
-        maxLines = 2,
+        maxLines = maxLines,
         softWrap = true,
         overflow = TextOverflow.Ellipsis,
         style = style,
@@ -914,19 +915,19 @@ fun StationScreen(
                             letterSpacing = 0.8.sp,
                             fontWeight = FontWeight.SemiBold,
                         ),
+                        maxLines = 2,
                     )
                     InfoMarquee(
                         if (track.isNotBlank()) track else LocalContext.current.getString(R.string.track_unknown),
                         color = text,
                         style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1,
                     )
                     val ctryL = if (localNow) "" else DisplayNames.countryLabel(LocalContext.current, country)
-                    val genL = if (localNow) "" else DisplayNames.genreLabel(LocalContext.current, genre)
-                    if (ctryL.isNotEmpty()) {
-                        Text(ctryL, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall)
-                    }
-                    if (genL.isNotEmpty()) {
-                        Text(genL, color = muted, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall)
+                    val genL = if (localNow || podcastNow) "" else DisplayNames.genreLabel(LocalContext.current, genre)
+                    val placeL = listOf(ctryL, genL).filter { it.isNotBlank() }.joinToString(" · ")
+                    if (placeL.isNotEmpty()) {
+                        Text(placeL, color = muted, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall)
                     }
                     val playInfoL = playbackInfoText(LocalContext.current, status)
                     if (playInfoL != null) {
@@ -1205,29 +1206,22 @@ fun StationScreen(
                             letterSpacing = 0.8.sp,
                             fontWeight = FontWeight.SemiBold,
                         ),
+                        maxLines = 2,
                     )
                     InfoMarquee(
                         if (track.isNotBlank()) track else LocalContext.current.getString(R.string.track_unknown),
                         color = text,
                         style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1,
                     )
                     val ctry = if (localNow) "" else DisplayNames.countryLabel(LocalContext.current, country)
-                    val gen = if (localNow) "" else DisplayNames.genreLabel(LocalContext.current, genre)
-                    if (ctry.isNotEmpty()) {
+                    val gen = if (localNow || podcastNow) "" else DisplayNames.genreLabel(LocalContext.current, genre)
+                    val place = listOf(ctry, gen).filter { it.isNotBlank() }.joinToString(" · ")
+                    if (place.isNotEmpty()) {
                         Text(
-                            ctry,
+                            place,
                             color = muted,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            style = MaterialTheme.typography.labelSmall,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    }
-                    if (gen.isNotEmpty()) {
-                        Text(
-                            gen,
-                            color = muted,
-                            maxLines = 1,
+                            maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                             style = MaterialTheme.typography.labelSmall,
                             modifier = Modifier.fillMaxWidth(),
@@ -1698,6 +1692,17 @@ AppOverflowMenu(
             onRepeat = onRepeat,
             onPlayPause = onPlayPause,
             skipUi = { skipUi(it) },
+            onOpenPodcastShow = { showTitle ->
+                val ok = openPodcastShowByTitle(ctxToast, showTitle)
+                if (ok) {
+                    onBottomTab("podcasts")
+                    sheetScope.launch {
+                        pullA.animateTo(560f, tween(280))
+                        sheetShow = false
+                        onNowClose()
+                    }
+                }
+            },
         ),
         ui = NowPlayingUi(
             isLocalNow = isLocalNow,

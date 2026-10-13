@@ -166,6 +166,23 @@ private fun hiResArt(url: String): String {
 
 
 /** UI-стан подкастів: переживає portrait↔landscape (різні місця в Compose-дереві). */
+
+/** Відкрити шоу з картки Now Playing (за назвою шоу з KEY_TRACK). */
+fun openPodcastShowByTitle(ctx: android.content.Context, showTitle: String): Boolean {
+    val title = showTitle.trim()
+    if (title.isBlank()) return false
+    val subs = PodcastStore.subs(ctx)
+    val show = subs.firstOrNull { it.title.equals(title, ignoreCase = true) }
+        ?: subs.firstOrNull { it.title.contains(title, ignoreCase = true) }
+    if (show == null) return false
+    PodUiSession.pickSub("SHOWS")
+    PodUiSession.selected = show
+    PodUiSession.openedFeed = show.feedUrl
+    PodUiSession.episodes = emptyList()
+    PodUiSession.subStamp++
+    return true
+}
+
 private object PodUiSession {
     var subName by mutableStateOf("")
     var subStamp by mutableIntStateOf(0)
@@ -259,6 +276,12 @@ fun PodcastsTabContent(
         } else if (PodUiSession.selected == null && selected != null) {
             selected = null
             episodes = emptyList()
+        }
+        // sync selected from session (open from Now Playing)
+        val sess = PodUiSession.selected
+        if (sess != null && selected?.feedUrl != sess.feedUrl) {
+            selected = sess
+            openedFeed = sess.feedUrl
         }
     }
     LaunchedEffect(sub) {

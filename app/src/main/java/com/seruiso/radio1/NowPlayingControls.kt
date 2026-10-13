@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import coil.compose.AsyncImage
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
@@ -57,6 +58,8 @@ fun NowPlayingMeta(
     titleMaxLines: Int = 1,
     genre: String = "",
     country: String = "",
+    onOpenShow: (() -> Unit)? = null,
+    showArt: String = "",
 ) {
     Row(
         modifier = Modifier
@@ -142,20 +145,57 @@ fun NowPlayingMeta(
             }
         }
     }
-    TrackLongBox(
-        text = metaLine,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 0.dp, bottom = 0.dp)
-            .then(pagerDragModifier),
-    ) {
-        Text(
-            metaLine,
-            color = muted,
-            maxLines = if (titleMaxLines > 1) 2 else 1,
-            overflow = TextOverflow.Ellipsis,
-            style = MaterialTheme.typography.bodySmall,
-        )
+    if (onOpenShow != null && metaLine.isNotBlank()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 2.dp, bottom = 2.dp)
+                .clickable { onOpenShow() },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (showArt.isNotBlank()) {
+                coil.compose.AsyncImage(
+                    model = showArt,
+                    contentDescription = metaLine,
+                    modifier = Modifier
+                        .size(28.dp)
+                        .padding(end = 8.dp)
+                        .background(muted.copy(alpha = 0.2f), RoundedCornerShape(6.dp)),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                )
+            } else {
+                Icon(
+                    Icons.Filled.Star,
+                    contentDescription = null,
+                    tint = acc,
+                    modifier = Modifier.size(22.dp).padding(end = 6.dp),
+                )
+            }
+            Text(
+                metaLine,
+                color = acc,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    } else {
+        TrackLongBox(
+            text = metaLine,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 0.dp, bottom = 0.dp)
+                .then(pagerDragModifier),
+        ) {
+            Text(
+                metaLine,
+                color = muted,
+                maxLines = if (titleMaxLines > 1) 2 else 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
     }
     val ctxMeta = LocalContext.current
     val gLab = if (showStationActions) DisplayNames.genreLabel(ctxMeta, genre) else ""

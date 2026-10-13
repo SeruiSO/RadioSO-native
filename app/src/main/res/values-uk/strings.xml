@@ -282,5 +282,6 @@
     <string name="eq_deepbass">Глибокий бас</string>
     <string name="eq_superbass">Супер бас</string>
     <string name="search_one">Назва, жанр або країна</string>
+    <string name="podcast_from_show">Шоу</string>
 </resources>
 

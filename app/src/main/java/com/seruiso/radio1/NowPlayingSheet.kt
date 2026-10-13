@@ -90,6 +90,7 @@ data class NowPlayingActions(
     val onRepeat: (() -> Unit)?,
     val onPlayPause: () -> Unit,
     val skipUi: (Boolean) -> Unit,
+    val onOpenPodcastShow: (String) -> Unit = {},
 )
 
 /**
@@ -535,6 +536,10 @@ fun NowPlayingSheet(
                         titleMaxLines = if (isPodcastNow) 3 else 1,
                         genre = genre,
                         country = country,
+                        onOpenShow = if (isPodcastNow && track.isNotBlank()) {
+                            { actions.onOpenPodcastShow(track) }
+                        } else null,
+                        showArt = if (isPodcastNow) favicon else "",
                     )
                     }
                         if (ui.showTrackHistory || flipAngle > 0.5f) {

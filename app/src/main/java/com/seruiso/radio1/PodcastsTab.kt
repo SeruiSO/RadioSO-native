@@ -167,21 +167,84 @@ private fun hiResArt(url: String): String {
 
 /** UI-стан подкастів: переживає portrait↔landscape (різні місця в Compose-дереві). */
 
-/** Відкрити шоу з картки Now Playing (за назвою шоу з KEY_TRACK). */
+/** Відкрити батьківське шоу з картки NP (список епізодів). */
 fun openPodcastShowByTitle(ctx: android.content.Context, showTitle: String): Boolean {
     val title = showTitle.trim()
     if (title.isBlank()) return false
-    val subs = PodcastStore.subs(ctx)
-    val show = subs.firstOrNull { it.title.equals(title, ignoreCase = true) }
-        ?: subs.firstOrNull { it.title.contains(title, ignoreCase = true) }
-    if (show == null) return false
-    PodUiSession.pickSub("SHOWS")
-    PodUiSession.selected = show
-    PodUiSession.openedFeed = show.feedUrl
-    PodUiSession.episodes = emptyList()
+    fun match(a: String, b: String) =
+        a.equals(b, ignoreCase = true) || a.contains(b, ignoreCase = true) || b.contains(a, ignoreCase = true)
+
+    var show: PodcastShow? = PodcastStore.subs(ctx).firstOrNull { match(it.title, title) }
+
+    if (show == null) {
+        try {
+            val root = org.json.JSONObject(
+                ctx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, android.content.Context.MODE_PRIVATE)
+                    .getString("podcastFeedCache", "{}") ?: "{}"
+            )
+            val keys = root.keys()
+            while (keys.hasNext()) {
+                val feed = keys.next()
+                val o = root.optJSONObject(feed) ?: continue
+                val t0 = o.optString("title").trim()
+                if (t0.isNotBlank() && match(t0, title)) {
+                    show = PodcastShow(
+                        id = 0L,
+                        title = t0,
+                        author = "",
+                        feedUrl = feed,
+                        artwork = o.optString("artwork").trim(),
+                        trackCount = o.optJSONArray("eps")?.length() ?: 0,
+                    )
+                    break
+                }
+            }
+        } catch (_: Exception) {}
+    }
+
+    if (show == null) {
+        try {
+            val pref = ctx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, android.content.Context.MODE_PRIVATE)
+            val cur = pref.getString(BluetoothAutoPlayPlugin.KEY_URL, "") ?: ""
+            val root = org.json.JSONObject(pref.getString("podcastFeedCache", "{}") ?: "{}")
+            val keys = root.keys()
+            while (keys.hasNext() && show == null) {
+                val feed = keys.next()
+                val o = root.optJSONObject(feed) ?: continue
+                val eps = o.optJSONArray("eps") ?: continue
+                for (i in 0 until eps.length()) {
+                    val e = eps.optJSONObject(i) ?: continue
+                    val au = e.optString("audioUrl")
+                    val st = e.optString("showTitle").ifBlank { o.optString("title") }
+                    val hitUrl = cur.isNotBlank() && (
+                        au == cur ||
+                        (au.length > 20 && cur.contains(au.takeLast(24))) ||
+                        (cur.length > 20 && au.contains(cur.takeLast(24)))
+                    )
+                    val hitTitle = st.isNotBlank() && match(st, title)
+                    if (hitUrl || hitTitle) {
+                        show = PodcastShow(
+                            id = 0L,
+                            title = o.optString("title").ifBlank { st }.ifBlank { title },
+                            author = "",
+                            feedUrl = feed,
+                            artwork = o.optString("artwork").trim(),
+                            trackCount = eps.length(),
+                        )
+                        break
+                    }
+                }
+            }
+        } catch (_: Exception) {}
+    }
+
+    if (show == null || show.feedUrl.isBlank()) return false
+    PodUiSession.subName = "SHOWS"
+    PodUiSession.pendingOpenShow = show
     PodUiSession.subStamp++
     return true
 }
+
 
 private object PodUiSession {
     var subName by mutableStateOf("")
@@ -213,6 +276,7 @@ private object PodUiSession {
     var canLoadMore: Boolean = false
     var searchOffset: Int = 0
     var selected: PodcastShow? = null
+    var pendingOpenShow: PodcastShow? = null
     var episodes: List<PodcastEpisode> = emptyList()
     var openedFeed: String = ""
     var blurb: String = ""
@@ -268,20 +332,17 @@ fun PodcastsTabContent(
     var loadingEps by remember { mutableStateOf(false) }
     LaunchedEffect(PodUiSession.subStamp, PodUiSession.subName) {
         val n = enumValues<PodSub>().firstOrNull { it.name == PodUiSession.subName } ?: return@LaunchedEffect
+        val hasPending = PodUiSession.pendingOpenShow != null
         if (n != sub) {
-            selected = null
-            episodes = emptyList()
-            error = ""
+            if (!hasPending) {
+                selected = null
+                episodes = emptyList()
+                error = ""
+            }
             sub = n
-        } else if (PodUiSession.selected == null && selected != null) {
+        } else if (!hasPending && PodUiSession.selected == null && selected != null) {
             selected = null
             episodes = emptyList()
-        }
-        // sync selected from session (open from Now Playing)
-        val sess = PodUiSession.selected
-        if (sess != null && selected?.feedUrl != sess.feedUrl) {
-            selected = sess
-            openedFeed = sess.feedUrl
         }
     }
     LaunchedEffect(sub) {
@@ -688,6 +749,14 @@ fun PodcastsTabContent(
                 error = it.message ?: ctx.getString(R.string.scan_error)
             }
         }
+    }
+
+    // Тап «з якого шоу» у NP → батьківське шоу з епізодами
+    LaunchedEffect(PodUiSession.subStamp) {
+        val pending = PodUiSession.pendingOpenShow ?: return@LaunchedEffect
+        PodUiSession.pendingOpenShow = null
+        if (sub != PodSub.SHOWS) sub = PodSub.SHOWS
+        openShow(pending)
     }
 
     LaunchedEffect(Unit) {

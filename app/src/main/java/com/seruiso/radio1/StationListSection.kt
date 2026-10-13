@@ -485,7 +485,7 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
                     onClick = actions.onMore,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(start = 8.dp, end = 88.dp, top = 8.dp, bottom = 8.dp),
+                        .padding(8.dp),
                 ) {
                     Text(
                         LocalContext.current.getString(R.string.more_100),

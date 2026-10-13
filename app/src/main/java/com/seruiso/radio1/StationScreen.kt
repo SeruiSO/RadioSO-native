@@ -921,7 +921,7 @@ fun StationScreen(
                         if (track.isNotBlank()) track else LocalContext.current.getString(R.string.track_unknown),
                         color = text,
                         style = MaterialTheme.typography.bodySmall,
-                        maxLines = 1,
+                        maxLines = 2,
                     )
                     val ctryL = if (localNow) "" else DisplayNames.countryLabel(LocalContext.current, country)
                     val genL = if (localNow || podcastNow) "" else DisplayNames.genreLabel(LocalContext.current, genre)
@@ -1212,7 +1212,7 @@ fun StationScreen(
                         if (track.isNotBlank()) track else LocalContext.current.getString(R.string.track_unknown),
                         color = text,
                         style = MaterialTheme.typography.bodySmall,
-                        maxLines = 1,
+                        maxLines = 2,
                     )
                     val ctry = if (localNow) "" else DisplayNames.countryLabel(LocalContext.current, country)
                     val gen = if (localNow || podcastNow) "" else DisplayNames.genreLabel(LocalContext.current, genre)

@@ -279,5 +279,8 @@
     <string name="eq_pop">Поп</string>
     <string name="eq_classical">Класика</string>
     <string name="eq_night">Ніч</string>
+    <string name="eq_deepbass">Глибокий бас</string>
+    <string name="eq_superbass">Супер бас</string>
+    <string name="search_one">Назва, жанр або країна</string>
 </resources>
 

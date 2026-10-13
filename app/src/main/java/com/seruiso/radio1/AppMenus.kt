@@ -738,10 +738,10 @@ fun AppEqualizerDialog(
             android.util.Log.w("RadioWatch", "EQ push", e)
         }
     }
-    val ids = listOf("flat", "bass", "vocal", "rock", "pop", "classical", "night")
+    val ids = listOf("flat", "bass", "deepbass", "superbass", "vocal", "rock", "pop", "classical", "night")
     val labels = listOf(
-        R.string.eq_flat, R.string.eq_bass, R.string.eq_vocal, R.string.eq_rock,
-        R.string.eq_pop, R.string.eq_classical, R.string.eq_night,
+        R.string.eq_flat, R.string.eq_bass, R.string.eq_deepbass, R.string.eq_superbass,
+        R.string.eq_vocal, R.string.eq_rock, R.string.eq_pop, R.string.eq_classical, R.string.eq_night,
     )
     AlertDialog(
         containerColor = card,

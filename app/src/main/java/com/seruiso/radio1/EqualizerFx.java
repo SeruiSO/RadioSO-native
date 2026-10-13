@@ -11,7 +11,7 @@ public final class EqualizerFx {
     public static final String KEY_PRESET = "eqPreset";
 
     public static final String[] PRESETS = {
-        "flat", "bass", "vocal", "rock", "pop", "classical", "night"
+        "flat", "bass", "deepbass", "superbass", "vocal", "rock", "pop", "classical", "night"
     };
 
     private static Equalizer eq;
@@ -81,7 +81,9 @@ public final class EqualizerFx {
     /** 5 контрольних точок 0..1 по частоті, інтерполяція на n смуг. Значення −1..1. */
     private static float[] curve(String preset, int n) {
         float[] src;
-        if ("bass".equals(preset)) src = new float[] {0.75f, 0.45f, 0.05f, 0.05f, 0.2f};
+        if ("superbass".equals(preset)) src = new float[] {1f, 0.9f, 0.45f, 0.05f, 0.1f};
+        else if ("deepbass".equals(preset)) src = new float[] {0.95f, 0.7f, 0.2f, -0.05f, -0.1f};
+        else if ("bass".equals(preset)) src = new float[] {0.75f, 0.45f, 0.05f, 0.05f, 0.2f};
         else if ("vocal".equals(preset)) src = new float[] {-0.2f, 0.05f, 0.55f, 0.4f, 0.05f};
         else if ("rock".equals(preset)) src = new float[] {0.5f, 0.25f, -0.1f, 0.3f, 0.55f};
         else if ("pop".equals(preset)) src = new float[] {0.15f, 0.35f, 0.1f, 0.25f, 0.35f};

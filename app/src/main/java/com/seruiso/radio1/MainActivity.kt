@@ -592,31 +592,48 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun runSearch(countryOverride: String? = null) {
-        val n = qName.trim()
-        val c = normalizeCountry(countryOverride ?: qCountry)
-        // не затираємо поле країни при гео-пошуку (override)
-        if (countryOverride == null) qCountry = c
-        val g = qGenre.trim()
-        if (n.isNotBlank()) {
+        val raw = qName.trim()
+        val parsed = if (countryOverride != null) {
+            Triple("", normalizeCountry(countryOverride), "")
+        } else {
+            SearchHints.parse(raw)
+        }
+        val n = parsed.first
+        val c = parsed.second
+        val g = parsed.third
+        val remember = if (countryOverride != null) raw else raw
+        if (remember.isNotBlank() && countryOverride == null) {
             val past = SearchHints.past(this).toMutableList()
-            past.remove(n)
-            past.add(0, n)
+            past.remove(remember)
+            past.add(0, remember)
             SearchHints.savePast(this, past.take(5))
         }
         if (n.isBlank() && c.isBlank() && g.isBlank()) {
             holdStatus(getString(R.string.search_hint))
             return
         }
+        val localSnap = try { allRadioStations() } catch (_: Exception) { emptyList() }
+        val tokens = raw.lowercase().split(Regex("\\s+")).filter { it.length >= 2 }
         val gen = ++RadioBrowser.activeGen
         statusText = getString(R.string.search_ellipsis)
         searchAll = emptyList()
         searchRows = emptyList()
         searchShown = 0
         Thread {
-            val result = try { RadioBrowser.search(n, c, g, gen) } catch (_: Exception) { emptyList() }
+            val remote = try { RadioBrowser.search(n, c, g, gen) } catch (_: Exception) { emptyList() } ?: emptyList()
+            val extra = if (n.isNotBlank() && (c.isNotBlank() || g.isNotBlank())) {
+                try { RadioBrowser.search(n, "", "", gen) } catch (_: Exception) { emptyList() } ?: emptyList()
+            } else emptyList()
+            val localHits = if (countryOverride != null || tokens.isEmpty()) emptyList() else {
+                localSnap.filter { s ->
+                    val blob = (s.name + " " + s.country + " " + s.genre).lowercase()
+                    tokens.all { blob.contains(it) }
+                }
+            }
+            val merged = dedupeStationsByStream(localHits + remote + extra)
             runOnUiThread {
                 if (gen != RadioBrowser.activeGen) return@runOnUiThread
-                searchAll = dedupeStationsByStream(result ?: emptyList())
+                searchAll = merged
                 searchShown = minOf(100, searchAll.size)
                 searchRows = searchAll.take(searchShown)
                 holdStatus(if (searchAll.isEmpty()) getString(R.string.nothing_found) else getString(R.string.search_found, searchAll.size))

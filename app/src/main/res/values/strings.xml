@@ -258,4 +258,7 @@
     <string name="eq_pop">Pop</string>
     <string name="eq_classical">Classical</string>
     <string name="eq_night">Night</string>
+    <string name="eq_deepbass">Deep bass</string>
+    <string name="eq_superbass">Super bass</string>
+    <string name="search_one">Name, genre or country</string>
 </resources>

@@ -77,52 +77,32 @@ fun SearchSection(
             Text(if (searchOpen) "▴" else "▾", color = muted)
         }
         if (searchOpen) {
-            @Composable
-            fun field(v: String, set: (String) -> Unit, lab: String, key: String, hints: List<String>) {
-                OutlinedTextField(
-                    value = v,
-                    onValueChange = set,
-                    singleLine = true,
-                    label = { Text(lab) },
-                    modifier = Modifier.fillMaxWidth(),
-                    trailingIcon = {
+            OutlinedTextField(
+                value = qName,
+                onValueChange = onName,
+                singleLine = true,
+                label = { Text(LocalContext.current.getString(R.string.search_one)) },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            val past = nameHints.distinct().take(8)
+            if (past.isNotEmpty()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp)
+                ) {
+                    past.forEach { h ->
                         Text(
-                            "▾",
-                            color = acc,
+                            h,
+                            color = muted,
                             modifier = Modifier
-                                .clickable { onSuggestFor(if (suggestFor == key) "" else key) }
-                                .padding(8.dp)
+                                .fillMaxWidth()
+                                .clickable { onName(h) }
+                                .padding(vertical = 4.dp)
                         )
-                    }
-                )
-                if (suggestFor == key) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 200.dp)
-                            .verticalScroll(rememberScrollState())
-                            .background(card, RoundedCornerShape(12.dp))
-                            .padding(6.dp)
-                    ) {
-                        hints.distinct().take(24).forEach { h ->
-                            Text(
-                                h,
-                                color = text,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        set(h)
-                                        onSuggestFor("")
-                                    }
-                                    .padding(6.dp)
-                            )
-                        }
                     }
                 }
             }
-            field(qName, onName, LocalContext.current.getString(R.string.name_label), "name", nameHints)
-            field(qCountry, onCountry, LocalContext.current.getString(R.string.country), "country", countryHints)
-            field(qGenre, onGenre, LocalContext.current.getString(R.string.genre), "genre", genreHints)
             Button(
                 onClick = onSearch,
                 modifier = Modifier

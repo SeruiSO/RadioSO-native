@@ -18,3 +18,6 @@
 -keepclassmembers class * implements android.os.Parcelable {
     public static final ** CREATOR;
 }
+
+-keep class com.seruiso.radio1.CastOptionsProvider { *; }
+-keep class com.google.android.gms.cast.** { *; }

@@ -227,6 +227,7 @@ class MainActivity : ComponentActivity() {
         askPermissions()
         maybeStartBtIfConnected()
         Palette.init(this)
+        try { CastBridge.init(this) } catch (_: Throwable) {}
         val loaded = StationRepo.load(this)
         sourceTabs = loaded.first
         stations = loaded.second

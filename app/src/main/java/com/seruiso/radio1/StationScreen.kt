@@ -59,6 +59,7 @@ import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.SkipNext
@@ -772,6 +773,23 @@ fun StationScreen(
                         tint = if (listGridMode) acc else text,
                     )
                 }
+                AndroidView(
+                    modifier = Modifier.size(40.dp),
+                    factory = { ctx ->
+                        val themed = android.view.ContextThemeWrapper(
+                            ctx,
+                            androidx.appcompat.R.style.Theme_AppCompat,
+                        )
+                        androidx.mediarouter.app.MediaRouteButton(themed).apply {
+                            try {
+                                com.google.android.gms.cast.framework.CastButtonFactory
+                                    .setUpMediaRouteButton(ctx, this)
+                            } catch (t: Throwable) {
+                                android.util.Log.w("RadioWatch", "cast btn", t)
+                            }
+                        }
+                    },
+                )
             }
             Row(modifier = Modifier.align(Alignment.Center), verticalAlignment = Alignment.CenterVertically) {
                 val logoStyle = if (LocalConfiguration.current.screenWidthDp < 360)

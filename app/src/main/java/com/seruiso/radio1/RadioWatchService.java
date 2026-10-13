@@ -284,6 +284,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                 .setLoadControl(loadControl)
                 .setMediaSourceFactory(mediaSourceFactory)
                 .build();
+        try { CastBridge.bindPlayer(player); } catch (Throwable ignored) {}
         // Екран off / Doze: тримати CPU+мережу під час стріму (Media3; дозвіл WAKE_LOCK є)
         try {
             player.setWakeMode(androidx.media3.common.C.WAKE_MODE_NETWORK);
@@ -3141,6 +3142,11 @@ notifyForeground();
             android.util.Log.i("RadioWatch", "playUrl skip — USER pause");
             return;
         }
+        try {
+            String castTitle = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                    .getString(BluetoothAutoPlayPlugin.KEY_NAME, "");
+            CastBridge.push(this, url, castTitle);
+        } catch (Throwable ignored) {}
         // Скасувати art попередньої станції — не конкурувати з аудіо-потоком
         cancelStationArtLoad();
         // НЕ форсуємо https — багато потоків лише http

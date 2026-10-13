@@ -16,7 +16,7 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.Handler
 import android.os.Looper
-import androidx.activity.ComponentActivity
+import androidx.appcompat.app.AppCompatActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
@@ -38,7 +38,7 @@ import androidx.core.content.ContextCompat
 import com.seruiso.radio1.ui.theme.RadioSOTheme
 import org.json.JSONArray
 
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
     private var appLang by mutableStateOf("uk")
 
     override fun attachBaseContext(newBase: android.content.Context) {

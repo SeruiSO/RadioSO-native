@@ -39,6 +39,7 @@ import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Alarm
+import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.foundation.rememberScrollState
@@ -99,6 +100,7 @@ fun AppOverflowMenu(
     appVersion: String = "",
     acc: Color,
     text: Color,
+    onEq: () -> Unit = {},
 ) {
     val ctx = LocalContext.current
     val prefs = remember {
@@ -206,6 +208,12 @@ fun AppOverflowMenu(
                         label = ctx.getString(R.string.menu_theme),
                         selected = false, acc = acc, text = text,
                         onClick = { onTheme() },
+                    )
+                    MenuRow(
+                        icon = Icons.Filled.GraphicEq,
+                        label = ctx.getString(R.string.menu_eq),
+                        selected = false, acc = acc, text = text,
+                        onClick = { onEq() },
                     )
                     // 5 сон
                     MenuRow(
@@ -697,4 +705,104 @@ private fun AlarmAddLine(label: String, acc: Color, text: Color, onAdd: () -> Un
         Text(label, color = text, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
         Text("+", color = acc, style = MaterialTheme.typography.headlineSmall)
     }
+}
+
+
+@Composable
+fun AppEqualizerDialog(
+    open: Boolean,
+    onDismiss: () -> Unit,
+    acc: Color,
+    muted: Color,
+    text: Color,
+    card: Color,
+) {
+    if (!open) return
+    val ctx = LocalContext.current
+    val prefs = remember {
+        ctx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, android.content.Context.MODE_PRIVATE)
+    }
+    var on by remember { mutableStateOf(prefs.getBoolean(EqualizerFx.KEY_ON, false)) }
+    var preset by remember { mutableStateOf(prefs.getString(EqualizerFx.KEY_PRESET, "flat") ?: "flat") }
+    fun push() {
+        prefs.edit()
+            .putBoolean(EqualizerFx.KEY_ON, on)
+            .putString(EqualizerFx.KEY_PRESET, preset)
+            .apply()
+        try {
+            val i = android.content.Intent(ctx, RadioWatchService::class.java)
+            i.action = RadioWatchService.ACTION_EQ
+            if (android.os.Build.VERSION.SDK_INT >= 26) ctx.startForegroundService(i)
+            else ctx.startService(i)
+        } catch (e: Exception) {
+            android.util.Log.w("RadioWatch", "EQ push", e)
+        }
+    }
+    val ids = listOf("flat", "bass", "vocal", "rock", "pop", "classical", "night")
+    val labels = listOf(
+        R.string.eq_flat, R.string.eq_bass, R.string.eq_vocal, R.string.eq_rock,
+        R.string.eq_pop, R.string.eq_classical, R.string.eq_night,
+    )
+    AlertDialog(
+        containerColor = card,
+        onDismissRequest = onDismiss,
+        title = { Text(ctx.getString(R.string.eq_title), color = text) },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        ctx.getString(R.string.eq_enable),
+                        color = text,
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Switch(
+                        checked = on,
+                        onCheckedChange = {
+                            on = it
+                            push()
+                        },
+                    )
+                }
+                ids.chunked(2).forEach { pair ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        pair.forEach { id ->
+                            val idx = ids.indexOf(id)
+                            val selected = preset == id
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(46.dp)
+                                    .background(
+                                        if (selected) acc.copy(alpha = 0.28f) else acc.copy(alpha = 0.12f),
+                                        RoundedCornerShape(14.dp),
+                                    )
+                                    .border(
+                                        1.dp,
+                                        if (selected) acc else acc.copy(alpha = 0.35f),
+                                        RoundedCornerShape(14.dp),
+                                    )
+                                    .clickable {
+                                        preset = id
+                                        if (!on) on = true
+                                        push()
+                                    },
+                                contentAlignment = Alignment.Center,
+                            ) { Text(ctx.getString(labels[idx]), color = text) }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(ctx.getString(R.string.close), color = muted) }
+        },
+    )
 }

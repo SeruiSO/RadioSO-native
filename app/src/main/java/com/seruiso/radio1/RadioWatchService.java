@@ -96,6 +96,7 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
     public static final String ACTION_PLAYBACK_UI = "com.seruiso.radio1.PLAYBACK_UI";
     public static final String ACTION_SEEK = "com.seruiso.radio1.SEEK";
     public static final String ACTION_SPEED = "com.seruiso.radio1.SPEED";
+    public static final String ACTION_EQ = "com.seruiso.radio1.EQ";
     public static final String EXTRA_POSITION_MS = "positionMs";
     public static final String EXTRA_TRACK = "track";
 
@@ -298,6 +299,19 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
                         .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
                         .build();
         player.setAudioAttributes(media3Attrs, /* handleAudioFocus= */ false);
+
+        try {
+            player.addListener(new Player.Listener() {
+                @Override
+                public void onAudioSessionIdChanged(int audioSessionId) {
+                    EqualizerFx.attach(RadioWatchService.this, audioSessionId);
+                }
+            });
+            int sid = player.getAudioSessionId();
+            if (sid != 0) EqualizerFx.attach(this, sid);
+        } catch (Throwable eqErr) {
+            android.util.Log.w("RadioWatch", "EQ listener", eqErr);
+        }
 
         Player sessionPlayer = new ForwardingPlayer(player) {
             @Override
@@ -1963,6 +1977,13 @@ notifyForeground();
             return START_STICKY;
         }
 
+        if (ACTION_EQ.equals(action)) {
+            try {
+                if (player != null) EqualizerFx.attach(this, player.getAudioSessionId());
+            } catch (Throwable ignored) {}
+            return START_STICKY;
+        }
+
         if (ACTION_AA_ROUTE.equals(action)) {
             if (player != null) {
                 BtAudio.clearPreferred(player);
@@ -3523,6 +3544,7 @@ notifyForeground();
             mediaSession.release();
             mediaSession = null;
         }
+        try { EqualizerFx.release(); } catch (Throwable ignored) {}
         if (player != null) {
             player.release();
             player = null;

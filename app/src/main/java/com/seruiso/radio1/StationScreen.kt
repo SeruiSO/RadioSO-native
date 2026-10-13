@@ -596,6 +596,7 @@ fun StationScreen(
     // Верхня картка (свайп вниз по інфо-панелі)
     var topSleepOpen by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     var alarmOpen by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    var eqOpen by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     var topThemeOpen by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     val listGridPrefs = LocalContext.current.getSharedPreferences("ui_layout", android.content.Context.MODE_PRIVATE)
     var listGridMode by androidx.compose.runtime.remember {
@@ -1573,10 +1574,19 @@ AppOverflowMenu(
         onTheme = { topThemeOpen = true },
         appVersion = menuAppVer,
         onAlarm = { alarmOpen = true },
+        onEq = { eqOpen = true },
         lang = appLang,
         onLang = onToggleLanguage,
         acc = acc,
         text = text,
+    )
+    AppEqualizerDialog(
+        open = eqOpen,
+        onDismiss = { eqOpen = false },
+        acc = acc,
+        muted = muted,
+        text = text,
+        card = card,
     )
     AppAlarmDialog(
         open = alarmOpen,

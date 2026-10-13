@@ -269,5 +269,15 @@
     <string name="menu_version">Версія %1$s</string>
     <string name="menu_settings_title">Налаштування</string>
     <string name="menu_close_app">Закрити додаток</string>
+    <string name="menu_eq">Еквалайзер</string>
+    <string name="eq_title">Еквалайзер</string>
+    <string name="eq_enable">Увімкнено</string>
+    <string name="eq_flat">Рівно</string>
+    <string name="eq_bass">Бас</string>
+    <string name="eq_vocal">Вокал</string>
+    <string name="eq_rock">Рок</string>
+    <string name="eq_pop">Поп</string>
+    <string name="eq_classical">Класика</string>
+    <string name="eq_night">Ніч</string>
 </resources>
 

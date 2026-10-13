@@ -248,4 +248,14 @@
     <string name="menu_version">Version %1$s</string>
     <string name="menu_settings_title">Settings</string>
     <string name="menu_close_app">Close app</string>
+    <string name="menu_eq">Equalizer</string>
+    <string name="eq_title">Equalizer</string>
+    <string name="eq_enable">On</string>
+    <string name="eq_flat">Flat</string>
+    <string name="eq_bass">Bass</string>
+    <string name="eq_vocal">Vocal</string>
+    <string name="eq_rock">Rock</string>
+    <string name="eq_pop">Pop</string>
+    <string name="eq_classical">Classical</string>
+    <string name="eq_night">Night</string>
 </resources>

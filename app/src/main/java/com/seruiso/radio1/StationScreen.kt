@@ -1141,6 +1141,7 @@ fun StationScreen(
                 onMore = onMore,
                 onToggleBest = onToggleBest,
             )
+            androidx.compose.runtime.key(listGridMode) {
             StationListSection(
                 ui = libraryUi,
                 listState = listState,
@@ -1148,6 +1149,7 @@ fun StationScreen(
                 onSwipeOpenRight = { openRightSheet() },
                 onSwipeOpenLeft = { openLeftSheet() },
             )
+            }
         }
         }
         }
@@ -1430,6 +1432,7 @@ fun StationScreen(
                 onMore = onMore,
                 onToggleBest = onToggleBest,
             )
+            androidx.compose.runtime.key(listGridMode) {
             StationListSection(
                 ui = libraryUi,
                 listState = listState,
@@ -1437,6 +1440,7 @@ fun StationScreen(
                 onSwipeOpenRight = { openRightSheet() },
                 onSwipeOpenLeft = { openLeftSheet() },
             )
+            }
         }
         }
         BottomNavBar(

@@ -533,5 +533,5 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
             }
         }
     }
-    } // key(gridMode)
+    } // end key(gridMode)
 }

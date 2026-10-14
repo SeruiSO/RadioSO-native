@@ -55,9 +55,13 @@ public final class EqualizerFx {
             short min = range[0];
             short max = range[1];
             float[] curve = curve(preset, n);
+            // 0.72 — запас від кліпінгу в авто / навушниках
+            final float scale = 0.72f;
+            short softMax = (short) Math.round(max * scale);
+            short softMin = (short) Math.round(min * scale);
             for (short i = 0; i < n; i++) {
                 float g = curve[i];
-                int level = g >= 0f ? Math.round(g * max) : Math.round(-g * min);
+                int level = g >= 0f ? Math.round(g * softMax) : Math.round(-g * softMin);
                 if (level > max) level = max;
                 if (level < min) level = min;
                 eq.setBandLevel(i, (short) level);
@@ -81,9 +85,10 @@ public final class EqualizerFx {
     /** 5 контрольних точок 0..1 по частоті, інтерполяція на n смуг. Значення −1..1. */
     private static float[] curve(String preset, int n) {
         float[] src;
-        if ("superbass".equals(preset)) src = new float[] {1f, 0.9f, 0.45f, 0.05f, 0.1f};
-        else if ("deepbass".equals(preset)) src = new float[] {0.95f, 0.7f, 0.2f, -0.05f, -0.1f};
-        else if ("bass".equals(preset)) src = new float[] {0.75f, 0.45f, 0.05f, 0.05f, 0.2f};
+        // −1..1 → частка від hardware min/max; бас ≤~0.55, highs ≥0 (не ріжемо)
+        if ("superbass".equals(preset)) src = new float[] {0.55f, 0.42f, 0.10f, 0.08f, 0.14f};
+        else if ("deepbass".equals(preset)) src = new float[] {0.48f, 0.34f, 0.06f, 0.08f, 0.12f};
+        else if ("bass".equals(preset)) src = new float[] {0.36f, 0.22f, 0.04f, 0.10f, 0.16f};
         else if ("vocal".equals(preset)) src = new float[] {-0.2f, 0.05f, 0.55f, 0.4f, 0.05f};
         else if ("rock".equals(preset)) src = new float[] {0.5f, 0.25f, -0.1f, 0.3f, 0.55f};
         else if ("pop".equals(preset)) src = new float[] {0.15f, 0.35f, 0.1f, 0.25f, 0.35f};

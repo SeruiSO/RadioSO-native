@@ -171,42 +171,88 @@ private fun hiResArt(url: String): String {
 fun openPodcastShowByTitle(ctx: android.content.Context, showTitle: String): Boolean {
     val title = showTitle.trim()
     if (title.isBlank()) return false
-    fun match(a: String, b: String) =
-        a.equals(b, ignoreCase = true) || a.contains(b, ignoreCase = true) || b.contains(a, ignoreCase = true)
+    val p = ctx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, android.content.Context.MODE_PRIVATE)
+    val cur = (p.getString(BluetoothAutoPlayPlugin.KEY_URL, "") ?: "").trim()
+    val lastFeed = (p.getString("podcastLastFeed", "") ?: "").trim()
+    val subs = PodcastStore.subs(ctx)
 
-    var show: PodcastShow? = PodcastStore.subs(ctx).firstOrNull { match(it.title, title) }
-
-    if (show == null) {
-        try {
-            val root = org.json.JSONObject(
-                ctx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, android.content.Context.MODE_PRIVATE)
-                    .getString("podcastFeedCache", "{}") ?: "{}"
+    fun fromFeed(feed: String): PodcastShow? {
+        val f = feed.trim()
+        if (f.isBlank()) return null
+        subs.firstOrNull { it.feedUrl == f }?.let { return it }
+        return try {
+            val root = org.json.JSONObject(p.getString("podcastFeedCache", "{}") ?: "{}")
+            val o = root.optJSONObject(f) ?: return null
+            val t0 = o.optString("title").trim().ifBlank { title }
+            PodcastShow(
+                id = 0L, title = t0, author = "", feedUrl = f,
+                artwork = o.optString("artwork").trim(),
+                trackCount = o.optJSONArray("eps")?.length() ?: 0,
             )
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    fun urlHit(a: String, b: String): Boolean {
+        if (a.isBlank() || b.isBlank()) return false
+        if (a == b) return true
+        fun norm(u: String): String {
+            var s = u.trim()
+            if (s.startsWith("file://")) s = s.removePrefix("file://")
+            return s.substringBefore('?')
+        }
+        val na = norm(a)
+        val nb = norm(b)
+        if (na == nb) return true
+        if (na.endsWith(nb) || nb.endsWith(na)) return true
+        val leaf = na.substringAfterLast('/')
+        return leaf.length > 12 && nb.contains(leaf)
+    }
+
+    fun byShowTitle(st: String): PodcastShow? {
+        val s = st.trim()
+        if (s.isBlank()) return null
+        subs.firstOrNull { it.title.equals(s, ignoreCase = true) }?.let { return it }
+        try {
+            val root = org.json.JSONObject(p.getString("podcastFeedCache", "{}") ?: "{}")
             val keys = root.keys()
             while (keys.hasNext()) {
                 val feed = keys.next()
                 val o = root.optJSONObject(feed) ?: continue
-                val t0 = o.optString("title").trim()
-                if (t0.isNotBlank() && match(t0, title)) {
-                    show = PodcastShow(
-                        id = 0L,
-                        title = t0,
-                        author = "",
-                        feedUrl = feed,
-                        artwork = o.optString("artwork").trim(),
-                        trackCount = o.optJSONArray("eps")?.length() ?: 0,
-                    )
-                    break
+                if (o.optString("title").equals(s, ignoreCase = true)) {
+                    return fromFeed(feed)
                 }
             }
         } catch (_: Exception) {}
+        val soft = subs.filter {
+            it.title.contains(s, ignoreCase = true) || s.contains(it.title, ignoreCase = true)
+        }
+        return when {
+            soft.size == 1 -> soft[0]
+            soft.size > 1 -> soft.maxByOrNull { it.title.length }
+            else -> null
+        }
     }
 
-    if (show == null) {
+    // 1) точна назва в підписках
+    var show: PodcastShow? = subs.firstOrNull { it.title.equals(title, ignoreCase = true) }
+
+    // 2) останній feed (після play / openShow)
+    if (show == null && lastFeed.isNotBlank()) {
+        val cand = fromFeed(lastFeed)
+        if (cand != null) {
+            val okTitle = cand.title.equals(title, ignoreCase = true)
+                || cand.title.contains(title, ignoreCase = true)
+                || title.contains(cand.title, ignoreCase = true)
+            if (okTitle) show = cand
+        }
+    }
+
+    // 3) поточний URL у кеші епізодів
+    if (show == null && cur.isNotBlank()) {
         try {
-            val pref = ctx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, android.content.Context.MODE_PRIVATE)
-            val cur = pref.getString(BluetoothAutoPlayPlugin.KEY_URL, "") ?: ""
-            val root = org.json.JSONObject(pref.getString("podcastFeedCache", "{}") ?: "{}")
+            val root = org.json.JSONObject(p.getString("podcastFeedCache", "{}") ?: "{}")
             val keys = root.keys()
             while (keys.hasNext() && show == null) {
                 val feed = keys.next()
@@ -214,18 +260,10 @@ fun openPodcastShowByTitle(ctx: android.content.Context, showTitle: String): Boo
                 val eps = o.optJSONArray("eps") ?: continue
                 for (i in 0 until eps.length()) {
                     val e = eps.optJSONObject(i) ?: continue
-                    val au = e.optString("audioUrl")
-                    val st = e.optString("showTitle").ifBlank { o.optString("title") }
-                    val hitUrl = cur.isNotBlank() && (
-                        au == cur ||
-                        (au.length > 20 && cur.contains(au.takeLast(24))) ||
-                        (cur.length > 20 && au.contains(cur.takeLast(24)))
-                    )
-                    val hitTitle = st.isNotBlank() && match(st, title)
-                    if (hitUrl || hitTitle) {
-                        show = PodcastShow(
+                    if (urlHit(e.optString("audioUrl"), cur)) {
+                        show = fromFeed(feed) ?: PodcastShow(
                             id = 0L,
-                            title = o.optString("title").ifBlank { st }.ifBlank { title },
+                            title = o.optString("title").ifBlank { title },
                             author = "",
                             feedUrl = feed,
                             artwork = o.optString("artwork").trim(),
@@ -236,6 +274,34 @@ fun openPodcastShowByTitle(ctx: android.content.Context, showTitle: String): Boo
                 }
             }
         } catch (_: Exception) {}
+    }
+
+    // 4) recent / fav / downloaded за URL
+    if (show == null && cur.isNotBlank()) {
+        for (ep in PodcastStore.recent(ctx)) {
+            if (!urlHit(ep.audioUrl, cur) && !urlHit(ep.mediaUrl, cur)) continue
+            show = byShowTitle(ep.showTitle)
+            if (show != null) break
+        }
+    }
+    if (show == null && cur.isNotBlank()) {
+        for (ep in PodcastStore.favEpisodes(ctx)) {
+            if (!urlHit(ep.audioUrl, cur)) continue
+            show = byShowTitle(ep.showTitle)
+            if (show != null) break
+        }
+    }
+    if (show == null && cur.isNotBlank()) {
+        for (ep in PodcastStore.downloadedList(ctx)) {
+            if (!urlHit(ep.audioUrl, cur)) continue
+            show = byShowTitle(ep.showTitle)
+            if (show != null) break
+        }
+    }
+
+    // 5) точна назва в кеші
+    if (show == null) {
+        show = byShowTitle(title)
     }
 
     if (show == null || show.feedUrl.isBlank()) return false
@@ -633,6 +699,7 @@ fun PodcastsTabContent(
             .putString(BluetoothAutoPlayPlugin.KEY_FAVICON, art0)
             .putString(BluetoothAutoPlayPlugin.KEY_GENRE, "podcast")
             .putString(BluetoothAutoPlayPlugin.KEY_COUNTRY, "")
+            .putString("podcastLastFeed", openedFeed.trim())
             .putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, true)
             .putLong("localPositionMs", resumeMs)
             .commit()
@@ -734,6 +801,10 @@ fun PodcastsTabContent(
         loadingEps = true
         error = ""
         episodes = emptyList()
+        try {
+            ctx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, android.content.Context.MODE_PRIVATE)
+                .edit().putString("podcastLastFeed", show.feedUrl.trim()).apply()
+        } catch (_: Exception) {}
         scope.launch {
             val r = withContext(Dispatchers.IO) { ItunesPodcasts.fetchEpisodes(show.feedUrl) }
             loadingEps = false

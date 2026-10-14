@@ -95,12 +95,12 @@ fun BoxScope.RightTabsPanel(
                     .fillMaxHeight()
                     .width(sheetW)
                     .graphicsLayer { translationX = rightA.value * sheetWpx }
+                    .statusBarsPadding()
+                    .navigationBarsPadding()
                     .background(
                         Palette.card,
                         RoundedCornerShape(topStart = 22.dp, bottomStart = 22.dp)
                     )
-                    .statusBarsPadding()
-                    .navigationBarsPadding()
                     .pointerInput(sheetWpx) {
                         val slop = viewConfiguration.touchSlop
                         awaitEachGesture {

@@ -288,6 +288,30 @@ fun BottomNavBar(
                 }
             }
         }
+        // Хіт-зона всієї горки (заливка + кнопки): тягни вгору як на панелі вкладок
+        val hillW = playDp + if (wing > 0.02f && canSkip) (playDp + 28.dp) * 2f * wing else 0.dp
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .offset(y = (-playLift))
+                .zIndex(3.5f)
+                .width(hillW.coerceAtLeast(playDp) + 24.dp)
+                .height(playDp + 12.dp)
+                .pointerInput(Unit) {
+                    var upAcc = 0f
+                    detectVerticalDragGestures(
+                        onDragEnd = {
+                            if (upAcc < -60f) onSwipeUp()
+                            else onPullEnd()
+                            upAcc = 0f
+                        },
+                        onDragCancel = { upAcc = 0f; onPullEnd() },
+                    ) { _, drag ->
+                        upAcc += drag
+                        onPull(drag)
+                    }
+                },
+        )
         Box(
             modifier = Modifier
                 .align(Alignment.TopCenter)
@@ -337,10 +361,14 @@ fun BottomNavBar(
                             detectVerticalDragGestures(
                                 onDragEnd = {
                                     if (upAcc < -60f) onSwipeUp()
+                                    else onPullEnd()
                                     upAcc = 0f
                                 },
-                                onDragCancel = { upAcc = 0f },
-                            ) { _, drag -> upAcc += drag }
+                                onDragCancel = { upAcc = 0f; onPullEnd() },
+                            ) { _, drag ->
+                                upAcc += drag
+                                onPull(drag)
+                            }
                         }
                         .clickable(enabled = wing > 0.6f) { go() },
                     contentAlignment = Alignment.Center,
@@ -983,6 +1011,7 @@ fun StationScreen(
                     acc = acc, muted = muted, text = text, card = card,
                     blockBack = nowOpen || sheetShow,
                     onScrollDir = { dir -> if (dir > 0) wingsOpen = false else wingsOpen = true },
+                    gridMode = listGridMode,
                 )
             }
         } else if (bottomTab == "home") {
@@ -1067,7 +1096,6 @@ fun StationScreen(
             text = text,
             card = card,
             showAllMusic = musicAll,
-            gridMode = listGridMode,
         )
         if (showLocal) {
             val libraryActions = LibraryActions(
@@ -1272,6 +1300,7 @@ fun StationScreen(
                     acc = acc, muted = muted, text = text, card = card,
                     blockBack = nowOpen || sheetShow,
                     onScrollDir = { dir -> if (dir > 0) wingsOpen = false else wingsOpen = true },
+                    gridMode = listGridMode,
                 )
             }
         } else if (bottomTab == "home") {
@@ -1356,7 +1385,6 @@ fun StationScreen(
             text = text,
             card = card,
             showAllMusic = musicAll,
-            gridMode = listGridMode,
         )
         if (showLocal) {
             val libraryActions = LibraryActions(

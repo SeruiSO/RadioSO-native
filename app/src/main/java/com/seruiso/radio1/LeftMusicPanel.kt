@@ -115,9 +115,9 @@ fun BoxScope.LeftMusicPanel(
                     .fillMaxHeight()
                     .width(sheetW)
                     .graphicsLayer { translationX = -leftA.value * sheetWpx }
-                    .background(card, RoundedCornerShape(topEnd = 22.dp, bottomEnd = 22.dp))
                     .statusBarsPadding()
                     .navigationBarsPadding()
+                    .background(card, RoundedCornerShape(topEnd = 22.dp, bottomEnd = 22.dp))
                     .padding(horizontal = 12.dp, vertical = 10.dp)
             ) {
                 Column(

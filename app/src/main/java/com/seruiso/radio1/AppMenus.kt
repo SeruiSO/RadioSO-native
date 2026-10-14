@@ -162,20 +162,14 @@ fun AppOverflowMenu(
                     }
                     .padding(horizontal = 12.dp, vertical = 8.dp)
             ) {
-                Row(
-                    Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Spacer(Modifier.weight(1f))
-                    Text(
-                        ctx.getString(R.string.menu_exit),
-                        color = acc,
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier
-                            .clickable { onCloseMenu() }
-                            .padding(horizontal = 8.dp, vertical = 8.dp),
-                    )
-                }
+                Text(
+                    ctx.getString(R.string.menu_settings_title),
+                    color = text,
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                )
                 Column(
                     Modifier
                         .weight(1f)

@@ -1474,15 +1474,36 @@ fun PodcastsTabContent(
                 ) {
                     if (continueEps.isNotEmpty()) {
                         item { Text(ctx.getString(R.string.podcast_continue), color = text, style = MaterialTheme.typography.titleSmall) }
-                        itemsIndexed(continueEps, key = { i, e -> "c-$i-${e.audioUrl}" }) { i, ep ->
-                            val list = continueEps.map {
-                                PodcastEpisode(it.title, it.audioUrl, "", it.duration, it.artwork)
+                        val contList = continueEps.map {
+                            PodcastEpisode(it.title, it.audioUrl, "", it.duration, it.artwork)
+                        }
+                        if (gridMode) {
+                            val rows = contList.chunked(3)
+                            itemsIndexed(rows, key = { i, _ -> "c-g-$i" }) { rowIndex, row ->
+                                Row(
+                                    Modifier.fillMaxWidth().padding(horizontal = 2.dp, vertical = 3.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                ) {
+                                    row.forEachIndexed { col, ep ->
+                                        val i = rowIndex * 3 + col
+                                        Box(Modifier.weight(1f)) {
+                                            EpTile(
+                                                ep, continueEps[i].showTitle, ep.image, contList, i,
+                                                showDl = true,
+                                            )
+                                        }
+                                    }
+                                    repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+                                }
                             }
-                            EpRow(
-                                list[i], ep.showTitle, ep.artwork, list, i,
-                                showDl = true,
-                                frac = podFrac(ep.mediaUrl, ep.duration),
-                            )
+                        } else {
+                            itemsIndexed(continueEps, key = { i, e -> "c-$i-${e.audioUrl}" }) { i, ep ->
+                                EpRow(
+                                    contList[i], ep.showTitle, ep.artwork, contList, i,
+                                    showDl = true,
+                                    frac = podFrac(ep.mediaUrl, ep.duration),
+                                )
+                            }
                         }
                     }
                     item { Text(ctx.getString(R.string.podcast_my_shows), color = text, style = MaterialTheme.typography.titleSmall) }
@@ -1491,7 +1512,22 @@ fun PodcastsTabContent(
                             Text(ctx.getString(R.string.podcast_my_empty), color = muted,
                                 style = MaterialTheme.typography.bodySmall)
                         }
-                    } else items(subs, key = { "s-${it.feedUrl}" }) { ShowRow(it) }
+                    } else if (gridMode) {
+                        val rows = subs.chunked(3)
+                        itemsIndexed(rows, key = { i, _ -> "s-g-$i" }) { _, row ->
+                            Row(
+                                Modifier.fillMaxWidth().padding(horizontal = 2.dp, vertical = 3.dp),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                row.forEach { s ->
+                                    Box(Modifier.weight(1f)) { ShowTile(s) }
+                                }
+                                repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+                            }
+                        }
+                    } else {
+                        items(subs, key = { "s-${it.feedUrl}" }) { ShowRow(it) }
+                    }
                 }
                 PodSub.FAV_EPS -> {
                     val list = favEps.map {
@@ -1505,6 +1541,25 @@ fun PodcastsTabContent(
                             item {
                                 Text(ctx.getString(R.string.podcast_fav_eps_empty), color = muted,
                                     style = MaterialTheme.typography.bodySmall)
+                            }
+                        } else if (gridMode) {
+                            val rows = list.chunked(3)
+                            itemsIndexed(rows, key = { i, _ -> "f-g-$i" }) { rowIndex, row ->
+                                Row(
+                                    Modifier.fillMaxWidth().padding(horizontal = 2.dp, vertical = 3.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                ) {
+                                    row.forEachIndexed { col, ep ->
+                                        val i = rowIndex * 3 + col
+                                        Box(Modifier.weight(1f)) {
+                                            EpTile(
+                                                ep, favEps[i].showTitle, ep.image, list, i,
+                                                showFav = true, showDl = true,
+                                            )
+                                        }
+                                    }
+                                    repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+                                }
                             }
                         } else {
                             itemsIndexed(list, key = { i, e -> "f-$i-${e.audioUrl}" }) { i, ep ->

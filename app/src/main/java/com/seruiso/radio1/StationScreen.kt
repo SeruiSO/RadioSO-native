@@ -1100,6 +1100,7 @@ fun StationScreen(
             text = text,
             card = card,
             showAllMusic = musicAll,
+            gridMode = listGridMode,
         )
         if (showLocal) {
             val libraryActions = LibraryActions(
@@ -1391,6 +1392,7 @@ fun StationScreen(
             text = text,
             card = card,
             showAllMusic = musicAll,
+            gridMode = listGridMode,
         )
         if (showLocal) {
             val libraryActions = LibraryActions(

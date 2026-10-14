@@ -215,6 +215,8 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
         )
     }
 
+    // key — щоб при перемиканні список↔сітка items точно перестворювались
+    androidx.compose.runtime.key(gridMode) {
     LazyColumn(
         modifier = Modifier
             .weight(1f)
@@ -298,7 +300,7 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
         if (gridMode) {
             // плитки 3 в ряд (рядки LazyColumn — drag reorder лишається на рівні списку)
             val rows = radioRows.chunked(3)
-            itemsIndexed(rows, key = { i, _ -> "grow-$i" }) { rowIndex, row ->
+            itemsIndexed(rows, key = { i, _ -> "grow-$gridMode-$i" }) { rowIndex, row ->
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -373,7 +375,7 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
                 }
             }
         } else {
-        itemsIndexed(radioRows, key = { i, s -> s.tab + s.url + i }) { index, s ->
+        itemsIndexed(radioRows, key = { i, s -> "list-$gridMode-" + s.tab + s.url + i }) { index, s ->
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -531,4 +533,5 @@ fun androidx.compose.foundation.layout.ColumnScope.StationListSection(
             }
         }
     }
+    } // key(gridMode)
 }

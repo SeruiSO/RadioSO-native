@@ -787,14 +787,18 @@ fun StationScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
-                    modifier = Modifier.size(40.dp).background(
-                        if (listGridMode) acc.copy(alpha = 0.22f) else card,
-                        AppShapes.chip
-                    ).springPress(0.9f) {
-                        listGridMode = !listGridMode
-                        listGridPrefs.edit().putBoolean("station_grid", listGridMode).apply()
-                    },
-                    contentAlignment = Alignment.Center
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(
+                            if (listGridMode) acc.copy(alpha = 0.22f) else card,
+                            AppShapes.chip,
+                        )
+                        .clickable {
+                            val next = !listGridMode
+                            listGridMode = next
+                            listGridPrefs.edit().putBoolean("station_grid", next).apply()
+                        },
+                    contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         if (listGridMode) Icons.Filled.ViewList else Icons.Filled.GridView,

@@ -20,6 +20,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.height
 import coil.compose.AsyncImage
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -289,14 +292,14 @@ fun BottomNavBar(
             }
         }
         // Хіт-зона всієї горки (заливка + кнопки): тягни вгору як на панелі вкладок
-        // лише центр (play); скіп вище по zIndex і клікабельні окремо
-        val hillW = playDp + 16.dp
+        // Заливка горки: свайп угору (кнопки вище по zIndex — свої жести)
+        val hillW = playDp + if (wing > 0.02f && canSkip) (playDp + 28.dp) * 2f * wing else 0.dp
         Box(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .offset(y = (-playLift))
                 .zIndex(3.5f)
-                .width(hillW)
+                .width(hillW.coerceAtLeast(playDp) + 24.dp)
                 .height(playDp + 12.dp)
                 .pointerInput(Unit) {
                     var upAcc = 0f
@@ -319,26 +322,40 @@ fun BottomNavBar(
                 .offset(y = (-playLift))
                 .zIndex(4f)
                 .pointerInput(Unit) {
-                    var upAcc = 0f
-                    detectVerticalDragGestures(
-                        onDragEnd = {
-                            if (upAcc < -60f) onSwipeUp()
-                            else onPullEnd()
-                            upAcc = 0f
-                        },
-                        onDragCancel = { upAcc = 0f; onPullEnd() },
-                    ) { _, drag ->
-                        upAcc += drag
-                        onPull(drag)
+                    // тап → play/pause; свайп угору → картка (не конфліктує з clickable у PlayBtn)
+                    awaitEachGesture {
+                        awaitFirstDown()
+                        var totalY = 0f
+                        var moved = false
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val change = event.changes.firstOrNull() ?: break
+                            val dy = change.positionChange().y
+                            if (kotlin.math.abs(dy) > 0.5f) {
+                                totalY += dy
+                                if (kotlin.math.abs(totalY) > 14f) {
+                                    moved = true
+                                    change.consume()
+                                    onPull(dy)
+                                }
+                            }
+                            if (!change.pressed) break
+                        }
+                        when {
+                            moved && totalY < -55f -> onSwipeUp()
+                            moved -> onPullEnd()
+                            else -> onPlayPause()
+                        }
                     }
                 },
             contentAlignment = Alignment.Center,
         ) {
+            // без власного onClick — жест вище
             PlayBtn(
                 playing = playing,
                 status = status,
                 sizeDp = playDp,
-                onClick = onPlayPause,
+                onClick = {},
                 accent = acc,
                 shape = RoundedCornerShape(16.dp),
             )
@@ -351,13 +368,38 @@ fun BottomNavBar(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .offset(x = dx, y = -playLift)
-                        // вище за хіт-зону свайпу (3.5) і play (4) — інакше кліки з’їдає detectVerticalDrag
                         .zIndex(5f)
                         .graphicsLayer { alpha = wing }
                         .size(wingDp)
                         .clip(RoundedCornerShape(16.dp))
                         .background(Palette.panel)
-                        .clickable(enabled = wing > 0.6f) { go() },
+                        .pointerInput(wing > 0.6f) {
+                            if (wing <= 0.6f) return@pointerInput
+                            awaitEachGesture {
+                                awaitFirstDown()
+                                var totalY = 0f
+                                var moved = false
+                                while (true) {
+                                    val event = awaitPointerEvent()
+                                    val change = event.changes.firstOrNull() ?: break
+                                    val dy = change.positionChange().y
+                                    if (kotlin.math.abs(dy) > 0.5f) {
+                                        totalY += dy
+                                        if (kotlin.math.abs(totalY) > 14f) {
+                                            moved = true
+                                            change.consume()
+                                            onPull(dy)
+                                        }
+                                    }
+                                    if (!change.pressed) break
+                                }
+                                when {
+                                    moved && totalY < -55f -> onSwipeUp()
+                                    moved -> onPullEnd()
+                                    else -> go()
+                                }
+                            }
+                        },
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(icon, contentDescription = desc, tint = Palette.text, modifier = Modifier.size(28.dp))

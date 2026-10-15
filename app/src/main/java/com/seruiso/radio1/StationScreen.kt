@@ -289,13 +289,14 @@ fun BottomNavBar(
             }
         }
         // Хіт-зона всієї горки (заливка + кнопки): тягни вгору як на панелі вкладок
-        val hillW = playDp + if (wing > 0.02f && canSkip) (playDp + 28.dp) * 2f * wing else 0.dp
+        // лише центр (play); скіп вище по zIndex і клікабельні окремо
+        val hillW = playDp + 16.dp
         Box(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .offset(y = (-playLift))
                 .zIndex(3.5f)
-                .width(hillW.coerceAtLeast(playDp) + 24.dp)
+                .width(hillW)
                 .height(playDp + 12.dp)
                 .pointerInput(Unit) {
                     var upAcc = 0f
@@ -350,26 +351,12 @@ fun BottomNavBar(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .offset(x = dx, y = -playLift)
-                        .zIndex(3f)
+                        // вище за хіт-зону свайпу (3.5) і play (4) — інакше кліки з’їдає detectVerticalDrag
+                        .zIndex(5f)
                         .graphicsLayer { alpha = wing }
                         .size(wingDp)
                         .clip(RoundedCornerShape(16.dp))
                         .background(Palette.panel)
-                        .pointerInput(wing > 0.6f) {
-                            if (wing <= 0.6f) return@pointerInput
-                            var upAcc = 0f
-                            detectVerticalDragGestures(
-                                onDragEnd = {
-                                    if (upAcc < -60f) onSwipeUp()
-                                    else onPullEnd()
-                                    upAcc = 0f
-                                },
-                                onDragCancel = { upAcc = 0f; onPullEnd() },
-                            ) { _, drag ->
-                                upAcc += drag
-                                onPull(drag)
-                            }
-                        }
                         .clickable(enabled = wing > 0.6f) { go() },
                     contentAlignment = Alignment.Center,
                 ) {

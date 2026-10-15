@@ -322,40 +322,26 @@ fun BottomNavBar(
                 .offset(y = (-playLift))
                 .zIndex(4f)
                 .pointerInput(Unit) {
-                    // тап → play/pause; свайп угору → картка (не конфліктує з clickable у PlayBtn)
-                    awaitEachGesture {
-                        awaitFirstDown()
-                        var totalY = 0f
-                        var moved = false
-                        while (true) {
-                            val event = awaitPointerEvent()
-                            val change = event.changes.firstOrNull() ?: break
-                            val dy = change.positionChange().y
-                            if (kotlin.math.abs(dy) > 0.5f) {
-                                totalY += dy
-                                if (kotlin.math.abs(totalY) > 14f) {
-                                    moved = true
-                                    change.consume()
-                                    onPull(dy)
-                                }
-                            }
-                            if (!change.pressed) break
-                        }
-                        when {
-                            moved && totalY < -55f -> onSwipeUp()
-                            moved -> onPullEnd()
-                            else -> onPlayPause()
-                        }
+                    var upAcc = 0f
+                    detectVerticalDragGestures(
+                        onDragEnd = {
+                            if (upAcc < -60f) onSwipeUp()
+                            else onPullEnd()
+                            upAcc = 0f
+                        },
+                        onDragCancel = { upAcc = 0f; onPullEnd() },
+                    ) { _, drag ->
+                        upAcc += drag
+                        onPull(drag)
                     }
                 },
             contentAlignment = Alignment.Center,
         ) {
-            // без власного onClick — жест вище
             PlayBtn(
                 playing = playing,
                 status = status,
                 sizeDp = playDp,
-                onClick = {},
+                onClick = onPlayPause,
                 accent = acc,
                 shape = RoundedCornerShape(16.dp),
             )

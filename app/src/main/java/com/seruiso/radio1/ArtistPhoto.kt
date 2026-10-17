@@ -119,7 +119,10 @@ private fun ensureDiskLoaded(ctx: Context) {
                     val o = root.optJSONObject(k) ?: continue
                     val ts = o.optLong("ts", 0L)
                     if (ts > 0 && now - ts > TTL_MS) continue
-                    val url = o.optString("url", MISS)
+                    val url0 = o.optString("url", MISS)
+                    val url = if (
+                        url0.contains("deezer.com") || url0.contains("mzstatic.com")
+                    ) MISS else url0
                     photoCache[k] = CacheEntry(url, if (ts > 0) ts else now)
                 }
             }
@@ -174,35 +177,78 @@ private fun httpGetJson(urlStr: String, accept: String): String {
     }
 }
 
-private fun deezerArtistPhoto(artist: String): String? = try {
-    val q = URLEncoder.encode(artist, "UTF-8")
-    val body = httpGetJson("https://api.deezer.com/search/artist?q=$q&limit=1", "application/json")
-    val arr = JSONObject(body).optJSONArray("data")
-    if (arr != null && arr.length() > 0) {
-        val obj = arr.getJSONObject(0)
-        listOf(obj.optString("picture_big"), obj.optString("picture_medium"), obj.optString("picture"))
-            .firstOrNull { it.isNotBlank() }
-    } else null
+private fun openArtistPhoto(artist: String): String? = try {
+    val q = URLEncoder.encode("artist:\"" + artist.replace("\"", "") + "\"", "UTF-8")
+    val search = JSONObject(httpGetJson(
+        "https://musicbrainz.org/ws/2/artist/?query=" + q + "&fmt=json&limit=1",
+        "application/json",
+    ))
+    val artists = search.optJSONArray("artists")
+    if (artists == null || artists.length() == 0) null
+    else {
+        val mbid = artists.getJSONObject(0).optString("id")
+        if (mbid.isBlank()) null else imageFromArtist(mbid) ?: coverFromArtist(mbid)
+    }
+} catch (e: Exception) {
+    android.util.Log.w("ArtistPhoto", "open", e)
+    null
+}
+
+private fun imageFromArtist(mbid: String): String? = try {
+    val rels = JSONObject(httpGetJson(
+        "https://musicbrainz.org/ws/2/artist/" + mbid + "?inc=url-rels&fmt=json",
+        "application/json",
+    )).optJSONArray("relations") ?: return null
+    var found: String? = null
+    for (i in 0 until rels.length()) {
+        val r = rels.optJSONObject(i) ?: continue
+        if (r.optString("type") != "image") continue
+        val res = r.optJSONObject("url")?.optString("resource").orEmpty()
+        if (res.startsWith("http") && res.contains("wikimedia.org")) {
+            found = res
+            break
+        }
+    }
+    found
 } catch (_: Exception) {
     null
 }
 
-/** iTunes Search — fallback після Deezer. */
-private fun itunesArtistPhoto(artist: String): String? = try {
-    val q = URLEncoder.encode(artist, "UTF-8")
-    val body = httpGetJson(
-        "https://itunes.apple.com/search?term=$q&entity=musicArtist&limit=1",
-        "application/json"
-    )
-    val arr = JSONObject(body).optJSONArray("results")
-    if (arr != null && arr.length() > 0) {
-        val raw = arr.getJSONObject(0).optString("artworkUrl100")
-        if (raw.isNotBlank()) raw.replace("100x100bb", "600x600bb").replace("100x100", "600x600")
-        else null
-    } else null
+private fun coverFromArtist(mbid: String): String? = try {
+    val releases = JSONObject(httpGetJson(
+        "https://musicbrainz.org/ws/2/release?artist=" + mbid + "&fmt=json&limit=1",
+        "application/json",
+    )).optJSONArray("releases")
+    if (releases == null || releases.length() == 0) null
+    else {
+        val rid = releases.getJSONObject(0).optString("id")
+        if (rid.isBlank()) null
+        else {
+            val images = JSONObject(httpGetJson(
+                "https://coverartarchive.org/release/" + rid,
+                "application/json",
+            )).optJSONArray("images")
+            if (images == null || images.length() == 0) null
+            else {
+                var url: String? = null
+                for (i in 0 until images.length()) {
+                    val im = images.optJSONObject(i) ?: continue
+                    val thumbs = im.optJSONObject("thumbnails")
+                    val small = if (thumbs == null) "" else thumbs.optString("small")
+                    val t = if (small.isNotBlank()) small else im.optString("image")
+                    if (t.startsWith("http")) {
+                        url = t
+                        if (im.optBoolean("front")) break
+                    }
+                }
+                url
+            }
+        }
+    }
 } catch (_: Exception) {
     null
 }
+
 
 private suspend fun photoForSingleArtist(ctx: Context, artist: String): String? {
     if (artist.isBlank() || looksLikeJunk(artist)) return null
@@ -223,7 +269,7 @@ private suspend fun photoForSingleArtist(ctx: Context, artist: String): String? 
     if (prev != null) return prev.await()
     try {
         // Послідовно: спочатку Deezer, iTunes лише як fallback
-        val photo = deezerArtistPhoto(artist) ?: itunesArtistPhoto(artist)
+        val photo = openArtistPhoto(artist)
         val urlStore = photo ?: MISS
         synchronized(photoCacheLock) {
             val old = photoCache[key]

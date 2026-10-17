@@ -3546,6 +3546,40 @@ notifyForeground();
     }
 
 
+
+    /** MediaBrowser: система, ми самі, Android Auto / Assistant / SystemUI, або MEDIA_CONTENT_CONTROL. */
+    private boolean isAllowedMediaBrowser(String pkg, int uid) {
+        if (uid == android.os.Process.SYSTEM_UID || uid == android.os.Process.myUid()) return true;
+        if (pkg == null || pkg.isEmpty()) return false;
+        if (pkg.equals(getPackageName())) return true;
+        if (isCarClient(pkg)) return true;
+        switch (pkg) {
+            case "com.google.android.projection.gearhead":
+            case "com.google.android.googlequicksearchbox":
+            case "com.google.android.wearable.app":
+            case "com.google.android.apps.wearable.companion":
+            case "com.android.systemui":
+            case "com.google.android.carassistant":
+            case "com.google.android.apps.automotive.templates.host":
+            case "com.android.car.media":
+            case "com.android.car.carlauncher":
+            case "com.android.car.media.localmediaplayer":
+                return true;
+            default:
+                break;
+        }
+        try {
+            if (checkPermission(android.Manifest.permission.MEDIA_CONTENT_CONTROL,
+                    android.os.Binder.getCallingPid(), uid)
+                    == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                return true;
+            }
+        } catch (Exception e) {
+            android.util.Log.w("RadioWatch", "media client perm", e);
+        }
+        return false;
+    }
+
     private static boolean isCarClient(String pkg) {
         if (pkg == null) return false;
         String p = pkg.toLowerCase();
@@ -3597,6 +3631,10 @@ notifyForeground();
     @Override
     public BrowserRoot onGetRoot(@androidx.annotation.NonNull String clientPackageName, int clientUid,
                                  @androidx.annotation.Nullable android.os.Bundle rootHints) {
+        if (!isAllowedMediaBrowser(clientPackageName, clientUid)) {
+            android.util.Log.w("RadioWatch", "onGetRoot reject pkg=" + clientPackageName + " uid=" + clientUid);
+            return null;
+        }
         if (isCarClient(clientPackageName)) {
             setAaActive(true);
             android.util.Log.i("RadioWatch", "AA client: " + clientPackageName);

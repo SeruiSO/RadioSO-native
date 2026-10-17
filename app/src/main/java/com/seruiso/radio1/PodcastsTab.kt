@@ -2002,6 +2002,13 @@ object ItunesPodcasts {
                 if (seen.add(key)) out.add(show)
             }
         }
+        for (i in out.indices) {
+            if (i >= 8) break
+            val feed = out[i].feedUrl
+            if (feed.isBlank() || out[i].artwork.isNotBlank()) continue
+            val art = try { channelArt(httpGet(feed)) } catch (_: Exception) { "" }
+            if (art.isNotBlank()) out[i] = out[i].copy(artwork = art)
+        }
         out.drop(offset).take(limit)
     }
 
@@ -2072,7 +2079,7 @@ object ItunesPodcasts {
         }
     }
 
-        fun channelArt(xml: String): String {
+    fun channelArt(xml: String): String {
         val href = Regex(
             """<itunes:image[^>]*href\s*=\s*["']([^"']+)["']""",
             RegexOption.IGNORE_CASE,
@@ -2085,7 +2092,7 @@ object ItunesPodcasts {
         return if (url.startsWith("http")) url else ""
     }
 
-private fun parseRss(xml: String): List<PodcastEpisode> {
+    private fun parseRss(xml: String): List<PodcastEpisode> {
         val out = ArrayList<PodcastEpisode>()
         val seen = HashSet<String>()
         val itemRe = Regex("<item(\\s[^>]*)?>([\\s\\S]*?)</item>", RegexOption.IGNORE_CASE)
@@ -2123,13 +2130,6 @@ private fun parseRss(xml: String): List<PodcastEpisode> {
                 .replace(Regex("<[^>]+>"), " ").replace(Regex("\\s+"), " ").trim().take(280)
             if (!seen.add(audio)) continue
             out.add(PodcastEpisode(title, audio, pub, dur, img, desc))
-        }
-        for (i in out.indices) {
-            if (i >= 8) break
-            val feed = out[i].feedUrl
-            if (feed.isBlank() || out[i].artwork.isNotBlank()) continue
-            val art = try { channelArt(httpGet(feed)) } catch (_: Exception) { "" }
-            if (art.isNotBlank()) out[i] = out[i].copy(artwork = art)
         }
         return out
     }

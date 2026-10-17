@@ -244,7 +244,6 @@
     <string name="bt_autostart_connect">Auto-start on Bluetooth connect</string>
     <string name="bt_play_command">Start on device PLAY</string>
     <string name="menu_theme">Theme</string>
-    <string name="menu_show_tv">Show TV button</string>
     <string name="menu_version">Version %1$s</string>
     <string name="menu_settings_title">Settings</string>
     <string name="menu_close_app">Close app</string>

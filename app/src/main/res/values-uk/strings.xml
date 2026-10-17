@@ -265,7 +265,6 @@
     <string name="bt_autostart_connect">Автостарт при підключенні Bluetooth</string>
     <string name="bt_play_command">Старт з команди PLAY пристрою</string>
     <string name="menu_theme">Тема</string>
-    <string name="menu_show_tv">Показувати кнопку ТВ</string>
     <string name="menu_version">Версія %1$s</string>
     <string name="menu_settings_title">Налаштування</string>
     <string name="menu_close_app">Закрити додаток</string>

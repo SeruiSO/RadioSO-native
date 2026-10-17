@@ -23,8 +23,6 @@ public class BluetoothAutoPlayPlugin {
     public static final String KEY_BT_WATCH = "btWatchEnabled";
     /** Автостарт при підключенні BT (навушники тощо). */
     public static final String KEY_BT_AUTOSTART = "btAutostartOnConnect";
-/** Показувати кнопку Music TV біля меню. */
-    public static final String KEY_SHOW_TV = "showMusicTv";
     /** після BOOT: не стартувати FGS, лише намір — старт з A2DP або відкриття додатка. */
     public static final String KEY_PENDING_BT_AFTER_BOOT = "pendingBtWatchAfterBoot";
     /** 1.3: BT connect під дзвінком — автостарт після розмови. */

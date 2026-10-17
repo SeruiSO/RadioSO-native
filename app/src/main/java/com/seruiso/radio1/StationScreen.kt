@@ -588,7 +588,6 @@ fun StationScreen(
     val listState = rememberLazyListState()
     var wingsOpen by remember { mutableStateOf(true) }
     var snowOn by remember { mutableStateOf(false) }
-    var musicTvOpen by remember { mutableStateOf(false) }
     LaunchedEffect(listState) {
         var prev = -1
         snapshotFlow {
@@ -852,15 +851,6 @@ fun StationScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                val showTvBtn = LocalContext.current
-                    .getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, android.content.Context.MODE_PRIVATE)
-                    .getBoolean(BluetoothAutoPlayPlugin.KEY_SHOW_TV, true)
-                if (showTvBtn) {
-                    Box(
-                        modifier = Modifier.size(40.dp).background(card, AppShapes.chip).springPress(0.9f) { musicTvOpen = true },
-                        contentAlignment = Alignment.Center
-                    ) { Icon(Icons.Filled.PlayArrow, contentDescription = "Music TV", tint = text) }
-                }
                 Box(
                     modifier = Modifier.size(40.dp).background(card, AppShapes.chip).springPress(0.9f) { onMenu() },
                     contentAlignment = Alignment.Center
@@ -1619,10 +1609,6 @@ fun StationScreen(
             menuCtx.packageManager.getPackageInfo(menuCtx.packageName, 0).versionName ?: ""
         }.getOrDefault("")
     }
-    val showTvBtn = remember {
-        menuCtx.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, android.content.Context.MODE_PRIVATE)
-            .getBoolean(BluetoothAutoPlayPlugin.KEY_SHOW_TV, true)
-    }
 AppOverflowMenu(
         menuOpen = menuOpen,
         onCloseMenu = onCloseMenu,
@@ -1718,15 +1704,6 @@ AppOverflowMenu(
             wingGapDp = 28f,
         )
     }
-    MusicTvSheet(
-        open = musicTvOpen,
-        onClose = { musicTvOpen = false },
-        acc = acc,
-        muted = muted,
-        text = text,
-        card = card,
-        onPauseRadio = { if (playing) onPlayPause() }, // only pause radio; TV uses own ExoPlayer
-    )
     NowPlayingSheet(
         nowOpen = nowOpen,
         sheetShow = sheetShow,

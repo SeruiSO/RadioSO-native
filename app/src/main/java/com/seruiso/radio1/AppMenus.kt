@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.material.icons.filled.Tv
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 
@@ -109,9 +108,6 @@ fun AppOverflowMenu(
     var btAuto by remember(menuOpen) {
         mutableStateOf(prefs.getBoolean(BluetoothAutoPlayPlugin.KEY_BT_AUTOSTART, true))
     }
-    var showTv by remember(menuOpen) {
-        mutableStateOf(prefs.getBoolean(BluetoothAutoPlayPlugin.KEY_SHOW_TV, true))
-    }
     // При відкритті меню — вирівняти KEY_BT_WATCH під два пункти
     androidx.compose.runtime.LaunchedEffect(menuOpen) {
         if (!menuOpen) return@LaunchedEffect
@@ -184,16 +180,6 @@ fun AppOverflowMenu(
                         onToggle = {
                             btAuto = it
                             syncWatch(it)
-                        },
-                    )
-                    // 3 TV
-                    MenuSwitchRow(
-                        icon = Icons.Filled.Tv,
-                        label = ctx.getString(R.string.menu_show_tv),
-                        checked = showTv, acc = acc, text = text,
-                        onToggle = {
-                            showTv = it
-                            prefs.edit().putBoolean(BluetoothAutoPlayPlugin.KEY_SHOW_TV, it).apply()
                         },
                     )
                     // 4 Тема — одразу під ТВ

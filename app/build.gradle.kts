@@ -21,8 +21,8 @@ android {
         applicationId = "com.seruiso.radioso.nativeapp"
         minSdk = 26
         targetSdk = 37
-        versionCode = 599
-        versionName = "0.13.266.156"
+        versionCode = 600
+        versionName = "0.13.266.157"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -80,7 +80,6 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.exoplayer.hls)
-    implementation("androidx.media3:media3-ui:1.5.1")
     implementation(libs.androidx.media3.session)
     implementation(libs.androidx.media)
     testImplementation(libs.junit)

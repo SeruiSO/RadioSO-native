@@ -1980,7 +1980,7 @@ object ItunesPodcasts {
                             title = title,
                             author = o.optString("artistName").trim(),
                             feedUrl = feed,
-                            artwork = o.optString("artworkUrl600").ifBlank { o.optString("artworkUrl100") },
+                            artwork = "",
                             trackCount = o.optInt("trackCount", 0),
                             store = country.uppercase(),
                             kind = kind,
@@ -2072,7 +2072,20 @@ object ItunesPodcasts {
         }
     }
 
-    private fun parseRss(xml: String): List<PodcastEpisode> {
+        fun channelArt(xml: String): String {
+        val href = Regex(
+            """<itunes:image[^>]*href\s*=\s*["']([^"']+)["']""",
+            RegexOption.IGNORE_CASE,
+        ).find(xml)?.groupValues?.get(1)?.trim().orEmpty()
+        if (href.startsWith("http")) return href
+        val url = Regex(
+            """<image[^>]*>[\s\S]*?<url[^>]*>([^<]+)</url>""",
+            RegexOption.IGNORE_CASE,
+        ).find(xml)?.groupValues?.get(1)?.trim().orEmpty()
+        return if (url.startsWith("http")) url else ""
+    }
+
+private fun parseRss(xml: String): List<PodcastEpisode> {
         val out = ArrayList<PodcastEpisode>()
         val seen = HashSet<String>()
         val itemRe = Regex("<item(\\s[^>]*)?>([\\s\\S]*?)</item>", RegexOption.IGNORE_CASE)
@@ -2110,6 +2123,13 @@ object ItunesPodcasts {
                 .replace(Regex("<[^>]+>"), " ").replace(Regex("\\s+"), " ").trim().take(280)
             if (!seen.add(audio)) continue
             out.add(PodcastEpisode(title, audio, pub, dur, img, desc))
+        }
+        for (i in out.indices) {
+            if (i >= 8) break
+            val feed = out[i].feedUrl
+            if (feed.isBlank() || out[i].artwork.isNotBlank()) continue
+            val art = try { channelArt(httpGet(feed)) } catch (_: Exception) { "" }
+            if (art.isNotBlank()) out[i] = out[i].copy(artwork = art)
         }
         return out
     }

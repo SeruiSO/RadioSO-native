@@ -3485,20 +3485,7 @@ notifyForeground();
     private void notifyForeground() {
         Notification n = buildNotification();
         if (Build.VERSION.SDK_INT >= 34) {
-            // mediaPlayback завжди; connectedDevice — лише з runtime BLUETOOTH_CONNECT
-            // (інакше SecurityException на свіжій установці, targetSDK 34+)
-            int types = ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK;
-            if (Build.VERSION.SDK_INT >= 31
-                    && checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT)
-                        == android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                types |= ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE;
-            }
-            try {
-                startForeground(NOTIF_ID, n, types);
-            } catch (SecurityException e) {
-                // запасний шлях: тільки mediaPlayback
-                startForeground(NOTIF_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
-            }
+            startForeground(NOTIF_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
         } else {
             startForeground(NOTIF_ID, n);
         }

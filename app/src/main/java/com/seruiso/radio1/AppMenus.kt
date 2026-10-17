@@ -525,8 +525,7 @@ fun AppAlarmDialog(
         val u = url.ifBlank { nowUrl }
         val nm = stName.ifBlank { nowName }
         if (u.isBlank()) return
-        if (!RadioAlarm.canExact(ctx)) RadioAlarm.requestExact(ctx)
-        RadioAlarm.add(
+                RadioAlarm.add(
             ctx,
             RadioAlarm.Item(
                 id = System.currentTimeMillis(),

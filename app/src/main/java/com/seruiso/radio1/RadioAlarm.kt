@@ -219,23 +219,6 @@ object RadioAlarm {
     }
     fun isRinging(ctx: Context): Boolean = prefs(ctx).getBoolean(KEY_RINGING, false)
 
-    fun canExact(ctx: Context): Boolean {
-        if (Build.VERSION.SDK_INT < 31) return true
-        return try {
-            ctx.getSystemService(AlarmManager::class.java)?.canScheduleExactAlarms() == true
-        } catch (_: Exception) { true }
-    }
-
-    fun requestExact(ctx: Context) {
-        if (Build.VERSION.SDK_INT < 31) return
-        try {
-            val i = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
-            i.data = Uri.parse("package:" + ctx.packageName)
-            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            ctx.startActivity(i)
-        } catch (_: Exception) {}
-    }
-
     fun nextTriggerMs(s: Item, fromMs: Long = System.currentTimeMillis()): Long {
         val c = Calendar.getInstance()
         c.timeInMillis = fromMs
@@ -334,8 +317,8 @@ object RadioAlarm {
             val fire = firePi(ctx, it.id)
             try {
                 am.setAlarmClock(AlarmManager.AlarmClockInfo(whenMs, showPi(ctx, it.id)), fire)
-            } catch (e: SecurityException) {
-                try { am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, whenMs, fire) } catch (_: Exception) {}
+            } catch (e: Exception) {
+                android.util.Log.w("RadioAlarm", "setAlarmClock", e)
             }
         }
     }
@@ -372,8 +355,8 @@ object RadioAlarm {
         val whenMs = System.currentTimeMillis() + minutes * 60_000L
         try {
             am.setAlarmClock(AlarmManager.AlarmClockInfo(whenMs, showPi(ctx, s.id)), firePi(ctx, s.id))
-        } catch (_: Exception) {
-            try { am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, whenMs, firePi(ctx, s.id)) } catch (_: Exception) {}
+        } catch (e: Exception) {
+            android.util.Log.w("RadioAlarm", "setAlarmClock postpone", e)
         }
     }
 

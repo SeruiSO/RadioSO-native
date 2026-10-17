@@ -803,32 +803,18 @@ class MainActivity : AppCompatActivity() {
     }
 
     /** IP → країна (без GPS). */
-    private fun countryFromIp(): String {
-        val urls = listOf(
-            "http://ip-api.com/json/?fields=status,country",
-            "https://ipapi.co/json/"
-        )
-        for (u in urls) {
-            try {
-                val conn = java.net.URL(u).openConnection() as java.net.HttpURLConnection
-                conn.connectTimeout = 4000
-                conn.readTimeout = 6000
-                conn.setRequestProperty("User-Agent", "RadioSO-native/0.9.82")
-                if (conn.responseCode != 200) { conn.disconnect(); continue }
-                val body = conn.inputStream.bufferedReader().use { it.readText() }
-                conn.disconnect()
-                val o = org.json.JSONObject(body)
-                val name = when {
-                    o.optString("status") == "success" -> o.optString("country")
-                    o.has("country_name") -> o.optString("country_name")
-                    o.has("country") -> o.optString("country")
-                    else -> ""
-                }
-                val n = normalizeCountry(name)
-                if (n.isNotBlank()) return n
-            } catch (_: Exception) { }
+    private fun countryFromDevice(): String {
+        try {
+            val tm = getSystemService(TELEPHONY_SERVICE) as? android.telephony.TelephonyManager
+            val iso = tm?.networkCountryIso?.takeIf { it.length == 2 }
+                ?: tm?.simCountryIso?.takeIf { it.length == 2 }
+                ?: ""
+            val fromNet = normalizeCountry(iso)
+            if (fromNet.isNotBlank()) return fromNet
+        } catch (e: Exception) {
+            android.util.Log.w("RadioSO", "country", e)
         }
-        return ""
+        return normalizeCountry(java.util.Locale.getDefault().country)
     }
 
     /**
@@ -902,7 +888,7 @@ class MainActivity : AppCompatActivity() {
                 var country = countryFromCache()
                 if (country.isBlank()) country = countryFromLocale()
                 if (country.isBlank()) {
-                    try { country = countryFromIp() } catch (_: Exception) {}
+                    try { country = countryFromDevice() } catch (_: Exception) {}
                 }
                 nearby = try {
                     if (country.isNotBlank())
@@ -971,7 +957,7 @@ class MainActivity : AppCompatActivity() {
             searchShown = 0
         }
         Thread {
-            var refined = countryFromIp()
+            var refined = countryFromDevice()
             if (refined.isBlank()) {
                 runOnUiThread {
                     if (searchRows.isEmpty() && first.isBlank()) holdStatus(getString(R.string.country_unknown))

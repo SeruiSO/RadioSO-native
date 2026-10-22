@@ -164,11 +164,22 @@ public class BluetoothReceiver extends BroadcastReceiver {
                 Log.i(TAG, "ACL_CONNECTED skip — non-audio device");
                 return;
             }
-            // 0.13.73: ACL = лінка є, sink ще може не бути.
-            // Не стартуємо play — лише timestamp для handoff-вікна.
-            // Play лише з A2DP / Headset STATE_CONNECTED нижче.
+            // Прості навушники: часто лише ACL, без A2DP CONNECTION_STATE_CHANGED у фоні.
+            // Завжди піднімаємо сервіс (MediaSession). Автоплей — лише якщо тумблер ON
+            // (перевірка в RadioWatchService.ACTION_BT). Debounce 1.5s захищає від
+            // подвійного ACL + profile CONNECTED.
             markA2dp(app);
-            Log.i(TAG, "ACL_CONNECTED — mark only, no play");
+            BluetoothAutoPlayPlugin.ensureWatchOn(app);
+            try {
+                app.getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, Context.MODE_PRIVATE)
+                    .edit()
+                    .putBoolean(BluetoothAutoPlayPlugin.KEY_PENDING_BT_AFTER_BOOT, false)
+                    .putBoolean(BluetoothAutoPlayPlugin.KEY_USER_PAUSED_BT, false)
+                    .putLong("userPausedWhileBtAt", 0L)
+                    .apply();
+            } catch (Exception ignored) {}
+            Log.i(TAG, "ACL_CONNECTED — start ACTION_BT (auto=" + btAutostartOn(app) + ")");
+            startSvc(app, RadioWatchService.ACTION_BT);
             return;
         }
         if (BluetoothDevice.ACTION_ACL_DISCONNECTED.equals(action)) {
@@ -213,9 +224,10 @@ public class BluetoothReceiver extends BroadcastReceiver {
                     .putLong("userPausedWhileBtAt", 0L)
                     .apply();
             } catch (Exception ignored) {}
+            // Завжди стартуємо сервіс: при autostart OFF — MediaSession живий для Play
+            // з навушників; автоплей вирішує RadioWatchService (KEY_BT_AUTOSTART).
             if (!BluetoothAutoPlayPlugin.isBtAutostart(app)) {
-                Log.i(TAG, "CONNECTED — autostart off, wait Play");
-                return;
+                Log.i(TAG, "CONNECTED — autostart off, start service for MediaSession/Play");
             }
             startSvc(app, RadioWatchService.ACTION_BT);
             return;

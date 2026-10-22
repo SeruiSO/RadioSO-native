@@ -1002,6 +1002,11 @@ private void attemptReconnect(String reason, boolean immediate) {
             android.util.Log.i("RadioWatch", "canExplicitPlay skip — voice (" + why + ")");
             return false;
         }
+        permanentFocusLoss = false;
+        pausedByOtherMedia = false;
+        duckedByFocus = false;
+        lastFocusLossAtMs = 0L;
+        try { if (player != null) player.setVolume(1f); } catch (Exception ignored) {}
         return true;
     }
 
@@ -1056,15 +1061,10 @@ private void attemptReconnect(String reason, boolean immediate) {
         if (foreignActive) {
             if (!(player.isPlaying() || player.getPlayWhenReady())) return;
             if (isUserPaused()) return;
-            long nowEl = android.os.SystemClock.elapsedRealtime();
-            boolean focusCorroborated = lastFocusLossAtMs > 0L
-                    && (nowEl - lastFocusLossAtMs) < FOREIGN_FOCUS_WINDOW_MS;
-            if (!focusCorroborated) {
-                android.util.Log.i("RadioWatch",
-                    "foreign media without recent focus-loss — ignore (browser beep)");
-                return;
-            }
-            android.util.Log.i("RadioWatch", "foreign media + recent focus-loss — pause radio");
+            // Форма біпа вже виправлена на джерелі — foreign знову паузить
+            // будь-який чужий media (TG/Chrome/відео без нормального focus).
+            // CAN_DUCK лишається окремо: лише volume, без паузи.
+            android.util.Log.i("RadioWatch", "foreign media active — pause radio");
             if (reconnectHandler != null) {
                 reconnectHandler.removeCallbacksAndMessages(null);
             }
@@ -1233,7 +1233,8 @@ private void attemptReconnect(String reason, boolean immediate) {
                 break;
             }
             case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK:
-                // Голос TG: лише тихіше. Без lastFocusLossAt, інакше foreign підтвердить біп.
+                // Голос TG / короткі сповіщення: лише тихіше, радіо грає далі.
+                // Повна пауза — тільки LOSS / TRANSIENT або foreign media.
                 if (player.isPlaying() || player.getPlayWhenReady()) {
                     duckedByFocus = true;
                     permanentFocusLoss = false;

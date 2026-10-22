@@ -119,6 +119,22 @@ fun AppOverflowMenu(
         prefs.edit().putBoolean(BluetoothAutoPlayPlugin.KEY_BT_AUTOSTART, auto).apply()
         BluetoothAutoPlayPlugin.ensureWatchOn(ctx)
         if (!btWatch) onBt()
+        // Android 12+: exact alarm потрібен, щоб FGS піднявся з фону після BT connect.
+        // Системного runtime-діалогу немає — відкриваємо settings, якщо ще не дозволено.
+        if (auto && android.os.Build.VERSION.SDK_INT >= 31) {
+            try {
+                val amgr = ctx.getSystemService(android.content.Context.ALARM_SERVICE) as? android.app.AlarmManager
+                if (amgr != null && !amgr.canScheduleExactAlarms()) {
+                    val i = android.content.Intent(
+                        android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM
+                    ).apply {
+                        data = android.net.Uri.parse("package:${ctx.packageName}")
+                        addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    ctx.startActivity(i)
+                }
+            } catch (_: Exception) { }
+        }
     }
 
     AnimatedVisibility(

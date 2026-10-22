@@ -155,6 +155,8 @@ public class RadioWatchService extends MediaBrowserServiceCompat implements Audi
     private int a2dpMissTicks = 0;
     /** Classic BT: чекаємо AVRCP PLAY з магнітоли; інакше автостарт (навушники). */
     private boolean awaitingHeadUnitPlay = false;
+    /** ACTION_BT / headphone fallback: ігнорувати stale USER pause кілька секунд. */
+    private long btAutostartForceUntilMs = 0L;
     private Runnable headUnitPlayWaitRunnable;
     private long playShieldUntilMs = 0L;
     private static final long HEADUNIT_PLAY_WAIT_MS = 1500L;
@@ -1167,7 +1169,8 @@ private void attemptReconnect(String reason, boolean immediate) {
 
     /** Після classic BT граємо одразу. Коротка мить з динаміка телефона допустима. */
     private void playWhenBtRouteReady(String why) {
-        if (PlaybackPrefs.REASON_USER.equals(PlaybackPrefs.getPauseReason(this))) {
+        boolean forceBt = System.currentTimeMillis() < btAutostartForceUntilMs;
+        if (!forceBt && PlaybackPrefs.REASON_USER.equals(PlaybackPrefs.getPauseReason(this))) {
             android.util.Log.i("RadioWatch", "playWhenBtRouteReady skip — user pause (" + why + ")");
             return;
         }
@@ -2063,51 +2066,50 @@ notifyForeground();
                 return START_STICKY;
             }
             setUserPausedWhileBt(false);
-            PlaybackPrefs.setPauseReason(this, PlaybackPrefs.REASON_NONE);
+            // commit — інакше playUrl ще бачить старий REASON_USER (apply асинхронний)
+            try {
+                getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                    .edit()
+                    .putString(PlaybackPrefs.KEY_PAUSE_REASON, PlaybackPrefs.REASON_NONE)
+                    .putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, true)
+                    .putLong(BluetoothAutoPlayPlugin.KEY_LAST_A2DP_MS, System.currentTimeMillis())
+                    .putBoolean(BluetoothAutoPlayPlugin.KEY_AA_ACTIVE, false)
+                    .commit();
+            } catch (Exception ignored) {
+                PlaybackPrefs.setPauseReason(this, PlaybackPrefs.REASON_NONE);
+                setIntendedPlaying(true);
+            }
             setIntendedPlaying(true);
             clearPendingBtAutostart("bt-start");
             pausedByFocusLoss = false;
             permanentFocusLoss = false;
             pausedByOtherMedia = false;
-            // Забрати фокус у інших плеєрів одразу на BT connect
+            btAutostartForceUntilMs = System.currentTimeMillis() + 12000L;
             try { requestFocus(); } catch (Exception ignored) {}
             ignoreNoisyUntilMs = System.currentTimeMillis() + 8000L;
             try { notifyUiStatus(lc().getString(R.string.connecting), 0); } catch (Exception ignored) {}
-            try {
-                getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-                    .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, true).apply();
-            } catch (Exception ignored) {}
-            try {
-                getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-                    .edit().putLong(BluetoothAutoPlayPlugin.KEY_LAST_A2DP_MS, System.currentTimeMillis()).apply();
-            } catch (Exception ignored) {}
+            // Одразу play — без очікування 4с (навушники / магнітола)
             if (BtAudio.isAndroidAutoActive(this)) {
                 cancelHeadUnitPlayWait();
                 if (player != null) BtAudio.clearPreferred(player);
-                playLast();
             } else {
-                try {
-                    getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
-                        .edit().putBoolean(BluetoothAutoPlayPlugin.KEY_AA_ACTIVE, false).apply();
-                } catch (Exception ignored) {}
-                // Classic: не стартувати на speaker — чекати PLAY 4с або timeout (навушники)
-                if (sameStationOpening()) {
-                    android.util.Log.i("RadioWatch", "ACTION_BT skip restart — already opening");
-                    try {
-                        if (player != null) {
-                            player.setVolume(1f);
-                            player.setPlayWhenReady(true);
-                        }
-                    } catch (Exception ignored) {}
-                    armA2dpRouteWatch();
-                } else {
-                    pausedByFocusLoss = false;
-                    permanentFocusLoss = false;
-                    playShieldUntilMs = System.currentTimeMillis() + PLAY_SHIELD_MS;
-                    playWhenBtRouteReady("bt-connect");
-                    armA2dpRouteWatch();
-                }
+                cancelHeadUnitPlayWait();
             }
+            if (sameStationOpening()) {
+                android.util.Log.i("RadioWatch", "ACTION_BT resume — already opening");
+                try {
+                    if (player != null) {
+                        player.setVolume(1f);
+                        player.setPlayWhenReady(true);
+                    }
+                } catch (Exception ignored) {}
+            } else {
+                playShieldUntilMs = System.currentTimeMillis() + PLAY_SHIELD_MS;
+                playWhenBtRouteReady("bt-connect");
+            }
+            armA2dpRouteWatch();
+            // Коротка страховка лише якщо FGS/play не встиг
+            try { scheduleHeadphoneFallback(this, 800L); } catch (Exception ignored) {}
             return START_STICKY;
         }
 
@@ -2136,13 +2138,23 @@ notifyForeground();
             awaitingHeadUnitPlay = false;
             cancelHeadUnitPlayWait();
             if (autoOn) {
-                // Як ACTION_BT: скинути USER / intended і грати
+                // Як ACTION_BT: скинути USER / intended і грати одразу
                 setUserPausedWhileBt(false);
-                PlaybackPrefs.setPauseReason(this, PlaybackPrefs.REASON_NONE);
+                try {
+                    getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE)
+                        .edit()
+                        .putString(PlaybackPrefs.KEY_PAUSE_REASON, PlaybackPrefs.REASON_NONE)
+                        .putBoolean(BluetoothAutoPlayPlugin.KEY_PLAY, true)
+                        .commit();
+                } catch (Exception ignored) {
+                    PlaybackPrefs.setPauseReason(this, PlaybackPrefs.REASON_NONE);
+                    setIntendedPlaying(true);
+                }
                 setIntendedPlaying(true);
                 pausedByFocusLoss = false;
                 permanentFocusLoss = false;
                 pausedByOtherMedia = false;
+                btAutostartForceUntilMs = System.currentTimeMillis() + 12000L;
             } else if (!canAutoStartPlayback("headphone-fallback")) {
                 // OFF: стара логіка — не форсуємо поверх явної USER-паузи
                 if (isUserPaused() || isVoiceCallActive()) {
@@ -3171,7 +3183,7 @@ notifyForeground();
             android.util.Log.i("RadioWatch", "playUrl skip — voice call");
             return;
         }
-        if (isUserPaused()) {
+        if (isUserPaused() && System.currentTimeMillis() >= btAutostartForceUntilMs) {
             android.util.Log.i("RadioWatch", "playUrl skip — USER pause");
             return;
         }

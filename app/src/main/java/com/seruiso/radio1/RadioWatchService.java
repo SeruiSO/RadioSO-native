@@ -3527,9 +3527,22 @@ notifyForeground();
         }
     }
 
-    private void notifyForeground() {
+        private void notifyForeground() {
         Notification n = buildNotification();
         if (Build.VERSION.SDK_INT >= 34) {
+            // як 0.13.252: mediaPlayback + connectedDevice (BT connect FGS)
+            int types = ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK;
+            if (Build.VERSION.SDK_INT >= 31
+                    && checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT)
+                        == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                types |= ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE;
+            }
+            try {
+                startForeground(NOTIF_ID, n, types);
+            } catch (SecurityException e) {
+                startForeground(NOTIF_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
+            }
+        } else if (Build.VERSION.SDK_INT >= 29) {
             startForeground(NOTIF_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
         } else {
             startForeground(NOTIF_ID, n);

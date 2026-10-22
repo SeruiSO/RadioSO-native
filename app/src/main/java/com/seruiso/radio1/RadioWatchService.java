@@ -2113,11 +2113,14 @@ notifyForeground();
 
         if (ACTION_HEADPHONE_FALLBACK.equals(action)) {
             android.util.Log.i("RadioWatch", "HEADPHONE_FALLBACK alarm");
-            if (PlaybackPrefs.REASON_USER.equals(PlaybackPrefs.getPauseReason(this))) {
+            SharedPreferences spFb = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE);
+            boolean autoOn = spFb.getBoolean(BluetoothAutoPlayPlugin.KEY_BT_AUTOSTART, true);
+            // USER pause блокує fallback лише коли автостарт OFF.
+            // При ON це страховка після FGS-denied з конекту — поведінка як ACTION_BT.
+            if (PlaybackPrefs.REASON_USER.equals(PlaybackPrefs.getPauseReason(this)) && !autoOn) {
                 awaitingHeadUnitPlay = false;
                 return START_STICKY;
             }
-            SharedPreferences spFb = getSharedPreferences(BluetoothAutoPlayPlugin.PREFS, MODE_PRIVATE);
             if (!spFb.getBoolean(BluetoothAutoPlayPlugin.KEY_BT_WATCH, true)) {
                 return START_STICKY;
             }
@@ -2132,8 +2135,16 @@ notifyForeground();
             }
             awaitingHeadUnitPlay = false;
             cancelHeadUnitPlayWait();
-            if (!canAutoStartPlayback("headphone-fallback")) {
-                // Якщо ще не intended (перший connect) — дозволити автостарт без USER/voice
+            if (autoOn) {
+                // Як ACTION_BT: скинути USER / intended і грати
+                setUserPausedWhileBt(false);
+                PlaybackPrefs.setPauseReason(this, PlaybackPrefs.REASON_NONE);
+                setIntendedPlaying(true);
+                pausedByFocusLoss = false;
+                permanentFocusLoss = false;
+                pausedByOtherMedia = false;
+            } else if (!canAutoStartPlayback("headphone-fallback")) {
+                // OFF: стара логіка — не форсуємо поверх явної USER-паузи
                 if (isUserPaused() || isVoiceCallActive()) {
                     return START_STICKY;
                 }

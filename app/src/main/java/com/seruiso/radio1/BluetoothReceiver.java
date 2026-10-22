@@ -180,6 +180,11 @@ public class BluetoothReceiver extends BroadcastReceiver {
             } catch (Exception ignored) {}
             Log.i(TAG, "ACL_CONNECTED — start ACTION_BT (auto=" + btAutostartOn(app) + ")");
             startSvc(app, RadioWatchService.ACTION_BT);
+            // Страховка: FGS з фону на 12+ часто ріжеться — Alarm через 2с
+            // (якщо вже грає, HEADPHONE_FALLBACK сам зробить skip).
+            if (BluetoothAutoPlayPlugin.isBtAutostart(app)) {
+                try { RadioWatchService.scheduleHeadphoneFallback(app, 2000L); } catch (Exception ignored) {}
+            }
             return;
         }
         if (BluetoothDevice.ACTION_ACL_DISCONNECTED.equals(action)) {
@@ -230,6 +235,9 @@ public class BluetoothReceiver extends BroadcastReceiver {
                 Log.i(TAG, "CONNECTED — autostart off, start service for MediaSession/Play");
             }
             startSvc(app, RadioWatchService.ACTION_BT);
+            if (BluetoothAutoPlayPlugin.isBtAutostart(app)) {
+                try { RadioWatchService.scheduleHeadphoneFallback(app, 2000L); } catch (Exception ignored) {}
+            }
             return;
         }
         if (state == BluetoothProfile.STATE_DISCONNECTED) {

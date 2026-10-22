@@ -183,7 +183,7 @@ public class BluetoothReceiver extends BroadcastReceiver {
             // Страховка: FGS з фону на 12+ часто ріжеться — Alarm через 2с
             // (якщо вже грає, HEADPHONE_FALLBACK сам зробить skip).
             if (BluetoothAutoPlayPlugin.isBtAutostart(app)) {
-                try { RadioWatchService.scheduleHeadphoneFallback(app, 2000L); } catch (Exception ignored) {}
+                try { RadioWatchService.scheduleHeadphoneFallback(app, 4000L); } catch (Exception ignored) {}
             }
             return;
         }
@@ -236,7 +236,7 @@ public class BluetoothReceiver extends BroadcastReceiver {
             }
             startSvc(app, RadioWatchService.ACTION_BT);
             if (BluetoothAutoPlayPlugin.isBtAutostart(app)) {
-                try { RadioWatchService.scheduleHeadphoneFallback(app, 2000L); } catch (Exception ignored) {}
+                try { RadioWatchService.scheduleHeadphoneFallback(app, 4000L); } catch (Exception ignored) {}
             }
             return;
         }

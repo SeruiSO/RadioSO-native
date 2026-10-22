@@ -2850,18 +2850,39 @@ notifyForeground();
             if (am == null) return;
             android.app.PendingIntent pi = headphoneFallbackPi(c);
             long at = System.currentTimeMillis() + delayMs;
-            if (Build.VERSION.SDK_INT >= 31) {
-                if (am.canScheduleExactAlarms()) {
+            // 0.13.181 path: exact alarm піднімає FGS з фону (Android 12+ exemption).
+            // Без SCHEDULE_EXACT_ALARM exact падає — тоді inexact / set, щоб не мовчати.
+            boolean ok = false;
+            try {
+                if (Build.VERSION.SDK_INT >= 31) {
+                    if (am.canScheduleExactAlarms()) {
+                        am.setExactAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, at, pi);
+                        ok = true;
+                    }
+                } else if (Build.VERSION.SDK_INT >= 23) {
                     am.setExactAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, at, pi);
+                    ok = true;
                 } else {
-                    am.setAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, at, pi);
+                    am.setExact(android.app.AlarmManager.RTC_WAKEUP, at, pi);
+                    ok = true;
                 }
-            } else if (Build.VERSION.SDK_INT >= 23) {
-                am.setExactAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, at, pi);
-            } else {
-                am.setExact(android.app.AlarmManager.RTC_WAKEUP, at, pi);
+            } catch (Exception e1) {
+                android.util.Log.w("RadioWatch", "exact alarm failed", e1);
             }
-            android.util.Log.i("RadioWatch", "headphone fallback alarm in " + delayMs + "ms");
+            if (!ok) {
+                try {
+                    if (Build.VERSION.SDK_INT >= 23) {
+                        am.setAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, at, pi);
+                    } else {
+                        am.set(android.app.AlarmManager.RTC_WAKEUP, at, pi);
+                    }
+                    ok = true;
+                } catch (Exception e2) {
+                    android.util.Log.w("RadioWatch", "inexact alarm failed", e2);
+                }
+            }
+            android.util.Log.i("RadioWatch",
+                "headphone fallback alarm in " + delayMs + "ms ok=" + ok);
         } catch (Exception e) {
             android.util.Log.w("RadioWatch", "scheduleHeadphoneFallback", e);
         }

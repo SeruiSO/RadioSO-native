@@ -20,7 +20,7 @@ import java.net.URLEncoder
 import java.util.concurrent.ConcurrentHashMap
 
 private val TITLE_SEPS = listOf(
-    " - ", " – ", " — ", " | ",
+    " - ", " – ", " — ", " | ", " : ",
     " / ", " \\ ", " // ",
     " • ", " ~ ",
 )
@@ -65,7 +65,7 @@ fun splitArtists(raw: String): List<String> {
     if (s.isEmpty()) return emptyList()
     val parts = s.split(
         Regex(
-            """\s*(?:&| and | та | и | feat\.? | ft\.? | featuring | vs\.? | x | × | with |\s+/\s+|\s+\\\s+|;|\+)\s*|,\s*""",
+            """\s*(?:featuring|presents|pres\.?|meets|b2b|&| and | та | и | і | І | feat\.? | ft\.? | f\. | f | vs\.? | x | × | with | w/ |\s+/\s+|\s+\\\s+|;|\+)\s*|,\s*""",
             RegexOption.IGNORE_CASE
         )
     )

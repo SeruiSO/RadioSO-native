@@ -120,9 +120,7 @@ private fun ensureDiskLoaded(ctx: Context) {
                     val ts = o.optLong("ts", 0L)
                     if (ts > 0 && now - ts > TTL_MS) continue
                     val url0 = o.optString("url", MISS)
-                    val url = if (
-                        url0.contains("deezer.com") || url0.contains("mzstatic.com")
-                    ) MISS else url0
+                    val url = url0
                     photoCache[k] = CacheEntry(url, if (ts > 0) ts else now)
                 }
             }
@@ -177,77 +175,45 @@ private fun httpGetJson(urlStr: String, accept: String): String {
     }
 }
 
-private fun openArtistPhoto(artist: String): String? = try {
-    val q = URLEncoder.encode("artist:\"" + artist.replace("\"", "") + "\"", "UTF-8")
-    val search = JSONObject(httpGetJson(
-        "https://musicbrainz.org/ws/2/artist/?query=" + q + "&fmt=json&limit=1",
+/** Deezer picture_medium (~250px). Порожньо або плейсхолдер — null. */
+private fun deezerArtistPhoto(artist: String): String? = try {
+    val q = URLEncoder.encode(artist, "UTF-8")
+    val data = JSONObject(httpGetJson(
+        "https://api.deezer.com/search/artist?q=" + q + "&limit=1",
         "application/json",
-    ))
-    val artists = search.optJSONArray("artists")
-    if (artists == null || artists.length() == 0) null
+    )).optJSONArray("data")
+    if (data == null || data.length() == 0) null
     else {
-        val mbid = artists.getJSONObject(0).optString("id")
-        if (mbid.isBlank()) null else imageFromArtist(mbid) ?: coverFromArtist(mbid)
+        val url = data.getJSONObject(0).optString("picture_medium")
+        if (url.startsWith("http") && !url.contains("/artist//")) url else null
     }
 } catch (e: Exception) {
-    android.util.Log.w("ArtistPhoto", "open", e)
+    android.util.Log.w("ArtistPhoto", "deezer", e)
     null
 }
 
-private fun imageFromArtist(mbid: String): String? = try {
-    val rels = JSONObject(httpGetJson(
-        "https://musicbrainz.org/ws/2/artist/" + mbid + "?inc=url-rels&fmt=json",
+/** iTunes artwork, 100x100 -> 300x300 на тому ж CDN. */
+private fun itunesArtistPhoto(artist: String): String? = try {
+    val q = URLEncoder.encode(artist, "UTF-8")
+    val results = JSONObject(httpGetJson(
+        "https://itunes.apple.com/search?term=" + q + "&entity=musicArtist&limit=1",
         "application/json",
-    )).optJSONArray("relations") ?: return null
-    var found: String? = null
-    for (i in 0 until rels.length()) {
-        val r = rels.optJSONObject(i) ?: continue
-        if (r.optString("type") != "image") continue
-        val res = r.optJSONObject("url")?.optString("resource").orEmpty()
-        if (res.startsWith("http") && res.contains("wikimedia.org")) {
-            found = res
-            break
-        }
-    }
-    found
-} catch (_: Exception) {
-    null
-}
-
-private fun coverFromArtist(mbid: String): String? = try {
-    val releases = JSONObject(httpGetJson(
-        "https://musicbrainz.org/ws/2/release?artist=" + mbid + "&fmt=json&limit=1",
-        "application/json",
-    )).optJSONArray("releases")
-    if (releases == null || releases.length() == 0) null
+    )).optJSONArray("results")
+    if (results == null || results.length() == 0) null
     else {
-        val rid = releases.getJSONObject(0).optString("id")
-        if (rid.isBlank()) null
-        else {
-            val images = JSONObject(httpGetJson(
-                "https://coverartarchive.org/release/" + rid,
-                "application/json",
-            )).optJSONArray("images")
-            if (images == null || images.length() == 0) null
-            else {
-                var url: String? = null
-                for (i in 0 until images.length()) {
-                    val im = images.optJSONObject(i) ?: continue
-                    val thumbs = im.optJSONObject("thumbnails")
-                    val small = if (thumbs == null) "" else thumbs.optString("small")
-                    val t = if (small.isNotBlank()) small else im.optString("image")
-                    if (t.startsWith("http")) {
-                        url = t
-                        if (im.optBoolean("front")) break
-                    }
-                }
-                url
-            }
-        }
+        val o = results.getJSONObject(0)
+        var url = o.optString("artworkUrl100")
+        if (!url.startsWith("http")) url = o.optString("artworkUrl60")
+        if (!url.startsWith("http")) null
+        else url.replace(Regex("\\d+x\\d+bb"), "300x300bb")
     }
-} catch (_: Exception) {
+} catch (e: Exception) {
+    android.util.Log.w("ArtistPhoto", "itunes", e)
     null
 }
+
+private fun artistPhoto(artist: String): String? =
+    deezerArtistPhoto(artist) ?: itunesArtistPhoto(artist)
 
 
 private suspend fun photoForSingleArtist(ctx: Context, artist: String): String? {
@@ -268,8 +234,7 @@ private suspend fun photoForSingleArtist(ctx: Context, artist: String): String? 
     val prev = inFlight.putIfAbsent(key, deferred)
     if (prev != null) return prev.await()
     try {
-        // Послідовно: спочатку Deezer, iTunes лише як fallback
-        val photo = openArtistPhoto(artist)
+        val photo = artistPhoto(artist)
         val urlStore = photo ?: MISS
         synchronized(photoCacheLock) {
             val old = photoCache[key]
@@ -301,17 +266,8 @@ fun rememberArtistPhotoUrl(artist: String, bust: String = ""): State<String?> {
         // Коротка затримка лише для мережі; з кешу — майже одразу
         delay(80)
         val photo = withContext(Dispatchers.IO) {
-            val split = splitArtists(artist)
-            val list = buildList {
-                if (split.size >= 2) add(artist.trim())
-                addAll(split)
-                if (isEmpty()) add(artist.trim())
-            }.distinct().take(3)
-            for (name in list) {
-                val p = photoForSingleArtist(ctx, name)
-                if (p != null) return@withContext p
-            }
-            null
+            val name = splitArtists(artist).firstOrNull() ?: artist.trim()
+            photoForSingleArtist(ctx, name)
         }
         result.value = photo
     }
